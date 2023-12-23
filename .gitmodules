@@ -1,0 +1,3 @@
+[submodule "extern/starlight"]
+	path = extern/starlight
+	url = https://github.com/JSchpp12/Starlight.git
