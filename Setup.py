@@ -23,8 +23,10 @@ if __name__ == "__main__":
         print("This is not a supported platform for automated builds of depdencies.")
         exit()
     
-    cmake_build_dir = os.path.join(os.getcwd(), "libs")
+    # cmake_build_dir = os.path.join(os.getcwd(), "libs")
 
-    cmake_command = [cmake_command, "-G", cmake_compiler, cmake_build_dir]
+    # cmake_command = [cmake_command, "-G", cmake_compiler, cmake_build_dir]
+
+    work = os.path.join(os.getcwd(), "extern", "tbb")
 
     subprocess.run(cmake_command)
