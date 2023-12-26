@@ -1,3 +1,18 @@
 [submodule "extern/starlight"]
 	path = extern/starlight
 	url = https://github.com/JSchpp12/Starlight.git
+[submodule "extern/hwloc"]
+	path = extern/hwloc
+	url = https://github.com/open-mpi/hwloc.git
+[submodule "extern/tbb"]
+	path = extern/tbb
+	url = https://github.com/oneapi-src/oneTBB.git
+[submodule "extern/blosc"]
+	path = extern/blosc
+	url = https://github.com/Blosc/c-blosc.git
+[submodule "extern/zlib"]
+	path = extern/zlib
+	url = https://github.com/madler/zlib.git
+[submodule "extern/openvdb"]
+	path = extern/openvdb
+	url = https://github.com/AcademySoftwareFoundation/openvdb.git

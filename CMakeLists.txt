@@ -9,25 +9,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_MACOSX_RPATH 1)
 
 project("starlightapp")
+
+#dependencies
+add_subdirectory("extern/blosc")
+add_subdirectory("extern/tbb")
+add_subdirectory("extern/zlib")
+set(TBB_ROOT "${CMAKE_CURRENT_LIST_DIR}/extern/tbb")
+add_subdirectory("extern/openvdb")
+
 add_subdirectory("extern/starlight")
-
-include(ExternalProject)
-ExternalProject_Add(oneTBB 
-	GIT_REPOSITORY https://github.com/oneapi-src/oneTBB.git
-	GIT_TAG v2021.4.1
-	CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release
-	PREFIX ${CMAKE_CURRENT_BINARY_DIR}/extern/oneTBB 
-)
-
-ExternalProject_Add(openVDB
-	GIT_REPOSITORY https://github.com/AcademySoftwareFoundation/openvdb.git
-	GIT_TAG v11.0.0
-	DEPENDS oneTBB
-	CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release -DOPENVDB_CORE_SHARED=OFF -DOPENVDB_CORE_STATIC=ON
-	PREFIX ${CMAKE_CURRENT_BINARY_DIR}/extern/openVDB
-)
-ExternalProject_Get_Property(openVDB install_dir)
-set(install_dir openVDB_install_dir)
 
 set(${PROJECT_NAME}_SOURCE 
 	"src/main.cpp"
