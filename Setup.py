@@ -57,8 +57,8 @@ if __name__ == "__main__":
         pathToSourceRelease = os.path.relpath(libRoot, libWorkingDirRelease)
         cmake_install_debug_path = os.path.relpath(libInstallDirDebug, libWorkingDir)
         cmake_install_release_path = os.path.relpath(libInstallDirRelease, libWorkingDir)
-        cmake_conf_debug_cmd = ["cmake", "-G", "Visual Studio 17 2022", "-A", "x64", "-DCMAKE_BUILD_TYPE=Debug", f"-DCMAKE_INSTALL_PREFIX={cmake_install_debug_path}", cmake_call_path]
-        cmake_conf_release_cmd = ["cmake", "-G", "Visual Studio 17 2022", "-A", "x64", "-DCMAKE_BUILD_TYPE=Release", f"-DCMAKE_INSTALL_PREFIX={cmake_install_release_path}", cmake_call_path]
+        cmake_conf_debug_cmd = ["cmake", "-G", "Visual Studio 17 2022", "-A", "x64", "-D", "CMAKE_BUILD_TYPE=Debug", f"-DCMAKE_INSTALL_PREFIX={cmake_install_debug_path}", cmake_call_path]
+        cmake_conf_release_cmd = ["cmake", "-G", "Visual Studio 17 2022", "-A", "x64", "-D", "CMAKE_BUILD_TYPE=Release", "-D", f"CMAKE_INSTALL_PREFIX={cmake_install_release_path}", cmake_call_path]
         cmake_build_cmd_release = ["cmake", "--build", ".", "--config", "Release", "--target", "Install"]
         cmake_build_cmd_debug = ["cmake", "--build", ".", "--config", "Debug", "--target", "Install"]
 
@@ -68,9 +68,7 @@ if __name__ == "__main__":
         subprocess.run(cmake_build_cmd_release, cwd=libWorkingDir)
 
         root_info = (os.path.abspath(os.path.join(libWorkingDir, cmake_install_debug_path)), os.path.abspath(os.path.join(libWorkingDir, cmake_install_release_path)))
-        if "boost" in libName: 
-            root_boost = root_info
-        elif "tbb" in libName:
+        if "tbb" in libName:
             root_tbb = root_info
         elif "blosc" in libName:
             root_blosc = root_info
