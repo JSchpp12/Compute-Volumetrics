@@ -11,10 +11,10 @@ set(CMAKE_MACOSX_RPATH 1)
 project("starlightapp")
 
 #dependencies
-add_subdirectory("extern/blosc")
-add_subdirectory("extern/tbb")
 add_subdirectory("extern/zlib")
-set(TBB_ROOT "${CMAKE_CURRENT_LIST_DIR}/extern/tbb")
+set(TBB_ROOT "${CMAKE_CURRENT_LIST_DIR}/libs/tbb")
+set(BLOSC_ROOT "${CMAKE_CURRENT_LIST_DIR}/libs/blosc")
+#set(TBB_LIBRARY_DIR "${CMAKE_CURRENT_LIST_DIR}/htbb/")
 add_subdirectory("extern/openvdb")
 
 add_subdirectory("extern/starlight")
