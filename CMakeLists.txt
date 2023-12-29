@@ -7,14 +7,13 @@ set(CMAKE_POLICY_DEFAULT_CMP0079 NEW)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_MACOSX_RPATH 1)
-#set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_LIST_DIR}/libs/")
-set(TBB_ROOT "${CMAKE_CURRENT_LIST_DIR}/libs/tbb/Release")
-set(Blosc_ROOT "${CMAKE_CURRENT_LIST_DIR}/libs/blosc/Release")
-set(ZLIB_ROOT "${CMAKE_CURRENT_LIST_DIR}/libs/zlib/Release")
+set(TBB_ROOT "${CMAKE_CURRENT_LIST_DIR}/libs/tbb")
+set(Blosc_ROOT "${CMAKE_CURRENT_LIST_DIR}/libs/blosc")
+set(ZLIB_ROOT "${CMAKE_CURRENT_LIST_DIR}/libs/zlib/")
 project("starlightapp")
 
 #dependencies
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/Release/lib/cmake/OpenVDB")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/lib/cmake/OpenVDB")
 find_package(OpenVDB REQUIRED)
 
 add_subdirectory("extern/starlight")
@@ -32,11 +31,11 @@ add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEAD
 target_include_directories(${PROJECT_NAME}
 	PRIVATE
 		"include"
-		${openVDB_install_dir}/include
 )
 
 target_link_libraries(${PROJECT_NAME}
 	starlight
+	OpenVDB::openvdb
 )
 
 #TODO: NEED BETTER SOLUTION FOR MEDIA FILES
@@ -54,3 +53,5 @@ add_custom_command(
 		python ${PREP_MEDIA_CMD} buildDir=${CMAKE_CURRENT_BINARY_DIR} mediaDir=${CMAKE_CURRENT_SOURCE_DIR}/media configFile=${CMAKE_CURRENT_SOURCE_DIR}/StarEngine.cfg
 )
 
+
+message("lib dirs is: ${Tbb_DEBUG_LIBRARIES}")
