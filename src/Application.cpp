@@ -60,3 +60,15 @@ void Application::onScroll(double xoffset, double yoffset)
 void Application::onWorldUpdate()
 {
 }
+
+void Application::loadFogModel()
+{
+    std::string path = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "volumes/sphere.vdb"; 
+
+    openvdb::io::File file(path); 
+    file.open(); 
+
+    for (openvdb::io::File::NameIterator nameIter = file.beginName(); nameIter != file.endName(); ++nameIter) {
+        std::cout << nameIter.gridName() << std::endl; 
+    }
+}

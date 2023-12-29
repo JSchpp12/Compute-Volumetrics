@@ -47,4 +47,6 @@ private:
     void onMouseButtonAction(int button, int action, int mods) override;
     void onScroll(double xoffset, double yoffset) override;
     void onWorldUpdate() override;
+
+    void loadFogModel(); 
 };

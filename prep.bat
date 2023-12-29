@@ -29,4 +29,5 @@ cmake --build . --target install
 cd "%wpath%/prep_work/openVDB"
 
 cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_INSTALL_PREFIX=%wpath%/libs/openVDB -DTBB_ROOT="%wpath%/libs/tbb" -DBlosc_ROOT=%wpath%/libs/blosc -DZLIB_ROOT=%wpath%/libs/zlib %wpath%/extern/openVDB
-cmake --build . --target install
+cmake --build . --config RELEASE --target install
+@REM try relwithdebinfo next 
