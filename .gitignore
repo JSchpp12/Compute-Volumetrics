@@ -4,3 +4,4 @@ out/*
 build/*
 prep_work/*
 libs/*
+vsproj/*

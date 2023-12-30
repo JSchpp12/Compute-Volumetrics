@@ -1,0 +1,7 @@
+{
+  "dependencies": [
+    "tbb",
+    "blosc",
+    "zlib"
+  ]
+}
