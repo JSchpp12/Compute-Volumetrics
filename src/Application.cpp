@@ -33,6 +33,9 @@ void Application::Load()
 
     loadFogModel(); 
     
+
+    loadFogModel(); 
+    
 }
 
 void Application::Update()
