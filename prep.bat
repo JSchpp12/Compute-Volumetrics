@@ -4,11 +4,13 @@ SET wpath=%mypath:~0,-1%
 IF not exist "%wpath%/prep_work/openVDB" mkdir "%wpath%/prep_work/openVDB"
 IF not exist "%wpath%/vsproj" mkdir "%wpath%/vsproj"
 
-cd "%wpath%/prep_work/openVDB"
+@REM cd "%wpath%/prep_work/openVDB"
 
-cmake %wpath%/extern/openVDB -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE=<TOOL> -DCMAKE_INSTALL_PREFIX=%wpath%/libs/openVDB -DUSE_EXPLICIT_INSTANTIATIONS=OFF -DOPENVDB_CORE_STATIC=OFF
-cmake --build . --parallel 6 --config relwithdebinfo --target install
+@REM cmake %wpath%/extern/openVDB -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="C:\Users\js400421\vcpkg\scripts\buildsystems\vcpkg.cmake" -DCMAKE_INSTALL_PREFIX=%wpath%/libs/openVDB/Debug -DUSE_EXPLICIT_INSTANTIATIONS=OFF -DOPENVDB_CORE_STATIC=OFF -DCMAKE_CXX_STANDARD=20
+@REM cmake --build . --parallel 6 --config Debug --target install
+@REM cmake %wpath%/extern/openVDB -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="C:\Users\js400421\vcpkg\scripts\buildsystems\vcpkg.cmake" -DCMAKE_INSTALL_PREFIX=%wpath%/libs/openVDB/Release -DUSE_EXPLICIT_INSTANTIATIONS=OFF -DOPENVDB_CORE_STATIC=OFF -DCMAKE_CXX_STANDARD=20
+@REM cmake --build . --parallel 6 --config Release --target install
 
 cd "%wpath%/vsproj"
 
-cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE=<TOOL> ..
+cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="C:\Users\js400421\vcpkg\scripts\buildsystems\vcpkg.cmake" -DCMAKE_CXX_STANDARD=20 ..

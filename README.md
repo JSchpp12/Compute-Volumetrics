@@ -1,17 +1,18 @@
-# About
+## About
 This is a template for applications utilizing Starlight. 
 
-# Requirenments
+## Requirenments
 A major step of the setup for this project is to build the openVDB libs that will be used. The necessary dependencies for openVDB to build are included as submodules. However, there are some caveats. 
 The following must be installed: 
 - Python3
+- Cmake
 - All depdencies for [openVDB](https://www.openvdb.org/documentation/doxygen/dependencies.html):
   - zlib
   - blosc
   - tbb
   - boost
 
-# Setup 
+## Setup 
 1. Clone this repository
 ```
 git clone --recurse-submodules https://github.com/JSchpp12/Compute-Volumetrics.git
@@ -28,7 +29,7 @@ git clone --recurse-submodules https://github.com/JSchpp12/Compute-Volumetrics.g
     vcpkg install boost-algorithm:x64-windows
     vcpkg install boost-interprocess:x64-windows
     ```
-    3. Prepare soltuions, example provided in prep.bat (make sure to provide DCMAKE_TOOLCHAIN_FILE variable to cmake)
+    3. Prepare solutions, example provided in prep.bat (make sure to provide DCMAKE_TOOLCHAIN_FILE variable to cmake)
         1. Build openVDB with cmake
         ```cmd
         cd openVDB_build/
@@ -40,3 +41,9 @@ git clone --recurse-submodules https://github.com/JSchpp12/Compute-Volumetrics.g
         cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE=<TOOLCHAIN_PATH> .
         ```
         3. Open project in visual studio and set the USE_VCPKG setting to YES in the project properties for the starlightapp project. [resource](https://devblogs.microsoft.com/cppblog/vcpkg-is-now-included-with-visual-studio/)
+    4. Copy openVDB.dll to the executable directory. Future work to automate this process in a way which will not interfere with vcpkg.
+
+## Troubleshooting
+1. Required .dll not found while using vcpkg.
+
+If using vcpkg and during runtime, an error is displayed regarding a .dll not being found, this is due to a copy failure or visual studio not properly using vcpkg. In project properties, ensure Use Vcpkg is set to ON. It might also help to set Use Manifest to ON as well. 

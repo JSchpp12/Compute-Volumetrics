@@ -9,8 +9,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_MACOSX_RPATH 1)
 project("starlightapp")
 
-#dependencies
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/lib/cmake/OpenVDB")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/Release/lib/cmake/OpenVDB")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/Debug/lib/cmake/OpenVDB")
+
 find_package(OpenVDB REQUIRED)
 find_package(TBB REQUIRED)
 
@@ -51,7 +52,8 @@ add_custom_command(
 		python ${PREP_MEDIA_CMD} buildDir=${CMAKE_CURRENT_BINARY_DIR} mediaDir=${CMAKE_CURRENT_SOURCE_DIR}/media configFile=${CMAKE_CURRENT_SOURCE_DIR}/StarEngine.cfg
 )
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-	"${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/bin/openvdb.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-)
+# using something like this prevents vcpkg from working correctly
+#add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+#	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#	"${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/bin/openvdb.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+#)
