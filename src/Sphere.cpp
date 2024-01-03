@@ -71,3 +71,8 @@ void Sphere::loadModel()
 
     file.close();
 }
+
+std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> Sphere::loadGeometryBuffers(star::StarDevice& device)
+{
+    return std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>>();
+}

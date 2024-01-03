@@ -20,10 +20,11 @@ public:
     std::unique_ptr<star::StarPipeline> buildPipeline(star::StarDevice& device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout, vk::RenderPass renderPass);
 
 protected:
-    // Inherited via StarObject
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
     void loadModel(); 
+
+    std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> loadGeometryBuffers(star::StarDevice& device) override;
 
 };
 
