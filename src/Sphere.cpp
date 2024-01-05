@@ -36,38 +36,38 @@ std::unique_ptr<star::StarPipeline> Sphere::buildPipeline(star::StarDevice& devi
 
 void Sphere::loadModel()
 {
+
+}
+
+void Sphere::calculateBoundingBox(std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds)
+{
     const std::string filePath(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "volumes/sphere.vdb");
 
     openvdb::initialize();
 
-    openvdb::io::File file(filePath); 
-    file.open(); 
+    openvdb::io::File file(filePath);
+    file.open();
 
-    openvdb::GridBase::Ptr baseGrid; 
+    openvdb::GridBase::Ptr baseGrid;
     for (openvdb::io::File::NameIterator nameIter = file.beginName(); nameIter != file.endName(); ++nameIter) {
         std::cout << nameIter.gridName() << std::endl;
 
         if (nameIter.gridName() == "ls_sphere") {
-            baseGrid = file.readGrid(nameIter.gridName()); 
+            baseGrid = file.readGrid(nameIter.gridName());
         }
         else {
-            std::cout << "Skipping extra grid: " << nameIter.gridName(); 
+            std::cout << "Skipping extra grid: " << nameIter.gridName();
         }
     }
 
-    openvdb::math::CoordBBox bbox = baseGrid.get()->evalActiveVoxelBoundingBox(); 
-    openvdb::math::Coord& bmin = bbox.min(); 
-    openvdb::math::Coord& bmax = bbox.max(); 
+    openvdb::math::CoordBBox bbox = baseGrid.get()->evalActiveVoxelBoundingBox();
+    openvdb::math::Coord& bmin = bbox.min();
+    openvdb::math::Coord& bmax = bbox.max();
 
-    glm::vec3 min{ bmin.x(), bmin.y(), bmin.z()};
-    glm::vec3 max{ bmax.x(), bmax.y(), bmax.z() }; 
+    glm::vec3 min{ bmin.x(), bmin.y(), bmin.z() };
+    glm::vec3 max{ bmax.x(), bmax.y(), bmax.z() };
 
-    std::unique_ptr<std::vector<star::Vertex>> bbVerts = std::make_unique<std::vector<star::Vertex>>(); 
-    std::unique_ptr<std::vector<uint32_t>> bbInds = std::make_unique<std::vector<uint32_t>>(); 
-
-    star::GeometryHelpers::calculateAxisAlignedBoundingBox(min, max, *bbVerts, *bbInds); 
-
-    this->meshes.push_back(std::make_unique<star::StarMesh>(*bbVerts, *bbInds, std::make_unique<star::VertColorMaterial>(), false));
+    star::GeometryHelpers::calculateAxisAlignedBoundingBox(min, max, verts, inds);
 
     file.close();
 }

@@ -27,22 +27,23 @@ void Application::Load()
     //s_i.setScale(glm::vec3{ 0.01, 0.01, 0.01 }); 
     //this->scene.add(std::move(sphere));
 
-/*    auto dicePath = mediaDirectoryPath + "models/icoSphere/low_poly_icoSphere.obj"; 
+    auto dicePath = mediaDirectoryPath + "models/icoSphere/low_poly_icoSphere.obj"; 
     auto dice = star::BasicObject::New(dicePath);
     auto& dice_i = dice->createInstance(); 
-    this->scene.add(std::move(dice));*/ 
+    dice_i.setScale(glm::vec3{ 0.1, 0.1, 0.1 });
+    this->scene.add(std::move(dice)); 
 
     //auto plant = star::BasicObject::New(plantPath); 
     //auto p_i = plant->createInstance();
     //this->scene.add(std::move(plant));
 
-    //auto lion = BasicObject::New(lionPath);
-    //auto& lion_i = lion->createInstance();
-    //lion_i.setScale(glm::vec3{ 0.04f, 0.04f, 0.04f });
-    //lion_i.setPosition(glm::vec3{ 0.0, 0.0, 0.0 });
-    //lion_i.rotateGlobal(star::Type::Axis::x, -90);
-    //lion_i.moveRelative(glm::vec3{ 0.0, -1.0, 0.0 });
-    //this->scene.add(std::move(lion));
+    auto lion = BasicObject::New(lionPath);
+    auto& lion_i = lion->createInstance();
+    lion_i.setScale(glm::vec3{ 0.04f, 0.04f, 0.04f });
+    lion_i.setPosition(glm::vec3{ 0.0, 0.0, 0.0 });
+    lion_i.rotateGlobal(star::Type::Axis::x, -90);
+    lion_i.moveRelative(glm::vec3{ 0.0, -1.0, 0.0 });
+    this->scene.add(std::move(lion));
 
     this->scene.add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 10, 10, 10 }));
 }

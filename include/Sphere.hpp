@@ -5,6 +5,7 @@
 #include "ConfigFile.hpp"
 #include "GeometryHelpers.hpp"
 #include "VertColorMaterial.hpp"
+#include "Vertex.hpp"
 
 #include <openvdb/openvdb.h>
 
@@ -23,6 +24,8 @@ protected:
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
     void loadModel(); 
+
+    virtual void calculateBoundingBox(std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds) override;
 
     std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> loadGeometryBuffers(star::StarDevice& device) override;
 
