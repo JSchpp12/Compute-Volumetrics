@@ -13,7 +13,7 @@
 #include "KeyStates.hpp"
 #include "Key.hpp"
 #include "BasicObject.hpp"
-#include "Sphere.hpp"
+#include "Volume.hpp"
 
 #include <GLFW/glfw3.h>
 
@@ -87,11 +87,9 @@ public:
 
     void Update();
 
-    virtual std::string getApplicationName() { return "Starlight Application"; }
+    virtual std::string getApplicationName() { return "OpenVDB Renderer"; }
 
     void onKeyPress(int key, int scancode, int mods) override;
-
-    void loadFogModel();
 
 protected:
 

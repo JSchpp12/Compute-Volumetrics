@@ -58,4 +58,4 @@ lines = []
 print(f'Config file: {inConfigFilePath}')
 newConfigContents = []
 with open(destinationConfigFile, 'w+') as f:
-    f.write('mediadirectory=./media/')
+    f.write('mediadirectory=./media/\n')

@@ -1,11 +1,12 @@
-#include "Sphere.hpp"
+#include "Volume.hpp"
 
-Sphere::Sphere()
+Volume::Volume()
 {
+    openvdb::initialize();
     loadModel(); 
 }
 
-std::unordered_map<star::Shader_Stage, star::StarShader> Sphere::getShaders()
+std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
 {
     std::unordered_map<star::Shader_Stage, star::StarShader> shaders; 
 
@@ -20,7 +21,7 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Sphere::getShaders()
     return shaders;
 }
 
-std::unique_ptr<star::StarPipeline> Sphere::buildPipeline(star::StarDevice& device, vk::Extent2D swapChainExtent,
+std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::StarDevice& device, vk::Extent2D swapChainExtent,
     vk::PipelineLayout pipelineLayout, vk::RenderPass renderPass)
 {
     star::StarGraphicsPipeline::PipelineConfigSettings settings;
@@ -34,31 +35,31 @@ std::unique_ptr<star::StarPipeline> Sphere::buildPipeline(star::StarDevice& devi
     return std::move(newPipeline);
 }
 
-void Sphere::loadModel()
+void Volume::loadModel()
 {
-
-}
-
-void Sphere::calculateBoundingBox(std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds)
-{
-    const std::string filePath(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "volumes/sphere.vdb");
-
-    openvdb::initialize();
+    const std::string filePath(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "volumes/Volume.vdb");
 
     openvdb::io::File file(filePath);
+
     file.open();
 
-    openvdb::GridBase::Ptr baseGrid;
     for (openvdb::io::File::NameIterator nameIter = file.beginName(); nameIter != file.endName(); ++nameIter) {
         std::cout << nameIter.gridName() << std::endl;
 
-        if (nameIter.gridName() == "ls_sphere") {
+        if (nameIter.gridName() == "ls_Volume") {
             baseGrid = file.readGrid(nameIter.gridName());
         }
         else {
             std::cout << "Skipping extra grid: " << nameIter.gridName();
         }
     }
+
+
+    file.close();
+}
+
+void Volume::calculateBoundingBox(std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds)
+{
 
     openvdb::math::CoordBBox bbox = baseGrid.get()->evalActiveVoxelBoundingBox();
     openvdb::math::Coord& bmin = bbox.min();
@@ -68,11 +69,18 @@ void Sphere::calculateBoundingBox(std::vector<star::Vertex>& verts, std::vector<
     glm::vec3 max{ bmax.x(), bmax.y(), bmax.z() };
 
     star::GeometryHelpers::calculateAxisAlignedBoundingBox(min, max, verts, inds);
-
-    file.close();
 }
 
-std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> Sphere::loadGeometryBuffers(star::StarDevice& device)
+std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> Volume::loadGeometryBuffers(star::StarDevice& device)
 {
     return std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>>();
+}
+
+void Volume::initResources(star::StarDevice& device, const int numFramesInFlight)
+{
+
+}
+
+void Volume::destroyResources(star::StarDevice& device)
+{
 }

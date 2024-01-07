@@ -20,12 +20,12 @@ add_subdirectory("extern/starlight")
 set(${PROJECT_NAME}_SOURCE 
 	"src/main.cpp"
  	"src/Application.cpp"
-	"src/Sphere.cpp"
+	"src/Volume.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/Application.hpp"
-	"include/Sphere.hpp"
+	"include/Volume.hpp"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")
