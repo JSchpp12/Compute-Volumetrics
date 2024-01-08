@@ -85,8 +85,6 @@ public:
 
     void Load();
 
-    void Update();
-
     virtual std::string getApplicationName() { return "OpenVDB Renderer"; }
 
     void onKeyPress(int key, int scancode, int mods) override;
@@ -94,6 +92,8 @@ public:
 protected:
 
 private:
+    Volume* vol = nullptr;
+
     void onKeyRelease(int key, int scancode, int mods) override;
     void onMouseMovement(double xpos, double ypos) override;
     void onMouseButtonAction(int button, int action, int mods) override;
