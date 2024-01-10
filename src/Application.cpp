@@ -6,8 +6,8 @@ Application::Application(star::StarScene& scene) : StarApplication(scene) {}
 
 void Application::Load()
 {
-    this->camera.setPosition(glm::vec3{ 0.0, 0.0f, 0.0f });
-    this->camera.setLookDirection(glm::vec3{0.0, 0.0, 1.0});
+    this->camera.setPosition(glm::vec3{ 1.0, 0.5f, 1.0f });
+    this->camera.setLookDirection(glm::vec3{0.0, 0.0, 0.0} - this->camera.getPosition());
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
     auto lionPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "models/lion-statue/source/rapid.obj";
@@ -21,45 +21,22 @@ void Application::Load()
     //this->scene.add(std::move(airplane));
 
     auto sphere = std::make_unique<Volume>(1280, 720);
+    sphere->isVisible = true;
+    sphere->drawBoundingBox = true; 
     auto& s_i = sphere->createInstance();
+    s_i.setPosition(glm::vec3{ 0.0, 0.0, -0.0 });
     s_i.setScale(glm::vec3{ 0.01, 0.01, 0.01 }); 
     auto handle = this->scene.add(std::move(sphere));
     StarObject* obj = &this->scene.getObject(handle); 
     this->vol = static_cast<Volume*>(obj);
 
-    //auto dicePath = mediaDirectoryPath + "models/icoSphere/low_poly_icoSphere.obj"; 
-    //auto dice = star::BasicObject::New(dicePath);
-    //auto& dice_i = dice->createInstance(); 
-    //dice_i.setScale(glm::vec3{ 0.1, 0.1, 0.1 });
-    //this->scene.add(std::move(dice)); 
-
-    //auto plant = star::BasicObject::New(plantPath); 
-    //auto p_i = plant->createInstance();
-    //this->scene.add(std::move(plant));
-
-    //auto lion = BasicObject::New(lionPath);
-    //auto& lion_i = lion->createInstance();
-    //lion_i.setScale(glm::vec3{ 0.04f, 0.04f, 0.04f });
-    //lion_i.setPosition(glm::vec3{ 0.0, 0.0, 0.0 });
-    //lion_i.rotateGlobal(star::Type::Axis::x, -90);
-    //lion_i.moveRelative(glm::vec3{ 0.0, -1.0, 0.0 });
-    //this->scene.add(std::move(lion));
-
     this->scene.add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 10, 10, 10 }));
-
-    glm::vec3 cameraRotations{
-        cos(this->camera.getYaw()) * cos(this->camera.getPitch()),
-        sin(this->camera.getYaw()) * cos(this->camera.getPitch()),
-        sin(this->camera.getPitch())
-    };
-
-
-    this->vol->renderVolume(this->camera.getPosition(), cameraRotations, 50, 50, 10, 1000, 90, this->camera.getInverseViewMatrix());
-
 }
 
 void Application::onKeyPress(int key, int scancode, int mods)
 {
+    if (key == star::KEY::H)
+        this->vol->isVisible = !this->vol->isVisible;
 }
 
 void Application::onKeyRelease(int key, int scancode, int mods)
@@ -80,5 +57,14 @@ void Application::onScroll(double xoffset, double yoffset)
 
 void Application::onWorldUpdate()
 {
+    glm::vec3 cameraRotations{
+        cos(this->camera.getYaw()) * cos(this->camera.getPitch()),
+        sin(this->camera.getYaw()) * cos(this->camera.getPitch()),
+        sin(this->camera.getPitch())
+    };
 
+    auto proj = glm::inverse(this->camera.getViewMatrix());
+    
+    if (this->vol->isVisible)
+        this->vol->renderVolume(glm::radians(45.0f), this->camera.getPosition(), glm::inverse(this->camera.getViewMatrix()), this->camera.getProjectionMatrix());
 }

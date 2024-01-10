@@ -15,6 +15,29 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
     return shaders;
 }
 
+void Volume::renderVolume(const float& fov_radians, const glm::vec3& camPosition, const glm::mat4& camDispMatrix, const glm::mat4& camProjMat)
+{
+    RayCamera camera(this->screenDimensions, fov_radians, camDispMatrix, camProjMat);
+
+    for (size_t x = 0; x < this->screenDimensions.x; x++) {
+        for (size_t y = 0; y < this->screenDimensions.y; y++) {
+            if (x == this->screenDimensions.x / 2 && y == this->screenDimensions.y / 2)
+                std::cout << "test" << std::endl;
+
+            auto ray = camera.getRayForPixel(x, y, camPosition);
+            star::Color newCol{};
+
+            if (rayBoxIntersect(ray))
+                newCol = star::Color(0, 255, 0, 255);
+            else
+                newCol = star::Color(255, 0, 0, 255);
+            this->screenTexture->getRawData()->at(y).at(x) = newCol;
+        }
+    }
+
+    this->screenTexture->updateGPU();
+}
+
 std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::StarDevice& device, vk::Extent2D swapChainExtent,
     vk::PipelineLayout pipelineLayout, vk::RenderPass renderPass)
 {
@@ -29,27 +52,6 @@ std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::StarDevice& devi
     return std::move(newPipeline);
 }
 
-void Volume::renderVolume(const glm::vec3& cameraWorldPos, const glm::vec3& cameraRotationDegrees, 
-    const double& focalLength, const double& aperature, 
-    const double& nearPlane, const double& farPlane, 
-    const float& fov_radians, const glm::mat4& invCamDispMat)
-{
-    //openvdb::tools::PerspectiveCamera volumeCamera(
-    //    this->film,
-    //    openvdb::Vec3R{cameraWorldPos.x, cameraWorldPos.y, cameraWorldPos.z},
-    //    openvdb::Vec3R{ cameraRotationDegrees.x, cameraRotationDegrees.y, cameraRotationDegrees.z },
-    //    focalLength, 
-    //    aperature, 
-    //    nearPlane, 
-    //    farPlane);
-
-
-    RayCamera camera(this->screenDimensions, cameraWorldPos, cameraRotationDegrees, nearPlane, farPlane, fov_radians, invCamDispMat);
-
-    auto test = camera.getRayForPixel(this->screenDimensions.x / 2, this->screenDimensions.y / 2);
-
-}
-
 void Volume::loadModel()
 {
     const std::string filePath(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "volumes/Sphere.vdb");
@@ -61,7 +63,7 @@ void Volume::loadModel()
     for (openvdb::io::File::NameIterator nameIter = file.beginName(); nameIter != file.endName(); ++nameIter) {
         std::cout << nameIter.gridName() << std::endl;
 
-        if (nameIter.gridName() == "ls_Volume") {
+        if (nameIter.gridName() == "ls_sphere") {
             baseGrid = file.readGrid(nameIter.gridName());
     
         }
@@ -73,7 +75,7 @@ void Volume::loadModel()
     file.close();
 }
 
-void Volume::calculateBoundingBox(std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds)
+void Volume::createBoundingBox(std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds)
 {
     openvdb::math::CoordBBox bbox = baseGrid.get()->evalActiveVoxelBoundingBox();
     openvdb::math::Coord& bmin = bbox.min();
@@ -82,7 +84,7 @@ void Volume::calculateBoundingBox(std::vector<star::Vertex>& verts, std::vector<
     glm::vec3 min{ bmin.x(), bmin.y(), bmin.z() };
     glm::vec3 max{ bmax.x(), bmax.y(), bmax.z() };
 
-    star::GeometryHelpers::calculateAxisAlignedBoundingBox(min, max, verts, inds);
+    star::GeometryHelpers::calculateAxisAlignedBoundingBox(min, max, verts, inds, true);
 }
 
 std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> Volume::loadGeometryBuffers(star::StarDevice& device)
@@ -112,7 +114,8 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
             glm::vec3{0.0f, 1.0f, 0.0f},		//color
             glm::vec2{0.0f, 1.0f}
         },
-        });
+    });
+
     std::unique_ptr<std::vector<uint32_t>> inds = std::unique_ptr<std::vector<uint32_t>>(new std::vector<uint32_t>{
         0,3,2,0,2,1
     });
@@ -150,10 +153,63 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
 
 void Volume::initResources(star::StarDevice& device, const int numFramesInFlight)
 {
-
+    this->StarObject::initResources(device, numFramesInFlight);
 }
 
 void Volume::destroyResources(star::StarDevice& device)
 {
+    this->StarObject::destroyResources(device);
+
     this->screenTexture.reset(); 
+}
+
+bool Volume::rayBoxIntersect(const star::Ray& ray)
+{
+    //{
+    //    //glm::vec3 r0 = glm::vec3{ 0.0, 0.0, 0.0 }; 
+    //    //glm::vec3 rd = glm::vec3{ 0.0, 1.0, 0.0 };
+
+    //    glm::vec3 normal = glm::vec3{ 0.0, -1.0, 0.0 };
+    //    glm::vec3 p0 = glm::vec3{ 0.0, 0.0, 0.0 };
+
+    //    float denom = glm::dot(normal, ray.dir);
+    //    if (denom > 1e-6) {
+    //        glm::vec3 p0l0 = p0 - ray.org;
+    //        float t = glm::dot(p0l0, normal) / denom;
+    //        return (t >= 0);
+    //    }
+    //    return false;
+
+    //}
+
+    std::array<glm::vec3, 2> bbounds = this->meshes.front()->getBoundingBoxCoords();
+
+    float tmin = 0, tmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
+
+    tmin = (bbounds[ray.sign[0]].x - ray.org.x) * ray.invDir.x; 
+    tmax = (bbounds[!ray.sign[0]].x - ray.org.x) * ray.invDir.x;
+
+    tymin = (bbounds[ray.sign[1]].y - ray.org.y) * ray.invDir.y; 
+    tymax = (bbounds[!ray.sign[1]].y - ray.org.y) * ray.invDir.y;
+
+    if ((tmin > tymax) || (tymin > tmax))
+        return false;
+
+    if (tymin > tmin)
+        tmin = tymin;
+    if (tymax < tmax)
+        tmax = tymax;
+
+    tzmin = (bbounds[ray.sign[2]].z - ray.org.z) * ray.invDir.z;
+    tzmax = (bbounds[!ray.sign[2]].z - ray.org.z) * ray.invDir.z;
+
+    if ((tmin > tzmax) || (tzmin > tmax))
+        return false; 
+
+    if (tzmin > tmin)
+        tmin = tzmin;
+    if (tzmax < tmax)
+        tmax = tzmax;
+
+    return tmin <= tmax && tmax >=0; 
 }
