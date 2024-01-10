@@ -6,8 +6,8 @@ Application::Application(star::StarScene& scene) : StarApplication(scene) {}
 
 void Application::Load()
 {
-    this->camera.setPosition(glm::vec3{ 1.0, 0.5f, 1.0f });
-    this->camera.setLookDirection(glm::vec3{0.0, 0.0, 0.0} - this->camera.getPosition());
+    this->camera.setPosition(glm::vec3{ 0.0, 0.0f, 2.0f });
+    this->camera.setForwardVector(glm::vec3{0.0, 0.0, 0.0} - this->camera.getPosition());
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
     auto lionPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "models/lion-statue/source/rapid.obj";
@@ -15,16 +15,17 @@ void Application::Load()
     auto plantPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "models/aloevera/aloevera.obj";
     auto airplanePath = mediaDirectoryPath + "models/airplane/Airplane.obj";
 
-    //auto airplane = star::BasicObject::New(airplanePath); 
+    //auto airplane = star::BasicObject::New(plantPath); 
     //auto& a_i = airplane->createInstance(); 
-    //a_i.setScale(glm::vec3{ 0.001, 0.001, 0.001 });
+    //airplane->drawBoundingBox = true;
+    ////a_i.setScale(glm::vec3{ 0.01, 0.01, 0.01 });
     //this->scene.add(std::move(airplane));
 
     auto sphere = std::make_unique<Volume>(1280, 720);
     sphere->isVisible = true;
     sphere->drawBoundingBox = true; 
     auto& s_i = sphere->createInstance();
-    s_i.setPosition(glm::vec3{ 0.0, 0.0, -0.0 });
+    //s_i.setPosition(glm::vec3{ 0.0, 0.0, -1.0 });
     s_i.setScale(glm::vec3{ 0.01, 0.01, 0.01 }); 
     auto handle = this->scene.add(std::move(sphere));
     StarObject* obj = &this->scene.getObject(handle); 
@@ -66,5 +67,5 @@ void Application::onWorldUpdate()
     auto proj = glm::inverse(this->camera.getViewMatrix());
     
     if (this->vol->isVisible)
-        this->vol->renderVolume(glm::radians(45.0f), this->camera.getPosition(), glm::inverse(this->camera.getViewMatrix()), this->camera.getProjectionMatrix());
+        this->vol->renderVolume(glm::radians(45.0f*0.5), this->camera.getPosition(), glm::inverse(this->camera.getViewMatrix()), this->camera.getProjectionMatrix());
 }

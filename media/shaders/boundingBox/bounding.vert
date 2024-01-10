@@ -25,5 +25,9 @@ layout(binding = 0, set = 1) uniform instanceModelMatrix{
 };
 
 void main() {
-    gl_Position = globalUbo.proj * globalUbo.view * modelMatrix[gl_InstanceIndex] * vec4(inPosition, 1.0); 
+	vec3 translation = vec3(modelMatrix[gl_InstanceIndex][3]);
+	// vec3 scale = vec3(length(modelMatrix[gl_InstanceIndex][0].xyz), length(modelMatrix[gl_InstanceIndex][1].xyz), length(modelMatrix[gl_InstanceIndex][2].xyz));
+	float scale = length(modelMatrix[gl_InstanceIndex][0].xyz);
+	vec3 position = inPosition * scale + translation;
+    gl_Position = globalUbo.proj * globalUbo.view * vec4(position, 1.0); 
 }

@@ -19,15 +19,21 @@ void Volume::renderVolume(const float& fov_radians, const glm::vec3& camPosition
 {
     RayCamera camera(this->screenDimensions, fov_radians, camDispMatrix, camProjMat);
 
+    std::array<glm::vec3, 2> bbounds = this->meshes.front()->getBoundingBoxCoords();
+    {
+        auto position = this->instances.front()->getPosition();
+        auto scale = this->instances.front()->getScale();
+
+        bbounds[0] = bbounds[0] * scale + position;
+        bbounds[1] = bbounds[1] * scale + position;
+    }
+
     for (size_t x = 0; x < this->screenDimensions.x; x++) {
         for (size_t y = 0; y < this->screenDimensions.y; y++) {
-            if (x == this->screenDimensions.x / 2 && y == this->screenDimensions.y / 2)
-                std::cout << "test" << std::endl;
-
             auto ray = camera.getRayForPixel(x, y, camPosition);
             star::Color newCol{};
 
-            if (rayBoxIntersect(ray))
+            if (rayBoxIntersect(ray, bbounds))
                 newCol = star::Color(0, 255, 0, 255);
             else
                 newCol = star::Color(255, 0, 0, 255);
@@ -75,18 +81,6 @@ void Volume::loadModel()
     file.close();
 }
 
-void Volume::createBoundingBox(std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds)
-{
-    openvdb::math::CoordBBox bbox = baseGrid.get()->evalActiveVoxelBoundingBox();
-    openvdb::math::Coord& bmin = bbox.min();
-    openvdb::math::Coord& bmax = bbox.max();
-
-    glm::vec3 min{ bmin.x(), bmin.y(), bmin.z() };
-    glm::vec3 max{ bmax.x(), bmax.y(), bmax.z() };
-
-    star::GeometryHelpers::calculateAxisAlignedBoundingBox(min, max, verts, inds, true);
-}
-
 std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> Volume::loadGeometryBuffers(star::StarDevice& device)
 {
     std::unique_ptr<std::vector<star::Vertex>> verts = std::unique_ptr<std::vector<star::Vertex>>(new std::vector<star::Vertex>{
@@ -122,7 +116,15 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
 
     std::unique_ptr<star::TextureMaterial> material = std::unique_ptr<star::TextureMaterial>(new star::TextureMaterial(this->screenTexture));
     auto newMeshs = std::vector<std::unique_ptr<star::StarMesh>>();
-    newMeshs.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(*verts, *inds, std::move(material), false)));
+
+    openvdb::math::CoordBBox bbox = baseGrid.get()->evalActiveVoxelBoundingBox();
+    openvdb::math::Coord& bmin = bbox.min();
+    openvdb::math::Coord& bmax = bbox.max();
+
+    glm::vec3 min{ bmin.x(), bmin.y(), bmin.z() };
+    glm::vec3 max{ bmax.x(), bmax.y(), bmax.z() };
+
+    newMeshs.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(*verts, *inds, std::move(material), min, max, false)));
 
     this->meshes = std::move(newMeshs);
 
@@ -163,8 +165,9 @@ void Volume::destroyResources(star::StarDevice& device)
     this->screenTexture.reset(); 
 }
 
-bool Volume::rayBoxIntersect(const star::Ray& ray)
+bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbBounds)
 {
+    //Debug ray-plane intersection
     //{
     //    //glm::vec3 r0 = glm::vec3{ 0.0, 0.0, 0.0 }; 
     //    //glm::vec3 rd = glm::vec3{ 0.0, 1.0, 0.0 };
@@ -182,15 +185,13 @@ bool Volume::rayBoxIntersect(const star::Ray& ray)
 
     //}
 
-    std::array<glm::vec3, 2> bbounds = this->meshes.front()->getBoundingBoxCoords();
+    double tmin = -INFINITY, tmax = INFINITY, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
 
-    float tmin = 0, tmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
+    tmin = (aabbBounds[ray.sign[0]].x - ray.org.x) * ray.invDir.x;
+    tmax = (aabbBounds[!ray.sign[0]].x - ray.org.x) * ray.invDir.x;
 
-    tmin = (bbounds[ray.sign[0]].x - ray.org.x) * ray.invDir.x; 
-    tmax = (bbounds[!ray.sign[0]].x - ray.org.x) * ray.invDir.x;
-
-    tymin = (bbounds[ray.sign[1]].y - ray.org.y) * ray.invDir.y; 
-    tymax = (bbounds[!ray.sign[1]].y - ray.org.y) * ray.invDir.y;
+    tymin = (aabbBounds[ray.sign[1]].y - ray.org.y) * ray.invDir.y;
+    tymax = (aabbBounds[!ray.sign[1]].y - ray.org.y) * ray.invDir.y;
 
     if ((tmin > tymax) || (tymin > tmax))
         return false;
@@ -200,8 +201,8 @@ bool Volume::rayBoxIntersect(const star::Ray& ray)
     if (tymax < tmax)
         tmax = tymax;
 
-    tzmin = (bbounds[ray.sign[2]].z - ray.org.z) * ray.invDir.z;
-    tzmax = (bbounds[!ray.sign[2]].z - ray.org.z) * ray.invDir.z;
+    tzmin = (aabbBounds[ray.sign[2]].z - ray.org.z) * ray.invDir.z;
+    tzmax = (aabbBounds[!ray.sign[2]].z - ray.org.z) * ray.invDir.z;
 
     if ((tmin > tzmax) || (tzmin > tmax))
         return false; 
@@ -211,5 +212,5 @@ bool Volume::rayBoxIntersect(const star::Ray& ray)
     if (tzmax < tmax)
         tmax = tzmax;
 
-    return tmin <= tmax && tmax >=0; 
+    return (tmin <= tmax && tmax >= 0);
 }

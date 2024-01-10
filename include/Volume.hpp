@@ -64,8 +64,6 @@ protected:
 
     void loadModel(); 
 
-    virtual void createBoundingBox(std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds) override;
-
     std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> loadGeometryBuffers(star::StarDevice& device) override;
 
     void initResources(star::StarDevice& device, const int numFramesInFlight) override;
@@ -89,21 +87,21 @@ private:
             assert(x < this->dimensions.x && y < this->dimensions.y && "Coordinates must be within dimensions of screen");
 
             float aspectRatio = dimensions.x / dimensions.y;
-            float scale = tan(this->fov_radians * 0.5);
-            glm::vec4 pixelLocCamera{
+            float scale = tan(this->fov_radians);
+            glm::vec3 pixelLocCamera{
                 (2 * ((x + 0.5) / this->dimensions.x) - 1) * aspectRatio * scale,
-                1 - 2 * ((y + 0.5) / this->dimensions.y) * scale,
-                -1.0f,
-                1.0f
+                (1 - 2 * ((y + 0.5) / this->dimensions.y)) * scale,
+                -1.0f
             };
 
-            glm::vec4 origin = this->camDisplayMat * glm::vec4{ 0,0,0,1 };
-            glm::vec4 point = this->camDisplayMat * pixelLocCamera;
-
-            return star::Ray{ origin, glm::normalize(point - origin) };
+            glm::vec3 origin = this->camDisplayMat * glm::vec4{ 0, 0, 0, 1 };
+            glm::vec3 point = this->camDisplayMat * glm::vec4(glm::normalize(pixelLocCamera), 1.0f);
+            glm::vec3 direction = point - origin;
+            auto normDir = glm::normalize(direction);
+            return star::Ray{ origin, normDir };
         }
     };
 
-    bool rayBoxIntersect(const star::Ray& ray);
+    bool rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbBounds );
 };
 
