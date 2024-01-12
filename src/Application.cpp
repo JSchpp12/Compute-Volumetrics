@@ -6,7 +6,7 @@ Application::Application(star::StarScene& scene) : StarApplication(scene) {}
 
 void Application::Load()
 {
-    this->camera.setPosition(glm::vec3{ 0.0, 0.0f, 2.0f });
+    this->camera.setPosition(glm::vec3{ 2.0, 0.2f, 2.0f });
     this->camera.setForwardVector(glm::vec3{0.0, 0.0, 0.0} - this->camera.getPosition());
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
@@ -15,13 +15,13 @@ void Application::Load()
     auto plantPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "models/aloevera/aloevera.obj";
     auto airplanePath = mediaDirectoryPath + "models/airplane/Airplane.obj";
 
-    //auto airplane = star::BasicObject::New(plantPath); 
+    //auto airplane = star::BasicObject::New(airplanePath); 
     //auto& a_i = airplane->createInstance(); 
     //airplane->drawBoundingBox = true;
-    ////a_i.setScale(glm::vec3{ 0.01, 0.01, 0.01 });
+    //a_i.setScale(glm::vec3{ 0.01, 0.01, 0.01 });
     //this->scene.add(std::move(airplane));
 
-    auto sphere = std::make_unique<Volume>(1280, 720);
+    auto sphere = std::make_unique<Volume>(1280, 720, this->scene.getLights());
     sphere->isVisible = true;
     sphere->drawBoundingBox = true; 
     auto& s_i = sphere->createInstance();

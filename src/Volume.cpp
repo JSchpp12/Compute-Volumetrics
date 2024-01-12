@@ -27,16 +27,29 @@ void Volume::renderVolume(const float& fov_radians, const glm::vec3& camPosition
         bbounds[0] = bbounds[0] * scale + position;
         bbounds[1] = bbounds[1] * scale + position;
     }
+    //float tt0, tt1;
+    //auto tRay = star::Ray{
+    //    glm::vec3{0.0, 0.0, 1.0},
+    //    glm::vec3{0.0f, 0.0f, -1.0f}
+    //};
+    //auto test = rayBoxIntersect(tRay, bbounds, tt0, tt1);
+
+    //if (test)
+    //    std::cout << "TEST";
+
+    //glm::vec3 hitPoint = tRay.org + (tt0 * tRay.dir);
 
     for (size_t x = 0; x < this->screenDimensions.x; x++) {
         for (size_t y = 0; y < this->screenDimensions.y; y++) {
+            float t0 = 0, t1 = 0;
             auto ray = camera.getRayForPixel(x, y, camPosition);
             star::Color newCol{};
 
-            if (rayBoxIntersect(ray, bbounds))
-                newCol = star::Color(0, 255, 0, 255);
+            if (rayBoxIntersect(ray, bbounds, t0, t1))
+                newCol = this->backMarch(ray, bbounds, t0, t1);
+                //newCol = star::Color(0.0f, 1.0f, 0.0f, 1.0f);
             else
-                newCol = star::Color(255, 0, 0, 255);
+                newCol = star::Color(0.0f, 0.0f, 0.0f, 0.0f);
             this->screenTexture->getRawData()->at(y).at(x) = newCol;
         }
     }
@@ -49,6 +62,18 @@ std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::StarDevice& devi
 {
     star::StarGraphicsPipeline::PipelineConfigSettings settings;
     star::StarGraphicsPipeline::defaultPipelineConfigInfo(settings, swapChainExtent, renderPass, pipelineLayout);
+
+    //enable alpha blending
+    settings.colorBlendAttachment.blendEnable = VK_TRUE; 
+    settings.colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+    settings.colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+    settings.colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+    settings.colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+    settings.colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+    settings.colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
+
+    settings.colorBlendInfo.logicOpEnable = VK_FALSE;
+    settings.colorBlendInfo.logicOp = vk::LogicOp::eCopy;
 
     auto graphicsShaders = this->getShaders();
 
@@ -165,7 +190,7 @@ void Volume::destroyResources(star::StarDevice& device)
     this->screenTexture.reset(); 
 }
 
-bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbBounds)
+bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbBounds, float& t0, float& t1)
 {
     //Debug ray-plane intersection
     //{
@@ -185,32 +210,77 @@ bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2
 
     //}
 
-    double tmin = -INFINITY, tmax = INFINITY, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
+    float tmin = -INFINITY, tmax = INFINITY, txmin = 0, txmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
 
-    tmin = (aabbBounds[ray.sign[0]].x - ray.org.x) * ray.invDir.x;
-    tmax = (aabbBounds[!ray.sign[0]].x - ray.org.x) * ray.invDir.x;
+    auto testBB = aabbBounds[ray.sign[0]].x;
+    txmin = (aabbBounds[ray.sign[0]].x - ray.org.x) * ray.invDir.x;
+    txmax = (aabbBounds[!ray.sign[0]].x - ray.org.x) * ray.invDir.x;
+
+    tmin = std::min(txmin, txmax);
+    tmax = std::max(txmin, txmax);
 
     tymin = (aabbBounds[ray.sign[1]].y - ray.org.y) * ray.invDir.y;
     tymax = (aabbBounds[!ray.sign[1]].y - ray.org.y) * ray.invDir.y;
 
-    if ((tmin > tymax) || (tymin > tmax))
-        return false;
+    auto test = (1.0f / tymin) * ray.dir.y + ray.org.y;
 
-    if (tymin > tmin)
-        tmin = tymin;
-    if (tymax < tmax)
-        tmax = tymax;
+    tmin = std::max(tmin, std::min(tymin, tymax));
+    tmax = std::min(tmax, std::max(tymin, tymax));
 
     tzmin = (aabbBounds[ray.sign[2]].z - ray.org.z) * ray.invDir.z;
     tzmax = (aabbBounds[!ray.sign[2]].z - ray.org.z) * ray.invDir.z;
 
-    if ((tmin > tzmax) || (tzmin > tmax))
-        return false; 
+    tmin = std::max(tmin, std::min(tzmin, tzmax));
+    tmax = std::min(tmax, std::max(tzmin, tzmax));
 
-    if (tzmin > tmin)
-        tmin = tzmin;
-    if (tzmax < tmax)
-        tmax = tzmax;
+    glm::vec3 testCloes = ray.org + (tmin / ray.invDir);
+    glm::vec3 testFar = ray.org + ray.dir * tmax; 
 
-    return (tmin <= tmax && tmax >= 0);
+    if (tmax >= std::max(0.0f, tmin)) {
+        int t = 0;
+        t += 1;
+    }
+    
+    t0 = tmin;
+    t1 = tmax;
+    //std::cout << "stest";
+
+
+    return tmax >= std::max(0.0f, tmin);
+}
+
+star::Color Volume::backMarch(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbHit, const float& t0, const float& t1)
+{
+    float fittedStepSize = (t1 - t0) / this->numSteps;
+    float beerExpTrans = this->calcExp(fittedStepSize, this->sigma);
+    float transparency = 1.0f;
+
+    star::Color resultingColor{};
+
+    for (int i = 0; i < this->numSteps; i++) {
+        transparency *= beerExpTrans;
+        float t = t1 - fittedStepSize * (i + 0.5); 
+        glm::vec3 position = ray.org + (t / ray.invDir);
+
+        for (const auto& light : this->lightList) {
+            //in-scattering 
+            star::Ray lightRay{
+                position,
+                glm::normalize(light->getPosition() - position)
+            };
+
+            float lt0 = 0, lt1 = 1;
+            if (rayBoxIntersect(lightRay, aabbHit, lt0, lt1)) {
+                assert(lt0 != 0 && "Unknown ray error occurred. The sample step should always be inside hit volume");
+                float lightAtten = std::exp(lt1 * beerExpTrans);
+
+                resultingColor.setR(resultingColor.r() + (light->getAmbient().r * lightAtten * fittedStepSize));
+                resultingColor.setG(resultingColor.g() + (light->getAmbient().g * lightAtten * fittedStepSize));
+                resultingColor.setB(resultingColor.b() + (light->getAmbient().b * lightAtten * fittedStepSize));
+                resultingColor.setA(resultingColor.a() + (light->getAmbient().a * lightAtten * fittedStepSize));
+            }
+        }
+    }
+
+    return resultingColor;
 }

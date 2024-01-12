@@ -12,6 +12,7 @@
 #include "Vertex.hpp"
 #include "virtual/ModulePlug/RenderResourceModifier.hpp"
 #include "TextureMaterial.hpp"
+#include "Light.hpp"
 
 #include <openvdb/openvdb.h>
 #include <openvdb/tools/RayTracer.h>
@@ -27,8 +28,8 @@ class Volume :
 {
 public:
     ~Volume() = default; 
-    Volume(const size_t screenWidth, const size_t screenHeight) 
-        : screenDimensions(screenWidth, screenHeight), StarObject()
+    Volume(const size_t screenWidth, const size_t screenHeight, std::vector<std::unique_ptr<star::Light>>& lightList) 
+        : screenDimensions(screenWidth, screenHeight), lightList(lightList), StarObject()
     {
         openvdb::initialize();
         loadModel();
@@ -39,9 +40,9 @@ public:
             colors[y].resize(this->screenDimensions.x);
             for (int x = 0; x < (int)this->screenDimensions.x; x++) {
                 if (x == (int)this->screenDimensions.x / 2)
-                    colors[y][x] = star::Color(0, 0, 255, 255);
+                    colors[y][x] = star::Color(0.0f, 0.0f, 1.0f, 1.0f);
                 else
-                    colors[y][x] = star::Color(255, 0, 0, 255);
+                    colors[y][x] = star::Color(1.0f, 0, 0, 1.0f);
             }
         }
         this->screenTexture = std::make_shared<star::RuntimeUpdateTexture>(
@@ -55,7 +56,14 @@ public:
 
     std::unique_ptr<star::StarPipeline> buildPipeline(star::StarDevice& device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout, vk::RenderPass renderPass);
 
+    void setAbsorbCoef(const float& newCoef) {
+        assert(newCoef > 0 && "Coeff must be greater than 0");
+        this->sigma = newCoef;
+    }
 protected:
+    std::vector<std::unique_ptr<star::Light>>& lightList; 
+    int numSteps = 4;
+    float sigma = 0.00001;
     std::shared_ptr<star::RuntimeUpdateTexture> screenTexture;
     glm::vec2 screenDimensions{};
     openvdb::GridBase::Ptr baseGrid;
@@ -102,6 +110,12 @@ private:
         }
     };
 
-    bool rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbBounds );
+    float calcExp(const float& stepSize, const float& sigma) {
+        return std::exp(-stepSize * sigma);
+    }
+
+    bool rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbBounds, float& t0, float& t1);
+
+    star::Color backMarch(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbHit, const float& t0, const float& t1);
 };
 
