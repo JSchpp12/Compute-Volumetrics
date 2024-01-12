@@ -62,8 +62,8 @@ public:
     }
 protected:
     std::vector<std::unique_ptr<star::Light>>& lightList; 
-    int numSteps = 4;
-    float sigma = 0.00001;
+    int numSteps = 3;
+    float sigma = 0.1f;
     std::shared_ptr<star::RuntimeUpdateTexture> screenTexture;
     glm::vec2 screenDimensions{};
     openvdb::GridBase::Ptr baseGrid;
@@ -110,7 +110,7 @@ private:
         }
     };
 
-    float calcExp(const float& stepSize, const float& sigma) {
+    float calcExp(const float& stepSize, const float& sigma) const {
         return std::exp(-stepSize * sigma);
     }
 

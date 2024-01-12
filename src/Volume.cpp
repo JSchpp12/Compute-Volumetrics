@@ -45,6 +45,9 @@ void Volume::renderVolume(const float& fov_radians, const glm::vec3& camPosition
             auto ray = camera.getRayForPixel(x, y, camPosition);
             star::Color newCol{};
 
+            if (x == this->screenDimensions.x / 2 && y == this->screenDimensions.y / 2)
+                std::cout << "test" << std::endl;
+
             if (rayBoxIntersect(ray, bbounds, t0, t1))
                 newCol = this->backMarch(ray, bbounds, t0, t1);
                 //newCol = star::Color(0.0f, 1.0f, 0.0f, 1.0f);
@@ -222,8 +225,6 @@ bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2
     tymin = (aabbBounds[ray.sign[1]].y - ray.org.y) * ray.invDir.y;
     tymax = (aabbBounds[!ray.sign[1]].y - ray.org.y) * ray.invDir.y;
 
-    auto test = (1.0f / tymin) * ray.dir.y + ray.org.y;
-
     tmin = std::max(tmin, std::min(tymin, tymax));
     tmax = std::min(tmax, std::max(tymin, tymax));
 
@@ -233,9 +234,6 @@ bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2
     tmin = std::max(tmin, std::min(tzmin, tzmax));
     tmax = std::min(tmax, std::max(tzmin, tzmax));
 
-    glm::vec3 testCloes = ray.org + (tmin / ray.invDir);
-    glm::vec3 testFar = ray.org + ray.dir * tmax; 
-
     if (tmax >= std::max(0.0f, tmin)) {
         int t = 0;
         t += 1;
@@ -243,8 +241,6 @@ bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2
     
     t0 = tmin;
     t1 = tmax;
-    //std::cout << "stest";
-
 
     return tmax >= std::max(0.0f, tmin);
 }
@@ -269,10 +265,10 @@ star::Color Volume::backMarch(const star::Ray& ray, const std::array<glm::vec3, 
                 glm::normalize(light->getPosition() - position)
             };
 
-            float lt0 = 0, lt1 = 1;
+            float lt0 = 0, lt1 = 0;
             if (rayBoxIntersect(lightRay, aabbHit, lt0, lt1)) {
                 assert(lt0 != 0 && "Unknown ray error occurred. The sample step should always be inside hit volume");
-                float lightAtten = std::exp(lt1 * beerExpTrans);
+                float lightAtten = calcExp(lt1, this->sigma);
 
                 resultingColor.setR(resultingColor.r() + (light->getAmbient().r * lightAtten * fittedStepSize));
                 resultingColor.setG(resultingColor.g() + (light->getAmbient().g * lightAtten * fittedStepSize));
@@ -280,6 +276,11 @@ star::Color Volume::backMarch(const star::Ray& ray, const std::array<glm::vec3, 
                 resultingColor.setA(resultingColor.a() + (light->getAmbient().a * lightAtten * fittedStepSize));
             }
         }
+
+        resultingColor.setR(resultingColor.r() * transparency);
+        resultingColor.setG(resultingColor.g() * transparency);
+        resultingColor.setB(resultingColor.b() * transparency);
+        resultingColor.setA(resultingColor.a() * transparency);
     }
 
     return resultingColor;
