@@ -45,12 +45,12 @@ void Volume::renderVolume(const float& fov_radians, const glm::vec3& camPosition
             auto ray = camera.getRayForPixel(x, y, camPosition);
             star::Color newCol{};
 
-            if (x == this->screenDimensions.x / 2 && y == this->screenDimensions.y / 2)
-                std::cout << "test" << std::endl;
-
-            if (rayBoxIntersect(ray, bbounds, t0, t1))
+            if (rayBoxIntersect(ray, bbounds, t0, t1)) {
                 newCol = this->backMarch(ray, bbounds, t0, t1);
-                //newCol = star::Color(0.0f, 1.0f, 0.0f, 1.0f);
+                if (newCol.r() == 0.0f && newCol.g() == 0.0f && newCol.b() == 0.0f)
+                    std::cout << "test2" << std::endl;
+            }
+                //newCol = star::Color(1.0f, 1.0f, 1.0f, 1.0f);
             else
                 newCol = star::Color(0.0f, 0.0f, 0.0f, 0.0f);
             this->screenTexture->getRawData()->at(y).at(x) = newCol;
@@ -215,7 +215,6 @@ bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2
 
     float tmin = -INFINITY, tmax = INFINITY, txmin = 0, txmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
 
-    auto testBB = aabbBounds[ray.sign[0]].x;
     txmin = (aabbBounds[ray.sign[0]].x - ray.org.x) * ray.invDir.x;
     txmax = (aabbBounds[!ray.sign[0]].x - ray.org.x) * ray.invDir.x;
 
@@ -234,11 +233,6 @@ bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2
     tmin = std::max(tmin, std::min(tzmin, tzmax));
     tmax = std::min(tmax, std::max(tzmin, tzmax));
 
-    if (tmax >= std::max(0.0f, tmin)) {
-        int t = 0;
-        t += 1;
-    }
-    
     t0 = tmin;
     t1 = tmax;
 
@@ -248,12 +242,13 @@ bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2
 star::Color Volume::backMarch(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbHit, const float& t0, const float& t1)
 {
     float fittedStepSize = (t1 - t0) / this->numSteps;
-    float beerExpTrans = this->calcExp(fittedStepSize, this->sigma);
+    float beerExpTrans = std::exp(-fittedStepSize * this->sigma);
     float transparency = 1.0f;
+    star::Color backColor{};
 
     star::Color resultingColor{};
 
-    for (int i = 0; i < this->numSteps; i++) {
+    for (int i = 0; i < this->numSteps; ++i) {
         transparency *= beerExpTrans;
         float t = t1 - fittedStepSize * (i + 0.5); 
         glm::vec3 position = ray.org + (t / ray.invDir);
@@ -267,12 +262,15 @@ star::Color Volume::backMarch(const star::Ray& ray, const std::array<glm::vec3, 
 
             float lt0 = 0, lt1 = 0;
             if (rayBoxIntersect(lightRay, aabbHit, lt0, lt1)) {
-                assert(lt0 != 0 && "Unknown ray error occurred. The sample step should always be inside hit volume");
-                float lightAtten = calcExp(lt1, this->sigma);
+                //assert(lt0 != 0 && "Unknown ray error occurred. The sample step should always be inside hit volume");
+                float lightAtten = std::exp(-lt1 * this->sigma);
 
-                resultingColor.setR(resultingColor.r() + (light->getAmbient().r * lightAtten * fittedStepSize));
-                resultingColor.setG(resultingColor.g() + (light->getAmbient().g * lightAtten * fittedStepSize));
-                resultingColor.setB(resultingColor.b() + (light->getAmbient().b * lightAtten * fittedStepSize));
+                float newR = light->getAmbient().r * lightAtten * fittedStepSize;
+                float newG = light->getAmbient().g * lightAtten * fittedStepSize;
+                float newB = light->getAmbient().b * lightAtten * fittedStepSize;
+                resultingColor.setR(resultingColor.r() + newR);
+                resultingColor.setG(resultingColor.g() + newG);
+                resultingColor.setB(resultingColor.b() + newB);
                 resultingColor.setA(resultingColor.a() + (light->getAmbient().a * lightAtten * fittedStepSize));
             }
         }
@@ -283,5 +281,9 @@ star::Color Volume::backMarch(const star::Ray& ray, const std::array<glm::vec3, 
         resultingColor.setA(resultingColor.a() * transparency);
     }
 
-    return resultingColor;
+    resultingColor.setR(backColor.r() * transparency + resultingColor.r());
+    resultingColor.setG(backColor.g() * transparency + resultingColor.g());
+    resultingColor.setB(backColor.b() * transparency + resultingColor.b());
+    resultingColor.setA(backColor.a() * transparency + resultingColor.a());
+    return resultingColor;  
 }

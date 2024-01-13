@@ -6,7 +6,8 @@ Application::Application(star::StarScene& scene) : StarApplication(scene) {}
 
 void Application::Load()
 {
-    this->camera.setPosition(glm::vec3{ 3.0, 3.2f, 2.0f });
+    //this->camera.setPosition(glm::vec3{ 3.0, 0.0f, 2.0f });
+    this->camera.setPosition(glm::vec3{ 6.0, 0.1f, 5.0f });
     this->camera.setForwardVector(glm::vec3{0.0, 0.0, 0.0} - this->camera.getPosition());
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);

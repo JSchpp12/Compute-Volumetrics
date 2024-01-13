@@ -40,9 +40,7 @@ public:
             colors[y].resize(this->screenDimensions.x);
             for (int x = 0; x < (int)this->screenDimensions.x; x++) {
                 if (x == (int)this->screenDimensions.x / 2)
-                    colors[y][x] = star::Color(0.0f, 0.0f, 1.0f, 1.0f);
-                else
-                    colors[y][x] = star::Color(1.0f, 0, 0, 1.0f);
+                    colors[y][x] = star::Color(1.0f, 1.0f, 1.0f, 1.0f);
             }
         }
         this->screenTexture = std::make_shared<star::RuntimeUpdateTexture>(
@@ -62,7 +60,7 @@ public:
     }
 protected:
     std::vector<std::unique_ptr<star::Light>>& lightList; 
-    int numSteps = 3;
+    float numSteps = 10;
     float sigma = 0.1f;
     std::shared_ptr<star::RuntimeUpdateTexture> screenTexture;
     glm::vec2 screenDimensions{};
