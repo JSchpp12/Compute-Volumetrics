@@ -15,7 +15,11 @@
 #include "Light.hpp"
 
 #include <openvdb/openvdb.h>
+#include <openvdb/Grid.h>
 #include <openvdb/tools/RayTracer.h>
+#include <openvdb/tools/Interpolation.h>
+#include <openvdb/tools/GridTransformer.h>
+
 #include <glm/ext.hpp>
 #include <glm/gtx/string_cast.hpp>
 
@@ -59,6 +63,11 @@ public:
     void renderVolume(const float& fov_radians, const glm::vec3& camPosition, const glm::mat4& camDispMatrix, const glm::mat4& camProjMat);
 
     std::unique_ptr<star::StarPipeline> buildPipeline(star::StarDevice& device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout, vk::RenderPass renderPass);
+    
+    /// <summary>
+    /// Expensive, only call when necessary.
+    /// </summary>
+    void updateGridTransforms();
 
     void setAbsorbCoef(const float& newCoef) {
         assert(newCoef > 0 && "Coeff must be greater than 0");
@@ -66,13 +75,13 @@ public:
     }
 protected:
     std::vector<std::unique_ptr<star::Light>>& lightList; 
-    int numSteps = 3;
-    float sigma_absorbtion = 0.05f, sigma_scattering = 0.05f, lightPropertyDir_g = 0.85;
+    int numSteps = 3, numStepsLight = 5;
+    float sigma_absorbtion = 0.0001f, sigma_scattering = 0.0001f, lightPropertyDir_g = 0.50;
     float volDensity = 1.0f;
     int russianRouletteCutoff = 4;
     std::shared_ptr<star::RuntimeUpdateTexture> screenTexture;
     glm::vec2 screenDimensions{};
-    openvdb::GridBase::Ptr baseGrid;
+    openvdb::FloatGrid::Ptr grid{};
     
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
@@ -115,6 +124,8 @@ private:
             return star::Ray{ origin, normDir };
         }
     };
+    
+     //grid = openvdb::gridPtrCast<openvdb::FloatGrid>(baseGrid);
 
     float calcExp(const float& stepSize, const float& sigma) const {
         return std::exp(-stepSize * sigma);
@@ -122,8 +133,11 @@ private:
 
     bool rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbBounds, float& t0, float& t1);
 
-    star::Color forwardMarch(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbHit, const float& t0, const float& t1);
+    //template<class openvdb::>
+    star::Color forwardMarch(openvdb::FloatGrid::ConstAccessor& gridAccessor, const star::Ray& ray, const std::array<glm::vec3, 2>& aabbHit, const float& t0, const float& t1);
 
     static float henyeyGreensteinPhase(const float& g, const float& cos_theta);
+
+    static openvdb::Mat4R getTransform(const glm::mat4& objectDisplayMat);
 };
 

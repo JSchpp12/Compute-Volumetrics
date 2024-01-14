@@ -23,11 +23,12 @@ void Application::Load()
     //this->scene.add(std::move(airplane));
 
     auto sphere = std::make_unique<Volume>(1280, 720, this->scene.getLights());
-    sphere->isVisible = true;
     sphere->drawBoundingBox = true; 
+    sphere->isVisible = false;
     auto& s_i = sphere->createInstance();
     //s_i.setPosition(glm::vec3{ 0.0, 0.0, -1.0 });
-    s_i.setScale(glm::vec3{ 0.03, 0.03, 0.03 }); 
+    s_i.setScale(glm::vec3{ 0.005, 0.005, 0.005 });
+    sphere->updateGridTransforms();
     auto handle = this->scene.add(std::move(sphere));
     StarObject* obj = &this->scene.getObject(handle); 
     this->vol = static_cast<Volume*>(obj);
