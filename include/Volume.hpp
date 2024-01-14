@@ -23,6 +23,10 @@
 
 #include <string>
 
+enum Phase_Function{
+    Henyey_Greenstein
+};
+
 class Volume :
     public star::StarObject
 {
@@ -56,12 +60,13 @@ public:
 
     void setAbsorbCoef(const float& newCoef) {
         assert(newCoef > 0 && "Coeff must be greater than 0");
-        this->sigma = newCoef;
+        this->sigma_absorbtion = newCoef;
     }
 protected:
     std::vector<std::unique_ptr<star::Light>>& lightList; 
-    float numSteps = 10;
-    float sigma = 0.1f;
+    float numSteps = 3;
+    float sigma_absorbtion = 0.05f, sigma_scattering = 0.05f;
+    float volDensity = 1.0f;
     std::shared_ptr<star::RuntimeUpdateTexture> screenTexture;
     glm::vec2 screenDimensions{};
     openvdb::GridBase::Ptr baseGrid;
@@ -108,12 +113,16 @@ private:
         }
     };
 
+    static float henyeyGreensteinPhase(const float& g, const float& cos_theta);
+
     float calcExp(const float& stepSize, const float& sigma) const {
         return std::exp(-stepSize * sigma);
     }
 
     bool rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbBounds, float& t0, float& t1);
 
-    star::Color backMarch(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbHit, const float& t0, const float& t1);
+    star::Color forwardMarch(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbHit, const float& t0, const float& t1);
+
+
 };
 

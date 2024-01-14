@@ -45,12 +45,8 @@ void Volume::renderVolume(const float& fov_radians, const glm::vec3& camPosition
             auto ray = camera.getRayForPixel(x, y, camPosition);
             star::Color newCol{};
 
-            if (rayBoxIntersect(ray, bbounds, t0, t1)) {
-                newCol = this->backMarch(ray, bbounds, t0, t1);
-                if (newCol.r() == 0.0f && newCol.g() == 0.0f && newCol.b() == 0.0f)
-                    std::cout << "test2" << std::endl;
-            }
-                //newCol = star::Color(1.0f, 1.0f, 1.0f, 1.0f);
+            if (rayBoxIntersect(ray, bbounds, t0, t1))
+                newCol = this->forwardMarch(ray, bbounds, t0, t1);
             else
                 newCol = star::Color(0.0f, 0.0f, 0.0f, 0.0f);
             this->screenTexture->getRawData()->at(y).at(x) = newCol;
@@ -193,6 +189,12 @@ void Volume::destroyResources(star::StarDevice& device)
     this->screenTexture.reset(); 
 }
 
+float Volume::henyeyGreensteinPhase(const float& g, const float& cos_theta)
+{
+    float denom = 1 + g * g - 2 * g * cos_theta;
+    return 1 / (4 * glm::pi<float>()) * (1 - g * g) / (denom * std::sqrtf(denom));
+}
+
 bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbBounds, float& t0, float& t1)
 {
     //Debug ray-plane intersection
@@ -239,19 +241,20 @@ bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2
     return tmax >= std::max(0.0f, tmin);
 }
 
-star::Color Volume::backMarch(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbHit, const float& t0, const float& t1)
+star::Color Volume::forwardMarch(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbHit, const float& t0, const float& t1)
 {
     float fittedStepSize = (t1 - t0) / this->numSteps;
-    float beerExpTrans = std::exp(-fittedStepSize * this->sigma);
+    float beerExpTrans = std::exp(-fittedStepSize * this->volDensity * (this->sigma_absorbtion + this->sigma_scattering));
     float transparency = 1.0f;
+    float g = 0.7;
     star::Color backColor{};
-
     star::Color resultingColor{};
 
     for (int i = 0; i < this->numSteps; ++i) {
-        transparency *= beerExpTrans;
-        float t = t1 - fittedStepSize * (i + 0.5); 
+        float t = t0 + fittedStepSize * (i + 0.5);
         glm::vec3 position = ray.org + (t / ray.invDir);
+
+        transparency *= beerExpTrans;
 
         for (const auto& light : this->lightList) {
             //in-scattering 
@@ -262,16 +265,14 @@ star::Color Volume::backMarch(const star::Ray& ray, const std::array<glm::vec3, 
 
             float lt0 = 0, lt1 = 0;
             if (rayBoxIntersect(lightRay, aabbHit, lt0, lt1)) {
-                //assert(lt0 != 0 && "Unknown ray error occurred. The sample step should always be inside hit volume");
-                float lightAtten = std::exp(-lt1 * this->sigma);
+                float cosTheta = glm::dot(ray.dir, lightRay.dir);
+                float lightAtten = std::exp(-this->volDensity * -lt1 * (this->sigma_absorbtion + this->sigma_scattering));
+                float phaseResult = lightAtten * henyeyGreensteinPhase(g, cosTheta) * this->volDensity * fittedStepSize;
 
-                float newR = light->getAmbient().r * lightAtten * fittedStepSize;
-                float newG = light->getAmbient().g * lightAtten * fittedStepSize;
-                float newB = light->getAmbient().b * lightAtten * fittedStepSize;
-                resultingColor.setR(resultingColor.r() + newR);
-                resultingColor.setG(resultingColor.g() + newG);
-                resultingColor.setB(resultingColor.b() + newB);
-                resultingColor.setA(resultingColor.a() + (light->getAmbient().a * lightAtten * fittedStepSize));
+                resultingColor.setR(resultingColor.r() + (light->getAmbient().r * phaseResult));
+                resultingColor.setG(resultingColor.g() + (light->getAmbient().g * phaseResult));
+                resultingColor.setB(resultingColor.b() + (light->getAmbient().b * phaseResult));
+                resultingColor.setA(resultingColor.a() + (light->getAmbient().a * phaseResult));
             }
         }
 
@@ -285,5 +286,5 @@ star::Color Volume::backMarch(const star::Ray& ray, const std::array<glm::vec3, 
     resultingColor.setG(backColor.g() * transparency + resultingColor.g());
     resultingColor.setB(backColor.b() * transparency + resultingColor.b());
     resultingColor.setA(backColor.a() * transparency + resultingColor.a());
-    return resultingColor;  
+    return resultingColor;
 }
