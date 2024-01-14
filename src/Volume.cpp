@@ -189,12 +189,6 @@ void Volume::destroyResources(star::StarDevice& device)
     this->screenTexture.reset(); 
 }
 
-float Volume::henyeyGreensteinPhase(const float& g, const float& cos_theta)
-{
-    float denom = 1 + g * g - 2 * g * cos_theta;
-    return 1 / (4 * glm::pi<float>()) * (1 - g * g) / (denom * std::sqrtf(denom));
-}
-
 bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbBounds, float& t0, float& t1)
 {
     //Debug ray-plane intersection
@@ -246,15 +240,21 @@ star::Color Volume::forwardMarch(const star::Ray& ray, const std::array<glm::vec
     float fittedStepSize = (t1 - t0) / this->numSteps;
     float beerExpTrans = std::exp(-fittedStepSize * this->volDensity * (this->sigma_absorbtion + this->sigma_scattering));
     float transparency = 1.0f;
-    float g = 0.7;
     star::Color backColor{};
     star::Color resultingColor{};
 
     for (int i = 0; i < this->numSteps; ++i) {
+        float randJitter = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
         float t = t0 + fittedStepSize * (i + 0.5);
         glm::vec3 position = ray.org + (t / ray.invDir);
 
         transparency *= beerExpTrans;
+
+        //russian roulette cutoff
+        if ((transparency < 1e-3) && (randJitter > 1.0f / this->russianRouletteCutoff))
+            break;
+        else if (transparency < 1e-3)
+            transparency *= this->russianRouletteCutoff;
 
         for (const auto& light : this->lightList) {
             //in-scattering 
@@ -267,7 +267,7 @@ star::Color Volume::forwardMarch(const star::Ray& ray, const std::array<glm::vec
             if (rayBoxIntersect(lightRay, aabbHit, lt0, lt1)) {
                 float cosTheta = glm::dot(ray.dir, lightRay.dir);
                 float lightAtten = std::exp(-this->volDensity * -lt1 * (this->sigma_absorbtion + this->sigma_scattering));
-                float phaseResult = lightAtten * henyeyGreensteinPhase(g, cosTheta) * this->volDensity * fittedStepSize;
+                float phaseResult = lightAtten * henyeyGreensteinPhase(this->lightPropertyDir_g, cosTheta) * this->volDensity * fittedStepSize;
 
                 resultingColor.setR(resultingColor.r() + (light->getAmbient().r * phaseResult));
                 resultingColor.setG(resultingColor.g() + (light->getAmbient().g * phaseResult));
@@ -287,4 +287,10 @@ star::Color Volume::forwardMarch(const star::Ray& ray, const std::array<glm::vec
     resultingColor.setB(backColor.b() * transparency + resultingColor.b());
     resultingColor.setA(backColor.a() * transparency + resultingColor.a());
     return resultingColor;
+}
+
+float Volume::henyeyGreensteinPhase(const float& g, const float& cos_theta)
+{
+    float denom = 1 + g * g - 2 * g * cos_theta;
+    return 1 / (4 * glm::pi<float>()) * (1 - g * g) / (denom * std::sqrtf(denom));
 }

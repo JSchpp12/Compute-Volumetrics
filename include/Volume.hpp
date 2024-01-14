@@ -21,6 +21,8 @@
 
 #include <stdio.h>
 
+#include <random>
+
 #include <string>
 
 enum Phase_Function{
@@ -64,9 +66,10 @@ public:
     }
 protected:
     std::vector<std::unique_ptr<star::Light>>& lightList; 
-    float numSteps = 3;
-    float sigma_absorbtion = 0.05f, sigma_scattering = 0.05f;
+    int numSteps = 3;
+    float sigma_absorbtion = 0.05f, sigma_scattering = 0.05f, lightPropertyDir_g = 0.85;
     float volDensity = 1.0f;
+    int russianRouletteCutoff = 4;
     std::shared_ptr<star::RuntimeUpdateTexture> screenTexture;
     glm::vec2 screenDimensions{};
     openvdb::GridBase::Ptr baseGrid;
@@ -113,8 +116,6 @@ private:
         }
     };
 
-    static float henyeyGreensteinPhase(const float& g, const float& cos_theta);
-
     float calcExp(const float& stepSize, const float& sigma) const {
         return std::exp(-stepSize * sigma);
     }
@@ -123,6 +124,6 @@ private:
 
     star::Color forwardMarch(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbHit, const float& t0, const float& t1);
 
-
+    static float henyeyGreensteinPhase(const float& g, const float& cos_theta);
 };
 
