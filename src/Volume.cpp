@@ -75,33 +75,37 @@ std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::StarDevice& devi
 
 void Volume::loadModel()
 {
-    const std::string filePath(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "volumes/utahteapot.vdb");
+    const std::string filePath(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "volumes/sphere.vdb");
     openvdb::GridBase::Ptr baseGrid{};
 
     openvdb::io::File file(filePath);
 
     file.open();
 
+    std::cout << "OpenVDB File Info:" << std::endl;
     for (openvdb::io::File::NameIterator nameIter = file.beginName(); nameIter != file.endName(); ++nameIter) {
+        std::cout << "Available Grids in file:" << std::endl;
         std::cout << nameIter.gridName() << std::endl;
 
-        if (nameIter.gridName() == "ls_utahteapot") {
+        if (nameIter.gridName() == "ls_sphere") {
             baseGrid = file.readGrid(nameIter.gridName());
-        
         }
         else {
             std::cout << "Skipping extra grid: " << nameIter.gridName();
         }
     }
-
-    baseGrid->setGridClass(openvdb::GridClass::GRID_FOG_VOLUME);
-
-    std::cout << "OpenVDB File Info:" << std::endl;
-    std::cout << baseGrid->type() << std::endl;
+    file.close();
 
     this->grid = openvdb::gridPtrCast<openvdb::FloatGrid>(baseGrid);
 
-    file.close();
+    std::cout << "Type: " << baseGrid->type() << std::endl;
+
+
+
+    if (this->grid->getGridClass() == openvdb::GridClass::GRID_LEVEL_SET){
+        //need to convert to fog volume
+        convertToFog(this->grid);
+    }
 }
 
 std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> Volume::loadGeometryBuffers(star::StarDevice& device)
@@ -256,7 +260,6 @@ star::Color Volume::forwardMarch(openvdb::FloatGrid::ConstAccessor& gridAccessor
     star::Color backColor{};
     star::Color resultingColor{};
 
-    auto test = this->grid->transform();
     openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler> sampler(gridAccessor, this->grid->transform());
 
     for (int i = 0; i < this->numSteps; ++i) {
@@ -265,8 +268,15 @@ star::Color Volume::forwardMarch(openvdb::FloatGrid::ConstAccessor& gridAccessor
         glm::vec3 position = ray.org + (t / ray.invDir);
         openvdb::Vec3R oPosition(position.x, position.y, position.z);
         openvdb::FloatGrid::ValueType sampledDensity = sampler.wsSample(oPosition);
+
         float beerExpTrans = std::exp(-fittedStepSize * sampledDensity * (this->sigma_absorbtion + this->sigma_scattering));
         transparency *= beerExpTrans;
+
+        //if (sampledDensity > 0.0f && sampledDensity < 1.0f) {
+        //    resultingColor.setR(1.0f);
+        //    resultingColor.setA(1.0f);
+        //    break;
+        //}
 
         for (const auto& light : this->lightList) {
             //in-scattering 
@@ -278,16 +288,16 @@ star::Color Volume::forwardMarch(openvdb::FloatGrid::ConstAccessor& gridAccessor
             float lt0 = 0, lt1 = 0;
             if (rayBoxIntersect(lightRay, aabbHit, lt0, lt1)) {
                 float cosTheta = glm::dot(ray.dir, lightRay.dir);
-                float fittedLightStepSize = lt1 / this->numStepsLight;
+                //float fittedLightStepSize = lt1 / this->numStepsLight;
 
-                float sumLightSampleDensities = 0.0f;
-                for (int lightStep = 0; lightStep < this->numStepsLight; lightStep++) {
-                    float tLight = fittedLightStepSize * (lightStep + 0.5);
-                    glm::vec3 lightTracePosition = lightRay.org + (tLight / lightRay.invDir);
+                float sumLightSampleDensities = 1.0f;
+                //for (int lightStep = 0; lightStep < this->numStepsLight; lightStep++) {
+                //    float tLight = fittedLightStepSize * (lightStep + 0.5);
+                //    glm::vec3 lightTracePosition = lightRay.org + (tLight / lightRay.invDir);
 
-                    openvdb::FloatGrid::ValueType sampledValue = sampler.wsSample(openvdb::Vec3R(lightTracePosition.x, lightTracePosition.y, lightTracePosition.z));
-                    sumLightSampleDensities += sampledValue;
-                }
+                //    openvdb::FloatGrid::ValueType sampledValue = sampler.wsSample(openvdb::Vec3R(lightTracePosition.x, lightTracePosition.y, lightTracePosition.z));
+                //    sumLightSampleDensities += sampledValue;
+                //}
 
                 float lightAtten = std::exp(-sumLightSampleDensities * -lt1 * (this->sigma_absorbtion + this->sigma_scattering));
                 float phaseResult = lightAtten * henyeyGreensteinPhase(this->lightPropertyDir_g, cosTheta) * this->volDensity * fittedStepSize;
@@ -305,10 +315,10 @@ star::Color Volume::forwardMarch(openvdb::FloatGrid::ConstAccessor& gridAccessor
         resultingColor.setA(resultingColor.a() * transparency);
 
         //russian roulette cutoff
-        if ((transparency < 1e-3) && (randJitter > 1.0f / this->russianRouletteCutoff))
-            break;
-        else if (transparency < 1e-3)
-            transparency *= this->russianRouletteCutoff;
+        //if ((transparency < 1e-3) && (randJitter > 1.0f / this->russianRouletteCutoff))
+        //    break;
+        //else if (transparency < 1e-3)
+        //    transparency *= this->russianRouletteCutoff;
     }
 
     resultingColor.setR(backColor.r() * transparency + resultingColor.r());
@@ -316,6 +326,32 @@ star::Color Volume::forwardMarch(openvdb::FloatGrid::ConstAccessor& gridAccessor
     resultingColor.setB(backColor.b() * transparency + resultingColor.b());
     resultingColor.setA(backColor.a() * transparency + resultingColor.a());
     return resultingColor;
+}
+
+void Volume::convertToFog(openvdb::FloatGrid::Ptr& grid)
+{
+    const float outside = grid->background();
+    const float width = 2.0 * outside;
+
+    // Visit and update all of the grid's active values, which correspond to
+    // voxels on the narrow band.
+    for (openvdb::FloatGrid::ValueOnIter iter = grid->beginValueOn(); iter; ++iter) {
+        float dist = iter.getValue();
+        iter.setValue((outside - dist) / width);
+    }
+
+    // Visit all of the grid's inactive tile and voxel values and update the values
+    // that correspond to the interior region.
+    for (openvdb::FloatGrid::ValueOffIter iter = grid->beginValueOff(); iter; ++iter) {
+        if (iter.getValue() < 0.0) {
+            iter.setValue(1.0);
+            iter.setValueOff();
+        }
+    }
+    // Set exterior voxels to 0.
+    openvdb::tools::changeBackground(grid->tree(), 0.0);
+
+    grid->setGridClass(openvdb::GridClass::GRID_FOG_VOLUME);
 }
 
 float Volume::henyeyGreensteinPhase(const float& g, const float& cos_theta)

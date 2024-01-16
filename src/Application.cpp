@@ -7,7 +7,7 @@ Application::Application(star::StarScene& scene) : StarApplication(scene) {}
 void Application::Load()
 {
     //this->camera.setPosition(glm::vec3{ 3.0, 0.0f, 2.0f });
-    this->camera.setPosition(glm::vec3{ 6.0, 0.0f, 0.0f });
+    this->camera.setPosition(glm::vec3{4.0f, 0.0f, 0.0f });
     this->camera.setForwardVector(glm::vec3{0.0, 0.0, 0.0} - this->camera.getPosition());
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
@@ -27,13 +27,13 @@ void Application::Load()
     sphere->isVisible = false;
     auto& s_i = sphere->createInstance();
     //s_i.setPosition(glm::vec3{ 0.0, 0.0, -1.0 });
-    s_i.setScale(glm::vec3{ 0.005, 0.005, 0.005 });
+    s_i.setScale(glm::vec3{ 0.05, 0.05, 0.05 });
     sphere->updateGridTransforms();
     auto handle = this->scene.add(std::move(sphere));
     StarObject* obj = &this->scene.getObject(handle); 
     this->vol = static_cast<Volume*>(obj);
 
-    this->scene.add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ -6, 0, 0 }, glm::vec3{-1.0, 0.0, 0.0}));
+    this->scene.add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{-1.0, 0.0, 0.0}));
 }
 
 void Application::onKeyPress(int key, int scancode, int mods)
