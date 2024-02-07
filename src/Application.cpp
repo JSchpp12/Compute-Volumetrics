@@ -38,8 +38,20 @@ void Application::Load()
 
 void Application::onKeyPress(int key, int scancode, int mods)
 {
-    if (key == star::KEY::H)
+    if (key == star::KEY::H && !this->vol->udpdateVolumeRender)
+        this->vol->udpdateVolumeRender = true;
+    if (key == star::KEY::V)
         this->vol->isVisible = !this->vol->isVisible;
+    if (key == star::KEY::J)
+    {
+        this->vol->rayMarchToVolumeBoundry = !this->vol->rayMarchToVolumeBoundry;
+        this->vol->rayMarchToAABB = false; 
+    }
+    if (key == star::KEY::K)
+    {
+        this->vol->rayMarchToAABB = !this->vol->rayMarchToAABB;
+        this->vol->rayMarchToVolumeBoundry = false; 
+    }
 }
 
 void Application::onKeyRelease(int key, int scancode, int mods)
@@ -60,14 +72,15 @@ void Application::onScroll(double xoffset, double yoffset)
 
 void Application::onWorldUpdate()
 {
-    glm::vec3 cameraRotations{
-        cos(this->camera.getYaw()) * cos(this->camera.getPitch()),
-        sin(this->camera.getYaw()) * cos(this->camera.getPitch()),
-        sin(this->camera.getPitch())
-    };
+    if (this->vol->udpdateVolumeRender) {
+        glm::vec3 cameraRotations{
+            cos(this->camera.getYaw()) * cos(this->camera.getPitch()),
+            sin(this->camera.getYaw()) * cos(this->camera.getPitch()),
+            sin(this->camera.getPitch())
+        };
 
-    auto proj = glm::inverse(this->camera.getViewMatrix());
-    
-    if (this->vol->isVisible)
-        this->vol->renderVolume(glm::radians(45.0f*0.5), this->camera.getPosition(), glm::inverse(this->camera.getViewMatrix()), this->camera.getProjectionMatrix());
+        auto proj = glm::inverse(this->camera.getViewMatrix());
+
+        this->vol->renderVolume(glm::radians(45.0f * 0.5), this->camera.getPosition(), glm::inverse(this->camera.getViewMatrix()), this->camera.getProjectionMatrix());
+    }
 }

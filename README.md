@@ -23,7 +23,7 @@ The following must be installed:
 git clone --recurse-submodules https://github.com/JSchpp12/Compute-Volumetrics.git
 ```
 
-2. OpenVDB must be built. This project is included as a submodule. However, it itself has depdencies that must be provided. This is the recommended outline of how to setup this library with vcpkg on windows is outlined below:
+2. OpenVDB must be built. This project is included as a submodule. However, it itself has depdencies that must be provided. The recommended outline of how to setup this library with vcpkg on windows is outlined below:
     1. Install [vcpkg](https://vcpkg.io/en/) if needed
     2. Install the dependencies for openVDB
 
@@ -36,6 +36,8 @@ git clone --recurse-submodules https://github.com/JSchpp12/Compute-Volumetrics.g
     vcpkg install boost-algorithm:x64-windows
     vcpkg install boost-interprocess:x64-windows
     ```
+
+    NOTE: On some systems there are issues with boost being found by cmake when using vcpkg. To ensure everything works, install boost as described on the project website.
 
     3. Prepare solutions, example provided in prep.bat (make sure to provide DCMAKE_TOOLCHAIN_FILE variable to cmake)
         1. Build openVDB with cmake
@@ -60,3 +62,7 @@ git clone --recurse-submodules https://github.com/JSchpp12/Compute-Volumetrics.g
 1. Required .dll not found while using vcpkg.
 
 If using vcpkg and during runtime, an error is displayed regarding a .dll not being found, this is due to a copy failure or visual studio not properly using vcpkg. In project properties, ensure Use Vcpkg is set to ON. It might also help to set Use Manifest to ON as well.
+
+2. Undefined references to lz4 while compiling openvdb.
+
+This is an issue which occurred while compiling on linux. A possible solution can be to install the lz4 binary for the distro. 

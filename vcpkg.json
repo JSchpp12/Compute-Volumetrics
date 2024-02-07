@@ -1,15 +1,28 @@
 {
   "dependencies": [
-    "openvdb",
-    "boost"
+    "blosc",
+    "boost-iostreams",
+    "boost-any",
+    "boost-algorithm",
+    "boost-interprocess",
+    "tbb",
+    "zlib"
   ],
   "overrides":[
     {
-      "name": "openvdb",
-      "version": "11.0.0"
+      "name": "boost-iostreams",
+      "version": "1.80.0"
     },
     {
-      "name": "boost",
+      "name": "boost-algorithm",
+      "version": "1.80.0"
+    },    
+    {
+      "name": "boost-any",
+      "version": "1.80.0"
+    },
+    {
+      "name": "boost-interprocess",
       "version": "1.80.0"
     }
   ]
