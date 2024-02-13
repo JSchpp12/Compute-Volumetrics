@@ -11,16 +11,13 @@ void Application::Load()
     this->camera.setForwardVector(glm::vec3{0.0, 0.0, 0.0} - this->camera.getPosition());
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-    auto lionPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "models/lion-statue/source/rapid.obj";
-    auto materialsPath = mediaDirectoryPath + "models/lion-statue/source";
-    auto plantPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "models/aloevera/aloevera.obj";
     auto airplanePath = mediaDirectoryPath + "models/airplane/Airplane.obj";
 
-    //auto airplane = star::BasicObject::New(airplanePath); 
-    //auto& a_i = airplane->createInstance(); 
-    //airplane->drawBoundingBox = true;
-    //a_i.setScale(glm::vec3{ 0.01, 0.01, 0.01 });
-    //this->scene.add(std::move(airplane));
+    auto airplane = star::BasicObject::New(airplanePath); 
+    auto& a_i = airplane->createInstance(); 
+    airplane->drawBoundingBox = true;
+    a_i.setScale(glm::vec3{ 0.01, 0.01, 0.01 });
+    this->scene.add(std::move(airplane));
 
     auto sphere = std::make_unique<Volume>(1280, 720, this->scene.getLights());
     sphere->drawBoundingBox = true; 
@@ -34,6 +31,15 @@ void Application::Load()
     this->vol = static_cast<Volume*>(obj);
 
     this->scene.add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{-1.0, 0.0, 0.0}));
+
+
+    std::cout << "Application Controls" << std::endl; 
+    std::cout << "H - trigger volume render" << std::endl; 
+    std::cout << "M - trigger normal path traced volume render" << std::endl;
+    std::cout << "V - trigger volume visibility" << std::endl;
+    std::cout << "J - set ray marching to volume active boundry" << std::endl; 
+    std::cout << "K - set ray marching to AABB" << std::endl; 
+    std::cout << std::endl; 
 }
 
 void Application::onKeyPress(int key, int scancode, int mods)
@@ -42,6 +48,10 @@ void Application::onKeyPress(int key, int scancode, int mods)
         this->vol->udpdateVolumeRender = true;
     if (key == star::KEY::V)
         this->vol->isVisible = !this->vol->isVisible;
+    if (key == star::KEY::M) {
+        this->vol->rayMarchToAABB = false; 
+        this->vol->rayMarchToAABB = false; 
+    }
     if (key == star::KEY::J)
     {
         this->vol->rayMarchToVolumeBoundry = !this->vol->rayMarchToVolumeBoundry;

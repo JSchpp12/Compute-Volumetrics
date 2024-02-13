@@ -288,12 +288,6 @@ star::Color Volume::forwardMarch(openvdb::FloatGrid::ConstAccessor& gridAccessor
         float beerExpTrans = std::exp(-fittedStepSize * sampledDensity * (this->sigma_absorbtion + this->sigma_scattering));
         transparency *= beerExpTrans;
 
-        if (this->rayMarchToVolumeBoundry && sampledDensity > 0.0f && sampledDensity < 1.0f) {
-            resultingColor.setR(1.0f);
-            resultingColor.setA(1.0f);
-            break;
-        }
-
         for (const auto& light : this->lightList) {
             //in-scattering 
             star::Ray lightRay{
