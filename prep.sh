@@ -1,5 +1,5 @@
 #! /bin/bash
-VCPKG_PATH=~/vcpkg/scripts/buildsystems/vcpkg.cmake
+VCPKG_PATH=<VCPKG_PATH>
 WPATH=$PWD
 
 if ! test -d prep_work; then
