@@ -39,6 +39,7 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE starlight
 	PRIVATE OpenVDB::openvdb
+	PRIVATE GDAL::GDAL
 	# PRIVATE Boost::boost
 )
 

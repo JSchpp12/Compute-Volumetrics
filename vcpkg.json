@@ -6,7 +6,8 @@
     "boost-algorithm",
     "boost-interprocess",
     "tbb",
-    "zlib"
+    "zlib",
+    "gdal"
   ],
   "overrides":[
     {
