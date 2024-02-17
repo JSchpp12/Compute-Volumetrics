@@ -14,6 +14,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/Debug/lib/
 
 find_package(OpenVDB REQUIRED)
 find_package(TBB REQUIRED)
+find_package(GDAL CONFIG REQUIRED)
 # find_package(Boost REQUIRED COMPONENTS boost thread)
 
 add_subdirectory("extern/starlight")

@@ -16,8 +16,7 @@ layout(binding = 0, set = 0) uniform GlobalUniformBufferObject {
 	mat4 proj;
 	mat4 view;  
 	mat4 inverseView; 
-	int numLights;
-	int renderSettings; 
+	int numLights; 
 } globalUbo; 
 
 layout(binding = 0, set = 1) uniform instanceModelMatrix{
