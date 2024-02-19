@@ -30,6 +30,8 @@
 #include <string>
 #include <thread>
 
+constexpr auto NUM_THREADS = 12;
+
 enum Phase_Function{
     Henyey_Greenstein
 };
@@ -109,7 +111,7 @@ private:
         {
         }
 
-        star::Ray getRayForPixel(const size_t& x, const size_t& y, const glm::vec3 camPosition) const
+        star::Ray getRayForPixel(const size_t& x, const size_t& y) const
         {
             assert(x >= 0 && y >= 0 && "Coordinates must be positive");
             assert(x < this->dimensions.x && y < this->dimensions.y && "Coordinates must be within dimensions of screen");
@@ -129,22 +131,30 @@ private:
             return star::Ray{ origin, normDir };
         }
     };
-    
-     //grid = openvdb::gridPtrCast<openvdb::FloatGrid>(baseGrid);
 
-    float calcExp(const float& stepSize, const float& sigma) const {
-        return std::exp(-stepSize * sigma);
-    }
+    static float calcExp(const float& stepSize, const float& sigma);
 
-    bool rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbBounds, float& t0, float& t1);
+    static float henyeyGreensteinPhase(const float& g, const float& cos_theta);
 
-    star::Color forwardMarch(openvdb::FloatGrid::ConstAccessor& gridAccessor, const star::Ray& ray, const std::array<glm::vec3, 2>& aabbHit, const float& t0, const float& t1);
+    static openvdb::Mat4R getTransform(const glm::mat4& objectDisplayMat);
 
-    star::Color forwardMarchToVolumeActiveBoundry(openvdb::FloatGrid::ConstAccessor& gridAccessor, const star::Ray& ray, const std::array<glm::vec3, 2>& aabbHit, const float& t0, const float& t1);
+    static void calculateColor(const std::vector<std::unique_ptr<star::Light>>& lightList,
+        const int& numSteps, const int& numSteps_light, const int& russianRouletteCutoff,
+        const float& sigma_absorbtion, const float& sigma_scattering,
+        const float& lightPropertyDir_g, const float& volDensity,
+        const std::array<glm::vec3, 2>& aabbBounds, openvdb::FloatGrid::Ptr grid,
+        RayCamera camera, 
+        std::vector<std::optional<std::pair<std::pair<size_t,size_t>, star::Color*>>> coordColorWork);
 
-    static void convertToFog(openvdb::FloatGrid::Ptr& grid);
+    static bool rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbBounds, float& t0, float& t1);
 
-    static float henyeyGreensteinPhase(const glm::vec3& viewDirection,const glm::vec3& lightDirection, const float& gValue);
+    static star::Color forwardMarch(const std::vector<std::unique_ptr<star::Light>>& lightList,
+        const int& numSteps, const int& numSteps_light, const int& russianRouletteCutoff,
+        const float& sigma_absorbtion, const float& sigma_scattering,
+        const float& lightPropertyDir_g, const float& volDensity, 
+        const star::Ray& ray, openvdb::FloatGrid::Ptr grid,
+        const std::array<glm::vec3, 2>& aabbHit, 
+        const float& t0, const float& t1);
 
     static openvdb::Mat4R getTransform(const glm::mat4& objectDisplayMat);
 };
