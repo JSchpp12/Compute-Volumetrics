@@ -61,7 +61,7 @@ void Volume::renderVolume(const double& fov_radians, const glm::vec3& camPositio
                 std::ref(this->russianRouletteCutoff), std::ref(this->sigma_absorbtion), 
                 std::ref(this->sigma_scattering), std::ref(this->lightPropertyDir_g), 
                 std::ref(this->volDensity), std::ref(bbounds),
-                this->grid, camera, coordWork, false, false);
+                this->grid, camera, coordWork, this->rayMarchToAABB, this->rayMarchToVolumeBoundry);
         }
     }
     std::cout << "Done" << std::endl; 
@@ -270,8 +270,6 @@ float Volume::henyeyGreensteinPhase(const glm::vec3& viewDirection, const glm::v
 
 void Volume::calculateColor(const std::vector<std::unique_ptr<star::Light>>& lightList, const float& stepSize, const float& stepSize_light, const int& russianRouletteCutoff, const float& sigma_absorbtion, const float& sigma_scattering, const float& lightPropertyDir_g, const float& volDensity, const std::array<glm::vec3, 2>& aabbBounds, openvdb::FloatGrid::Ptr grid, RayCamera camera, std::vector<std::optional<std::pair<std::pair<size_t, size_t>, star::Color*>>> coordColorWork, bool marchToaabbIntersection, bool marchToVolBoundry)
 {
-    assert(marchToaabbIntersection != true && marchToVolBoundry != true && "Both settings for ray marching options cannot be enabled at the same time.");
-
     for (auto& work : coordColorWork) {
         if (work.has_value()) {
             float t0 = 0, t1 = 0;
@@ -279,7 +277,12 @@ void Volume::calculateColor(const std::vector<std::unique_ptr<star::Light>>& lig
             star::Color newCol{};
 
             if (rayBoxIntersect(ray, aabbBounds, t0, t1))
-                newCol = forwardMarch(lightList, stepSize, stepSize_light, russianRouletteCutoff, sigma_absorbtion, sigma_scattering, lightPropertyDir_g, volDensity, ray, grid, aabbBounds, t0, t1);
+                if (marchToaabbIntersection)
+                    newCol = star::Color(1.0f, 0.0f, 0.0f, 1.0f);
+                else if (marchToVolBoundry)
+                    newCol = forwardMarchToVolumeActiveBoundry(stepSize, ray, aabbBounds, grid, t0, t1);
+                else
+                    newCol = forwardMarch(lightList, stepSize, stepSize_light, russianRouletteCutoff, sigma_absorbtion, sigma_scattering, lightPropertyDir_g, volDensity, ray, grid, aabbBounds, t0, t1);
             else
                 newCol = star::Color(0.0f, 0.0f, 0.0f, 0.0f);
 

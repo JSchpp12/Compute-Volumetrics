@@ -30,7 +30,7 @@
 #include <string>
 #include <thread>
 
-constexpr auto NUM_THREADS = 10;
+constexpr auto NUM_THREADS = 20;
 
 enum Phase_Function{
     Henyey_Greenstein
@@ -82,7 +82,7 @@ public:
     }
 protected:
     std::vector<std::unique_ptr<star::Light>>& lightList; 
-    float stepSize = 0.025f, stepSize_light = 0.4f;
+    float stepSize = 0.05f, stepSize_light = 0.4f;
     float sigma_absorbtion = 0.001f, sigma_scattering = 0.001f, lightPropertyDir_g = 0.2f;
     float volDensity = 1.0f;
     int russianRouletteCutoff = 4;

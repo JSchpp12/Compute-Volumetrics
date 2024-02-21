@@ -13,11 +13,11 @@ void Application::Load()
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
     auto airplanePath = mediaDirectoryPath + "models/airplane/Airplane.obj";
 
-    auto airplane = star::BasicObject::New(airplanePath); 
-    auto& a_i = airplane->createInstance(); 
-    airplane->drawBoundingBox = true;
-    a_i.setScale(glm::vec3{ 0.01, 0.01, 0.01 });
-    this->scene.add(std::move(airplane));
+    //auto airplane = star::BasicObject::New(airplanePath); 
+    //auto& a_i = airplane->createInstance(); 
+    //airplane->drawBoundingBox = true;
+    //a_i.setScale(glm::vec3{ 0.01, 0.01, 0.01 });
+    //this->scene.add(std::move(airplane));
 
     auto sphere = std::make_unique<Volume>(1280, 720, this->scene.getLights());
     sphere->drawBoundingBox = true; 
@@ -50,7 +50,7 @@ void Application::onKeyPress(int key, int scancode, int mods)
         this->vol->isVisible = !this->vol->isVisible;
     if (key == star::KEY::M) {
         this->vol->rayMarchToAABB = false; 
-        this->vol->rayMarchToAABB = false; 
+        this->vol->rayMarchToVolumeBoundry = false; 
     }
     if (key == star::KEY::J)
     {
