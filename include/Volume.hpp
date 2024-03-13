@@ -164,4 +164,3 @@ private:
 
     static openvdb::Mat4R getTransform(const glm::mat4& objectDisplayMat);
 };
-

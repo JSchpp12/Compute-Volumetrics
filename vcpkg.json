@@ -1,15 +1,29 @@
 {
   "dependencies": [
+    "glfw3",
+    "glm",
+    "stb",
+    "tinyobjloader",
+    
+
     "blosc",
     "boost-iostreams",
     "boost-any",
     "boost-algorithm",
     "boost-interprocess",
+    "gdal",
     "tbb",
-    "zlib",
-    "gdal"
+    "zlib"
   ],
   "overrides":[
+    {
+      "name": "glfw3",
+      "version": "3.3.9"
+    },
+    {
+      "name": "glm",
+      "version": "2023-06-08"
+    },
     {
       "name": "boost-iostreams",
       "version": "1.80.0"
