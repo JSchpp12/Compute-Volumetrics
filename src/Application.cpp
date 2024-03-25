@@ -13,11 +13,11 @@ void Application::Load()
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
     auto airplanePath = mediaDirectoryPath + "models/airplane/Airplane.obj";
 
-    //auto airplane = star::BasicObject::New(airplanePath); 
-    //auto& a_i = airplane->createInstance(); 
-    //airplane->drawBoundingBox = true;
-    //a_i.setScale(glm::vec3{ 0.01, 0.01, 0.01 });
-    //this->scene.add(std::move(airplane));
+    auto airplane = star::BasicObject::New(airplanePath); 
+    auto& a_i = airplane->createInstance(); 
+    airplane->drawBoundingBox = true;
+    a_i.setScale(glm::vec3{ 0.01, 0.01, 0.01 });
+    this->scene.add(std::move(airplane));
 
     auto sphere = std::make_unique<Volume>(1280, 720, this->scene.getLights());
     sphere->drawBoundingBox = true; 
@@ -32,7 +32,6 @@ void Application::Load()
 
     this->scene.add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{-1.0, 0.0, 0.0}));
 
-
     std::cout << "Application Controls" << std::endl; 
     std::cout << "H - trigger volume render" << std::endl; 
     std::cout << "M - trigger normal path traced volume render" << std::endl;
@@ -44,6 +43,15 @@ void Application::Load()
 
 void Application::onKeyPress(int key, int scancode, int mods)
 {
+    if (key == star::KEY::P) {
+        auto time = std::time(nullptr); 
+        auto tm = *std::localtime(&time);
+        std::ostringstream oss;
+        oss << std::put_time(&tm, "%Y-%m-%d-%H-%M-%S") << ".png";
+        auto stringName = oss.str();
+        star::StarEngine::takeScreenshot(stringName);
+    }
+
     if (key == star::KEY::H && !this->vol->udpdateVolumeRender)
         this->vol->udpdateVolumeRender = true;
     if (key == star::KEY::V)

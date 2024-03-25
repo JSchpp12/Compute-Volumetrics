@@ -18,9 +18,6 @@
 const uint32_t WIDTH = 1600;
 const uint32_t HEIGHT = 1200;
 
-#define STB_IMAGE_IMPLEMENTATION    
-#include "stb_image.h"
-
 int main() {
 
     //TODO: give object and camera and lights to engine then pass ref to application -- will fix deletion problem

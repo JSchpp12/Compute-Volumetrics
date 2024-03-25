@@ -3,8 +3,7 @@
     "glfw3",
     "glm",
     "stb",
-    "tinyobjloader",
-    
+    "vulkan-memory-allocator",
 
     "blosc",
     "boost-iostreams",
@@ -15,7 +14,7 @@
     "tbb",
     "zlib"
   ],
-  "overrides":[
+  "overrides": [
     {
       "name": "glfw3",
       "version": "3.3.9"
@@ -31,7 +30,7 @@
     {
       "name": "boost-algorithm",
       "version": "1.80.0"
-    },    
+    },
     {
       "name": "boost-any",
       "version": "1.80.0"
