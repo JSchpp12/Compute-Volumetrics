@@ -70,6 +70,9 @@ void Application::onKeyPress(int key, int scancode, int mods)
         this->vol->rayMarchToAABB = !this->vol->rayMarchToAABB;
         this->vol->rayMarchToVolumeBoundry = false; 
     }
+    if (key == star::KEY::P) {
+		star::StarEngine::takeScreenshot("screenshot.png");
+    }
 }
 
 void Application::onKeyRelease(int key, int scancode, int mods)
@@ -90,6 +93,8 @@ void Application::onScroll(double xoffset, double yoffset)
 
 void Application::onWorldUpdate()
 {
+    star::StarEngine::takeScreenshot("screenshot.png");
+
     if (this->vol->udpdateVolumeRender) {
         glm::vec3 cameraRotations{
             cos(this->camera.getYaw()) * cos(this->camera.getPitch()),
