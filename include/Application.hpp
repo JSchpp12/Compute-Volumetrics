@@ -11,6 +11,7 @@
 #include "TextureManager.hpp"
 #include "LightManager.hpp"
 #include "KeyStates.hpp"
+#include "Terrain.hpp"
 #include "BasicObject.hpp"
 #include "Volume.hpp"
 

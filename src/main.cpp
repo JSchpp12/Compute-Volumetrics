@@ -19,8 +19,6 @@ const uint32_t WIDTH = 1600;
 const uint32_t HEIGHT = 1200;
 
 int main() {
-
-    //TODO: give object and camera and lights to engine then pass ref to application -- will fix deletion problem
     auto engine = star::StarEngine();
     auto application = Application(engine.getScene());
     application.Load();
