@@ -37,6 +37,9 @@ void Application::Load()
 
         auto terrain = std::make_unique<Terrain>(terrainPath, terrainTexture, glm::vec3{ top, left, 0 }, glm::vec3{ bottom, right, 0 });
         auto& t_i = terrain->createInstance();
+        t_i.setScale(glm::vec3(0.01, 0.01, 0.01)); 
+        t_i.rotateGlobal(star::Type::Axis::z, 90);
+        terrain->drawNormals = true; 
 
         this->scene.add(std::move(terrain));
     }

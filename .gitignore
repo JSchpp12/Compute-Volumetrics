@@ -6,3 +6,4 @@ prep_work/*
 libs/*
 vsproj/*
 vcpkg_installed/*
+CMakeSettings.json
