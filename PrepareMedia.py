@@ -1,5 +1,6 @@
 from ctypes.wintypes import LARGE_INTEGER
 from multiprocessing.dummy import current_process
+import json
 import os
 import sys 
 import string
@@ -53,9 +54,10 @@ def SearchForFiles(currentSourcePath : string, currentDestPath : string):
 
 SearchForFiles(inMediaDir, destinationMediaDir)
 
-#update config file
-lines = []
-print(f'Config file: {inConfigFilePath}')
-newConfigContents = []
-with open(destinationConfigFile, 'w+') as f:
-    f.write('mediadirectory=./media/\n')
+#write config file
+with open(destinationConfigFile, 'w', encoding='utf-8') as f:
+    json.dump({
+        'media_directory': './media/',
+        'texture_filtering': 'linear',
+        'texture_anisotropy': 'max' 
+    }, f)
