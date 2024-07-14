@@ -82,10 +82,6 @@ Light_Type createLightTypeStruct(){
 	return(lightChecker);
 }
 
-void lightCalculations(Light light, inout vec3 fragColor){
-
-}
-
 void main() {
 	bool isSpot = false;
 	bool isDirectional = false; 
@@ -166,7 +162,7 @@ void main() {
 				if (isSpot && (theta < lights[i].controls.x)){
 					//apply outer ring intensities to fragment light effects
 					diffuseLight += rawDiffuse * spotIntensity; 
-					specularLight =+ rawSpecular * spotIntensity; 
+					specularLight += rawSpecular * spotIntensity; 
 				}else{
 					diffuseLight += rawDiffuse; 
 					specularLight += rawSpecular;
@@ -180,6 +176,7 @@ void main() {
 			vec3 totalSurfaceColor = (ambientLight + diffuseLight + specularLight) * vec3(texture(textureSampler, inFragTextureCoordinate)); 
 
 			outColor = vec4(totalSurfaceColor, 1.0);
+			// outColor = vec4(1.0, 1.0, 1.0, 1.0);
 		}
 	}
 }

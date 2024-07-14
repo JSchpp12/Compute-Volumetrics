@@ -15,7 +15,6 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/Debug/lib/
 find_package(OpenVDB REQUIRED)
 find_package(TBB REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
-# find_package(Boost REQUIRED COMPONENTS boost thread)
 
 add_subdirectory("extern/starlight")
 
@@ -23,25 +22,25 @@ set(${PROJECT_NAME}_SOURCE
 	"src/main.cpp"
  	"src/Application.cpp"
 	"src/Volume.cpp"
+	"src/Terrain.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/Application.hpp"
 	"include/Volume.hpp"
+	"include/Terrain.hpp"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")
 
 target_include_directories(${PROJECT_NAME}
 	PRIVATE "include"
-	# PRIVATE "${Boost_INCLUDE_DIRS}"
 )
 
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE starlight
 	PRIVATE OpenVDB::openvdb
 	PRIVATE GDAL::GDAL
-	# PRIVATE Boost::boost
 )
 
 #TODO: NEED BETTER SOLUTION FOR MEDIA FILES

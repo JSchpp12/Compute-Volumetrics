@@ -96,7 +96,7 @@ protected:
 
     std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> loadGeometryBuffers(star::StarDevice& device) override;
 
-    void initResources(star::StarDevice& device, const int numFramesInFlight) override;
+    void initResources(star::StarDevice& device, const int& numFramesInFlight) override;
 
     void destroyResources(star::StarDevice& device) override;
 
@@ -164,4 +164,3 @@ private:
 
     static openvdb::Mat4R getTransform(const glm::mat4& objectDisplayMat);
 };
-

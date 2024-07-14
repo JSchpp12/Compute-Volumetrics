@@ -1,6 +1,6 @@
 [submodule "extern/starlight"]
 	path = extern/starlight
 	url = https://github.com/JSchpp12/Starlight.git
-[submodule "extern/openvdb"]
-	path = extern/openvdb
-	url = https://github.com/AcademySoftwareFoundation/openvdb.git
+[submodule "extern/vcpkg"]
+	path = extern/vcpkg
+	url = https://github.com/microsoft/vcpkg.git

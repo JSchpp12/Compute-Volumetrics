@@ -203,7 +203,7 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
     return std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>>(std::move(stagingVert), std::move(stagingIndex));
 }
 
-void Volume::initResources(star::StarDevice& device, const int numFramesInFlight)
+void Volume::initResources(star::StarDevice& device, const int& numFramesInFlight)
 {
     this->StarObject::initResources(device, numFramesInFlight);
 }
