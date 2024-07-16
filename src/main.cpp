@@ -8,7 +8,6 @@
 #include "common/ConfigFile.hpp"
 
 #include "managers/ShaderManager.hpp"
-#include "managers/ObjectManager.hpp"
 #include "managers/TextureManager.hpp"
 #include "managers/LightManager.hpp"
 #include "managers/MapManager.hpp"
