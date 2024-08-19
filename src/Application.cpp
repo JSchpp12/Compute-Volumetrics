@@ -119,6 +119,7 @@ void Application::onScroll(double xoffset, double yoffset)
 
 void Application::onWorldUpdate()
 {
+    StarEngine::takeScreenshot("screenshot.png");
     //if (this->vol->udpdateVolumeRender) {
     //    glm::vec3 cameraRotations{
     //        cos(this->camera.getYaw()) * cos(this->camera.getPitch()),

@@ -12,7 +12,7 @@ project("starlightapp")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/Release/lib/cmake/OpenVDB")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/Debug/lib/cmake/OpenVDB")
 
-find_package(OpenVDB REQUIRED)
+find_package(OpenVDB CONFIG REQUIRED)
 find_package(TBB REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
 
@@ -57,6 +57,8 @@ add_custom_command(
 	COMMAND 
 		python ${PREP_MEDIA_CMD} buildDir=${CMAKE_CURRENT_BINARY_DIR} mediaDir=${CMAKE_CURRENT_SOURCE_DIR}/media configFile=${CMAKE_CURRENT_SOURCE_DIR}/StarEngine.cfg
 )
+
+
 
 # using something like this prevents vcpkg from working correctly
 #add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

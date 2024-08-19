@@ -53,7 +53,7 @@ layout(binding = 0, set = 0) uniform GlobalUniformBufferObject {
 	uint renderSettings;
 } globalUbo; 
 
- layout(binding = 1, set = 0) buffer globalLightBuffer{
+layout(binding = 1, set = 0) readonly buffer globalLightBuffer{
 	Light lights[];
  };
 
