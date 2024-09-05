@@ -12,11 +12,11 @@ void Application::Load()
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    auto horse = star::BasicObject::New(horsePath);
-    auto& h_i = horse->createInstance();
-    h_i.setScale(glm::vec3{ 0.1, 0.1, 0.1 });
-    this->scene.add(std::move(horse));
+    //auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    //auto horse = star::BasicObject::New(horsePath);
+    //auto& h_i = horse->createInstance();
+    //h_i.setScale(glm::vec3{ 0.1, 0.1, 0.1 });
+    //this->scene.add(std::move(horse));
 
     {
         auto terrainPath = mediaDirectoryPath + "terrains/final.tif";
@@ -40,7 +40,7 @@ void Application::Load()
         //terrain->isVisible = false; 
         t_i.setScale(glm::vec3(0.01, 0.01, 0.01)); 
         t_i.rotateGlobal(star::Type::Axis::z, 90);
-        terrain->drawNormals = true; 
+        //terrain->drawNormals = true; 
 
         this->scene.add(std::move(terrain));
     }
@@ -119,7 +119,6 @@ void Application::onScroll(double xoffset, double yoffset)
 
 void Application::onWorldUpdate()
 {
-    StarEngine::takeScreenshot("screenshot.png");
     //if (this->vol->udpdateVolumeRender) {
     //    glm::vec3 cameraRotations{
     //        cos(this->camera.getYaw()) * cos(this->camera.getPitch()),

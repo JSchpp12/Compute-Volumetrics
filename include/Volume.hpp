@@ -1,6 +1,6 @@
 #pragma once
 
-
+#include "RenderingTargetInfo.hpp"
 #include "StarObject.hpp"
 #include "StarCamera.hpp"
 #include "ConfigFile.hpp"
@@ -69,7 +69,7 @@ public:
 
     void renderVolume(const double& fov_radians, const glm::vec3& camPosition, const glm::mat4& camDispMatrix, const glm::mat4& camProjMat);
 
-    std::unique_ptr<star::StarPipeline> buildPipeline(star::StarDevice& device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout, vk::RenderPass renderPass);
+    //std::unique_ptr<star::StarPipeline> buildPipeline(star::StarDevice& device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout, RenderingTargetInfo renderInfo);
     
     /// <summary>
     /// Expensive, only call when necessary.

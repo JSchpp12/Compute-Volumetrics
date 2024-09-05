@@ -71,32 +71,32 @@ void Volume::renderVolume(const double& fov_radians, const glm::vec3& camPositio
     this->udpdateVolumeRender = false;
     this->isVisible = true;
 }
-
-std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::StarDevice& device, vk::Extent2D swapChainExtent,
-    vk::PipelineLayout pipelineLayout, vk::RenderPass renderPass)
-{
-    star::StarGraphicsPipeline::PipelineConfigSettings settings;
-    star::StarGraphicsPipeline::defaultPipelineConfigInfo(settings, swapChainExtent, renderPass, pipelineLayout);
-
-    //enable alpha blending
-    settings.colorBlendAttachment.blendEnable = VK_TRUE; 
-    settings.colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-    settings.colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
-    settings.colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
-    settings.colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
-    settings.colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
-    settings.colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
-
-    settings.colorBlendInfo.logicOpEnable = VK_FALSE;
-    settings.colorBlendInfo.logicOp = vk::LogicOp::eCopy;
-
-    auto graphicsShaders = this->getShaders();
-
-    auto newPipeline = std::make_unique<star::StarGraphicsPipeline>(device, settings, graphicsShaders.at(star::Shader_Stage::vertex), graphicsShaders.at(star::Shader_Stage::fragment));
-    newPipeline->init();
-
-    return std::move(newPipeline);
-}
+//
+//std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::StarDevice& device, vk::Extent2D swapChainExtent,
+//    vk::PipelineLayout pipelineLayout)
+//{
+//    star::StarGraphicsPipeline::PipelineConfigSettings settings;
+//    star::StarGraphicsPipeline::defaultPipelineConfigInfo(settings, swapChainExtent, pipelineLayout);
+//
+//    //enable alpha blending
+//    settings.colorBlendAttachment.blendEnable = VK_TRUE; 
+//    settings.colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+//    settings.colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+//    settings.colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+//    settings.colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+//    settings.colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+//    settings.colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
+//
+//    settings.colorBlendInfo.logicOpEnable = VK_FALSE;
+//    settings.colorBlendInfo.logicOp = vk::LogicOp::eCopy;
+//
+//    auto graphicsShaders = this->getShaders();
+//
+//    auto newPipeline = std::make_unique<star::StarGraphicsPipeline>(device, settings, graphicsShaders.at(star::Shader_Stage::vertex), graphicsShaders.at(star::Shader_Stage::fragment));
+//    newPipeline->init();
+//
+//    return std::move(newPipeline);
+//}
 
 void Volume::loadModel()
 {
