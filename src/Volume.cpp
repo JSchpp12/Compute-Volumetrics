@@ -71,32 +71,32 @@ void Volume::renderVolume(const double& fov_radians, const glm::vec3& camPositio
     this->udpdateVolumeRender = false;
     this->isVisible = true;
 }
-//
-//std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::StarDevice& device, vk::Extent2D swapChainExtent,
-//    vk::PipelineLayout pipelineLayout)
-//{
-//    star::StarGraphicsPipeline::PipelineConfigSettings settings;
-//    star::StarGraphicsPipeline::defaultPipelineConfigInfo(settings, swapChainExtent, pipelineLayout);
-//
-//    //enable alpha blending
-//    settings.colorBlendAttachment.blendEnable = VK_TRUE; 
-//    settings.colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-//    settings.colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
-//    settings.colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
-//    settings.colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
-//    settings.colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
-//    settings.colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
-//
-//    settings.colorBlendInfo.logicOpEnable = VK_FALSE;
-//    settings.colorBlendInfo.logicOp = vk::LogicOp::eCopy;
-//
-//    auto graphicsShaders = this->getShaders();
-//
-//    auto newPipeline = std::make_unique<star::StarGraphicsPipeline>(device, settings, graphicsShaders.at(star::Shader_Stage::vertex), graphicsShaders.at(star::Shader_Stage::fragment));
-//    newPipeline->init();
-//
-//    return std::move(newPipeline);
-//}
+
+std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::StarDevice& device, vk::Extent2D swapChainExtent,
+    vk::PipelineLayout pipelineLayout, star::RenderingTargetInfo renderingInfo)
+{
+    star::StarGraphicsPipeline::PipelineConfigSettings settings;
+    star::StarGraphicsPipeline::defaultPipelineConfigInfo(settings, swapChainExtent, pipelineLayout, renderingInfo);
+
+    //enable alpha blending
+    settings.colorBlendAttachment.blendEnable = VK_TRUE; 
+    settings.colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+    settings.colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+    settings.colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+    settings.colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+    settings.colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+    settings.colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
+
+    settings.colorBlendInfo.logicOpEnable = VK_FALSE;
+    settings.colorBlendInfo.logicOp = vk::LogicOp::eCopy;
+
+    auto graphicsShaders = this->getShaders();
+
+    auto newPipeline = std::make_unique<star::StarGraphicsPipeline>(device, settings, graphicsShaders.at(star::Shader_Stage::vertex), graphicsShaders.at(star::Shader_Stage::fragment));
+    newPipeline->init();
+
+    return std::move(newPipeline);
+}
 
 void Volume::loadModel()
 {
@@ -133,7 +133,7 @@ void Volume::loadModel()
 
 std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> Volume::loadGeometryBuffers(star::StarDevice& device)
 {
-    std::unique_ptr<std::vector<star::Vertex>> verts = std::unique_ptr<std::vector<star::Vertex>>(new std::vector<star::Vertex>{
+        std::unique_ptr<std::vector<star::Vertex>> verts = std::unique_ptr<std::vector<star::Vertex>>(new std::vector<star::Vertex>{
         star::Vertex{
             glm::vec3{-1.0f, -1.0f, 0.0f},	//position
             glm::vec3{0.0f, 1.0f, 0.0f},	//normal - posy
@@ -203,9 +203,9 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
     return std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>>(std::move(stagingVert), std::move(stagingIndex));
 }
 
-void Volume::initResources(star::StarDevice& device, const int& numFramesInFlight)
+void Volume::initResources(star::StarDevice& device, const int& numFramesInFlight, const vk::Extent2D& screensize)
 {
-    this->StarObject::initResources(device, numFramesInFlight);
+    this->StarObject::initResources(device, numFramesInFlight, screensize);
 }
 
 void Volume::destroyResources(star::StarDevice& device)
@@ -293,24 +293,6 @@ void Volume::calculateColor(const std::vector<std::unique_ptr<star::Light>>& lig
 
 bool Volume::rayBoxIntersect(const star::Ray& ray, const std::array<glm::vec3, 2>& aabbBounds, float& t0, float& t1)
 {
-    //Debug ray-plane intersection
-    //{
-    //    //glm::vec3 r0 = glm::vec3{ 0.0, 0.0, 0.0 }; 
-    //    //glm::vec3 rd = glm::vec3{ 0.0, 1.0, 0.0 };
-
-    //    glm::vec3 normal = glm::vec3{ 0.0, -1.0, 0.0 };
-    //    glm::vec3 p0 = glm::vec3{ 0.0, 0.0, 0.0 };
-
-    //    float denom = glm::dot(normal, ray.dir);
-    //    if (denom > 1e-6) {
-    //        glm::vec3 p0l0 = p0 - ray.org;
-    //        float t = glm::dot(p0l0, normal) / denom;
-    //        return (t >= 0);
-    //    }
-    //    return false;
-
-    //}
-
     float tmin = -INFINITY, tmax = INFINITY, txmin = 0, txmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
 
     txmin = (aabbBounds[ray.sign[0]].x - ray.org.x) * ray.invDir.x;

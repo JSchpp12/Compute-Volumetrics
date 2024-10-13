@@ -13,7 +13,9 @@
 #include "KeyStates.hpp"
 #include "Terrain.hpp"
 #include "BasicObject.hpp"
+#include "Square.hpp"
 #include "Volume.hpp"
+#include "OffscreenRenderer.hpp"
 
 #include <GLFW/glfw3.h>
 
@@ -44,7 +46,10 @@ public:
 
 protected:
 
-private:
+private: 
+	std::unique_ptr<star::StarScene> offscreenScene = std::unique_ptr<star::StarScene>();
+    std::unique_ptr<OffscreenRenderer> offscreenSceneRenderer = std::unique_ptr<OffscreenRenderer>();
+
     Volume* vol = nullptr;
 
     void onKeyRelease(int key, int scancode, int mods) override;

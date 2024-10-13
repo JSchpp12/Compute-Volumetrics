@@ -4,7 +4,7 @@ cmake_policy(SET CMP0071 NEW)
 cmake_policy(SET CMP0076 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0079 NEW)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 20) 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_MACOSX_RPATH 1)
 project("starlightapp")
@@ -16,19 +16,23 @@ find_package(OpenVDB CONFIG REQUIRED)
 find_package(TBB REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
 
-add_subdirectory("extern/starlight")
+add_subdirectory("extern/starlight") 
 
 set(${PROJECT_NAME}_SOURCE 
 	"src/main.cpp"
  	"src/Application.cpp"
 	"src/Volume.cpp"
 	"src/Terrain.cpp"
+	"src/VolumeRenderer.cpp"
+	"src/OffscreenRenderer.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/Application.hpp"
 	"include/Volume.hpp"
 	"include/Terrain.hpp"
+	"include/VolumeRenderer.hpp"
+	"include/OffscreenRenderer.hpp"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")

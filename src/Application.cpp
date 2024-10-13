@@ -11,13 +11,14 @@ void Application::Load()
     this->camera.setForwardVector(glm::vec3{0.0, 0.0, 0.0} - this->camera.getPosition());
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-
-    //auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    //auto horse = star::BasicObject::New(horsePath);
-    //auto& h_i = horse->createInstance();
-    //h_i.setScale(glm::vec3{ 0.1, 0.1, 0.1 });
-    //this->scene.add(std::move(horse));
-
+    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    this->offscreenScene = std::make_unique<star::StarScene>();
+    auto horse = star::BasicObject::New(horsePath);
+    auto& h_i = horse->createInstance();
+    h_i.setPosition(glm::vec3{ 0.885, 0.0, 0.0 });
+    h_i.setScale(glm::vec3{ 0.1, 0.1, 0.1 });
+    this->offscreenScene->add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{ -1.0, 0.0, 0.0 }));
+    this->offscreenScene->add(std::move(horse));
     {
         auto terrainPath = mediaDirectoryPath + "terrains/final.tif";
         auto terrainTexture = mediaDirectoryPath + "terrains/super_texture.jpg";
@@ -37,24 +38,16 @@ void Application::Load()
 
         auto terrain = std::make_unique<Terrain>(terrainPath, terrainTexture, glm::vec3{ top, left, 0 }, glm::vec3{ bottom, right, 0 });
         auto& t_i = terrain->createInstance();
-        //terrain->isVisible = false; 
-        t_i.setScale(glm::vec3(0.01, 0.01, 0.01)); 
+        t_i.setScale(glm::vec3(0.01, 0.01, 0.01));
         t_i.rotateGlobal(star::Type::Axis::z, 90);
-        //terrain->drawNormals = true; 
-
-        this->scene.add(std::move(terrain));
+        this->offscreenScene->add(std::move(terrain));
     }
 
-    //auto sphere = std::make_unique<Volume>(1280, 720, this->scene.getLights());
-    //sphere->drawBoundingBox = true; 
-    //sphere->isVisible = false;
-    //auto& s_i = sphere->createInstance();
-    ////s_i.setPosition(glm::vec3{ 0.0, 0.0, -1.0 });
-    //s_i.setScale(glm::vec3{ 0.05, 0.05, 0.05 });
-    //sphere->updateGridTransforms();
-    //auto handle = this->scene.add(std::move(sphere));
-    //StarObject* obj = &this->scene.getObject(handle); 
-    //this->vol = static_cast<Volume*>(obj);
+    this->offscreenSceneRenderer = std::make_unique<OffscreenRenderer>(this->offscreenScene->getLights(), this->offscreenScene->getObjects(), this->getCamera());
+
+	auto screen = std::make_unique<Volume>(1280, 720, this->scene.getLights(), this->offscreenSceneRenderer->getRenderToColorImages());
+    auto& s_i = screen->createInstance(); 
+    this->scene.add(std::move(screen)); 
 
     this->scene.add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{-1.0, 0.0, 0.0}));
 
