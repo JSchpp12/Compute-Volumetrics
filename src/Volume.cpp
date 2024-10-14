@@ -40,7 +40,7 @@ void Volume::renderVolume(const double& fov_radians, const glm::vec3& camPositio
             int curIndex = 0;
 
             for (int i = 0; i < numPerThread; i++) {
-                coordWork[curIndex] = std::make_optional(std::make_pair(std::pair<int,int>(curX, curY), &this->screenTexture->getRawData()->at(curY).at(curX)));
+                //coordWork[curIndex] = std::make_optional(std::make_pair(std::pair<int,int>(curX, curY), &this->screenTexture->getRawData()->at(curY).at(curX)));
 
                 if (curX == this->screenDimensions.x - 1 && curY < this->screenDimensions.y - 1) {
                     curX = 0;
@@ -66,7 +66,7 @@ void Volume::renderVolume(const double& fov_radians, const glm::vec3& camPositio
     }
     std::cout << "Done" << std::endl; 
 
-    this->screenTexture->updateGPU();
+    //this->screenTexture->updateGPU();
 
     this->udpdateVolumeRender = false;
     this->isVisible = true;
@@ -164,7 +164,7 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
         0,3,2,0,2,1
     });
 
-    std::unique_ptr<star::TextureMaterial> material = std::unique_ptr<star::TextureMaterial>(new star::TextureMaterial(this->screenTexture));
+    std::unique_ptr<ScreenMaterial> material = std::unique_ptr<ScreenMaterial>(std::make_unique<ScreenMaterial>(this->volumeRenderer->getRenderToImages()));
     auto newMeshs = std::vector<std::unique_ptr<star::StarMesh>>();
 
     openvdb::math::CoordBBox bbox = this->grid->evalActiveVoxelBoundingBox();
@@ -205,14 +205,7 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
 
 void Volume::initResources(star::StarDevice& device, const int& numFramesInFlight, const vk::Extent2D& screensize)
 {
-    this->StarObject::initResources(device, numFramesInFlight, screensize);
-}
 
-void Volume::destroyResources(star::StarDevice& device)
-{
-    this->StarObject::destroyResources(device);
-
-    this->screenTexture.reset(); 
 }
 
 void Volume::convertToFog(openvdb::FloatGrid::Ptr& grid)
@@ -239,6 +232,11 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr& grid)
     openvdb::tools::changeBackground(grid->tree(), 0.0f);
 
     grid->setGridClass(openvdb::GridClass::GRID_FOG_VOLUME);
+}
+
+void Volume::recordRenderPassCommands(vk::CommandBuffer& commandBuffer, vk::PipelineLayout& pipelineLayout, int frameInFlightIndex)
+{
+	this->StarObject::recordRenderPassCommands(commandBuffer, pipelineLayout, frameInFlightIndex);
 }
 
 void Volume::updateGridTransforms()
@@ -428,4 +426,9 @@ openvdb::Mat4R Volume::getTransform(const glm::mat4& objectDisplayMat)
     }
 
     return openvdb::Mat4R(rawData.get());
+}
+
+void Volume::destroyResources(star::StarDevice& device)
+{
+
 }

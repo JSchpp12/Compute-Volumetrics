@@ -25,6 +25,8 @@ set(${PROJECT_NAME}_SOURCE
 	"src/Terrain.cpp"
 	"src/VolumeRenderer.cpp"
 	"src/OffscreenRenderer.cpp"
+	"src/ScreenMaterial.cpp"
+	"src/VolumeRendererCleanup.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -33,6 +35,8 @@ set(${PROJECT_NAME}_HEADERS
 	"include/Terrain.hpp"
 	"include/VolumeRenderer.hpp"
 	"include/OffscreenRenderer.hpp"
+	"include/ScreenMaterial.hpp"
+	"include/VolumeRendererCleanup.hpp"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")

@@ -2,36 +2,81 @@
 
 void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer& commandBuffer, const int& frameInFlightIndex)
 {
+	vk::ImageMemoryBarrier prepOffscreenImages{}; 
+	prepOffscreenImages.sType = vk::StructureType::eImageMemoryBarrier; 
+	prepOffscreenImages.oldLayout = vk::ImageLayout::eColorAttachmentOptimal; 
+	prepOffscreenImages.newLayout = vk::ImageLayout::eGeneral; 
+	prepOffscreenImages.srcQueueFamilyIndex = vk::QueueFamilyIgnored; 
+	prepOffscreenImages.dstQueueFamilyIndex = vk::QueueFamilyIgnored; 
+	prepOffscreenImages.image = this->offscreenRenderToColors->at(frameInFlightIndex)->getImage(); 
+	prepOffscreenImages.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor; 
+	prepOffscreenImages.subresourceRange.baseMipLevel = 0; 
+	prepOffscreenImages.subresourceRange.levelCount = 1; 
+	prepOffscreenImages.subresourceRange.baseArrayLayer = 0; 
+	prepOffscreenImages.subresourceRange.layerCount = 1; 
+	prepOffscreenImages.srcAccessMask = vk::AccessFlagBits::eNone; 
+	prepOffscreenImages.dstAccessMask = vk::AccessFlagBits::eShaderRead; 
+
+	commandBuffer.pipelineBarrier(
+		vk::PipelineStageFlagBits::eTopOfPipe,
+		vk::PipelineStageFlagBits::eComputeShader,
+		{},
+		{},
+		nullptr,
+		prepOffscreenImages
+	);
+
+
 	//transition image layout
-	//vk::ImageMemoryBarrier prepOffscreenColor{}; 
-	//prepOffscreenColor.sType = vk::StructureType::eImageMemoryBarrier;
-	//prepOffscreenColor.oldLayout = vk::ImageLayout::eColorAttachmentOptimal;
-	//prepOffscreenColor.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-	//prepOffscreenColor.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	//prepOffscreenColor.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	//prepOffscreenColor.image = this->offscreenRenderToColors->at(frameInFlightIndex)->getImage();
-	//prepOffscreenColor.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-	//prepOffscreenColor.subresourceRange.baseMipLevel = 0;
-	//prepOffscreenColor.subresourceRange.levelCount = 1; 
-	//prepOffscreenColor.subresourceRange.baseArrayLayer = 0;
-	//prepOffscreenColor.subresourceRange.layerCount = 1;
-	//prepOffscreenColor.srcAccessMask = vk::AccessFlagBits::eNone;
-	//prepOffscreenColor.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+	vk::ImageMemoryBarrier prepWriteToImages{}; 
+	prepWriteToImages.sType = vk::StructureType::eImageMemoryBarrier;
+	prepWriteToImages.oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+	prepWriteToImages.newLayout = vk::ImageLayout::eGeneral;
+	prepWriteToImages.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	prepWriteToImages.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	prepWriteToImages.image = this->computeWriteToImages.at(frameInFlightIndex)->getImage();
+	prepWriteToImages.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+	prepWriteToImages.subresourceRange.baseMipLevel = 0;
+	prepWriteToImages.subresourceRange.levelCount = 1;
+	prepWriteToImages.subresourceRange.baseArrayLayer = 0;
+	prepWriteToImages.subresourceRange.layerCount = 1;
+	prepWriteToImages.srcAccessMask = vk::AccessFlagBits::eNone;
+	prepWriteToImages.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
-	this->offscreenRenderToColors->at(frameInFlightIndex)->transitionLayout(commandBuffer, vk::ImageLayout::eGeneral, vk::AccessFlagBits::eNone, vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eComputeShader);
-	
-	//commandBuffer.pipelineBarrier(
-	//	vk::PipelineStageFlagBits::eTopOfPipe,
-	//	vk::PipelineStageFlagBits::eComputeShader,
-	//	{},
-	//	{},
-	//	nullptr,
-	//	prepOffscreenColor
-	//); 
+	commandBuffer.pipelineBarrier(
+		vk::PipelineStageFlagBits::eTopOfPipe,
+		vk::PipelineStageFlagBits::eComputeShader,
+		{},
+		{},
+		nullptr,
+		prepWriteToImages
+	);
 
-	if (this->computeWriteToImages[frameInFlightIndex]->getCurrentLayout() != vk::ImageLayout::eGeneral) {
-		this->computeWriteToImages[frameInFlightIndex]->transitionLayout(commandBuffer, vk::ImageLayout::eGeneral, vk::AccessFlagBits::eShaderRead, vk::AccessFlagBits::eShaderWrite, vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eComputeShader);
-	}
+	//{
+	//	vk::ImageMemoryBarrier cleanupWriteToImages{}; 
+	//	cleanupWriteToImages.sType = vk::StructureType::eImageMemoryBarrier; 
+	//	cleanupWriteToImages.oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal; 
+	//	cleanupWriteToImages.newLayout = vk::ImageLayout::eColorAttachmentOptimal; 
+	//	cleanupWriteToImages.srcQueueFamilyIndex = vk::QueueFamilyIgnored; 
+	//	cleanupWriteToImages.dstQueueFamilyIndex = vk::QueueFamilyIgnored; 
+	//	cleanupWriteToImages.srcAccessMask = vk::AccessFlagBits::eShaderRead; 
+	//	cleanupWriteToImages.dstAccessMask = vk::AccessFlagBits::eNone; 
+	//	cleanupWriteToImages.image = this->offscreenRenderToColors->at(frameInFlightIndex)->getImage(); 
+	//	cleanupWriteToImages.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor; 
+	//	cleanupWriteToImages.subresourceRange.baseMipLevel = 0; 
+	//	cleanupWriteToImages.subresourceRange.levelCount = 1; 
+	//	cleanupWriteToImages.subresourceRange.baseArrayLayer = 0; 
+	//	cleanupWriteToImages.subresourceRange.layerCount = 1; 
+
+	//	commandBuffer.pipelineBarrier(
+	//		vk::PipelineStageFlagBits::eComputeShader,
+	//		vk::PipelineStageFlagBits::eBottomOfPipe,
+	//		{},
+	//		{},
+	//		nullptr,
+	//		cleanupWriteToImages
+	//	);
+	//}
 
 	this->computePipeline->bind(commandBuffer);
 
@@ -79,12 +124,12 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 	this->displaySize = std::make_unique<vk::Extent2D>(screensize);
 	{
 		auto settings = star::StarTexture::TextureCreateSettings{
-			vk::ImageUsageFlagBits::eStorage, 
+			vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled, 
 			vk::Format::eR8G8B8A8Unorm,
 			VMA_MEMORY_USAGE_GPU_ONLY, 
 			VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, 
 			false, 
-			false
+			true
 		};
 
 		this->computeWriteToImages.resize(numFramesInFlight);
@@ -95,7 +140,7 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 
 			//set the layout to general for compute shader use
 			auto oneTime = device.beginSingleTimeCommands();
-			this->computeWriteToImages[i]->transitionLayout(oneTime, vk::ImageLayout::eGeneral, vk::AccessFlagBits::eNone, vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eComputeShader);
+			this->computeWriteToImages[i]->transitionLayout(oneTime, vk::ImageLayout::eShaderReadOnlyOptimal, vk::AccessFlagBits::eNone, vk::AccessFlagBits::eShaderRead, vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eComputeShader);
 			device.endSingleTimeCommands(oneTime);
 		}
  	}

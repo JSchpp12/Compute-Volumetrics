@@ -18,6 +18,8 @@ public:
 	VolumeRenderer(std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColors) : offscreenRenderToColors(offscreenRenderToColors) {};
 	~VolumeRenderer() = default; 
 
+	std::vector<std::unique_ptr<star::Texture>>* getRenderToImages() { return &this->computeWriteToImages; }
+
 private:
 	std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColors = nullptr;
 

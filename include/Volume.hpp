@@ -11,10 +11,12 @@
 #include "StarCommandBuffer.hpp"
 #include "Vertex.hpp"
 #include "virtual/ModulePlug/RenderResourceModifier.hpp"
-#include "TextureMaterial.hpp"
 #include "VolumeRenderer.hpp"
+#include "VolumeRendererCleanup.hpp"
 #include "Light.hpp"
 #include "Texture.hpp"
+
+#include "ScreenMaterial.hpp"
 
 #include <openvdb/openvdb.h>
 #include <openvdb/Grid.h>
@@ -48,8 +50,11 @@ public:
 
     ~Volume() = default;
     Volume(const size_t screenWidth, const size_t screenHeight, std::vector<std::unique_ptr<star::Light>>& lightList, std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColorImages)
-		: screenDimensions(screenWidth, screenHeight), lightList(lightList), StarObject(), volumeRenderer(VolumeRenderer(offscreenRenderToColorImages))
+		: screenDimensions(screenWidth, screenHeight), lightList(lightList), 
+		StarObject(), volumeRenderer(std::make_unique<VolumeRenderer>(offscreenRenderToColorImages))
     {
+        this->volumeRendererCleanup = std::make_unique<VolumeRendererCleanup>(this->volumeRenderer->getRenderToImages(), offscreenRenderToColorImages);
+
         openvdb::initialize();
         loadModel();
 
@@ -62,11 +67,11 @@ public:
                     colors[y][x] = star::Color(1.0f, 1.0f, 1.0f, 1.0f);
             }
         }
-        this->screenTexture = std::make_shared<star::RuntimeUpdateTexture>(
-            this->screenDimensions.x,
-            this->screenDimensions.y,
-            colors
-        );
+        //this->screenTexture = std::make_shared<star::RuntimeUpdateTexture>(
+        //    this->screenDimensions.x,
+        //    this->screenDimensions.y,
+        //    colors
+        //);
     };
 
     void renderVolume(const double& fov_radians, const glm::vec3& camPosition, const glm::mat4& camDispMatrix, const glm::mat4& camProjMat);
@@ -83,13 +88,15 @@ public:
         this->sigma_absorbtion = newCoef;
     }
 protected:
-    VolumeRenderer volumeRenderer; 
+    std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr; 
+	std::unique_ptr<VolumeRendererCleanup> volumeRendererCleanup = nullptr;
+
     std::vector<std::unique_ptr<star::Light>>& lightList;
     float stepSize = 0.05f, stepSize_light = 0.4f;
     float sigma_absorbtion = 0.001f, sigma_scattering = 0.001f, lightPropertyDir_g = 0.2f;
     float volDensity = 1.0f;
     int russianRouletteCutoff = 4;
-    std::shared_ptr<star::RuntimeUpdateTexture> screenTexture;
+    //std::shared_ptr<star::RuntimeUpdateTexture> screenTexture;
     glm::u64vec2 screenDimensions{};
     openvdb::FloatGrid::Ptr grid{};
 
@@ -101,9 +108,9 @@ protected:
 
     void initResources(star::StarDevice& device, const int& numFramesInFlight, const vk::Extent2D& screensize) override;
 
-    void destroyResources(star::StarDevice& device) override;
-
     void convertToFog(openvdb::FloatGrid::Ptr& grid);
+
+    virtual void recordRenderPassCommands(vk::CommandBuffer& commandBuffer, vk::PipelineLayout& pipelineLayout, int swapChainIndexNum) override;
 
 private:
     struct RayCamera {
@@ -166,4 +173,7 @@ private:
         openvdb::FloatGrid::Ptr grid, const float& t0, const float& t1);
 
     static openvdb::Mat4R getTransform(const glm::mat4& objectDisplayMat);
+
+    // Inherited via RenderResourceModifier
+    void destroyResources(star::StarDevice& device) override;
 };
