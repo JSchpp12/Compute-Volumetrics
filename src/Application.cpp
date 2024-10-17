@@ -17,11 +17,12 @@ void Application::Load()
     {
         int framesInFLight = std::stoi(star::ConfigFile::getSetting(star::Config_Settings::frames_in_flight)); 
         std::vector<std::shared_ptr<star::GlobalInfo>> globalInfos(framesInFLight); 
+
         for (int i = 0; i < framesInFLight; i++) {
             globalInfos.at(i) = this->scene.getGlobalInfoBuffer(i); 
         }
 
-        this->offscreenScene = std::make_unique<star::StarScene>(this->scene.getCamera(), globalInfos); 
+        this->offscreenScene = std::make_unique<star::StarScene>(framesInFLight, this->scene.getCamera(), globalInfos);
     }
     
     auto horse = star::BasicObject::New(horsePath);
