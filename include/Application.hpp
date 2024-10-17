@@ -40,8 +40,6 @@ public:
 
     void Load();
 
-    virtual std::string getApplicationName() { return "OpenVDB Renderer"; }
-
     void onKeyPress(int key, int scancode, int mods) override;
 
 protected:

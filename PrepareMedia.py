@@ -55,9 +55,15 @@ def SearchForFiles(currentSourcePath : string, currentDestPath : string):
 SearchForFiles(inMediaDir, destinationMediaDir)
 
 #write config file
-with open(destinationConfigFile, 'w', encoding='utf-8') as f:
-    json.dump({
-        'media_directory': './media/',
-        'texture_filtering': 'linear',
-        'texture_anisotropy': 'max' 
-    }, f)
+if not os.path.isfile(destinationConfigFile):
+    with open(destinationConfigFile, 'w', encoding='utf-8') as f:
+        json.dump({
+            'app_name': 'Default Starlight App',
+            'media_directory': './media/',
+            'texture_filtering': 'linear',
+            'texture_anisotropy': 'max' ,
+            'frames_in_flight': '2', 
+            'required_device_feature_geometry_shader' : 'false',
+            'resolution_x' : '1280', 
+            'resolution_y' : '720'
+        }, f)

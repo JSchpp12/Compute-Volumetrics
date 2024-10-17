@@ -7,12 +7,23 @@ Application::Application(star::StarScene& scene) : StarApplication(scene) {}
 void Application::Load()
 {
     //this->camera.setPosition(glm::vec3{ 3.0, 0.0f, 2.0f });
-    this->camera.setPosition(glm::vec3{4.0f, 0.0f, 0.0f });
-    this->camera.setForwardVector(glm::vec3{0.0, 0.0, 0.0} - this->camera.getPosition());
+    this->scene.getCamera()->setPosition(glm::vec3{4.0f, 0.0f, 0.0f});
+    this->scene.getCamera()->setForwardVector(glm::vec3{0.0, 0.0, 0.0} - this->scene.getCamera()->getPosition());
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
     auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    this->offscreenScene = std::make_unique<star::StarScene>();
+    std::vector<std::shared_ptr<star::GlobalInfo>> sceneBuffers; 
+
+    {
+        int framesInFLight = std::stoi(star::ConfigFile::getSetting(star::Config_Settings::frames_in_flight)); 
+        std::vector<std::shared_ptr<star::GlobalInfo>> globalInfos(framesInFLight); 
+        for (int i = 0; i < framesInFLight; i++) {
+            globalInfos.at(i) = this->scene.getGlobalInfoBuffer(i); 
+        }
+
+        this->offscreenScene = std::make_unique<star::StarScene>(this->scene.getCamera(), globalInfos); 
+    }
+    
     auto horse = star::BasicObject::New(horsePath);
     auto& h_i = horse->createInstance();
     h_i.setPosition(glm::vec3{ 0.885, 0.0, 0.0 });
@@ -43,7 +54,7 @@ void Application::Load()
         this->offscreenScene->add(std::move(terrain));
     }
 
-    this->offscreenSceneRenderer = std::make_unique<OffscreenRenderer>(this->offscreenScene->getLights(), this->offscreenScene->getObjects(), this->getCamera());
+    this->offscreenSceneRenderer = std::make_unique<OffscreenRenderer>(*this->offscreenScene);
 
 	auto screen = std::make_unique<Volume>(1280, 720, this->scene.getLights(), this->offscreenSceneRenderer->getRenderToColorImages());
     auto& s_i = screen->createInstance(); 

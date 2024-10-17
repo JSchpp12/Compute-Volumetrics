@@ -1,7 +1,20 @@
 #version 450
 
-layout (binding = 0, rgba8) uniform readonly image2D inputSceneColor; 
-layout (binding = 1, rgba8) uniform writeonly image2D outputImage; 
+// layout(set = 0, binding = 0) uniform GlobalUniformBufferObject {
+// 	mat4 proj;
+// 	mat4 view;  
+// 	mat4 inverseView; 
+// 	int numLights;
+// } globalUbo;
+
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D inputSceneColor; 
+layout(set = 0, binding = 1, rgba8) uniform writeonly image2D outputImage; 
+
+// layout(set = 1, binding = 0) uniform aabbInfo{
+//     vec4 verts[8];
+// };
+
+// layout(set = 2, binding = 0
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in; 
 

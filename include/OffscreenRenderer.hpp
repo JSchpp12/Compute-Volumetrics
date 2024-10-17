@@ -4,9 +4,8 @@
 
 class OffscreenRenderer : public star::SceneRenderer {
 public:
-	OffscreenRenderer(std::vector<std::unique_ptr<star::Light>>& lightList,
-		std::vector<std::reference_wrapper<star::StarObject>> objectList, 
-		star::StarCamera& camera); 
+	OffscreenRenderer(star::StarScene& scene);
+
 
 protected:
 	std::vector<std::unique_ptr<star::Texture>> createRenderToImages(star::StarDevice& device, const int& numFramesInFlight) override;

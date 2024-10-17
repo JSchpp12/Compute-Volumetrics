@@ -23,14 +23,16 @@ int main() {
     application.Load();
     engine.init(application);
 
-    try {
-        engine.Run();
-    }
-    catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
-        do {
-            std::cout << "Press a key to exit..." << std::endl;
-        } while (std::cin.get() != '\n');
-        return EXIT_FAILURE;
-    }
+    engine.Run(); 
+
+    //try {
+    //    engine.Run();
+    //}
+    //catch (const std::exception& e) {
+    //    std::cerr << e.what() << std::endl;
+    //    do {
+    //        std::cout << "Press a key to exit..." << std::endl;
+    //    } while (std::cin.get() != '\n');
+    //    return EXIT_FAILURE;
+    //}
 }

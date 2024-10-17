@@ -177,12 +177,16 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
 
 	std::unique_ptr<star::StarBuffer> vertStagingBuffer; 
 	{
-		vertStagingBuffer = std::make_unique<star::StarBuffer>(device,
-			sizeof(star::Vertex),
-			vertices->size(),
-			vk::BufferUsageFlagBits::eTransferSrc,
-			vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
 
+		vertStagingBuffer = std::make_unique<star::StarBuffer>(
+			device,
+			sizeof(star::Vertex),
+			uint32_t(vertices->size()),
+			VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+			VMA_MEMORY_USAGE_AUTO,
+			vk::BufferUsageFlagBits::eTransferSrc,
+			vk::SharingMode::eConcurrent
+		);
 		vertStagingBuffer->map(); 
 		vertStagingBuffer->writeToBuffer(vertices->data(), vertices->size() * sizeof(star::Vertex));
 		vertStagingBuffer->unmap(); 
@@ -190,12 +194,15 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
 
 	std::unique_ptr<star::StarBuffer> indexStagingBuffer; 
 	{
-		indexStagingBuffer = std::make_unique<star::StarBuffer>(device,
+		indexStagingBuffer = std::make_unique<star::StarBuffer>(
+			device,
 			sizeof(uint32_t),
-			indices->size(),
+			uint32_t(indices->size()),
+			VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+			VMA_MEMORY_USAGE_AUTO,
 			vk::BufferUsageFlagBits::eTransferSrc,
-			vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible);
-
+			vk::SharingMode::eConcurrent
+		);
 		indexStagingBuffer->map(); 
 		indexStagingBuffer->writeToBuffer(indices->data(), indices->size() * sizeof(uint32_t));
 		indexStagingBuffer->unmap(); 

@@ -1,7 +1,7 @@
 #include "OffscreenRenderer.hpp"
 
-OffscreenRenderer::OffscreenRenderer(std::vector<std::unique_ptr<star::Light>>& lightList, std::vector<std::reference_wrapper<star::StarObject>> objectList, star::StarCamera& camera)
-	: star::SceneRenderer(lightList, objectList, camera)
+OffscreenRenderer::OffscreenRenderer(star::StarScene& scene)
+	: star::SceneRenderer(scene)
 {
 }
 
