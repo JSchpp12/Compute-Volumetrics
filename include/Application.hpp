@@ -16,6 +16,7 @@
 #include "Square.hpp"
 #include "Volume.hpp"
 #include "OffscreenRenderer.hpp"
+#include "LightInfo.hpp"
 
 #include <GLFW/glfw3.h>
 

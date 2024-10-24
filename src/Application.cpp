@@ -17,16 +17,23 @@ void Application::Load()
     {
         int framesInFLight = std::stoi(star::ConfigFile::getSetting(star::Config_Settings::frames_in_flight)); 
         std::vector<std::shared_ptr<star::GlobalInfo>> globalInfos(framesInFLight); 
+		std::vector<std::shared_ptr<star::LightInfo>> lightInfos(framesInFLight);
 
         for (int i = 0; i < framesInFLight; i++) {
             globalInfos.at(i) = this->scene.getGlobalInfoBuffer(i); 
         }
 
         this->offscreenScene = std::make_unique<star::StarScene>(framesInFLight, this->scene.getCamera(), globalInfos);
+        this->offscreenSceneRenderer = std::make_unique<OffscreenRenderer>(*this->offscreenScene);
+
+        auto screen = std::make_unique<Volume>(*this->scene.getCamera(), 1280, 720, this->scene.getLights(), this->offscreenSceneRenderer->getRenderToColorImages(), globalInfos, lightInfos);
+        auto& s_i = screen->createInstance();
+        this->scene.add(std::move(screen));
     }
     
     auto horse = star::BasicObject::New(horsePath);
     auto& h_i = horse->createInstance();
+	//horse->drawBoundingBox = true;
     h_i.setPosition(glm::vec3{ 0.885, 0.0, 0.0 });
     h_i.setScale(glm::vec3{ 0.1, 0.1, 0.1 });
     this->offscreenScene->add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{ -1.0, 0.0, 0.0 }));
@@ -54,12 +61,6 @@ void Application::Load()
         t_i.rotateGlobal(star::Type::Axis::z, 90);
         this->offscreenScene->add(std::move(terrain));
     }
-
-    this->offscreenSceneRenderer = std::make_unique<OffscreenRenderer>(*this->offscreenScene);
-
-	auto screen = std::make_unique<Volume>(1280, 720, this->scene.getLights(), this->offscreenSceneRenderer->getRenderToColorImages());
-    auto& s_i = screen->createInstance(); 
-    this->scene.add(std::move(screen)); 
 
     this->scene.add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{-1.0, 0.0, 0.0}));
 

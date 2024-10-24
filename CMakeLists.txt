@@ -27,6 +27,8 @@ set(${PROJECT_NAME}_SOURCE
 	"src/OffscreenRenderer.cpp"
 	"src/ScreenMaterial.cpp"
 	"src/VolumeRendererCleanup.cpp"
+	"src/AABBInfo.cpp"
+	"src/CameraInfo.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -37,6 +39,8 @@ set(${PROJECT_NAME}_HEADERS
 	"include/OffscreenRenderer.hpp"
 	"include/ScreenMaterial.hpp"
 	"include/VolumeRendererCleanup.hpp"
+	"include/AABBInfo.hpp"
+	"include/CameraInfo.hpp"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")

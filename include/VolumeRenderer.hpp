@@ -6,6 +6,13 @@
 #include "StarComputePipeline.hpp"
 #include "DescriptorModifier.hpp"
 #include "Texture.hpp"
+#include "GlobalInfo.hpp"
+#include "AABBInfo.hpp"
+#include "LightInfo.hpp"
+#include "StarShaderInfo.hpp"
+#include "StarCamera.hpp"
+#include "CameraInfo.hpp"
+
 
 #include <glm/glm.hpp>
 #include <vma/vk_mem_alloc.h>
@@ -15,17 +22,28 @@
 
 class VolumeRenderer : public star::CommandBufferModifier, private star::RenderResourceModifier, private star::DescriptorModifier{
 public:
-	VolumeRenderer(std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColors) : offscreenRenderToColors(offscreenRenderToColors) {};
+	VolumeRenderer(star::StarCamera& camera, std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColors, 
+		const std::vector<std::shared_ptr<star::GlobalInfo>>& globalInfoBuffers, 
+		const std::vector<std::shared_ptr<star::LightInfo>>& sceneLightInfoBuffers, 
+		const std::array<glm::vec4, 2>& aabbBounds)
+		: offscreenRenderToColors(offscreenRenderToColors), 
+		globalInfoBuffers(globalInfoBuffers), sceneLightInfoBuffers(sceneLightInfoBuffers), 
+		aabbBounds(aabbBounds), cameraShaderInfo(std::make_unique<CameraInfo>(camera)) {};
+
 	~VolumeRenderer() = default; 
 
 	std::vector<std::unique_ptr<star::Texture>>* getRenderToImages() { return &this->computeWriteToImages; }
 
 private:
+	const std::array<glm::vec4, 2>& aabbBounds; 
+	std::vector<std::shared_ptr<star::LightInfo>> sceneLightInfoBuffers;
+	std::unique_ptr<star::StarShaderInfo> compShaderInfo = std::unique_ptr<star::StarShaderInfo>();
+	std::unique_ptr<CameraInfo> cameraShaderInfo = std::unique_ptr<CameraInfo>(); 
+	std::vector<std::shared_ptr<star::GlobalInfo>> globalInfoBuffers = std::vector<std::shared_ptr<star::GlobalInfo>>();
+	std::vector<std::shared_ptr<AABBInfo>> aabbInfoBuffers;
 	std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColors = nullptr;
 
 	std::unique_ptr<vk::Extent2D> displaySize = std::unique_ptr<vk::Extent2D>();
-	std::vector<std::unique_ptr<vk::DescriptorSet>> computeDescriptorSets = std::vector<std::unique_ptr<vk::DescriptorSet>>();
-	std::unique_ptr<star::StarDescriptorSetLayout> computeDescriptorSetLayout = std::unique_ptr<star::StarDescriptorSetLayout>();
 	std::vector<std::unique_ptr<star::Texture>> computeWriteToImages = std::vector<std::unique_ptr<star::Texture>>();
 	std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
 	std::unique_ptr<star::StarComputePipeline> computePipeline = std::unique_ptr<star::StarComputePipeline>();

@@ -52,36 +52,10 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer& commandBuffer, const
 		prepWriteToImages
 	);
 
-	//{
-	//	vk::ImageMemoryBarrier cleanupWriteToImages{}; 
-	//	cleanupWriteToImages.sType = vk::StructureType::eImageMemoryBarrier; 
-	//	cleanupWriteToImages.oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal; 
-	//	cleanupWriteToImages.newLayout = vk::ImageLayout::eColorAttachmentOptimal; 
-	//	cleanupWriteToImages.srcQueueFamilyIndex = vk::QueueFamilyIgnored; 
-	//	cleanupWriteToImages.dstQueueFamilyIndex = vk::QueueFamilyIgnored; 
-	//	cleanupWriteToImages.srcAccessMask = vk::AccessFlagBits::eShaderRead; 
-	//	cleanupWriteToImages.dstAccessMask = vk::AccessFlagBits::eNone; 
-	//	cleanupWriteToImages.image = this->offscreenRenderToColors->at(frameInFlightIndex)->getImage(); 
-	//	cleanupWriteToImages.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor; 
-	//	cleanupWriteToImages.subresourceRange.baseMipLevel = 0; 
-	//	cleanupWriteToImages.subresourceRange.levelCount = 1; 
-	//	cleanupWriteToImages.subresourceRange.baseArrayLayer = 0; 
-	//	cleanupWriteToImages.subresourceRange.layerCount = 1; 
-
-	//	commandBuffer.pipelineBarrier(
-	//		vk::PipelineStageFlagBits::eComputeShader,
-	//		vk::PipelineStageFlagBits::eBottomOfPipe,
-	//		{},
-	//		{},
-	//		nullptr,
-	//		cleanupWriteToImages
-	//	);
-	//}
-
 	this->computePipeline->bind(commandBuffer);
 
-	auto sets = std::vector{ *this->computeDescriptorSets.at(frameInFlightIndex) }; 
-	commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0, sets.size(), sets.data(), 0, VK_NULL_HANDLE);
+	auto sets = this->compShaderInfo->getDescriptors(frameInFlightIndex);
+	commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0, static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
 
  	commandBuffer.dispatch(80, 45, 1); 
 }	
@@ -118,9 +92,6 @@ bool VolumeRenderer::getWillBeRecordedOnce()
 
 void VolumeRenderer::initResources(star::StarDevice& device, const int& numFramesInFlight, const vk::Extent2D& screensize)
 {
-	std::string compShaderPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/volume.comp";
-	auto compShader = star::StarShader(compShaderPath, star::Shader_Stage::compute);
-
 	this->displaySize = std::make_unique<vk::Extent2D>(screensize);
 	{
 		auto settings = star::StarTexture::TextureCreateSettings{
@@ -145,33 +116,14 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 		}
  	}
 
-	this->computeDescriptorSetLayout = star::StarDescriptorSetLayout::Builder(device)
-		.addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-		.addBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-		.build();
-	
-	{
-		auto sets = std::vector{
-			this->computeDescriptorSetLayout->getDescriptorSetLayout() 
-		};
-
-		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
-		pipelineLayoutInfo.sType = vk::StructureType::ePipelineLayoutCreateInfo;
-		pipelineLayoutInfo.pSetLayouts = sets.data();
-		pipelineLayoutInfo.setLayoutCount = sets.size();
-		pipelineLayoutInfo.pushConstantRangeCount = 0;
-		pipelineLayoutInfo.pPushConstantRanges = nullptr;
-
-		this->computePipelineLayout = std::make_unique<vk::PipelineLayout>(device.getDevice().createPipelineLayout(pipelineLayoutInfo));
+	for (int i = 0; i < numFramesInFlight; i++) {
+		this->aabbInfoBuffers.emplace_back(std::make_shared<AABBInfo>(this->aabbBounds)); 
 	}
-
-	this->computePipeline = std::make_unique<star::StarComputePipeline>(device, *this->computePipelineLayout, compShader);
-	this->computePipeline->init(); 
 }
 
 void VolumeRenderer::destroyResources(star::StarDevice& device)
 {
-	this->computeDescriptorSetLayout.reset(); 
+	this->compShaderInfo.reset(); 
 
 	for (auto& computeWriteToImage : this->computeWriteToImages) {
 		computeWriteToImage->cleanupRender(device); 
@@ -191,26 +143,47 @@ std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescrip
 
 void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numFramesInFlight)
 {
-	this->computeDescriptorSets.resize(numFramesInFlight);
+	star::StarShaderInfo::Builder shaderInfoBuilder = star::StarShaderInfo::Builder(device, numFramesInFlight);
+	shaderInfoBuilder
+		.addSetLayout(star::StarDescriptorSetLayout::Builder(device)
+			.addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+			.addBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+			.addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+			.build())
+		.addSetLayout(star::StarDescriptorSetLayout::Builder(device)
+			.addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+			.addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+			.build());
 
 	for (int i = 0; i < numFramesInFlight; i++) {
-		auto writeToTexInfo = vk::DescriptorImageInfo{
-			VK_NULL_HANDLE,
-			this->computeWriteToImages[i]->getImageView(),
-			vk::ImageLayout::eGeneral
-		};
-
-		auto readFromTexInfo = vk::DescriptorImageInfo{
-			this->offscreenRenderToColors->at(i)->getSampler(),
-			this->offscreenRenderToColors->at(i)->getImageView(),
-			vk::ImageLayout::eGeneral
-		};
-
-		this->computeDescriptorSets[i] = std::make_unique<vk::DescriptorSet>(
-			star::StarDescriptorWriter(device, *this->computeDescriptorSetLayout, star::ManagerDescriptorPool::getPool())
-			.writeImage(0, readFromTexInfo)
-			.writeImage(1, writeToTexInfo)
-			.build()
-		);
+		shaderInfoBuilder
+			.startOnFrameIndex(i)
+			.startSet()
+			.add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral)
+			.add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral)
+			.add(*this->cameraShaderInfo)
+			.startSet()
+			.add(*this->globalInfoBuffers[i])
+			.add(*this->globalInfoBuffers[i]);
 	}
+
+	this->compShaderInfo = shaderInfoBuilder.build();
+
+	{
+		auto sets = this->compShaderInfo->getDescriptorSetLayouts();
+		vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
+		pipelineLayoutInfo.sType = vk::StructureType::ePipelineLayoutCreateInfo;
+		pipelineLayoutInfo.pSetLayouts = sets.data();
+		pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(sets.size());
+		pipelineLayoutInfo.pushConstantRangeCount = 0;
+		pipelineLayoutInfo.pPushConstantRanges = nullptr;
+
+		this->computePipelineLayout = std::make_unique<vk::PipelineLayout>(device.getDevice().createPipelineLayout(pipelineLayoutInfo));
+	}
+
+	std::string compShaderPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/volume.comp";
+	auto compShader = star::StarShader(compShaderPath, star::Shader_Stage::compute);
+
+	this->computePipeline = std::make_unique<star::StarComputePipeline>(device, *this->computePipelineLayout, compShader);
+	this->computePipeline->init();
 }

@@ -1,16 +1,18 @@
 #pragma once 
 
 #include "SceneRenderer.hpp"
+#include "BufferModifier.hpp"
+#include "GlobalInfo.hpp"
 
 class OffscreenRenderer : public star::SceneRenderer {
 public:
 	OffscreenRenderer(star::StarScene& scene);
 
+private:
+	std::vector<std::unique_ptr<star::GlobalInfo>> globalInfoBuffers = std::vector<std::unique_ptr<star::GlobalInfo>>();
 
-protected:
 	std::vector<std::unique_ptr<star::Texture>> createRenderToImages(star::StarDevice& device, const int& numFramesInFlight) override;
 
-private:
 	// Inherited via SceneRenderer
 	star::Command_Buffer_Order_Index getCommandBufferOrderIndex() override; 
 
@@ -22,6 +24,5 @@ private:
 
 	bool getWillBeRecordedOnce() override;
 
-	// Inherited via SceneRenderer
 	vk::Format getCurrentRenderToImageFormat() override;
 };

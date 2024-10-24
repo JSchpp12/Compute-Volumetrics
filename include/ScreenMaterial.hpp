@@ -2,8 +2,9 @@
 
 #include "StarMaterial.hpp"
 #include "Texture.hpp"
-#include "StarDescriptors.hpp"
+#include "StarDescriptorBuilders.hpp"
 #include "DescriptorModifier.hpp"
+#include "StarShaderInfo.hpp"
 
 #include <vector>
 #include <memory>
@@ -19,6 +20,6 @@ protected:
 
 	void applyDescriptorSetLayouts(star::StarDescriptorSetLayout::Builder& constBuilder) override;
 	void prep(star::StarDevice& device) override;
-	vk::DescriptorSet buildDescriptorSet(star::StarDevice& device, star::StarDescriptorSetLayout& groupLayout, star::StarDescriptorPool& groupPool, const int& imageInFlightIndex) override;
+	void buildDescriptorSet(star::StarDevice& device, star::StarShaderInfo::Builder& builder, const int& imageInFlightIndex) override;
 	void cleanup(star::StarDevice& device) override;
 };

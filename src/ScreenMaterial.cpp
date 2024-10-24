@@ -9,21 +9,10 @@ void ScreenMaterial::prep(star::StarDevice& device)
 {
 }
 
-vk::DescriptorSet ScreenMaterial::buildDescriptorSet(star::StarDevice& device, star::StarDescriptorSetLayout& groupLayout, star::StarDescriptorPool& groupPool, const int& imageInFlightIndex)
+void ScreenMaterial::buildDescriptorSet(star::StarDevice& device, star::StarShaderInfo::Builder& builder, const int& imageInFlightIndex)
 {
-	auto sets = std::vector<vk::DescriptorSet>();
-	auto layoutBuilder = star::StarDescriptorSetLayout::Builder(device);
-	auto writer = star::StarDescriptorWriter(device, groupLayout, groupPool);
-
-	auto texInfo = vk::DescriptorImageInfo{
-		this->computeOutputImages->at(imageInFlightIndex)->getSampler(),
-		this->computeOutputImages->at(imageInFlightIndex)->getImageView(),
-		vk::ImageLayout::eShaderReadOnlyOptimal };
-	writer.writeImage(0, texInfo);
-
-	vk::DescriptorSet newSet = writer.build();
-
-	return newSet;
+	builder.startSet(); 
+	builder.add(*computeOutputImages->at(imageInFlightIndex), vk::ImageLayout::eShaderReadOnlyOptimal);
 }
 
 void ScreenMaterial::cleanup(star::StarDevice& device)

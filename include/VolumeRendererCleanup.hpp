@@ -5,7 +5,7 @@
 
 class VolumeRendererCleanup : private star::CommandBufferModifier{
 public:
-	VolumeRendererCleanup(std::vector<std::unique_ptr<star::Texture>>* computeOutputTextures, std::vector<std::unique_ptr<star::Texture>>* offscreenRenderTextures) : computeOutputTextures(computeOutputTextures), offscreenRenderTextures(offscreenRenderTextures) {};
+ 	VolumeRendererCleanup(std::vector<std::unique_ptr<star::Texture>>* computeOutputTextures, std::vector<std::unique_ptr<star::Texture>>* offscreenRenderTextures) : computeOutputTextures(computeOutputTextures), offscreenRenderTextures(offscreenRenderTextures) {};
 	~VolumeRendererCleanup() = default; 
 
 private:

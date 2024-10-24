@@ -49,12 +49,14 @@ public:
     bool rayMarchToAABB = false;
 
     ~Volume() = default;
-    Volume(const size_t screenWidth, const size_t screenHeight, std::vector<std::unique_ptr<star::Light>>& lightList, std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColorImages)
+    Volume(star::StarCamera& camera, const size_t screenWidth, const size_t screenHeight, 
+        std::vector<std::unique_ptr<star::Light>>& lightList, 
+        std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColorImages, 
+        std::vector<std::shared_ptr<star::GlobalInfo>>& globalInfos, 
+        std::vector<std::shared_ptr<star::LightInfo>>& lightInfos)
 		: screenDimensions(screenWidth, screenHeight), lightList(lightList), 
-		StarObject(), volumeRenderer(std::make_unique<VolumeRenderer>(offscreenRenderToColorImages))
+		StarObject()
     {
-        this->volumeRendererCleanup = std::make_unique<VolumeRendererCleanup>(this->volumeRenderer->getRenderToImages(), offscreenRenderToColorImages);
-
         openvdb::initialize();
         loadModel();
 
@@ -67,11 +69,9 @@ public:
                     colors[y][x] = star::Color(1.0f, 1.0f, 1.0f, 1.0f);
             }
         }
-        //this->screenTexture = std::make_shared<star::RuntimeUpdateTexture>(
-        //    this->screenDimensions.x,
-        //    this->screenDimensions.y,
-        //    colors
-        //);
+
+        this->volumeRenderer = std::make_unique<VolumeRenderer>(camera, offscreenRenderToColorImages, globalInfos, lightInfos, this->aabbBounds);
+        this->volumeRendererCleanup = std::make_unique<VolumeRendererCleanup>(this->volumeRenderer->getRenderToImages(), offscreenRenderToColorImages);
     };
 
     void renderVolume(const double& fov_radians, const glm::vec3& camPosition, const glm::mat4& camDispMatrix, const glm::mat4& camProjMat);
@@ -90,6 +90,7 @@ public:
 protected:
     std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr; 
 	std::unique_ptr<VolumeRendererCleanup> volumeRendererCleanup = nullptr;
+    std::array<glm::vec4, 2> aabbBounds; 
 
     std::vector<std::unique_ptr<star::Light>>& lightList;
     float stepSize = 0.05f, stepSize_light = 0.4f;

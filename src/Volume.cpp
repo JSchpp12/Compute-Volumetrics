@@ -129,6 +129,13 @@ void Volume::loadModel()
         //need to convert to fog volume
         convertToFog(this->grid);
     }
+
+    openvdb::math::CoordBBox bbox = this->grid->evalActiveVoxelBoundingBox();
+    openvdb::math::Coord& bmin = bbox.min();
+    openvdb::math::Coord& bmax = bbox.max();
+
+    this->aabbBounds[0] = glm::vec4{ bmin.x(), bmin.y(), bmin.z(), 1.0 };
+    this->aabbBounds[1] = glm::vec4{ bmax.x(), bmax.y(), bmax.z(), 1.0 };
 }
 
 std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> Volume::loadGeometryBuffers(star::StarDevice& device)
@@ -167,14 +174,7 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
     std::unique_ptr<ScreenMaterial> material = std::unique_ptr<ScreenMaterial>(std::make_unique<ScreenMaterial>(this->volumeRenderer->getRenderToImages()));
     auto newMeshs = std::vector<std::unique_ptr<star::StarMesh>>();
 
-    openvdb::math::CoordBBox bbox = this->grid->evalActiveVoxelBoundingBox();
-    openvdb::math::Coord& bmin = bbox.min();
-    openvdb::math::Coord& bmax = bbox.max();
-
-    glm::vec3 min{ bmin.x(), bmin.y(), bmin.z() };
-    glm::vec3 max{ bmax.x(), bmax.y(), bmax.z() };
-
-    newMeshs.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(*verts, *inds, std::move(material), min, max, false)));
+    newMeshs.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(*verts, *inds, std::move(material), this->aabbBounds[0],this->aabbBounds[1], false)));
 
     this->meshes = std::move(newMeshs);
 
