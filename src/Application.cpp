@@ -27,8 +27,12 @@ void Application::Load()
         this->offscreenSceneRenderer = std::make_unique<OffscreenRenderer>(*this->offscreenScene);
 
         auto screen = std::make_unique<Volume>(*this->scene.getCamera(), 1280, 720, this->scene.getLights(), this->offscreenSceneRenderer->getRenderToColorImages(), globalInfos, lightInfos);
+        screen->drawBoundingBox = true; 
         auto& s_i = screen->createInstance();
-        this->scene.add(std::move(screen));
+		s_i.setScale(glm::vec3{ 0.005, 0.005, 0.005 });
+        auto handle = this->scene.add(std::move(screen));
+		StarObject* obj = &this->scene.getObject(handle);
+        this->vol = static_cast<Volume*>(obj);
     }
     
     auto horse = star::BasicObject::New(horsePath);
@@ -125,15 +129,6 @@ void Application::onScroll(double xoffset, double yoffset)
 
 void Application::onWorldUpdate()
 {
-    //if (this->vol->udpdateVolumeRender) {
-    //    glm::vec3 cameraRotations{
-    //        cos(this->camera.getYaw()) * cos(this->camera.getPitch()),
-    //        sin(this->camera.getYaw()) * cos(this->camera.getPitch()),
-    //        sin(this->camera.getPitch())
-    //    };
+    //this->vol->renderVolume(glm::radians(this->scene.getCamera()->getFieldOfView()), this->scene.getCamera()->getPosition(), glm::inverse(this->scene.getCamera()->getViewMatrix()), this->scene.getCamera()->getProjectionMatrix());
 
-    //    auto proj = glm::inverse(this->camera.getViewMatrix());
-
-    //    this->vol->renderVolume(glm::radians(45.0f * 0.5), this->camera.getPosition(), glm::inverse(this->camera.getViewMatrix()), this->camera.getProjectionMatrix());
-    //}
 }

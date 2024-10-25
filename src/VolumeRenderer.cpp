@@ -136,8 +136,8 @@ void VolumeRenderer::destroyResources(star::StarDevice& device)
 std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescriptorRequests(const int& numFramesInFlight)
 {
 	return std::vector<std::pair<vk::DescriptorType, const int>>{
-		std::make_pair(vk::DescriptorType::eStorageImage, 1),
-		std::make_pair(vk::DescriptorType::eCombinedImageSampler, 1)
+		std::make_pair(vk::DescriptorType::eStorageImage, 2 * numFramesInFlight),
+		std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + ( 3 * numFramesInFlight) )
 	};
 }
 
@@ -149,6 +149,7 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 			.addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
 			.addBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
 			.addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+			.addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
 			.build())
 		.addSetLayout(star::StarDescriptorSetLayout::Builder(device)
 			.addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
@@ -162,9 +163,10 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 			.add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral)
 			.add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral)
 			.add(*this->cameraShaderInfo)
+			.add(*this->aabbInfoBuffers.at(i))
 			.startSet()
-			.add(*this->globalInfoBuffers[i])
-			.add(*this->globalInfoBuffers[i]);
+			.add(*this->globalInfoBuffers.at(i))
+			.add(*this->instanceModelInfo->at(i));
 	}
 
 	this->compShaderInfo = shaderInfoBuilder.build();

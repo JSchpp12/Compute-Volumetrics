@@ -17,7 +17,7 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
 
 void Volume::renderVolume(const double& fov_radians, const glm::vec3& camPosition, const glm::mat4& camDispMatrix, const glm::mat4& camProjMat)
 {
-    RayCamera camera(this->screenDimensions, fov_radians, camDispMatrix, camProjMat);
+    RayCamera camera(glm::vec2{1280, 720}, fov_radians, camDispMatrix, camProjMat);
 
     std::array<glm::vec3, 2> bbounds = this->meshes.front()->getBoundingBoxCoords();
     {
@@ -40,7 +40,7 @@ void Volume::renderVolume(const double& fov_radians, const glm::vec3& camPositio
             int curIndex = 0;
 
             for (int i = 0; i < numPerThread; i++) {
-                //coordWork[curIndex] = std::make_optional(std::make_pair(std::pair<int,int>(curX, curY), &this->screenTexture->getRawData()->at(curY).at(curX)));
+                coordWork[curIndex] = std::make_optional(std::make_pair(std::pair<int,int>(curX, curY), nullptr));
 
                 if (curX == this->screenDimensions.x - 1 && curY < this->screenDimensions.y - 1) {
                     curX = 0;
@@ -172,11 +172,13 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
     });
 
     std::unique_ptr<ScreenMaterial> material = std::unique_ptr<ScreenMaterial>(std::make_unique<ScreenMaterial>(this->volumeRenderer->getRenderToImages()));
-    auto newMeshs = std::vector<std::unique_ptr<star::StarMesh>>();
+    auto newMeshes = std::vector<std::unique_ptr<star::StarMesh>>();
 
-    newMeshs.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(*verts, *inds, std::move(material), this->aabbBounds[0],this->aabbBounds[1], false)));
+    newMeshes.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(*verts, *inds, std::move(material), this->aabbBounds[0],this->aabbBounds[1], false)));
 
-    this->meshes = std::move(newMeshs);
+    auto test = newMeshes.back()->getBoundingBoxCoords(); 
+
+    this->meshes = std::move(newMeshes);
 
     auto stagingVert = std::make_unique<star::StarBuffer>(
         device,
@@ -205,11 +207,6 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
     stagingIndex->unmap();
 
     return std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>>(std::move(stagingVert), std::move(stagingIndex));
-}
-
-void Volume::initResources(star::StarDevice& device, const int& numFramesInFlight, const vk::Extent2D& screensize)
-{
-
 }
 
 void Volume::convertToFog(openvdb::FloatGrid::Ptr& grid)
@@ -430,9 +427,4 @@ openvdb::Mat4R Volume::getTransform(const glm::mat4& objectDisplayMat)
     }
 
     return openvdb::Mat4R(rawData.get());
-}
-
-void Volume::destroyResources(star::StarDevice& device)
-{
-
 }

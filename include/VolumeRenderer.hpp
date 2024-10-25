@@ -12,29 +12,38 @@
 #include "StarShaderInfo.hpp"
 #include "StarCamera.hpp"
 #include "CameraInfo.hpp"
-
+#include "StarObjectInstance.hpp"
+#include "InstanceModelInfo.hpp"
+#include "InstanceNormalInfo.hpp"
 
 #include <glm/glm.hpp>
 #include <vma/vk_mem_alloc.h>
-#include <memory>
 #include <vulkan/vulkan.hpp>
+
+#include <memory>
 #include <vector>
 
 class VolumeRenderer : public star::CommandBufferModifier, private star::RenderResourceModifier, private star::DescriptorModifier{
 public:
-	VolumeRenderer(star::StarCamera& camera, std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColors, 
+	VolumeRenderer(star::StarCamera& camera, 
+		const std::vector<std::unique_ptr<star::InstanceModelInfo>>* instanceModelInfo, 
+		const std::vector<std::unique_ptr<star::InstanceNormalInfo>>* instanceNormalInfo,
+		std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColors, 
 		const std::vector<std::shared_ptr<star::GlobalInfo>>& globalInfoBuffers, 
 		const std::vector<std::shared_ptr<star::LightInfo>>& sceneLightInfoBuffers, 
 		const std::array<glm::vec4, 2>& aabbBounds)
 		: offscreenRenderToColors(offscreenRenderToColors), 
 		globalInfoBuffers(globalInfoBuffers), sceneLightInfoBuffers(sceneLightInfoBuffers), 
-		aabbBounds(aabbBounds), cameraShaderInfo(std::make_unique<CameraInfo>(camera)) {};
+		aabbBounds(aabbBounds), cameraShaderInfo(std::make_unique<CameraInfo>(camera)), 
+		instanceModelInfo(instanceModelInfo), instanceNormalInfo(instanceNormalInfo) {};
 
 	~VolumeRenderer() = default; 
 
 	std::vector<std::unique_ptr<star::Texture>>* getRenderToImages() { return &this->computeWriteToImages; }
 
 private:
+	const std::vector<std::unique_ptr<star::InstanceModelInfo>>* instanceModelInfo = nullptr;
+	const std::vector<std::unique_ptr<star::InstanceNormalInfo>>* instanceNormalInfo = nullptr;
 	const std::array<glm::vec4, 2>& aabbBounds; 
 	std::vector<std::shared_ptr<star::LightInfo>> sceneLightInfoBuffers;
 	std::unique_ptr<star::StarShaderInfo> compShaderInfo = std::unique_ptr<star::StarShaderInfo>();

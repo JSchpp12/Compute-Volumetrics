@@ -21,8 +21,10 @@ protected:
 	star::StarCamera& camera; 
 
 	struct CameraData {
+		glm::mat4 displayMatrix; 
 		glm::vec2 resolution; 
-		float aspectRatio; 
+		float aspectRatio;
+		double scale; 
 	};
 
 	// Inherited via BufferModifier

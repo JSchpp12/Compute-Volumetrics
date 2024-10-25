@@ -29,6 +29,7 @@ set(${PROJECT_NAME}_SOURCE
 	"src/VolumeRendererCleanup.cpp"
 	"src/AABBInfo.cpp"
 	"src/CameraInfo.cpp"
+	"src/Screen.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -41,6 +42,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/VolumeRendererCleanup.hpp"
 	"include/AABBInfo.hpp"
 	"include/CameraInfo.hpp"
+	"include/Screen.hpp"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")

@@ -25,9 +25,14 @@ struct Light{
 layout(set = 0, binding = 0, rgba8) uniform readonly image2D inputSceneColor; 
 layout(set = 0, binding = 1, rgba8) uniform writeonly image2D outputImage; 
 layout(set = 0, binding = 2) uniform additionalCamerainfo{
+	mat4 displayMatrix; 
 	vec2 cameraDimensions; 
 	float aspectRatio;
-}; 
+	double scale;
+} addCamInfo; 
+layout(set = 0, binding = 3) uniform aabbInfo{
+    vec4 bounds[2];
+} aabb;
 
 layout(set = 1, binding = 0) uniform GlobalUniformBufferObject {
 	mat4 proj;
@@ -36,26 +41,95 @@ layout(set = 1, binding = 0) uniform GlobalUniformBufferObject {
 	int numLights;
 } globalUbo;
 
-layout(set = 1, binding = 1) uniform aabbInfo{
-    vec4 bounds[2];
+layout(set = 1, binding = 1) uniform instanceModelMatrix{
+	mat4 modelMatrix[1024]; 
 };
 
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in; 
 
-
 struct Ray {
 	vec4 origin; 
 	vec4 direction; 
+	vec4 invDirection; 
+	bool signed[3]; 
 };
 
-// Ray getRayForPixel(const uint x, const uint y){
-// 	return Ray(); 
-// }
+Ray createRay(vec4 origin, vec4 direction){
+	vec4 invDir = vec4(normalize(1.0 / direction.xyz), 0.0); 
+
+	return Ray(
+		origin, 
+		direction, 
+		invDir,
+		bool[3](bool(invDir.x < 0), bool(invDir.y < 0), bool(invDir.z < 0))
+	);
+}
+
+Ray getRayForPixel(const uint x, const uint y){
+	// float fovRadians = radians(float(45)); 
+	// float scale = tan(fovRadians); 
+	vec3 pixelLocCamera = vec3(
+		(2 * ((float(x) + 0.5) / addCamInfo.cameraDimensions.x) - 1) * addCamInfo.aspectRatio * addCamInfo.scale,
+		(1 - 2 * ((float(y) + 0.5) / addCamInfo.cameraDimensions.y)) * addCamInfo.scale,
+		float(-1.0)
+	);
+
+	vec4 origin = globalUbo.inverseView * vec4(0,0,0,1); 
+	vec3 normPixLoc = normalize(pixelLocCamera); 
+	vec4 point = globalUbo.inverseView * vec4(normPixLoc, 1.0); 
+	vec4 normDir = normalize(point - origin); 
+
+	return createRay(origin, normDir); 
+}
+
+bool rayBoxIntersect(Ray ray, inout float t0, inout float t1){
+	vec4 traAABBBounds[2] = vec4[2](
+		vec4(modelMatrix[0] * aabb.bounds[0]), 
+		vec4(modelMatrix[0] * aabb.bounds[1])
+	);
+
+	float tmin = -(1.0 / 0.0); 
+	float tmax = (1.0 / 0.0); 
+	float txmin = 0, txmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0; 
+
+	txmin = (traAABBBounds[int(ray.signed[0])].x - ray.origin.x) * ray.invDirection.x; 
+	txmax = (traAABBBounds[int(!ray.signed[0])].x - ray.origin.x) * ray.invDirection.x; 
+
+	tmin = min(txmin, txmax); 
+	tmax = max(txmin, txmax); 
+
+	tymin = (traAABBBounds[int(ray.signed[1])].y - ray.origin.y) * ray.invDirection.y; 
+	tymax = (traAABBBounds[int(!ray.signed[1])].y - ray.origin.y) * ray.invDirection.y; 
+
+	tmin = max(tmin, min(tymin, tymax)); 
+	tmax = min(tmax, max(tymin, tymax)); 
+
+	tzmin = (traAABBBounds[int(ray.signed[2])].z - ray.origin.z) * ray.invDirection.z; 
+	tzmax = (traAABBBounds[int(!ray.signed[2])].z - ray.origin.z) * ray.invDirection.z; 
+
+	tmin = max(tmin, min(tzmin, tzmax)); 
+	tmax = min(tmax, max(tzmin, tzmax)); 
+
+	t0 = tmin; 
+	t1 = tmax; 
+
+	return tmax >= max(0.0, tmin);  
+}
 
 void main(){
     uint target_x = (gl_LocalInvocationID.x) + ((gl_WorkGroupID.x) * 16); 
     uint target_y = (gl_LocalInvocationID.y) + ((gl_WorkGroupID.y) * 16); 
 
-    vec4 imgColor = vec4(imageLoad(inputSceneColor, ivec2(target_x, target_y))); 
+	float t0 = 0; 
+	float t1 = 0; 
+
+	Ray camRay = getRayForPixel(target_x, target_y); 
+	vec4 imgColor = vec4(0.0, 0.0, 0.0, 1.0); 
+
+	if (rayBoxIntersect(camRay, t0, t1))
+		imgColor = vec4(0.0, 1.0, 0.0, 1.0); 
+	else 
+		imgColor = vec4(imageLoad(inputSceneColor, ivec2(target_x, target_y)));
+
     imageStore(outputImage, ivec2(target_x, target_y), imgColor); 
 }

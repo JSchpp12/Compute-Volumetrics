@@ -70,7 +70,7 @@ public:
             }
         }
 
-        this->volumeRenderer = std::make_unique<VolumeRenderer>(camera, offscreenRenderToColorImages, globalInfos, lightInfos, this->aabbBounds);
+        this->volumeRenderer = std::make_unique<VolumeRenderer>(camera, &this->instanceModelInfos, &this->instanceNormalInfos, offscreenRenderToColorImages, globalInfos, lightInfos, this->aabbBounds);
         this->volumeRendererCleanup = std::make_unique<VolumeRendererCleanup>(this->volumeRenderer->getRenderToImages(), offscreenRenderToColorImages);
     };
 
@@ -107,12 +107,9 @@ protected:
 
     virtual std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> loadGeometryBuffers(star::StarDevice& device) override;
 
-    void initResources(star::StarDevice& device, const int& numFramesInFlight, const vk::Extent2D& screensize) override;
-
     void convertToFog(openvdb::FloatGrid::Ptr& grid);
 
     virtual void recordRenderPassCommands(vk::CommandBuffer& commandBuffer, vk::PipelineLayout& pipelineLayout, int swapChainIndexNum) override;
-
 private:
     struct RayCamera {
         glm::vec2 dimensions{};
@@ -138,6 +135,7 @@ private:
             };
 
             glm::vec3 origin = this->camDisplayMat * glm::vec4{ 0, 0, 0, 1 };
+            auto normPix = glm::normalize(pixelLocCamera); 
             glm::vec3 point = this->camDisplayMat * glm::vec4(glm::normalize(pixelLocCamera), 1.0f);
             glm::vec3 direction = point - origin;
             auto normDir = glm::normalize(direction);
@@ -174,7 +172,4 @@ private:
         openvdb::FloatGrid::Ptr grid, const float& t0, const float& t1);
 
     static openvdb::Mat4R getTransform(const glm::mat4& objectDisplayMat);
-
-    // Inherited via RenderResourceModifier
-    void destroyResources(star::StarDevice& device) override;
 };
