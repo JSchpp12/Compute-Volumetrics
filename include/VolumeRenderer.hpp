@@ -29,10 +29,11 @@ public:
 		const std::vector<std::unique_ptr<star::InstanceModelInfo>>* instanceModelInfo, 
 		const std::vector<std::unique_ptr<star::InstanceNormalInfo>>* instanceNormalInfo,
 		std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColors, 
+		std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToDepths,
 		const std::vector<std::shared_ptr<star::GlobalInfo>>& globalInfoBuffers, 
 		const std::vector<std::shared_ptr<star::LightInfo>>& sceneLightInfoBuffers, 
 		const std::array<glm::vec4, 2>& aabbBounds)
-		: offscreenRenderToColors(offscreenRenderToColors), 
+		: offscreenRenderToColors(offscreenRenderToColors), offscreenRenderToDepths(offscreenRenderToDepths),
 		globalInfoBuffers(globalInfoBuffers), sceneLightInfoBuffers(sceneLightInfoBuffers), 
 		aabbBounds(aabbBounds), cameraShaderInfo(std::make_unique<CameraInfo>(camera)), 
 		instanceModelInfo(instanceModelInfo), instanceNormalInfo(instanceNormalInfo) {};
@@ -51,6 +52,7 @@ private:
 	std::vector<std::shared_ptr<star::GlobalInfo>> globalInfoBuffers = std::vector<std::shared_ptr<star::GlobalInfo>>();
 	std::vector<std::shared_ptr<AABBInfo>> aabbInfoBuffers;
 	std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColors = nullptr;
+	std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToDepths = nullptr;
 
 	std::unique_ptr<vk::Extent2D> displaySize = std::unique_ptr<vk::Extent2D>();
 	std::vector<std::unique_ptr<star::Texture>> computeWriteToImages = std::vector<std::unique_ptr<star::Texture>>();

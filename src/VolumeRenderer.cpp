@@ -26,6 +26,29 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer& commandBuffer, const
 		prepOffscreenImages
 	);
 
+	vk::ImageMemoryBarrier prepOffscreenDepths{}; 
+	prepOffscreenDepths.sType = vk::StructureType::eImageMemoryBarrier;
+	prepOffscreenDepths.oldLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+	prepOffscreenDepths.newLayout = vk::ImageLayout::eGeneral;
+	prepOffscreenDepths.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
+	prepOffscreenDepths.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
+	prepOffscreenDepths.image = this->offscreenRenderToDepths->at(frameInFlightIndex)->getImage();
+	prepOffscreenDepths.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+	prepOffscreenDepths.subresourceRange.baseMipLevel = 0;
+	prepOffscreenDepths.subresourceRange.levelCount = 1;
+	prepOffscreenDepths.subresourceRange.baseArrayLayer = 0;
+	prepOffscreenDepths.subresourceRange.layerCount = 1;
+	prepOffscreenDepths.srcAccessMask = vk::AccessFlagBits::eNone;
+	prepOffscreenDepths.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+
+	commandBuffer.pipelineBarrier(
+		vk::PipelineStageFlagBits::eTopOfPipe,
+		vk::PipelineStageFlagBits::eComputeShader,
+		{},
+		{},
+		nullptr,
+		prepOffscreenDepths
+	);
 
 	//transition image layout
 	vk::ImageMemoryBarrier prepWriteToImages{}; 
@@ -136,8 +159,9 @@ void VolumeRenderer::destroyResources(star::StarDevice& device)
 std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescriptorRequests(const int& numFramesInFlight)
 {
 	return std::vector<std::pair<vk::DescriptorType, const int>>{
-		std::make_pair(vk::DescriptorType::eStorageImage, 2 * numFramesInFlight),
-		std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + ( 3 * numFramesInFlight) )
+		std::make_pair(vk::DescriptorType::eStorageImage, (3 * numFramesInFlight)),
+		std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + ( 3 * numFramesInFlight) ),
+		std::make_pair(vk::DescriptorType::eStorageBuffer, 1)
 	};
 }
 
@@ -148,8 +172,10 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 		.addSetLayout(star::StarDescriptorSetLayout::Builder(device)
 			.addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
 			.addBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-			.addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+			.addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
 			.addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+			.addBinding(4, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+			.addBinding(5, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
 			.build())
 		.addSetLayout(star::StarDescriptorSetLayout::Builder(device)
 			.addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
@@ -161,6 +187,7 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 			.startOnFrameIndex(i)
 			.startSet()
 			.add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral)
+			.add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eGeneral)
 			.add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral)
 			.add(*this->cameraShaderInfo)
 			.add(*this->aabbInfoBuffers.at(i))

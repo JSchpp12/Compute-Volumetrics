@@ -136,6 +136,40 @@ void Volume::loadModel()
 
     this->aabbBounds[0] = glm::vec4{ bmin.x(), bmin.y(), bmin.z(), 1.0 };
     this->aabbBounds[1] = glm::vec4{ bmax.x(), bmax.y(), bmax.z(), 1.0 };
+
+    auto gridAccessor = grid->getConstAccessor();
+    openvdb::math::CoordBBox bounds; 
+    gridAccessor.tree().getIndexRange(bounds);
+
+    size_t step_size = 50;
+    {
+        openvdb::math::Coord min = bounds.min();
+        {
+            int x = static_cast<int>(min.x()) / static_cast<int>(step_size);
+            int y = static_cast<int>(min.y()) / static_cast<int>(step_size);
+            int z = static_cast<int>(min.z()) / static_cast<int>(step_size);
+            min = openvdb::math::Coord(x, y, z);
+        }
+
+        openvdb::math::Coord max = bounds.max();
+        {
+            int x = static_cast<int>(max.x()) / static_cast<int>(step_size);
+            int y = static_cast<int>(max.y()) / static_cast<int>(step_size);
+            int z = static_cast<int>(max.z()) / static_cast<int>(step_size);
+            max = openvdb::math::Coord(x, y, z);
+        }
+
+		bounds = openvdb::math::CoordBBox(min, max);
+    }
+
+    //openvdb::math::CoordBBox newBouds = openvdb::math::CoordBBox();
+    auto sampledBoundrySize = bounds.extents().asVec3i();
+	std::vector<std::vector<std::vector<float>>> sampledGridData = std::vector<std::vector<std::vector<float>>>(sampledBoundrySize.x(), std::vector<std::vector<float>>(sampledBoundrySize.y(), std::vector<float>(sampledBoundrySize.z(), 0.0f)));
+    std::cout << "Sampling grid with step size of: " << step_size << std::endl; 
+	size_t halfTotalSteps = sampledGridData.size() / 2;
+    ProcessVolume processor = ProcessVolume(this->grid.get(), sampledGridData, step_size, halfTotalSteps);
+	oneapi::tbb::parallel_for(bounds, processor);
+    std::cout << "Done" << std::endl; 
 }
 
 std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> Volume::loadGeometryBuffers(star::StarDevice& device)

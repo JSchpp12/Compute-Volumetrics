@@ -30,6 +30,7 @@ set(${PROJECT_NAME}_SOURCE
 	"src/AABBInfo.cpp"
 	"src/CameraInfo.cpp"
 	"src/Screen.cpp"
+	"src/VolumeSampler.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -43,6 +44,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/AABBInfo.hpp"
 	"include/CameraInfo.hpp"
 	"include/Screen.hpp"
+	"include/VolumeSampler.hpp"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")
@@ -55,6 +57,7 @@ target_link_libraries(${PROJECT_NAME}
 	PRIVATE starlight
 	PRIVATE OpenVDB::openvdb
 	PRIVATE GDAL::GDAL
+	PRIVATE TBB::tbb
 )
 
 #TODO: NEED BETTER SOLUTION FOR MEDIA FILES

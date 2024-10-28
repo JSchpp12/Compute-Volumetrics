@@ -26,7 +26,7 @@ void Application::Load()
         this->offscreenScene = std::make_unique<star::StarScene>(framesInFLight, this->scene.getCamera(), globalInfos);
         this->offscreenSceneRenderer = std::make_unique<OffscreenRenderer>(*this->offscreenScene);
 
-        auto screen = std::make_unique<Volume>(*this->scene.getCamera(), 1280, 720, this->scene.getLights(), this->offscreenSceneRenderer->getRenderToColorImages(), globalInfos, lightInfos);
+        auto screen = std::make_unique<Volume>(*this->scene.getCamera(), 1280, 720, this->scene.getLights(), this->offscreenSceneRenderer->getRenderToColorImages(), this->offscreenSceneRenderer->getRenderToDepthImages(), globalInfos, lightInfos);
         screen->drawBoundingBox = true; 
         auto& s_i = screen->createInstance();
 		s_i.setScale(glm::vec3{ 0.005, 0.005, 0.005 });
@@ -38,7 +38,7 @@ void Application::Load()
     auto horse = star::BasicObject::New(horsePath);
     auto& h_i = horse->createInstance();
 	//horse->drawBoundingBox = true;
-    h_i.setPosition(glm::vec3{ 0.885, 0.0, 0.0 });
+    h_i.setPosition(glm::vec3{ 0.885, -0.75, 0.0 });
     h_i.setScale(glm::vec3{ 0.1, 0.1, 0.1 });
     this->offscreenScene->add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{ -1.0, 0.0, 0.0 }));
     this->offscreenScene->add(std::move(horse));

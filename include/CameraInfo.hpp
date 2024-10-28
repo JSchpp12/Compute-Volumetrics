@@ -20,8 +20,9 @@ public:
 protected:
 	star::StarCamera& camera; 
 
-	struct CameraData {
+	struct CameraData { 
 		glm::mat4 displayMatrix; 
+		glm::mat4 inverseProjMatrix; 
 		glm::vec2 resolution; 
 		float aspectRatio;
 		double scale; 

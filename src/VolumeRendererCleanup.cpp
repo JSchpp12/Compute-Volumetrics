@@ -29,6 +29,32 @@ void VolumeRendererCleanup::recordCommandBuffer(vk::CommandBuffer& commandBuffer
 			barrier
 		);
 	}
+	{
+		vk::ImageMemoryBarrier barrier{};
+		barrier.sType = vk::StructureType::eImageMemoryBarrier;
+		barrier.oldLayout = vk::ImageLayout::eGeneral;
+		barrier.newLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+		barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
+		barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
+
+		barrier.image = this->offscreenRenderDepths->at(frameInFlightIndex)->getImage();
+		barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+		barrier.dstAccessMask = vk::AccessFlagBits::eNone;
+		barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+		barrier.subresourceRange.baseMipLevel = 0;
+		barrier.subresourceRange.levelCount = 1;
+		barrier.subresourceRange.baseArrayLayer = 0;
+		barrier.subresourceRange.layerCount = 1;
+
+		commandBuffer.pipelineBarrier(
+			vk::PipelineStageFlagBits::eBottomOfPipe,
+			vk::PipelineStageFlagBits::eTopOfPipe,
+			{},
+			{},
+			nullptr,
+			barrier
+		);
+	}
 	
 	{
 		vk::ImageMemoryBarrier barrier{}; 

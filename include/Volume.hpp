@@ -30,6 +30,8 @@
 
 #include <stdio.h>
 
+#include <tbb/tbb.h>
+
 #include <random>
 #include <string>
 #include <thread>
@@ -44,6 +46,31 @@ class Volume :
     public star::StarObject
 {
 public:
+    class ProcessVolume {
+        std::vector<std::vector<std::vector<float>>>& sampledGridData; 
+        openvdb::FloatGrid* volume = nullptr;
+		openvdb::FloatGrid::ConstAccessor myAccessor;
+        const size_t& myStepSize = 0;
+        const size_t& halfTotalSteps = 0; 
+
+    public:
+        void operator()(const openvdb::CoordBBox& it) const {
+            for (auto& coord : it) {
+                openvdb::Vec3R finalCoord = openvdb::Vec3R(coord.x() * myStepSize, coord.y() * myStepSize, coord.z() * myStepSize);
+                float result = openvdb::tools::BoxSampler::sample(this->myAccessor, finalCoord);
+
+                size_t sampledLocX = coord.x() + halfTotalSteps;
+                size_t sampledLocY = coord.y() + halfTotalSteps;
+                size_t sampledLocZ = coord.z() + halfTotalSteps;
+                sampledGridData[sampledLocX][sampledLocY][sampledLocZ] = result;
+            }
+        }
+
+        ProcessVolume(openvdb::FloatGrid* volume, std::vector<std::vector<std::vector<float>>>& gridData, const size_t& myStepSize, const size_t& halfTotalSteps) 
+            : myAccessor(volume->getConstAccessor()), sampledGridData(gridData), myStepSize(myStepSize), halfTotalSteps(halfTotalSteps) {
+        }
+    };
+
     bool udpdateVolumeRender = false;
     bool rayMarchToVolumeBoundry = false;
     bool rayMarchToAABB = false;
@@ -52,6 +79,7 @@ public:
     Volume(star::StarCamera& camera, const size_t screenWidth, const size_t screenHeight, 
         std::vector<std::unique_ptr<star::Light>>& lightList, 
         std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColorImages, 
+		std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToDepthImages,
         std::vector<std::shared_ptr<star::GlobalInfo>>& globalInfos, 
         std::vector<std::shared_ptr<star::LightInfo>>& lightInfos)
 		: screenDimensions(screenWidth, screenHeight), lightList(lightList), 
@@ -70,8 +98,8 @@ public:
             }
         }
 
-        this->volumeRenderer = std::make_unique<VolumeRenderer>(camera, &this->instanceModelInfos, &this->instanceNormalInfos, offscreenRenderToColorImages, globalInfos, lightInfos, this->aabbBounds);
-        this->volumeRendererCleanup = std::make_unique<VolumeRendererCleanup>(this->volumeRenderer->getRenderToImages(), offscreenRenderToColorImages);
+        this->volumeRenderer = std::make_unique<VolumeRenderer>(camera, &this->instanceModelInfos, &this->instanceNormalInfos, offscreenRenderToColorImages, offscreenRenderToDepthImages, globalInfos, lightInfos, this->aabbBounds);
+        this->volumeRendererCleanup = std::make_unique<VolumeRendererCleanup>(this->volumeRenderer->getRenderToImages(), offscreenRenderToColorImages, offscreenRenderToDepthImages);
     };
 
     void renderVolume(const double& fov_radians, const glm::vec3& camPosition, const glm::mat4& camDispMatrix, const glm::mat4& camProjMat);

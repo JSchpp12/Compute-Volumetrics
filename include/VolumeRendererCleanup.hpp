@@ -5,12 +5,18 @@
 
 class VolumeRendererCleanup : private star::CommandBufferModifier{
 public:
- 	VolumeRendererCleanup(std::vector<std::unique_ptr<star::Texture>>* computeOutputTextures, std::vector<std::unique_ptr<star::Texture>>* offscreenRenderTextures) : computeOutputTextures(computeOutputTextures), offscreenRenderTextures(offscreenRenderTextures) {};
+ 	VolumeRendererCleanup(std::vector<std::unique_ptr<star::Texture>>* computeOutputTextures, 
+		std::vector<std::unique_ptr<star::Texture>>* offscreenRenderTextures, std::vector<std::unique_ptr<star::Texture>>* offscreenRenderDepths) 
+		: computeOutputTextures(computeOutputTextures), offscreenRenderTextures(offscreenRenderTextures),
+		offscreenRenderDepths(offscreenRenderDepths)
+	
+	{};
 	~VolumeRendererCleanup() = default; 
 
 private:
 	std::vector<std::unique_ptr<star::Texture>>* computeOutputTextures = nullptr;
 	std::vector<std::unique_ptr<star::Texture>>* offscreenRenderTextures = nullptr;
+	std::vector<std::unique_ptr<star::Texture>>* offscreenRenderDepths = nullptr;
 
 	// Inherited via CommandBufferModifier
 	void recordCommandBuffer(vk::CommandBuffer& commandBuffer, const int& frameInFlightIndex) override;

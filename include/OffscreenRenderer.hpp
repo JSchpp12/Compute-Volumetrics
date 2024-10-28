@@ -13,6 +13,8 @@ private:
 
 	std::vector<std::unique_ptr<star::Texture>> createRenderToImages(star::StarDevice& device, const int& numFramesInFlight) override;
 
+	std::vector<std::unique_ptr<star::Texture>> createRenderToDepthImages(star::StarDevice& device, const int& numFramesInFlight) override;
+
 	// Inherited via SceneRenderer
 	star::Command_Buffer_Order_Index getCommandBufferOrderIndex() override; 
 
