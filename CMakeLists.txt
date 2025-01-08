@@ -31,6 +31,7 @@ set(${PROJECT_NAME}_SOURCE
 	"src/CameraInfo.cpp"
 	"src/Screen.cpp"
 	"src/VolumeSampler.cpp"
+	"src/SampledVolumeTexture.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -45,6 +46,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/CameraInfo.hpp"
 	"include/Screen.hpp"
 	"include/VolumeSampler.hpp"
+	"include/SampledVolumeTexture.hpp"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")

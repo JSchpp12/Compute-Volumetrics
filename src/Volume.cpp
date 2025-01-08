@@ -164,11 +164,13 @@ void Volume::loadModel()
 
     //openvdb::math::CoordBBox newBouds = openvdb::math::CoordBBox();
     auto sampledBoundrySize = bounds.extents().asVec3i();
-	std::vector<std::vector<std::vector<float>>> sampledGridData = std::vector<std::vector<std::vector<float>>>(sampledBoundrySize.x(), std::vector<std::vector<float>>(sampledBoundrySize.y(), std::vector<float>(sampledBoundrySize.z(), 0.0f)));
+	std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledGridData = std::unique_ptr<std::vector<std::vector<std::vector<float>>>>(new std::vector(sampledBoundrySize.x(), std::vector<std::vector<float>>(sampledBoundrySize.y(), std::vector<float>(sampledBoundrySize.z(), 0.0f))));
     std::cout << "Sampling grid with step size of: " << step_size << std::endl; 
-	size_t halfTotalSteps = sampledGridData.size() / 2;
-    ProcessVolume processor = ProcessVolume(this->grid.get(), sampledGridData, step_size, halfTotalSteps);
+	size_t halfTotalSteps = sampledGridData->size() / 2;
+    ProcessVolume processor = ProcessVolume(this->grid.get(), *sampledGridData, step_size, halfTotalSteps);
 	oneapi::tbb::parallel_for(bounds, processor);
+
+	this->sampledTexture = std::make_unique<SampledVolumeTexture>(std::move(sampledGridData));
     std::cout << "Done" << std::endl; 
 }
 
@@ -272,6 +274,19 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr& grid)
 void Volume::recordRenderPassCommands(vk::CommandBuffer& commandBuffer, vk::PipelineLayout& pipelineLayout, int frameInFlightIndex)
 {
 	this->StarObject::recordRenderPassCommands(commandBuffer, pipelineLayout, frameInFlightIndex);
+}
+
+void Volume::initResources(star::StarDevice& device, const int& numFramesInFlight, const vk::Extent2D& screensize)
+{
+    this->sampledTexture->prepRender(device);
+    this->StarObject::initResources(device, numFramesInFlight, screensize);
+}
+
+void Volume::destroyResources(star::StarDevice& device)
+{
+    this->sampledTexture->cleanupRender(device); 
+    this->sampledTexture.reset(); 
+    this->StarObject::destroyResources(device); 
 }
 
 void Volume::updateGridTransforms()

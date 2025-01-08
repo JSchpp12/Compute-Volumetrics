@@ -15,6 +15,7 @@
 #include "VolumeRendererCleanup.hpp"
 #include "Light.hpp"
 #include "Texture.hpp"
+#include "SampledVolumeTexture.hpp"
 
 #include "ScreenMaterial.hpp"
 
@@ -43,7 +44,7 @@ enum Phase_Function {
 };
 
 class Volume :
-    public star::StarObject
+	public star::StarObject
 {
 public:
     class ProcessVolume {
@@ -62,7 +63,8 @@ public:
                 size_t sampledLocX = coord.x() + halfTotalSteps;
                 size_t sampledLocY = coord.y() + halfTotalSteps;
                 size_t sampledLocZ = coord.z() + halfTotalSteps;
-                sampledGridData[sampledLocX][sampledLocY][sampledLocZ] = result;
+                //sampledGridData[sampledLocX][sampledLocY][sampledLocZ] = result;
+                sampledGridData[sampledLocX][sampledLocY][sampledLocZ] = 0.95f;
             }
         }
 
@@ -98,7 +100,7 @@ public:
             }
         }
 
-        this->volumeRenderer = std::make_unique<VolumeRenderer>(camera, &this->instanceModelInfos, &this->instanceNormalInfos, offscreenRenderToColorImages, offscreenRenderToDepthImages, globalInfos, lightInfos, this->aabbBounds);
+        this->volumeRenderer = std::make_unique<VolumeRenderer>(camera, &this->instanceModelInfos, &this->instanceNormalInfos, offscreenRenderToColorImages, offscreenRenderToDepthImages, globalInfos, lightInfos, *this->sampledTexture, this->aabbBounds);
         this->volumeRendererCleanup = std::make_unique<VolumeRendererCleanup>(this->volumeRenderer->getRenderToImages(), offscreenRenderToColorImages, offscreenRenderToDepthImages);
     };
 
@@ -116,6 +118,7 @@ public:
         this->sigma_absorbtion = newCoef;
     }
 protected:
+    std::unique_ptr<SampledVolumeTexture> sampledTexture = nullptr; 
     std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr; 
 	std::unique_ptr<VolumeRendererCleanup> volumeRendererCleanup = nullptr;
     std::array<glm::vec4, 2> aabbBounds; 
@@ -138,6 +141,10 @@ protected:
     void convertToFog(openvdb::FloatGrid::Ptr& grid);
 
     virtual void recordRenderPassCommands(vk::CommandBuffer& commandBuffer, vk::PipelineLayout& pipelineLayout, int swapChainIndexNum) override;
+
+    virtual void initResources(star::StarDevice& device, const int& numFramesInFlight, const vk::Extent2D& screensize) override;
+
+	virtual void destroyResources(star::StarDevice& device) override;
 private:
     struct RayCamera {
         glm::vec2 dimensions{};

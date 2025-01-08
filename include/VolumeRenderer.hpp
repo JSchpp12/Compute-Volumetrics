@@ -15,6 +15,7 @@
 #include "StarObjectInstance.hpp"
 #include "InstanceModelInfo.hpp"
 #include "InstanceNormalInfo.hpp"
+#include "SampledVolumeTexture.hpp"
 
 #include <glm/glm.hpp>
 #include <vma/vk_mem_alloc.h>
@@ -31,18 +32,20 @@ public:
 		std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColors, 
 		std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToDepths,
 		const std::vector<std::shared_ptr<star::GlobalInfo>>& globalInfoBuffers, 
-		const std::vector<std::shared_ptr<star::LightInfo>>& sceneLightInfoBuffers, 
+		const std::vector<std::shared_ptr<star::LightInfo>>& sceneLightInfoBuffers,
+		const SampledVolumeTexture& volumeTexture, 
 		const std::array<glm::vec4, 2>& aabbBounds)
 		: offscreenRenderToColors(offscreenRenderToColors), offscreenRenderToDepths(offscreenRenderToDepths),
 		globalInfoBuffers(globalInfoBuffers), sceneLightInfoBuffers(sceneLightInfoBuffers), 
 		aabbBounds(aabbBounds), cameraShaderInfo(std::make_unique<CameraInfo>(camera)), 
-		instanceModelInfo(instanceModelInfo), instanceNormalInfo(instanceNormalInfo) {};
+		instanceModelInfo(instanceModelInfo), volumeTexture(volumeTexture), instanceNormalInfo(instanceNormalInfo) {};
 
 	~VolumeRenderer() = default; 
 
 	std::vector<std::unique_ptr<star::Texture>>* getRenderToImages() { return &this->computeWriteToImages; }
 
 private:
+	const SampledVolumeTexture& volumeTexture;
 	const std::vector<std::unique_ptr<star::InstanceModelInfo>>* instanceModelInfo = nullptr;
 	const std::vector<std::unique_ptr<star::InstanceNormalInfo>>* instanceNormalInfo = nullptr;
 	const std::array<glm::vec4, 2>& aabbBounds; 

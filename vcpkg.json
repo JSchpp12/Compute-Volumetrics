@@ -1,5 +1,12 @@
 {
     "dependencies": [
-        "vulkan", "openvdb", "gdal", "glm", "glfw3", "vulkan-memory-allocator", "tbb"
+        "vulkan", "openvdb", "gdal", "glm", "glfw3", "vulkan-memory-allocator", "tbb", 
+        {
+            "name": "spirv-reflect"
+        },
+        {
+            "name": "usd",
+            "features": ["vulkan"]
+        }
     ]
 }

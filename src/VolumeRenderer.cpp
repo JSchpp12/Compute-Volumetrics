@@ -191,6 +191,7 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 			.add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral)
 			.add(*this->cameraShaderInfo)
 			.add(*this->aabbInfoBuffers.at(i))
+			.add(this->volumeTexture, vk::ImageLayout::eGeneral)
 			.startSet()
 			.add(*this->globalInfoBuffers.at(i))
 			.add(*this->instanceModelInfo->at(i));
