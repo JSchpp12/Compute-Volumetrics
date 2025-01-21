@@ -1,12 +1,12 @@
 #pragma once
 
 #include "CommandBufferModifier.hpp"
-#include "Texture.hpp"
+#include "FileTexture.hpp"
 
 class VolumeRendererCleanup : private star::CommandBufferModifier{
 public:
- 	VolumeRendererCleanup(std::vector<std::unique_ptr<star::Texture>>* computeOutputTextures, 
-		std::vector<std::unique_ptr<star::Texture>>* offscreenRenderTextures, std::vector<std::unique_ptr<star::Texture>>* offscreenRenderDepths) 
+ 	VolumeRendererCleanup(std::vector<std::unique_ptr<star::FileTexture>>* computeOutputTextures,
+		std::vector<std::unique_ptr<star::FileTexture>>* offscreenRenderTextures, std::vector<std::unique_ptr<star::FileTexture>>* offscreenRenderDepths)
 		: computeOutputTextures(computeOutputTextures), offscreenRenderTextures(offscreenRenderTextures),
 		offscreenRenderDepths(offscreenRenderDepths)
 	
@@ -14,9 +14,9 @@ public:
 	~VolumeRendererCleanup() = default; 
 
 private:
-	std::vector<std::unique_ptr<star::Texture>>* computeOutputTextures = nullptr;
-	std::vector<std::unique_ptr<star::Texture>>* offscreenRenderTextures = nullptr;
-	std::vector<std::unique_ptr<star::Texture>>* offscreenRenderDepths = nullptr;
+	std::vector<std::unique_ptr<star::FileTexture>>* computeOutputTextures = nullptr;
+	std::vector<std::unique_ptr<star::FileTexture>>* offscreenRenderTextures = nullptr;
+	std::vector<std::unique_ptr<star::FileTexture>>* offscreenRenderDepths = nullptr;
 
 	// Inherited via CommandBufferModifier
 	void recordCommandBuffer(vk::CommandBuffer& commandBuffer, const int& frameInFlightIndex) override;

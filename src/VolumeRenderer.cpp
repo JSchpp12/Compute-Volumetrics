@@ -129,7 +129,7 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 		this->computeWriteToImages.resize(numFramesInFlight);
 
 		for (int i = 0; i < numFramesInFlight; i++) {
-			this->computeWriteToImages[i] = std::make_unique<star::Texture>(screensize.width, screensize.height, settings);
+			this->computeWriteToImages[i] = std::make_unique<star::FileTexture>(screensize.width, screensize.height, settings);
 			this->computeWriteToImages[i]->prepRender(device);
 
 			//set the layout to general for compute shader use

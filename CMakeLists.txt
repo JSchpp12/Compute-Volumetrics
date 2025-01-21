@@ -68,19 +68,11 @@ add_custom_target(
 	always_run_target ALL 
 	DEPENDS ${${PROJECT_NAME}_SOURCE}
 )
+
 add_custom_command(
 	TARGET
 		always_run_target
-	DEPENDS
-		${${PROJECT_NAME}_SOURCE}
+	POST_BUILD
 	COMMAND 
 		python ${PREP_MEDIA_CMD} buildDir=${CMAKE_CURRENT_BINARY_DIR} mediaDir=${CMAKE_CURRENT_SOURCE_DIR}/media configFile=${CMAKE_CURRENT_SOURCE_DIR}/StarEngine.cfg
 )
-
-
-
-# using something like this prevents vcpkg from working correctly
-#add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-#	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-#	"${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/bin/openvdb.dll" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-#)

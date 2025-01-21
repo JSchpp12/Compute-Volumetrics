@@ -14,7 +14,7 @@
 #include "VolumeRenderer.hpp"
 #include "VolumeRendererCleanup.hpp"
 #include "Light.hpp"
-#include "Texture.hpp"
+#include "FileTexture.hpp"
 #include "SampledVolumeTexture.hpp"
 
 #include "ScreenMaterial.hpp"
@@ -80,8 +80,8 @@ public:
     ~Volume() = default;
     Volume(star::StarCamera& camera, const size_t screenWidth, const size_t screenHeight, 
         std::vector<std::unique_ptr<star::Light>>& lightList, 
-        std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColorImages, 
-		std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToDepthImages,
+        std::vector<std::unique_ptr<star::FileTexture>>* offscreenRenderToColorImages,
+		std::vector<std::unique_ptr<star::FileTexture>>* offscreenRenderToDepthImages,
         std::vector<std::shared_ptr<star::GlobalInfo>>& globalInfos, 
         std::vector<std::shared_ptr<star::LightInfo>>& lightInfos)
 		: screenDimensions(screenWidth, screenHeight), lightList(lightList), 

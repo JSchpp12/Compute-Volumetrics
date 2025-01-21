@@ -169,7 +169,7 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
 		vert.normal = glm::normalize(vert.normal); 
 	}
 
-	auto texture = std::make_shared<star::Texture>(this->texturePath);
+	auto texture = std::make_shared<star::FileTexture>(this->texturePath);
 	auto material = std::make_shared<star::TextureMaterial>(texture);
 	this->meshes.push_back(std::make_unique<star::StarMesh>(*vertices, *indices, material, false));
 

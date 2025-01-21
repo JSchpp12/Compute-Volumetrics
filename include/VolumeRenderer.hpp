@@ -5,7 +5,7 @@
 #include "StarTexture.hpp"
 #include "StarComputePipeline.hpp"
 #include "DescriptorModifier.hpp"
-#include "Texture.hpp"
+#include "FileTexture.hpp"
 #include "GlobalInfo.hpp"
 #include "AABBInfo.hpp"
 #include "LightInfo.hpp"
@@ -29,8 +29,8 @@ public:
 	VolumeRenderer(star::StarCamera& camera, 
 		const std::vector<std::unique_ptr<star::InstanceModelInfo>>* instanceModelInfo, 
 		const std::vector<std::unique_ptr<star::InstanceNormalInfo>>* instanceNormalInfo,
-		std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColors, 
-		std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToDepths,
+		std::vector<std::unique_ptr<star::FileTexture>>* offscreenRenderToColors,
+		std::vector<std::unique_ptr<star::FileTexture>>* offscreenRenderToDepths,
 		const std::vector<std::shared_ptr<star::GlobalInfo>>& globalInfoBuffers, 
 		const std::vector<std::shared_ptr<star::LightInfo>>& sceneLightInfoBuffers,
 		const SampledVolumeTexture& volumeTexture, 
@@ -42,7 +42,7 @@ public:
 
 	~VolumeRenderer() = default; 
 
-	std::vector<std::unique_ptr<star::Texture>>* getRenderToImages() { return &this->computeWriteToImages; }
+	std::vector<std::unique_ptr<star::FileTexture>>* getRenderToImages() { return &this->computeWriteToImages; }
 
 private:
 	const SampledVolumeTexture& volumeTexture;
@@ -54,11 +54,11 @@ private:
 	std::unique_ptr<CameraInfo> cameraShaderInfo = std::unique_ptr<CameraInfo>(); 
 	std::vector<std::shared_ptr<star::GlobalInfo>> globalInfoBuffers = std::vector<std::shared_ptr<star::GlobalInfo>>();
 	std::vector<std::shared_ptr<AABBInfo>> aabbInfoBuffers;
-	std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToColors = nullptr;
-	std::vector<std::unique_ptr<star::Texture>>* offscreenRenderToDepths = nullptr;
+	std::vector<std::unique_ptr<star::FileTexture>>* offscreenRenderToColors = nullptr;
+	std::vector<std::unique_ptr<star::FileTexture>>* offscreenRenderToDepths = nullptr;
 
 	std::unique_ptr<vk::Extent2D> displaySize = std::unique_ptr<vk::Extent2D>();
-	std::vector<std::unique_ptr<star::Texture>> computeWriteToImages = std::vector<std::unique_ptr<star::Texture>>();
+	std::vector<std::unique_ptr<star::FileTexture>> computeWriteToImages = std::vector<std::unique_ptr<star::FileTexture>>();
 	std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
 	std::unique_ptr<star::StarComputePipeline> computePipeline = std::unique_ptr<star::StarComputePipeline>();
 
