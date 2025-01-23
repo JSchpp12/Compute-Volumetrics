@@ -88,27 +88,27 @@ void Application::onKeyPress(int key, int scancode, int mods)
         star::StarEngine::takeScreenshot(stringName);
     }
 
-    if (key == star::KEY::H && !this->vol->udpdateVolumeRender)
-        this->vol->udpdateVolumeRender = true;
-    if (key == star::KEY::V)
-        this->vol->isVisible = !this->vol->isVisible;
-    if (key == star::KEY::M) {
-        this->vol->rayMarchToAABB = false; 
-        this->vol->rayMarchToVolumeBoundry = false; 
-    }
-    if (key == star::KEY::J)
-    {
-        this->vol->rayMarchToVolumeBoundry = !this->vol->rayMarchToVolumeBoundry;
-        this->vol->rayMarchToAABB = false; 
-    }
-    if (key == star::KEY::K)
-    {
-        this->vol->rayMarchToAABB = !this->vol->rayMarchToAABB;
-        this->vol->rayMarchToVolumeBoundry = false; 
-    }
-    if (key == star::KEY::P) {
-		star::StarEngine::takeScreenshot("screenshot.png");
-    }
+  //  if (key == star::KEY::H && !this->vol->udpdateVolumeRender)
+  //      this->vol->udpdateVolumeRender = true;
+  //  if (key == star::KEY::V)
+  //      this->vol->isVisible = !this->vol->isVisible;
+  //  if (key == star::KEY::M) {
+  //      this->vol->rayMarchToAABB = false; 
+  //      this->vol->rayMarchToVolumeBoundry = false; 
+  //  }
+  //  if (key == star::KEY::J)
+  //  {
+  //      this->vol->rayMarchToVolumeBoundry = !this->vol->rayMarchToVolumeBoundry;
+  //      this->vol->rayMarchToAABB = false; 
+  //  }
+  //  if (key == star::KEY::K)
+  //  {
+  //      this->vol->rayMarchToAABB = !this->vol->rayMarchToAABB;
+  //      this->vol->rayMarchToVolumeBoundry = false; 
+  //  }
+  //  if (key == star::KEY::P) {
+		//star::StarEngine::takeScreenshot("screenshot.png");
+  //  }
 }
 
 void Application::onKeyRelease(int key, int scancode, int mods)

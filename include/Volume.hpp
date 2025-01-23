@@ -80,8 +80,8 @@ public:
     ~Volume() = default;
     Volume(star::StarCamera& camera, const size_t screenWidth, const size_t screenHeight, 
         std::vector<std::unique_ptr<star::Light>>& lightList, 
-        std::vector<std::unique_ptr<star::FileTexture>>* offscreenRenderToColorImages,
-		std::vector<std::unique_ptr<star::FileTexture>>* offscreenRenderToDepthImages,
+        std::vector<std::unique_ptr<star::StarTexture>>* offscreenRenderToColorImages,
+		std::vector<std::unique_ptr<star::StarTexture>>* offscreenRenderToDepthImages,
         std::vector<std::shared_ptr<star::GlobalInfo>>& globalInfos, 
         std::vector<std::shared_ptr<star::LightInfo>>& lightInfos)
 		: screenDimensions(screenWidth, screenHeight), lightList(lightList), 

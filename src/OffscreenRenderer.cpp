@@ -5,19 +5,26 @@ OffscreenRenderer::OffscreenRenderer(star::StarScene& scene)
 {
 }
 
-std::vector<std::unique_ptr<star::FileTexture>> OffscreenRenderer::createRenderToImages(star::StarDevice& device, const int& numFramesInFlight)
+std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderToImages(star::StarDevice& device, const int& numFramesInFlight)
 {
-	std::vector<std::unique_ptr<star::FileTexture>> newRenderToImages = std::vector<std::unique_ptr<star::FileTexture>>();
+	std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages = std::vector<std::unique_ptr<star::StarTexture>>();
 
-	auto imageCreateSettings = star::StarTexture::TextureCreateSettings::createDefault(false);
-	imageCreateSettings.imageFormat = this->getCurrentRenderToImageFormat();
-	imageCreateSettings.imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage;
-	imageCreateSettings.allocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT & VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT;
-	imageCreateSettings.memoryUsage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-	imageCreateSettings.imageFormat = this->getCurrentRenderToImageFormat();
+	auto settings = star::StarTexture::TextureCreateSettings{
+		static_cast<int>(this->swapChainExtent->width),
+		static_cast<int>(this->swapChainExtent->height),
+		4,
+		1,
+		1,
+		vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage,
+		this->getCurrentRenderToImageFormat(),
+		vk::ImageAspectFlagBits::eColor,
+		VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
+		VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+		vk::ImageLayout::eColorAttachmentOptimal,
+		false, false };
 
 	for (int i = 0; i < numFramesInFlight; i++) {
-		newRenderToImages.push_back(std::make_unique<star::FileTexture>(this->swapChainExtent->width, this->swapChainExtent->height, imageCreateSettings));
+		newRenderToImages.push_back(std::make_unique<star::StarTexture>(settings));
 		newRenderToImages.back()->prepRender(device);
 
 		auto oneTimeSetup = device.beginSingleTimeCommands();
@@ -28,20 +35,28 @@ std::vector<std::unique_ptr<star::FileTexture>> OffscreenRenderer::createRenderT
 	return newRenderToImages;
 }
 
-std::vector<std::unique_ptr<star::FileTexture>> OffscreenRenderer::createRenderToDepthImages(star::StarDevice& device, const int& numFramesInFlight)
+std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderToDepthImages(star::StarDevice& device, const int& numFramesInFlight)
 {
-	std::vector<std::unique_ptr<star::FileTexture>> newRenderToImages = std::vector<std::unique_ptr<star::FileTexture>>();
+	std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages = std::vector<std::unique_ptr<star::StarTexture>>();
 
-	auto imageCreateSettings = star::StarTexture::TextureCreateSettings::createDefault(false);
-	imageCreateSettings.imageFormat = this->findDepthFormat(device);
-	imageCreateSettings.imageUsage = vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eStorage;
-	imageCreateSettings.allocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT & VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT;
-	imageCreateSettings.memoryUsage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-	imageCreateSettings.aspectFlags = vk::ImageAspectFlagBits::eDepth;
+	auto settings = star::StarTexture::TextureCreateSettings{
+		static_cast<int>(this->swapChainExtent->width),
+		static_cast<int>(this->swapChainExtent->height),
+		1,
+		1,
+		1,
+		vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eStorage,
+		this->findDepthFormat(device),
+		vk::ImageAspectFlagBits::eDepth,
+		VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
+		VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+		vk::ImageLayout::eDepthAttachmentOptimal,
+		false, false
+	};
 
 	for (int i = 0; i < numFramesInFlight; i++) {
-		newRenderToImages.push_back(std::make_unique<star::FileTexture>(this->swapChainExtent->width, this->swapChainExtent->height, imageCreateSettings));
-		newRenderToImages.back()->prepRender(device);
+		newRenderToImages.push_back(std::make_unique<star::StarTexture>(settings));
+		newRenderToImages.back()->prepRender(device); 
 
 		auto oneTimeSetup = device.beginSingleTimeCommands();
 

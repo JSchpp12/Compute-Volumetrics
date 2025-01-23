@@ -278,8 +278,9 @@ void Volume::recordRenderPassCommands(vk::CommandBuffer& commandBuffer, vk::Pipe
 
 void Volume::initResources(star::StarDevice& device, const int& numFramesInFlight, const vk::Extent2D& screensize)
 {
-    this->sampledTexture->prepRender(device);
     this->StarObject::initResources(device, numFramesInFlight, screensize);
+
+    this->sampledTexture->prepRender(device);
 }
 
 void Volume::destroyResources(star::StarDevice& device)

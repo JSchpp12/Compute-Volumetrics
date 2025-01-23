@@ -118,10 +118,17 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 	this->displaySize = std::make_unique<vk::Extent2D>(screensize);
 	{
 		auto settings = star::StarTexture::TextureCreateSettings{
+			static_cast<int>(screensize.width),
+			static_cast<int>(screensize.height),
+			4,
+			1,
+			1,
 			vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled, 
 			vk::Format::eR8G8B8A8Unorm,
+			vk::ImageAspectFlagBits::eColor,
 			VMA_MEMORY_USAGE_GPU_ONLY, 
 			VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, 
+			vk::ImageLayout::eShaderReadOnlyOptimal,
 			false, 
 			true
 		};
@@ -129,7 +136,7 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 		this->computeWriteToImages.resize(numFramesInFlight);
 
 		for (int i = 0; i < numFramesInFlight; i++) {
-			this->computeWriteToImages[i] = std::make_unique<star::FileTexture>(screensize.width, screensize.height, settings);
+			this->computeWriteToImages[i] = std::make_unique<star::StarTexture>(settings);
 			this->computeWriteToImages[i]->prepRender(device);
 
 			//set the layout to general for compute shader use

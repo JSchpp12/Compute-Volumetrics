@@ -11,9 +11,9 @@ public:
 private:
 	std::vector<std::unique_ptr<star::GlobalInfo>> globalInfoBuffers = std::vector<std::unique_ptr<star::GlobalInfo>>();
 
-	std::vector<std::unique_ptr<star::FileTexture>> createRenderToImages(star::StarDevice& device, const int& numFramesInFlight) override;
+	std::vector<std::unique_ptr<star::StarTexture>> createRenderToImages(star::StarDevice& device, const int& numFramesInFlight) override;
 
-	std::vector<std::unique_ptr<star::FileTexture>> createRenderToDepthImages(star::StarDevice& device, const int& numFramesInFlight) override;
+	std::vector<std::unique_ptr<star::StarTexture>> createRenderToDepthImages(star::StarDevice& device, const int& numFramesInFlight) override;
 
 	// Inherited via SceneRenderer
 	star::Command_Buffer_Order_Index getCommandBufferOrderIndex() override; 

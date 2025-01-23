@@ -21,23 +21,3 @@ std::optional<std::unique_ptr<unsigned char>> SampledVolumeTexture::data()
 	this->sampledData.reset(); 
 	return std::move(prepData); 
 }
-
-int SampledVolumeTexture::getWidth()
-{
-	return this->width; 
-}
-
-int SampledVolumeTexture::getHeight()
-{
-	return this->height;
-}
-
-int SampledVolumeTexture::getChannels()
-{
-	return 1;
-}
-
-int SampledVolumeTexture::getDepth()
-{
-	return this->depth; 
-}
