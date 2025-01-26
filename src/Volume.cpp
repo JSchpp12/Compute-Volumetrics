@@ -162,9 +162,9 @@ void Volume::loadModel()
 		bounds = openvdb::math::CoordBBox(min, max);
     }
 
-    //openvdb::math::CoordBBox newBouds = openvdb::math::CoordBBox();
     auto sampledBoundrySize = bounds.extents().asVec3i();
 	std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledGridData = std::unique_ptr<std::vector<std::vector<std::vector<float>>>>(new std::vector(sampledBoundrySize.x(), std::vector<std::vector<float>>(sampledBoundrySize.y(), std::vector<float>(sampledBoundrySize.z(), 0.0f))));
+    
     std::cout << "Sampling grid with step size of: " << step_size << std::endl; 
 	size_t halfTotalSteps = sampledGridData->size() / 2;
     ProcessVolume processor = ProcessVolume(this->grid.get(), *sampledGridData, step_size, halfTotalSteps);

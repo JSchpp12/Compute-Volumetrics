@@ -1,23 +1,53 @@
 #include "SampledVolumeTexture.hpp"
 
-std::optional<std::unique_ptr<unsigned char>> SampledVolumeTexture::data()
+std::unique_ptr<star::StarBuffer> SampledVolumeTexture::loadImageData(star::StarDevice& device)
 {
-	std::vector<unsigned char> data; 
+	//std::vector<unsigned char> data;
+	//for (int i = 0; i < this->sampledData->size(); i++) {
+	//	for (int j = 0; j < this->sampledData->at(i).size(); j++) {
+	//		for (int k = 0; k < this->sampledData->at(i).at(j).size(); k++) {
+	//			unsigned char packedData[sizeof(float)] = {};
+	//			memcpy(packedData, &this->sampledData->at(i).at(j).at(k), sizeof(float));
+	//			data.push_back(packedData[3]);
+	//			data.push_back(packedData[2]);
+	//			data.push_back(packedData[1]);
+	//			data.push_back(packedData[0]);
+	//		}
+	//	}
+	//}
+	//auto prepData = std::unique_ptr<unsigned char>(new unsigned char[data.size()]);
+	//std::copy(data.begin(), data.end(), prepData.get());
+
+	//this->sampledData.reset();
+
+	vk::DeviceSize imageSize = (vk::DeviceSize(this->creationSettings.width) * vk::DeviceSize(this->creationSettings.height) * vk::DeviceSize(this->creationSettings.channels) * vk::DeviceSize(this->creationSettings.depth)) 
+		* vk::DeviceSize(4);
+
+	std::unique_ptr<star::StarBuffer> stagingBuffer = std::make_unique<star::StarBuffer>(
+		device,
+		imageSize,
+		uint32_t(1),
+		VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_MAPPED_BIT,
+		VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
+		vk::BufferUsageFlagBits::eTransferSrc,
+		vk::SharingMode::eConcurrent
+	);
+
+	stagingBuffer->map(); 
+	
+	std::vector<float> flattenedData; 
+	int floatCounter = 0;
 	for (int i = 0; i < this->sampledData->size(); i++) {
 		for (int j = 0; j < this->sampledData->at(i).size(); j++) {
 			for (int k = 0; k < this->sampledData->at(i).at(j).size(); k++) {
-				unsigned char packedData[sizeof(float)] = {};
-				memcpy(packedData, &this->sampledData->at(i).at(j).at(k), sizeof(float));
-				data.push_back(packedData[3]);
-				data.push_back(packedData[2]);
-				data.push_back(packedData[1]);
-				data.push_back(packedData[0]);
+				flattenedData.push_back(this->sampledData->at(i).at(j).at(k));
+				floatCounter++; 
 			}
 		}
 	}
-	auto prepData = std::unique_ptr<unsigned char>(new unsigned char[data.size()]);
-	std::copy(data.begin(), data.end(), prepData.get()); 
+	stagingBuffer->writeToBuffer(flattenedData.data(), sizeof(float) * floatCounter); 
 
-	this->sampledData.reset(); 
-	return std::move(prepData); 
+	stagingBuffer->unmap(); 
+
+	return stagingBuffer;
 }

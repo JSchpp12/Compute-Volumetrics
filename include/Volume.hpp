@@ -63,8 +63,8 @@ public:
                 size_t sampledLocX = coord.x() + halfTotalSteps;
                 size_t sampledLocY = coord.y() + halfTotalSteps;
                 size_t sampledLocZ = coord.z() + halfTotalSteps;
-                //sampledGridData[sampledLocX][sampledLocY][sampledLocZ] = result;
-                sampledGridData[sampledLocX][sampledLocY][sampledLocZ] = 0.95f;
+                sampledGridData[sampledLocX][sampledLocY][sampledLocZ] = result;
+                //sampledGridData[sampledLocX][sampledLocY][sampledLocZ] = 0.95f;
             }
         }
 

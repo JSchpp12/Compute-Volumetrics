@@ -29,6 +29,5 @@ public:
 protected:
 	std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData = std::unique_ptr<std::vector<std::vector<std::vector<float>>>>(); 
 
-	// Inherited via StarTexture
-	std::optional<std::unique_ptr<unsigned char>> data() override;
+	std::unique_ptr<star::StarBuffer> loadImageData(star::StarDevice& device) override; 
 };
