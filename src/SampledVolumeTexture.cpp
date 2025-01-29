@@ -2,24 +2,6 @@
 
 std::unique_ptr<star::StarBuffer> SampledVolumeTexture::loadImageData(star::StarDevice& device)
 {
-	//std::vector<unsigned char> data;
-	//for (int i = 0; i < this->sampledData->size(); i++) {
-	//	for (int j = 0; j < this->sampledData->at(i).size(); j++) {
-	//		for (int k = 0; k < this->sampledData->at(i).at(j).size(); k++) {
-	//			unsigned char packedData[sizeof(float)] = {};
-	//			memcpy(packedData, &this->sampledData->at(i).at(j).at(k), sizeof(float));
-	//			data.push_back(packedData[3]);
-	//			data.push_back(packedData[2]);
-	//			data.push_back(packedData[1]);
-	//			data.push_back(packedData[0]);
-	//		}
-	//	}
-	//}
-	//auto prepData = std::unique_ptr<unsigned char>(new unsigned char[data.size()]);
-	//std::copy(data.begin(), data.end(), prepData.get());
-
-	//this->sampledData.reset();
-
 	vk::DeviceSize imageSize = (vk::DeviceSize(this->creationSettings.width) * vk::DeviceSize(this->creationSettings.height) * vk::DeviceSize(this->creationSettings.channels) * vk::DeviceSize(this->creationSettings.depth)) 
 		* vk::DeviceSize(4);
 
