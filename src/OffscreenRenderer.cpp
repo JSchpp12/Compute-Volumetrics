@@ -5,11 +5,11 @@ OffscreenRenderer::OffscreenRenderer(star::StarScene& scene)
 {
 }
 
-std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderToImages(star::StarDevice& device, const int& numFramesInFlight)
+std::vector<std::unique_ptr<star::StarImage>> OffscreenRenderer::createRenderToImages(star::StarDevice& device, const int& numFramesInFlight)
 {
-	std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages = std::vector<std::unique_ptr<star::StarTexture>>();
+	std::vector<std::unique_ptr<star::StarImage>> newRenderToImages = std::vector<std::unique_ptr<star::StarImage>>();
 
-	auto settings = star::StarTexture::TextureCreateSettings{
+	auto settings = star::StarImage::TextureCreateSettings{
 		static_cast<int>(this->swapChainExtent->width),
 		static_cast<int>(this->swapChainExtent->height),
 		4,
@@ -24,7 +24,7 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
 		false, false };
 
 	for (int i = 0; i < numFramesInFlight; i++) {
-		newRenderToImages.push_back(std::make_unique<star::StarTexture>(settings));
+		newRenderToImages.push_back(std::make_unique<star::StarImage>(settings));
 		newRenderToImages.back()->prepRender(device);
 
 		auto oneTimeSetup = device.beginSingleTimeCommands();
@@ -35,11 +35,11 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
 	return newRenderToImages;
 }
 
-std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderToDepthImages(star::StarDevice& device, const int& numFramesInFlight)
+std::vector<std::unique_ptr<star::StarImage>> OffscreenRenderer::createRenderToDepthImages(star::StarDevice& device, const int& numFramesInFlight)
 {
-	std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages = std::vector<std::unique_ptr<star::StarTexture>>();
+	std::vector<std::unique_ptr<star::StarImage>> newRenderToImages = std::vector<std::unique_ptr<star::StarImage>>();
 
-	auto settings = star::StarTexture::TextureCreateSettings{
+	auto settings = star::StarImage::TextureCreateSettings{
 		static_cast<int>(this->swapChainExtent->width),
 		static_cast<int>(this->swapChainExtent->height),
 		1,
@@ -55,7 +55,7 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
 	};
 
 	for (int i = 0; i < numFramesInFlight; i++) {
-		newRenderToImages.push_back(std::make_unique<star::StarTexture>(settings));
+		newRenderToImages.push_back(std::make_unique<star::StarImage>(settings));
 		newRenderToImages.back()->prepRender(device); 
 
 		auto oneTimeSetup = device.beginSingleTimeCommands();

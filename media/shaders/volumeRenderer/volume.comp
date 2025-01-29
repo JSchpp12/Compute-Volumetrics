@@ -26,7 +26,6 @@ layout(set = 0, binding = 0, rgba8) uniform readonly image2D inputSceneColor;
 layout(set = 0, binding = 1, r32f) uniform readonly image2D inputSceneDepth; 
 layout(set = 0, binding = 2, rgba8) uniform writeonly image2D outputImage; 
 layout(set = 0, binding = 3) uniform additionalCamerainfo{
-	mat4 displayMatrix; 
 	mat4 inverseProjMatrix;
 	vec2 cameraDimensions; 
 	float aspectRatio;
@@ -134,6 +133,8 @@ void main(){
 	// ivec2 screenCoords = ivec2(target_x, target_y); 
 	// double depthValue = imageLoad(inputSceneDepth, screenCoords).r; 
 	// float depthDistane = distanceFromDepth(screenCoords, depthValue); 
+
+
 	Ray camRay = getRayForPixel(target_x, target_y); 
 	vec4 imgColor = vec4(imageLoad(inputSceneColor, ivec2(target_x, target_y)));
 

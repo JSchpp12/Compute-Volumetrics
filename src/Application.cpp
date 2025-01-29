@@ -106,9 +106,9 @@ void Application::onKeyPress(int key, int scancode, int mods)
   //      this->vol->rayMarchToAABB = !this->vol->rayMarchToAABB;
   //      this->vol->rayMarchToVolumeBoundry = false; 
   //  }
-  //  if (key == star::KEY::P) {
-		//star::StarEngine::takeScreenshot("screenshot.png");
-  //  }
+    if (key == star::KEY::P) {
+		star::StarEngine::takeScreenshot("screenshot.png");
+    }
 }
 
 void Application::onKeyRelease(int key, int scancode, int mods)

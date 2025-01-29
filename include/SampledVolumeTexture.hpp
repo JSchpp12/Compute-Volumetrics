@@ -1,16 +1,16 @@
 #pragma once 
 
-#include "StarTexture.hpp"
+#include "StarImage.hpp"
 
 #include <vector>
 #include <memory>
 
-class SampledVolumeTexture : public star::StarTexture {
+class SampledVolumeTexture : public star::StarImage {
 public:
 	SampledVolumeTexture(std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData)
 		: sampledData(std::move(sampledData)),
-		star::StarTexture(
-			star::StarTexture::TextureCreateSettings{
+		star::StarImage(
+			star::StarImage::TextureCreateSettings{
 				static_cast<int>(sampledData->size()),
 				static_cast<int>(sampledData->at(0).size()),
 				1,

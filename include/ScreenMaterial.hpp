@@ -1,7 +1,7 @@
 #pragma once 
 
 #include "StarMaterial.hpp"
-#include "StarTexture.hpp"
+#include "StarImage.hpp"
 #include "StarDescriptorBuilders.hpp"
 #include "DescriptorModifier.hpp"
 #include "StarShaderInfo.hpp"
@@ -12,11 +12,11 @@
 class ScreenMaterial : public star::StarMaterial {
 
 public: 
-	ScreenMaterial(std::vector<std::unique_ptr<star::StarTexture>>* computeOutputImages)
+	ScreenMaterial(std::vector<std::unique_ptr<star::StarImage>>* computeOutputImages)
 		: computeOutputImages(computeOutputImages) {};
 
 protected:
-	std::vector<std::unique_ptr<star::StarTexture>>* computeOutputImages = nullptr;
+	std::vector<std::unique_ptr<star::StarImage>>* computeOutputImages = nullptr;
 
 	void applyDescriptorSetLayouts(star::StarDescriptorSetLayout::Builder& constBuilder) override;
 	void prep(star::StarDevice& device) override;
