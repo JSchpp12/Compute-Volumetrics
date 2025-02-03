@@ -1,12 +1,18 @@
 {
-    "dependencies": [
-        "vulkan", "openvdb", "gdal", "glm", "glfw3", "vulkan-memory-allocator", "tbb", "glslang", "tinyobjloader",
-        {
-            "name": "gdal", 
-            "features": ["png", "geos"]
-        },
-        {
-            "name": "spirv-reflect"
-        }
-    ]
+  "dependencies": [
+    "stb",
+    "blosc",
+    "openvdb",
+    "gdal",
+    "glm",
+    "glfw3",
+    "vulkan-memory-allocator",
+    "tbb",
+    "glslang",
+    "tinyobjloader",
+    {
+      "name": "gdal",
+      "features": [ "png", "geos" ]
+    }
+  ]
 }

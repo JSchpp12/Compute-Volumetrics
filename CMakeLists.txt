@@ -1,16 +1,18 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.27)
 
 cmake_policy(SET CMP0071 NEW)
 cmake_policy(SET CMP0076 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0079 NEW)
-set(CMAKE_CXX_STANDARD 20) 
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_MACOSX_RPATH 1)
-project("starlightapp")
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/Release/lib/cmake/OpenVDB")
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/libs/openVDB/Debug/lib/cmake/OpenVDB")
+if (WIN32)
+	set(CMAKE_CXX_STANDARD 20) 
+	set(CMAKE_CXX_STANDARD_REQUIRED ON)
+elseif(APPLE)
+	set(CMAKE_MACOSX_RPATH 1)
+endif()
+
+project("starlightapp")
 
 find_package(OpenVDB CONFIG REQUIRED)
 find_package(TBB REQUIRED)
@@ -55,12 +57,33 @@ target_include_directories(${PROJECT_NAME}
 	PRIVATE "include"
 )
 
-target_link_libraries(${PROJECT_NAME}
-	PRIVATE starlight
-	PRIVATE OpenVDB::openvdb
-	PRIVATE GDAL::GDAL
-	PRIVATE TBB::tbb
-)
+if (WIN32)
+	cmake_policy(SET CMP0091 NEW)
+
+	target_link_libraries(${PROJECT_NAME}
+		PRIVATE 
+			starlight
+			OpenVDB::openvdb
+			GDAL::GDAL
+			TBB::tbb
+	)
+else()
+	find_package(Blosc CONFIG REQUIRED)
+
+	target_link_libraries(${PROJECT_NAME}
+		PRIVATE 
+			starlight
+			OpenVDB::openvdb
+			GDAL::GDAL
+			TBB::tbb
+			blosc_static
+	)
+
+	set_target_properties(${PROJECT_NAME} PROPERTIES 
+		CXX_STANDARD 20
+		CXX_STANDARD_REQUIRED ON
+	)
+endif()
 
 #TODO: NEED BETTER SOLUTION FOR MEDIA FILES
 set(PREP_MEDIA_CMD "${CMAKE_CURRENT_SOURCE_DIR}/PrepareMedia.py")
