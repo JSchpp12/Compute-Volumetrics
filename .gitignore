@@ -7,3 +7,5 @@ libs/*
 vsproj/*
 vcpkg_installed/*
 CMakeSettings.json
+*.continueignore
+build_vs/*
