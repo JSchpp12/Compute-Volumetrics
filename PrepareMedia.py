@@ -37,8 +37,8 @@ def CopyFile(sourceDir : string, destinationDir : string):
     if not os.path.exists(destinationDir):
         os.makedirs(destinationDir)
     finalDestination = os.path.join(destinationDir, fileName)
-
-    if os.path.isfile(finalDestination) and not filecmp.cmp(sourceDir, finalDestination):
+    shutil.copy2(sourceDir, finalDestination)
+    if (os.path.isfile(finalDestination) and not filecmp.cmp(sourceDir, finalDestination)) or (os.path.isfile(finalDestination)):
         shutil.copy2(sourceDir, finalDestination)
 
 #copy media as needed 

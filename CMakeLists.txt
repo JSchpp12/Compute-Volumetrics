@@ -17,6 +17,7 @@ project("starlightapp")
 find_package(OpenVDB CONFIG REQUIRED)
 find_package(TBB REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 add_subdirectory("extern/starlight") 
 
@@ -34,6 +35,9 @@ set(${PROJECT_NAME}_SOURCE
 	"src/Screen.cpp"
 	"src/VolumeSampler.cpp"
 	"src/SampledVolumeTexture.cpp"
+	"src/TerrainInfoFile.cpp"
+	"src/TerrainChunk.cpp"
+	"src/MathHelpers.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -49,6 +53,9 @@ set(${PROJECT_NAME}_HEADERS
 	"include/Screen.hpp"
 	"include/VolumeSampler.hpp"
 	"include/SampledVolumeTexture.hpp"
+	"include/TerrainInfoFile.hpp"
+	"include/TerrainChunk.hpp"
+	"include/MathHelpers.hpp"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")
@@ -66,6 +73,7 @@ if (WIN32)
 			OpenVDB::openvdb
 			GDAL::GDAL
 			TBB::tbb
+			nlohmann_json::nlohmann_json
 	)
 else()
 	find_package(Blosc CONFIG REQUIRED)
@@ -76,6 +84,7 @@ else()
 			OpenVDB::openvdb
 			GDAL::GDAL
 			TBB::tbb
+			nlohmann_json::nlohmann_json
 			blosc_static
 	)
 

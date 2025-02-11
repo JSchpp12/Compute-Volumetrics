@@ -196,12 +196,12 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 			.add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral)
 			.add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eGeneral)
 			.add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral)
-			.add(*this->cameraShaderInfo)
-			.add(*this->aabbInfoBuffers.at(i))
+			.add(this->cameraShaderInfo->getHandle())
+			.add(this->aabbInfoBuffers.at(i)->getHandle())
 			.add(this->volumeTexture, vk::ImageLayout::eGeneral)
 			.startSet()
-			.add(*this->globalInfoBuffers.at(i))
-			.add(*this->instanceModelInfo->at(i));
+			.add(this->globalInfoBuffers.at(i)->getHandle())
+			.add(this->instanceModelInfo->at(i)->getHandle());
 	}
 
 	this->compShaderInfo = shaderInfoBuilder.build();

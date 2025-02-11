@@ -43,7 +43,10 @@ void Application::Load()
     this->offscreenScene->add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{ -1.0, 0.0, 0.0 }));
     this->offscreenScene->add(std::move(horse));
     {
-        auto terrainPath = mediaDirectoryPath + "terrains/final.tif";
+        auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+         auto terrainPath = "C:\\repos\\aburn\\usr\\modules\\Fog\\mm\\terrain\\airport\\s2045440_geo.tif";
+        // auto terrainTexture = mediaDirectoryPath + "terrains/super_texture.jpg";
+        //auto terrainPath = mediaDirectoryPath + "terrains/final.tif";
         auto terrainTexture = mediaDirectoryPath + "terrains/super_texture.jpg";
 
         float top = 39.22153016394154;
@@ -59,7 +62,7 @@ void Application::Load()
         left = 0.0f - (xDiff / 2);
         right = 0.0f + (xDiff / 2);
 
-        auto terrain = std::make_unique<Terrain>(terrainPath, terrainTexture, glm::vec3{ top, left, 0 }, glm::vec3{ bottom, right, 0 });
+        auto terrain = std::make_unique<Terrain>(terrainInfoPath, terrainPath, terrainTexture, glm::vec3{ top, left, 0 }, glm::vec3{ bottom, right, 0 });
         auto& t_i = terrain->createInstance();
         t_i.setScale(glm::vec3(0.01, 0.01, 0.01));
         t_i.rotateGlobal(star::Type::Axis::z, 90);

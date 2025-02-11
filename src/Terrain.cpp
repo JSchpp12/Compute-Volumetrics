@@ -14,198 +14,75 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
 
 std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> Terrain::loadGeometryBuffers(star::StarDevice& device)
 {
-	glm::vec3 terrainCenter = glm::vec3(0.0f, 0.0f, 0.0f);
+	TerrainInfoFile fileInfo = TerrainInfoFile(this->terrainDefFile); 
 
-	double vert = this->upperLeft.x - this->lowerRight.x;
-	double horz = this->lowerRight.y - this->upperLeft.y;
+	std::vector<TerrainChunk> chunks = std::vector<TerrainChunk>();
+	for (int i = 0; i < fileInfo.infos().size(); i++){
+		if (i == 5)
+			break;
 
-	GDALDataset* dataset = nullptr;
+		chunks.push_back(TerrainChunk{
+			fileInfo.infos()[i].heightFile, 
+			fileInfo.infos()[i].surfaceTexture,
+			fileInfo.infos()[i].upperLeft,
+			fileInfo.infos()[i].lowerRight
+		});
+	}
 
+	//make sure gdal init is setup before multi-thread init
 	GDALAllRegister();
 
-	dataset = (GDALDataset*)GDALOpen(this->terrainDefPath.c_str(), GA_ReadOnly);
+	//parallel load meshes
+	std::cout << "Launching load tasks" << std::endl;
+	TerrainChunkProcessor chunkProcessor = TerrainChunkProcessor(chunks.data(), &device);
+	oneapi::tbb::parallel_for(tbb::blocked_range<size_t>(0, chunks.size()), chunkProcessor);
+	std::cout << "Done" << std::endl;
 
-	if (dataset == NULL) {
-		std::cout << "Unable to open image: " << this->terrainDefPath << std::endl;
-		throw stderr;
+	std::vector<std::unique_ptr<star::StarBuffer>> chunkVertStagingBuffers = std::vector<std::unique_ptr<star::StarBuffer>>(chunks.size());
+	std::vector<std::unique_ptr<star::StarBuffer>> chunkIndStagingBuffers = std::vector<std::unique_ptr<star::StarBuffer>>(chunks.size());
+
+	//go through chunks and calculate size of all vertex buffers
+	vk::DeviceSize totalVertBufferSize = 0;
+	vk::DeviceSize totalIndBufferSize = 0;
+	for (auto& chunk : chunks){
+		this->meshes.emplace_back(chunk.getMesh());
+		totalVertBufferSize += sizeof(star::Vertex) * this->meshes.back()->getNumVerts();
+		totalIndBufferSize += this->meshes.back()->getNumIndices();
 	}
 
-	GDALRasterBand* band = nullptr;
-	band = dataset->GetRasterBand(1);
-	int nXSize = band->GetXSize();
-	int nYSize = band->GetYSize();
+	std::unique_ptr<star::StarBuffer> vertStagingBuffer = std::make_unique<star::StarBuffer>(
+		device,
+		sizeof(star::Vertex),
+		uint32_t(totalVertBufferSize),
+		VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+		VMA_MEMORY_USAGE_AUTO,
+		vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst,
+		vk::SharingMode::eConcurrent
+	);
 
-	std::unique_ptr<std::vector<uint32_t>> indices = std::make_unique<std::vector<uint32_t>>(); 
-	std::unique_ptr<std::vector<star::Vertex>> vertices = std::make_unique<std::vector<star::Vertex>>();
-	 
-	std::unique_ptr<float> line = std::unique_ptr<float>(new float[dataset->GetRasterXSize() * dataset->GetRasterYSize()]);
+	std::unique_ptr<star::StarBuffer> indexStagingBuffer = std::make_unique<star::StarBuffer>(
+		device,
+		sizeof(uint32_t),
+		static_cast<uint32_t>(totalIndBufferSize),
+		VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+		VMA_MEMORY_USAGE_AUTO,
+		vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst,
+		vk::SharingMode::eConcurrent
+	);
 
-	band->RasterIO(GF_Read, 0, 0, nXSize, nYSize, line.get(), nXSize, nYSize, GDT_Float32, 0, 0);
+	assert(chunks.size() == this->meshes.size() && "Mismatch between number of chunks and meshes");
 
-	float xTexStep = 1.0f / nXSize;
-	float yTexStep = 1.0f / nYSize; 
+	{
+		vk::DeviceSize offset_verts = 0;
+		vk::DeviceSize offset_inds = 0;
 
-	//calculate locations
-	for (int i = 0; i < nYSize; i++) {
-		for (int j = 0; j < nXSize; j++) {
-			auto location = toECEF(glm::vec3{
-				this->upperLeft.x - j * vert / nXSize,
-				this->upperLeft.y + i * horz / nYSize,
-				line.get()[i * nXSize + j]
-			});
-		
-			terrainCenter = (terrainCenter + location) / glm::vec3(2.0f, 2.0f, 2.0f);
-			glm::vec2 texCoord = glm::vec2(j * xTexStep, i * yTexStep);
-			vertices->push_back(star::Vertex(location, glm::vec3(), glm::vec3(), texCoord));
+		for (int i = 0; i < chunks.size(); i++){
+			device.copyBuffer(chunks[i].getVertexBuffer().getVulkanBuffer(), vertStagingBuffer->getVulkanBuffer(), this->meshes[i]->getNumVerts() * sizeof(star::Vertex), offset_verts);
+			device.copyBuffer(chunks[i].getIndexBuffer().getVulkanBuffer(), indexStagingBuffer->getVulkanBuffer(), this->meshes[i]->getNumIndices() * sizeof(uint32_t), offset_inds);
+
+			offset_verts += this->meshes[i]->getNumVerts() * sizeof(star::Vertex);
+			offset_inds += this->meshes[i]->getNumIndices() * sizeof(uint32_t);
 		}
-	}
-
-	//calculate normals
-	{
-		uint32_t indexCounter = 0;
-
-		for (int i = 0; i < nYSize; i++) {
-			for (int j = 0; j < nXSize; j++) {
-				if (j % 2 == 1 && i % 2 == 1 && i != nYSize - 1 && j != nXSize - 1) {
-					//this is a 'central' vert where drawing should be based around
-					// 
-					//uppper left
-					uint32_t center = indexCounter;
-					uint32_t centerLeft = indexCounter - 1;
-					uint32_t centerRight = indexCounter + 1;
-					uint32_t upperLeft = indexCounter - 1 - nXSize;
-					uint32_t upperCenter = indexCounter - nXSize;
-					uint32_t upperRight = indexCounter - nXSize + 1;
-					uint32_t lowerLeft = indexCounter + nXSize - 1;
-					uint32_t lowerCenter = indexCounter + nXSize;
-					uint32_t lowerRight = indexCounter + nXSize + 1;
-					//1
-					indices->push_back(center);
-					indices->push_back(upperLeft);
-					indices->push_back(centerLeft);
-					//2
-					indices->push_back(center);
-					indices->push_back(upperCenter);
-					indices->push_back(upperLeft);
-
-					if (i != i - 1 && j == j - 1)
-					{
-						//side piece
-						//cant do 3,4,5,6,
-						//7
-						indices->push_back(center);
-						indices->push_back(lowerLeft);
-						indices->push_back(lowerCenter);
-						//8
-						indices->push_back(center);
-						indices->push_back(centerLeft);
-						indices->push_back(lowerLeft);
-
-					}
-					else if (i == i - 1 && j != j - 1)
-					{
-						//bottom piece
-						//cant do 5,6,7,8
-						//3
-						indices->push_back(center);
-						indices->push_back(upperRight);
-						indices->push_back(upperCenter);
-						//4
-						indices->push_back(center);
-						indices->push_back(centerRight);
-						indices->push_back(upperRight);
-					}
-					else if (i != i - 1 && j != j - 1) {
-						//3
-						indices->push_back(center);
-						indices->push_back(upperRight);
-						indices->push_back(upperCenter);
-						//4
-						indices->push_back(center);
-						indices->push_back(centerRight);
-						indices->push_back(upperRight);
-						//5
-						indices->push_back(center);
-						indices->push_back(lowerRight);
-						indices->push_back(centerRight);
-						//6
-						indices->push_back(center);
-						indices->push_back(lowerCenter);
-						indices->push_back(lowerRight);
-						//7
-						indices->push_back(center);
-						indices->push_back(lowerLeft);
-						indices->push_back(lowerCenter);
-						//8
-						indices->push_back(center);
-						indices->push_back(centerLeft);
-						indices->push_back(lowerLeft);
-					}
-
-				}
-				indexCounter++;
-			}
-		}
-	}
-
-	//calculate normals
-	for (int i = 0; i < indices->size(); i += 3) {
-		auto& vert1 = vertices->at(indices->at(i));
-		auto& vert2 = vertices->at(indices->at(i + 1));
-		auto& vert3 = vertices->at(indices->at(i + 2));
-
-		glm::vec3 edge1 = vert2.pos - vert1.pos;
-		glm::vec3 edge2 = vert3.pos - vert1.pos;
-		glm::vec3 normal = glm::normalize(glm::cross(edge1, edge2));
-
-		vert1.normal += normal;
-		vert2.normal += normal;
-		vert3.normal += normal;
-	}
-	
-	//set all verts around origin 
-	for (auto& vert : *vertices) {
-		vert.pos = vert.pos - terrainCenter;
-		vert.normal = glm::normalize(vert.normal); 
-	}
-
-	auto texture = std::make_shared<star::FileTexture>(this->texturePath);
-	auto material = std::make_shared<star::TextureMaterial>(texture);
-	this->meshes.push_back(std::make_unique<star::StarMesh>(*vertices, *indices, material, false));
-
-	GDALClose(dataset);
-
-	std::unique_ptr<star::StarBuffer> vertStagingBuffer; 
-	{
-
-		vertStagingBuffer = std::make_unique<star::StarBuffer>(
-			device,
-			sizeof(star::Vertex),
-			uint32_t(vertices->size()),
-			VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-			VMA_MEMORY_USAGE_AUTO,
-			vk::BufferUsageFlagBits::eTransferSrc,
-			vk::SharingMode::eConcurrent
-		);
-		vertStagingBuffer->map(); 
-		vertStagingBuffer->writeToBuffer(vertices->data(), vertices->size() * sizeof(star::Vertex));
-		vertStagingBuffer->unmap(); 
-	}
-
-	std::unique_ptr<star::StarBuffer> indexStagingBuffer; 
-	{
-		indexStagingBuffer = std::make_unique<star::StarBuffer>(
-			device,
-			sizeof(uint32_t),
-			uint32_t(indices->size()),
-			VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-			VMA_MEMORY_USAGE_AUTO,
-			vk::BufferUsageFlagBits::eTransferSrc,
-			vk::SharingMode::eConcurrent
-		);
-		indexStagingBuffer->map(); 
-		indexStagingBuffer->writeToBuffer(indices->data(), indices->size() * sizeof(uint32_t));
-		indexStagingBuffer->unmap(); 
 	}
 
 	return std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>>(std::move(vertStagingBuffer), std::move(indexStagingBuffer));

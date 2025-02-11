@@ -101,6 +101,11 @@ std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::StarDevice& devi
 void Volume::loadModel()
 {
     const std::string filePath(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "volumes/sphere.vdb");
+
+    if (!star::FileHelpers::FileExists(filePath)){
+        throw std::runtime_error("Provided file does not exist" + filePath);
+    }
+
     openvdb::GridBase::Ptr baseGrid{};
 
     openvdb::io::File file(filePath);
@@ -164,11 +169,11 @@ void Volume::loadModel()
 
     auto sampledBoundrySize = bounds.extents().asVec3i();
 	std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledGridData = std::unique_ptr<std::vector<std::vector<std::vector<float>>>>(new std::vector(sampledBoundrySize.x(), std::vector<std::vector<float>>(sampledBoundrySize.y(), std::vector<float>(sampledBoundrySize.z(), 0.0f))));
-    
-    std::cout << "Sampling grid with step size of: " << step_size << std::endl; 
-	size_t halfTotalSteps = sampledGridData->size() / 2;
-    ProcessVolume processor = ProcessVolume(this->grid.get(), *sampledGridData, step_size, halfTotalSteps);
-	oneapi::tbb::parallel_for(bounds, processor);
+
+ //   std::cout << "Sampling grid with step size of: " << step_size << std::endl; 
+	//size_t halfTotalSteps = sampledGridData->size() / 2;
+ //   ProcessVolume processor = ProcessVolume(this->grid.get(), *sampledGridData, step_size, halfTotalSteps);
+	//oneapi::tbb::parallel_for(bounds, processor);
 
 	this->sampledTexture = std::make_unique<SampledVolumeTexture>(std::move(sampledGridData));
     std::cout << "Done" << std::endl; 
@@ -214,7 +219,7 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
 
     auto test = newMeshes.back()->getBoundingBoxCoords(); 
 
-    this->meshes = std::move(newMeshes);
+this->meshes = std::move(newMeshes);
 
     auto stagingVert = std::make_unique<star::StarBuffer>(
         device,

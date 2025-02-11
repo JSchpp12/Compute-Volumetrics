@@ -1,5 +1,6 @@
 {
   "dependencies": [
+    "nlohmann-json",
     "stb",
     "blosc",
     "openvdb",
@@ -10,6 +11,8 @@
     "tbb",
     "glslang",
     "tinyobjloader",
+    "boost-thread",
+    "boost-lockfree",
     {
       "name": "gdal",
       "features": [ "png", "geos" ]

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "FileHelpers.hpp"
 #include "RenderingTargetInfo.hpp"
 #include "StarObject.hpp"
 #include "StarCamera.hpp"
