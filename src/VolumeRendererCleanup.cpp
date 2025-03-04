@@ -89,9 +89,9 @@ star::Command_Buffer_Order VolumeRendererCleanup::getCommandBufferOrder()
 	return star::Command_Buffer_Order::before_render_pass;
 }
 
-star::Command_Buffer_Type VolumeRendererCleanup::getCommandBufferType()
+star::Queue_Type VolumeRendererCleanup::getCommandBufferType()
 {
-	return star::Command_Buffer_Type::Tgraphics;
+	return star::Queue_Type::Tgraphics;
 }
 
 vk::PipelineStageFlags VolumeRendererCleanup::getWaitStages()

@@ -15,7 +15,6 @@ endif()
 project("starlightapp")
 
 find_package(OpenVDB CONFIG REQUIRED)
-find_package(TBB REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
@@ -38,6 +37,7 @@ set(${PROJECT_NAME}_SOURCE
 	"src/TerrainInfoFile.cpp"
 	"src/TerrainChunk.cpp"
 	"src/MathHelpers.cpp"
+	"src/TerrainChunkInfo.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -56,6 +56,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/TerrainInfoFile.hpp"
 	"include/TerrainChunk.hpp"
 	"include/MathHelpers.hpp"
+	"include/TerrainChunkInfo.hpp"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")
@@ -72,7 +73,6 @@ if (WIN32)
 			starlight
 			OpenVDB::openvdb
 			GDAL::GDAL
-			TBB::tbb
 			nlohmann_json::nlohmann_json
 	)
 else()
@@ -83,7 +83,6 @@ else()
 			starlight
 			OpenVDB::openvdb
 			GDAL::GDAL
-			TBB::tbb
 			nlohmann_json::nlohmann_json
 			blosc_static
 	)

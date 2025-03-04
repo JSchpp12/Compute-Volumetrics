@@ -1,5 +1,31 @@
 #include "Volume.hpp"
 
+Volume::Volume(star::StarCamera* camera, const size_t screenWidth, const size_t screenHeight, 
+std::vector<std::unique_ptr<star::Light>>& lightList, 
+std::vector<std::unique_ptr<star::StarImage>>* offscreenRenderToColorImages,
+std::vector<std::unique_ptr<star::StarImage>>* offscreenRenderToDepthImages,
+std::vector<star::Handle>& globalInfos, 
+std::vector<star::Handle>& lightInfos) : camera(camera), screenDimensions(screenWidth, screenHeight), lightList(lightList), 
+StarObject(){
+    openvdb::initialize();
+    loadModel();
+
+    std::vector<std::vector<star::Color>> colors;
+    colors.resize(this->screenDimensions.y);
+    for (int y = 0; y < (int)this->screenDimensions.y; y++) {
+        colors[y].resize(this->screenDimensions.x);
+        for (int x = 0; x < (int)this->screenDimensions.x; x++) {
+            if (x == (int)this->screenDimensions.x / 2)
+                colors[y][x] = star::Color(1.0f, 1.0f, 1.0f, 1.0f);
+        }
+    }
+
+    this->volumeRenderer = std::make_unique<VolumeRenderer>(this->camera, this->instanceModelInfos, this->instanceNormalInfos, offscreenRenderToColorImages, offscreenRenderToDepthImages, globalInfos, lightInfos, this->sampledTexture.get(), this->aabbBounds);
+    this->volumeRendererCleanup = std::make_unique<VolumeRendererCleanup>(this->volumeRenderer->getRenderToImages(), offscreenRenderToColorImages, offscreenRenderToDepthImages);
+    
+    loadGeometry();
+}
+
 std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
 {
     std::unordered_map<star::Shader_Stage, star::StarShader> shaders; 
@@ -170,16 +196,16 @@ void Volume::loadModel()
     auto sampledBoundrySize = bounds.extents().asVec3i();
 	std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledGridData = std::unique_ptr<std::vector<std::vector<std::vector<float>>>>(new std::vector(sampledBoundrySize.x(), std::vector<std::vector<float>>(sampledBoundrySize.y(), std::vector<float>(sampledBoundrySize.z(), 0.0f))));
 
- //   std::cout << "Sampling grid with step size of: " << step_size << std::endl; 
-	//size_t halfTotalSteps = sampledGridData->size() / 2;
- //   ProcessVolume processor = ProcessVolume(this->grid.get(), *sampledGridData, step_size, halfTotalSteps);
-	//oneapi::tbb::parallel_for(bounds, processor);
+   std::cout << "Sampling grid with step size of: " << step_size << std::endl; 
+	size_t halfTotalSteps = sampledGridData->size() / 2;
+   ProcessVolume processor = ProcessVolume(this->grid.get(), *sampledGridData, step_size, halfTotalSteps);
+	oneapi::tbb::parallel_for(bounds, processor);
 
 	this->sampledTexture = std::make_unique<SampledVolumeTexture>(std::move(sampledGridData));
     std::cout << "Done" << std::endl; 
 }
 
-std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> Volume::loadGeometryBuffers(star::StarDevice& device)
+void Volume::loadGeometry()
 {
         std::unique_ptr<std::vector<star::Vertex>> verts = std::unique_ptr<std::vector<star::Vertex>>(new std::vector<star::Vertex>{
         star::Vertex{
@@ -215,39 +241,12 @@ std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> 
     std::unique_ptr<ScreenMaterial> material = std::unique_ptr<ScreenMaterial>(std::make_unique<ScreenMaterial>(this->volumeRenderer->getRenderToImages()));
     auto newMeshes = std::vector<std::unique_ptr<star::StarMesh>>();
 
-    newMeshes.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(*verts, *inds, std::move(material), this->aabbBounds[0],this->aabbBounds[1], false)));
+    star::Handle vertBuffer = star::ManagerBuffer::addRequest(std::make_unique<star::ObjVertInfo>(*verts));
+    star::Handle indBuffer = star::ManagerBuffer::addRequest(std::make_unique<star::ObjIndicesInfo>(*inds));
 
-    auto test = newMeshes.back()->getBoundingBoxCoords(); 
+    newMeshes.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(vertBuffer, indBuffer, *verts, *inds, std::move(material), this->aabbBounds[0],this->aabbBounds[1], false)));
 
-this->meshes = std::move(newMeshes);
-
-    auto stagingVert = std::make_unique<star::StarBuffer>(
-        device,
-        vk::DeviceSize{ sizeof(star::Vertex) },
-        (uint32_t)verts->size(),
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-        VMA_MEMORY_USAGE_AUTO,
-        vk::BufferUsageFlagBits::eTransferSrc,
-        vk::SharingMode::eConcurrent
-    );
-    stagingVert->map();
-    stagingVert->writeToBuffer(verts->data(), VK_WHOLE_SIZE);
-    stagingVert->unmap();
-
-    auto stagingIndex = std::make_unique<star::StarBuffer>(
-        device,
-        vk::DeviceSize{ sizeof(uint32_t) },
-        uint32_t(inds->size()),
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-        VMA_MEMORY_USAGE_AUTO,
-        vk::BufferUsageFlagBits::eTransferSrc,
-        vk::SharingMode::eConcurrent
-    );
-    stagingIndex->map();
-    stagingIndex->writeToBuffer(inds->data(), VK_WHOLE_SIZE);
-    stagingIndex->unmap();
-
-    return std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>>(std::move(stagingVert), std::move(stagingIndex));
+    this->meshes = std::move(newMeshes);
 }
 
 void Volume::convertToFog(openvdb::FloatGrid::Ptr& grid)
@@ -281,18 +280,18 @@ void Volume::recordRenderPassCommands(vk::CommandBuffer& commandBuffer, vk::Pipe
 	this->StarObject::recordRenderPassCommands(commandBuffer, pipelineLayout, frameInFlightIndex);
 }
 
-void Volume::initResources(star::StarDevice& device, const int& numFramesInFlight, const vk::Extent2D& screensize)
+void Volume::prepRender(star::StarDevice& device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout, star::RenderingTargetInfo renderingInfo, int numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder)
 {
-    this->StarObject::initResources(device, numFramesInFlight, screensize);
-
     this->sampledTexture->prepRender(device);
+    
+    this->star::StarObject::prepRender(device, swapChainExtent, pipelineLayout, renderingInfo, numSwapChainImages, fullEngineBuilder);
 }
 
-void Volume::destroyResources(star::StarDevice& device)
+void Volume::prepRender(star::StarDevice& device, int numSwapChainImages, star::StarPipeline& sharedPipeline, star::StarShaderInfo::Builder fullEngineBuilder)
 {
-    this->sampledTexture->cleanupRender(device); 
-    this->sampledTexture.reset(); 
-    this->StarObject::destroyResources(device); 
+    this->sampledTexture->prepRender(device);
+
+    this->star::StarObject::prepRender(device, numSwapChainImages, sharedPipeline, fullEngineBuilder);
 }
 
 void Volume::updateGridTransforms()

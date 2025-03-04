@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ObjVertInfo.hpp"
+#include "ObjIndicesInfo.hpp"
 #include "FileHelpers.hpp"
 #include "RenderingTargetInfo.hpp"
 #include "StarObject.hpp"
@@ -79,31 +81,12 @@ public:
     bool rayMarchToAABB = false;
 
     ~Volume() = default;
-    Volume(star::StarCamera& camera, const size_t screenWidth, const size_t screenHeight, 
+    Volume(star::StarCamera* camera, const size_t screenWidth, const size_t screenHeight, 
         std::vector<std::unique_ptr<star::Light>>& lightList, 
         std::vector<std::unique_ptr<star::StarImage>>* offscreenRenderToColorImages,
 		std::vector<std::unique_ptr<star::StarImage>>* offscreenRenderToDepthImages,
-        std::vector<std::shared_ptr<star::GlobalInfo>>& globalInfos, 
-        std::vector<std::shared_ptr<star::LightInfo>>& lightInfos)
-		: screenDimensions(screenWidth, screenHeight), lightList(lightList), 
-		StarObject()
-    {
-        openvdb::initialize();
-        loadModel();
-
-        std::vector<std::vector<star::Color>> colors;
-        colors.resize(this->screenDimensions.y);
-        for (int y = 0; y < (int)this->screenDimensions.y; y++) {
-            colors[y].resize(this->screenDimensions.x);
-            for (int x = 0; x < (int)this->screenDimensions.x; x++) {
-                if (x == (int)this->screenDimensions.x / 2)
-                    colors[y][x] = star::Color(1.0f, 1.0f, 1.0f, 1.0f);
-            }
-        }
-
-        this->volumeRenderer = std::make_unique<VolumeRenderer>(camera, &this->instanceModelInfos, &this->instanceNormalInfos, offscreenRenderToColorImages, offscreenRenderToDepthImages, globalInfos, lightInfos, *this->sampledTexture, this->aabbBounds);
-        this->volumeRendererCleanup = std::make_unique<VolumeRendererCleanup>(this->volumeRenderer->getRenderToImages(), offscreenRenderToColorImages, offscreenRenderToDepthImages);
-    };
+        std::vector<star::Handle>& globalInfos, 
+        std::vector<star::Handle>& lightInfos);
 
     void renderVolume(const double& fov_radians, const glm::vec3& camPosition, const glm::mat4& camDispMatrix, const glm::mat4& camProjMat);
 
@@ -114,11 +97,20 @@ public:
     /// </summary>
     void updateGridTransforms();
 
+    virtual void prepRender(star::StarDevice& device, vk::Extent2D swapChainExtent,
+        vk::PipelineLayout pipelineLayout, star::RenderingTargetInfo renderingInfo, int numSwapChainImages, 
+        star::StarShaderInfo::Builder fullEngineBuilder) override;
+
+    virtual void prepRender(star::StarDevice& device, int numSwapChainImages, 
+        star::StarPipeline& sharedPipeline, star::StarShaderInfo::Builder fullEngineBuilder) override;
+
     void setAbsorbCoef(const float& newCoef) {
         assert(newCoef > 0 && "Coeff must be greater than 0");
         this->sigma_absorbtion = newCoef;
     }
 protected:
+    star::StarCamera* camera = nullptr; 
+    star::Handle cameraShaderInfo = star::Handle(); 
     std::unique_ptr<SampledVolumeTexture> sampledTexture = nullptr; 
     std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr; 
 	std::unique_ptr<VolumeRendererCleanup> volumeRendererCleanup = nullptr;
@@ -137,15 +129,12 @@ protected:
 
     void loadModel();
 
-    virtual std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> loadGeometryBuffers(star::StarDevice& device) override;
+    void loadGeometry();
 
     void convertToFog(openvdb::FloatGrid::Ptr& grid);
 
     virtual void recordRenderPassCommands(vk::CommandBuffer& commandBuffer, vk::PipelineLayout& pipelineLayout, int swapChainIndexNum) override;
-
-    virtual void initResources(star::StarDevice& device, const int& numFramesInFlight, const vk::Extent2D& screensize) override;
-
-	virtual void destroyResources(star::StarDevice& device) override;
+    
 private:
     struct RayCamera {
         glm::vec2 dimensions{};

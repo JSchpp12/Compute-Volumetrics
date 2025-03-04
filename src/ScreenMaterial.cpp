@@ -19,3 +19,9 @@ void ScreenMaterial::cleanup(star::StarDevice& device)
 {
 
 }
+
+std::vector<std::pair<vk::DescriptorType, const int>> ScreenMaterial::getDescriptorRequests(const int& numFramesInFlight){
+	return std::vector<std::pair<vk::DescriptorType, const int>>{
+		std::make_pair<vk::DescriptorType, const int>(vk::DescriptorType::eCombinedImageSampler, this->computeOutputImages->size()) 
+	};
+}

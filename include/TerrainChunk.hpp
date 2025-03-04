@@ -1,5 +1,9 @@
 #pragma once
 
+#include "Handle.hpp"
+#include "ManagerBuffer.hpp"
+#include "ObjVertInfo.hpp"
+#include "ObjIndicesInfo.hpp"
 #include "StarBuffer.hpp"
 #include "StarMesh.hpp"
 #include "FileHelpers.hpp"
@@ -26,15 +30,15 @@ public:
 	};
 
 	/// @brief Load meshes from the provided files
-	void load(star::StarDevice& device); 
+	void load(); 
 
-	//std::vector<star::Vertex>& getVerts();
-	//std::vector<uint32_t>& getInds(); 
 	std::unique_ptr<star::StarMesh> getMesh(){
 		auto texture = std::make_shared<star::FileTexture>(this->textureFile);
 		auto material = std::make_shared<star::TextureMaterial>(texture);
 
-		return std::make_unique<star::StarMesh>(*verts, *inds, material, false); 
+		star::Handle vertBuffer = star::ManagerBuffer::addRequest(std::make_unique<star::ObjVertInfo>(*verts));
+		star::Handle indBuffer = star::ManagerBuffer::addRequest(std::make_unique<star::ObjIndicesInfo>(*inds));
+		return std::make_unique<star::StarMesh>(vertBuffer, indBuffer, *verts, *inds, material, false); 
 	};
 
 	std::string& getTextureFile();
@@ -81,21 +85,17 @@ private:
 };
 
 struct TerrainChunkProcessor {
-	TerrainChunkProcessor(TerrainChunk chunks[], star::StarDevice* device) 
-		: chunks(chunks), device(device) {};
+	TerrainChunkProcessor(TerrainChunk chunks[]) 
+		: chunks(chunks) {};
 
 	void operator()(const tbb::blocked_range<size_t>& r) const {
-		assert(this->device != NULL && "Memory issue. Provided device has gone out of scope.");
-
 		TerrainChunk* localChunks = this->chunks; 
-		star::StarDevice& localDevice = *this->device; 
 
 		for (size_t i = r.begin(); i != r.end(); ++i) {
-			localChunks[i].load(localDevice); 
+			localChunks[i].load(); 
 		}
 	}
 
 private:
 	TerrainChunk* const chunks; 
-	star::StarDevice* const device;
 };

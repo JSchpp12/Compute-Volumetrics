@@ -2,21 +2,6 @@
 
 std::unique_ptr<star::StarBuffer> SampledVolumeTexture::loadImageData(star::StarDevice& device)
 {
-	vk::DeviceSize imageSize = (vk::DeviceSize(this->creationSettings.width) * vk::DeviceSize(this->creationSettings.height) * vk::DeviceSize(this->creationSettings.channels) * vk::DeviceSize(this->creationSettings.depth)) 
-		* vk::DeviceSize(4);
-
-	std::unique_ptr<star::StarBuffer> stagingBuffer = std::make_unique<star::StarBuffer>(
-		device,
-		imageSize,
-		uint32_t(1),
-		VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_MAPPED_BIT,
-		VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
-		vk::BufferUsageFlagBits::eTransferSrc,
-		vk::SharingMode::eConcurrent
-	);
-
-	stagingBuffer->map(); 
-	
 	std::vector<float> flattenedData; 
 	int floatCounter = 0;
 	for (int i = 0; i < this->sampledData->size(); i++) {
@@ -27,6 +12,19 @@ std::unique_ptr<star::StarBuffer> SampledVolumeTexture::loadImageData(star::Star
 			}
 		}
 	}
+
+	std::unique_ptr<star::StarBuffer> stagingBuffer = std::make_unique<star::StarBuffer>(
+		device.getAllocator().get(),
+		sizeof(float) * floatCounter,
+		uint32_t(1),
+		VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_MAPPED_BIT,
+		VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
+		vk::BufferUsageFlagBits::eTransferSrc,
+		vk::SharingMode::eConcurrent
+	);
+
+	stagingBuffer->map(); 
+	
 	stagingBuffer->writeToBuffer(flattenedData.data(), sizeof(float) * floatCounter); 
 
 	stagingBuffer->unmap(); 

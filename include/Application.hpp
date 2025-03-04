@@ -55,5 +55,5 @@ private:
     void onMouseMovement(double xpos, double ypos) override;
     void onMouseButtonAction(int button, int action, int mods) override;
     void onScroll(double xoffset, double yoffset) override;
-    void onWorldUpdate() override;
+    void onWorldUpdate(const uint32_t& frameInFlightIndex) override;
 };

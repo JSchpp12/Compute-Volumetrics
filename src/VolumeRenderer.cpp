@@ -93,9 +93,9 @@ star::Command_Buffer_Order VolumeRenderer::getCommandBufferOrder()
 	return star::Command_Buffer_Order::before_render_pass;
 }
 
-star::Command_Buffer_Type VolumeRenderer::getCommandBufferType()
+star::Queue_Type VolumeRenderer::getCommandBufferType()
 {
-	return star::Command_Buffer_Type::Tcompute;
+	return star::Queue_Type::Tcompute;
 }
 
 vk::PipelineStageFlags VolumeRenderer::getWaitStages()
@@ -147,7 +147,9 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
  	}
 
 	for (int i = 0; i < numFramesInFlight; i++) {
-		this->aabbInfoBuffers.emplace_back(std::make_shared<AABBInfo>(this->aabbBounds)); 
+		this->aabbInfoBuffers.emplace_back(
+			star::ManagerBuffer::addRequest(std::make_unique<AABBInfo>(this->aabbBounds))
+		); 
 	}
 }
 
@@ -190,18 +192,19 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 			.build());
 
 	for (int i = 0; i < numFramesInFlight; i++) {
+		//instance model info isnt setup
 		shaderInfoBuilder
 			.startOnFrameIndex(i)
 			.startSet()
 			.add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral)
 			.add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eGeneral)
 			.add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral)
-			.add(this->cameraShaderInfo->getHandle())
-			.add(this->aabbInfoBuffers.at(i)->getHandle())
-			.add(this->volumeTexture, vk::ImageLayout::eGeneral)
+			.add(this->cameraShaderInfo)
+			.add(this->aabbInfoBuffers.at(i))
+			.add(*this->volumeTexture, vk::ImageLayout::eGeneral)
 			.startSet()
-			.add(this->globalInfoBuffers.at(i)->getHandle())
-			.add(this->instanceModelInfo->at(i)->getHandle());
+			.add(this->globalInfoBuffers.at(i))
+			.add(this->instanceModelInfo.at(i));
 	}
 
 	this->compShaderInfo = shaderInfoBuilder.build();

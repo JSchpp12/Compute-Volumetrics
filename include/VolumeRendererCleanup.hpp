@@ -23,7 +23,7 @@ private:
 
 	star::Command_Buffer_Order getCommandBufferOrder() override;
 
-	star::Command_Buffer_Type getCommandBufferType() override;
+	star::Queue_Type getCommandBufferType() override;
 
 	vk::PipelineStageFlags getWaitStages() override;
 

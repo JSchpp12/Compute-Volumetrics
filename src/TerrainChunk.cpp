@@ -9,43 +9,7 @@ void TerrainChunk::verifyFiles() const
 		throw std::runtime_error("Texture file does not exist: " + this->textureFile); 
 }
 
-std::unique_ptr<star::StarBuffer> TerrainChunk::createVertBuffer(star::StarDevice& device, std::vector<star::Vertex>& verts)
-{
-	auto vertBuffer = std::make_unique<star::StarBuffer>(
-		device,
-		sizeof(star::Vertex),
-		uint32_t(verts.size()),
-		VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-		VMA_MEMORY_USAGE_AUTO,
-		vk::BufferUsageFlagBits::eTransferSrc,
-		vk::SharingMode::eConcurrent
-	);
-	vertBuffer->map();
-	vertBuffer->writeToBuffer(verts.data(), verts.size() * sizeof(star::Vertex));
-	vertBuffer->unmap();
-
-	return vertBuffer;
-}
-
-std::unique_ptr<star::StarBuffer> TerrainChunk::createIndexBuffer(star::StarDevice& device, std::vector<uint32_t>& inds)
-{
-	auto indexBuffer = std::make_unique<star::StarBuffer>(
-		device,
-		sizeof(uint32_t),
-		uint32_t(inds.size()),
-		VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-		VMA_MEMORY_USAGE_AUTO,
-		vk::BufferUsageFlagBits::eVertexBuffer,
-		vk::SharingMode::eConcurrent
-	);
-	indexBuffer->map();
-	indexBuffer->writeToBuffer(inds.data(), inds.size() * sizeof(uint32_t));
-	indexBuffer->unmap();
-
-	return indexBuffer;
-}
-
-void TerrainChunk::load(star::StarDevice& device) {
+void TerrainChunk::load() {
 	this->verts = std::make_unique<std::vector<star::Vertex>>();
 	this->inds = std::make_unique<std::vector<uint32_t>>();
 
@@ -58,26 +22,7 @@ void TerrainChunk::load(star::StarDevice& device) {
 	loadGeomInfo(dataset, *this->verts, *this->inds);
 
 	GDALClose(dataset);
-
-	this->indBuffer = createIndexBuffer(device, *this->inds);
-	this->vertBuffer = createVertBuffer(device, *this->verts);
-
-
 }
-
-//std::vector<star::Vertex>& TerrainChunk::getVerts()
-//{
-//	assert(this->verts != nullptr && "The vertices for this chunk have not been loaded yet. Make sure to call load() first.");
-//
-//	return *this->verts;
-//}
-//
-//std::vector<uint32_t>& TerrainChunk::getInds()
-//{
-//	assert(this->inds != nullptr && "The indices for this chunk have not been loaded yet. Make sure to call load() first.");
-//
-//	return *this->inds;
-//}
 
 std::string& TerrainChunk::getTextureFile()
 {

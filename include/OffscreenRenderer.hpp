@@ -1,7 +1,6 @@
 #pragma once 
 
 #include "SceneRenderer.hpp"
-#include "BufferModifier.hpp"
 #include "GlobalInfo.hpp"
 
 class OffscreenRenderer : public star::SceneRenderer {

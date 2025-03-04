@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ObjIndicesInfo.hpp"
+#include "ObjVertInfo.hpp"
 #include "StarObject.hpp"
 #include "TextureMaterial.hpp"
 #include "TerrainChunk.hpp"
@@ -17,12 +19,14 @@ class Terrain : public star::StarObject{
 public:
 	Terrain(const std::string& terrainDefFile, const std::string& terrainDefPath, const std::string& texturePath, const glm::vec3& upperLeft, const glm::vec3& lowerRight)
 		: terrainDefFile(terrainDefFile), terrainDefPath(terrainDefPath), texturePath(texturePath), 
-		upperLeft(upperLeft), lowerRight(lowerRight) {};
+		upperLeft(upperLeft), lowerRight(lowerRight) {
+			loadGeometry();
+		};
 
 protected:
 	std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
-	std::pair<std::unique_ptr<star::StarBuffer>, std::unique_ptr<star::StarBuffer>> loadGeometryBuffers(star::StarDevice& device) override;
+	void loadGeometry();
 
 private: 
 	const std::string terrainDefPath, texturePath, terrainDefFile; 

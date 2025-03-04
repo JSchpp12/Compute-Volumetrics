@@ -1,17 +1,26 @@
 #include "CameraInfo.hpp"
 
-void CameraInfo::writeBufferData(star::StarBuffer& buffer)
+void star::CameraTransfer::writeData(star::StarBuffer& buffer) const
 {
+
+	// data(
+	// 	CameraData{
+
 	buffer.map(); 
 
-	CameraData cameraData = {
-		.inverseProjMatrix = glm::inverse(camera.getProjectionMatrix()),
-		.resolution = glm::vec2(camera.getResolution()),
-		.aspectRatio = camera.getResolution().x / camera.getResolution().y,
-		.scale = tan(glm::radians(camera.getFieldOfView()))
+	auto data = CameraData{
+		glm::inverse(camera.getProjectionMatrix()),
+		glm::vec2(camera.getResolution()),
+		camera.getResolution().x / camera.getResolution().y,
+		tan(glm::radians(camera.getFieldOfView()))
 	};
 
-	buffer.writeToBuffer(&cameraData, sizeof(CameraData));
+	buffer.writeToBuffer(&data, sizeof(CameraData));
 
 	buffer.unmap(); 
+}
+
+std::unique_ptr<star::BufferMemoryTransferRequest> star::CameraInfo::createTransferRequest() const
+{
+	return std::make_unique<star::CameraTransfer>(this->camera); 
 }
