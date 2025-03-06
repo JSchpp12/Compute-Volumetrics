@@ -13,6 +13,7 @@
     "tinyobjloader",
     "boost-thread",
     "boost-lockfree",
+    "boost-container",
     {
       "name": "gdal",
       "features": [ "png", "geos" ]
