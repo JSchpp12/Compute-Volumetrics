@@ -1,5 +1,11 @@
 #include "TerrainChunk.hpp"
 
+#include "Handle.hpp"
+#include "ManagerRenderResource.hpp"
+#include "ManagerController_RenderResource_TextureFile.hpp"
+#include "ManagerController_RenderResource_VertInfo.hpp"
+#include "ManagerController_RenderResource_IndicesInfo.hpp"
+
 void TerrainChunk::verifyFiles() const
 {
 	if (!star::FileHelpers::FileExists(this->heightFile))
@@ -22,6 +28,14 @@ void TerrainChunk::load() {
 	loadGeomInfo(dataset, *this->verts, *this->inds);
 
 	GDALClose(dataset);
+}
+
+std::unique_ptr<star::StarMesh> TerrainChunk::getMesh(){
+	auto material = std::make_shared<star::TextureMaterial>(star::ManagerRenderResource::addRequest(std::make_unique<star::ManagerController::RenderResource::TextureFile>(this->textureFile)));
+
+	star::Handle vertBuffer = star::ManagerRenderResource::addRequest(std::make_unique<star::ManagerController::RenderResource::VertInfo>(*verts));
+	star::Handle indBuffer = star::ManagerRenderResource::addRequest(std::make_unique<star::ManagerController::RenderResource::IndicesInfo>(*inds));
+	return std::make_unique<star::StarMesh>(vertBuffer, indBuffer, *verts, *inds, material, false); 
 }
 
 std::string& TerrainChunk::getTextureFile()

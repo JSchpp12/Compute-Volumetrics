@@ -8,7 +8,6 @@
 #include "Interactivity.hpp"
 #include "DebugHelpers.hpp"
 #include "ShaderManager.hpp"
-#include "TextureManager.hpp"
 #include "LightManager.hpp"
 #include "KeyStates.hpp"
 #include "Terrain.hpp"
@@ -16,8 +15,6 @@
 #include "Square.hpp"
 #include "Volume.hpp"
 #include "OffscreenRenderer.hpp"
-#include "LightInfo.hpp"
-
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>

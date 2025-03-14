@@ -1,7 +1,6 @@
 #include "AABBInfo.hpp"
 
-void AABBTransfer::writeData(star::StarBuffer& buffer) const
-{
+void AABBTransfer::writeData(star::StarBuffer& buffer) const{
 	buffer.map(); 
 
 	std::array<glm::vec4, 2> aabbBounds = this->aabbBounds;
@@ -10,7 +9,6 @@ void AABBTransfer::writeData(star::StarBuffer& buffer) const
 	buffer.unmap(); 
 }
 
-std::unique_ptr<star::BufferMemoryTransferRequest> AABBInfo::createTransferRequest() const
-{
+std::unique_ptr<star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>> AABBController::createTransferRequest() {
 	return std::make_unique<AABBTransfer>(this->aabbBounds);
 }

@@ -100,83 +100,88 @@ void main() {
 
 	if ((globalUbo.renderSettings & settingsChecker.drawMatAmbient) != 0){
 		//apply frag ambient value 
-		outColor = vec4(inFragMatAmbient, 1.0); 
+		outColor = vec4(1.0, 0.0, 0.0, 1.0); 
 	}else if ((globalUbo.renderSettings & settingsChecker.drawMatDiffuse) != 0){
-		outColor = vec4(inFragMatDiffuse, 1.0); 
+		outColor = vec4(0.0, 1.0, 0.0, 1.0); 
 	}else if ((globalUbo.renderSettings & settingsChecker.drawMatSpecular) != 0){
-		outColor = vec4(inFragMatSpecular, 1.0); 
+		outColor = vec4(0.0, 0.0, 1.0, 1.0); 
 	}else{
-		for (int i = 0; i < globalUbo.numLights; i++){
-			//check if the current light object is a spotlight
-			isSpot = ((lights[i].settings.y & lightChecker.spot) != 0);
-			isDirectional = ((lights[i].settings.y & lightChecker.directional) != 0);
+		vec3 totalSurfaceColor = vec3(0.0);
 
-			//distance calculations 
-			if (lights[i].settings.x == 1){
-				//light is enabled
-				vec3 directionToLight = lights[i].position.xyz - inFragPositionWorld.xyz; 
-				if ((lights[i].settings.y & lightChecker.directional) != 0){
-					//Directional light 
-					directionToLight = normalize(-lights[i].direction.xyz); 
-				}else {
-					directionToLight = lights[i].position.xyz - inFragPositionWorld.xyz; 
-				}
-				
-				//distance of direction vector squared
-				float attenuation = 1.0 / dot(directionToLight, directionToLight);	
+		if ((globalUbo.numLights) != 0){
+			for (int i = 0; i < globalUbo.numLights; i++){
+				//check if the current light object is a spotlight
+				isSpot = ((lights[i].settings.y & lightChecker.spot) != 0);
+				isDirectional = ((lights[i].settings.y & lightChecker.directional) != 0);
 
-				//apply ambient light (no attenuation for ambient sources)
-				ambientLight += !isDirectional ? (lights[i].ambient.xyz * lights[i].ambient.w) * attenuation : lights[i].ambient.xyz * lights[i].ambient.w; 
+				//distance calculations 
+				if (lights[i].settings.x == 1){
+					//light is enabled
+					vec3 directionToLight = lights[i].position.xyz - inFragPositionWorld.xyz; 
+					if ((lights[i].settings.y & lightChecker.directional) != 0){
+						//Directional light 
+						directionToLight = normalize(-lights[i].direction.xyz); 
+					}else {
+						directionToLight = lights[i].position.xyz - inFragPositionWorld.xyz; 
+					}
+					
+					//distance of direction vector squared
+					float attenuation = 1.0 / dot(directionToLight, directionToLight);	
 
-				//need to normalize this after the attenuation calculation 
-				directionToLight = normalize(directionToLight); 
+					//apply ambient light (no attenuation for ambient sources)
+					ambientLight += !isDirectional ? (lights[i].ambient.xyz * lights[i].ambient.w) * attenuation : lights[i].ambient.xyz * lights[i].ambient.w; 
 
-				//calculate cosine value of difference between fragment vec to light and light direction
-				float theta = dot(directionToLight, normalize(-lights[i].direction.xyz)); 
-				float epsilon = lights[i].controls.x - lights[i].controls.y;						//inner cutoff - outer cutoff
-				float spotIntensity = clamp((theta - lights[i].controls.y) / epsilon, 0.0, 1.0);	//want to keep intensity between 0 and 1 
+					//need to normalize this after the attenuation calculation 
+					directionToLight = normalize(directionToLight); 
 
-				//apply lighting calculations 
-				float cosAngleIncidence = max(dot(surfaceNormal, directionToLight), 0);
-				vec3 lightColor = (lights[i].diffuse.xyz * lights[i].diffuse.w) * attenuation;
+					//calculate cosine value of difference between fragment vec to light and light direction
+					float theta = dot(directionToLight, normalize(-lights[i].direction.xyz)); 
+					float epsilon = lights[i].controls.x - lights[i].controls.y;						//inner cutoff - outer cutoff
+					float spotIntensity = clamp((theta - lights[i].controls.y) / epsilon, 0.0, 1.0);	//want to keep intensity between 0 and 1 
 
-				rawDiffuse = lightColor * cosAngleIncidence; 
-				//apply attenuation to light sources that are not directional
-				if (!isDirectional)
-					rawDiffuse *= attenuation; 
+					//apply lighting calculations 
+					float cosAngleIncidence = max(dot(surfaceNormal, directionToLight), 0);
+					vec3 lightColor = (lights[i].diffuse.xyz * lights[i].diffuse.w) * attenuation;
 
-				//specular light
-				vec3 halfAngle = normalize(directionToLight + viewDirection); 
-				float blinnTerm = dot(surfaceNormal, halfAngle); 
-				blinnTerm = clamp(blinnTerm, 0, 1);	
-				blinnTerm = cosAngleIncidence != 0.0 ? blinnTerm : 0; 
-				//apply arbitrary power "s" -- high values results in sharper highlight
-				blinnTerm = pow(blinnTerm, inFragMatShininess); 
+					rawDiffuse = lightColor * cosAngleIncidence; 
+					//apply attenuation to light sources that are not directional
+					if (!isDirectional)
+						rawDiffuse *= attenuation; 
 
-				rawSpecular = ((lights[i].specular.xyz * lights[i].specular.w) * blinnTerm); 
-				//apply attenuation to light sources that are not directional
-				if (!isDirectional)
-					rawSpecular *= attenuation; 
+					//specular light
+					vec3 halfAngle = normalize(directionToLight + viewDirection); 
+					float blinnTerm = dot(surfaceNormal, halfAngle); 
+					blinnTerm = clamp(blinnTerm, 0, 1);	
+					blinnTerm = cosAngleIncidence != 0.0 ? blinnTerm : 0; 
+					//apply arbitrary power "s" -- high values results in sharper highlight
+					blinnTerm = pow(blinnTerm, inFragMatShininess); 
 
-				//apply any futher modifiers if needed (i.e. spot light outer ring)
-				if (isSpot && (theta < lights[i].controls.x)){
-					//apply outer ring intensities to fragment light effects
-					diffuseLight += rawDiffuse * spotIntensity; 
-					specularLight += rawSpecular * spotIntensity; 
-				}else{
-					diffuseLight += rawDiffuse; 
-					specularLight += rawSpecular;
+					rawSpecular = ((lights[i].specular.xyz * lights[i].specular.w) * blinnTerm); 
+					//apply attenuation to light sources that are not directional
+					if (!isDirectional)
+						rawSpecular *= attenuation; 
+
+					//apply any futher modifiers if needed (i.e. spot light outer ring)
+					if (isSpot && (theta < lights[i].controls.x)){
+						//apply outer ring intensities to fragment light effects
+						diffuseLight += rawDiffuse * spotIntensity; 
+						specularLight += rawSpecular * spotIntensity; 
+					}else{
+						diffuseLight += rawDiffuse; 
+						specularLight += rawSpecular;
+					}
 				}
 			}
-
+			
 			ambientLight *= inFragMatAmbient; 
 			diffuseLight *= inFragMatDiffuse; 
 			specularLight *= inFragMatSpecular; 
 
-			vec3 totalSurfaceColor = (ambientLight + diffuseLight + specularLight) * vec3(texture(textureSampler, inFragTextureCoordinate)); 
-
-			outColor = vec4(totalSurfaceColor, 1.0);
-			// outColor = vec4(1.0, 1.0, 1.0, 1.0);
+			totalSurfaceColor = (ambientLight + diffuseLight + specularLight) * vec3(texture(textureSampler, inFragTextureCoordinate)); 
+		}else{
+			totalSurfaceColor = vec3(0.5, 0.5, 0.5);
 		}
+
+		outColor = vec4(totalSurfaceColor, 1.0); 
 	}
 }

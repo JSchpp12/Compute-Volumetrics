@@ -13,6 +13,7 @@ elseif(APPLE)
 endif()
 
 project("starlightapp")
+enable_language(CXX)
 
 find_package(OpenVDB CONFIG REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
@@ -91,6 +92,34 @@ else()
 		CXX_STANDARD 20
 		CXX_STANDARD_REQUIRED ON
 	)
+endif()
+
+find_program(CPPCHECK_EXECUTABLE cppcheck)
+if (CPPCHECK_EXECUTABLE)
+	set(CPPCHECK_FILES "")
+
+	foreach(FILE "${${PROJECT_NAME}_SOURCE}" "${PROJECT_NAME}_HEADERS")
+		file(TO_CMAKE_PATH "${FILE}" UNIX_PATH)
+		list(APPEND CPPCHECK_FILES "${UNIX_PATH}")
+	endforeach()
+
+	add_custom_target("${PROJECT_NAME}_cppcheck"
+		COMMAND ${CPPCHECK_EXECUTABLE} 
+			--enable=all 
+			-q
+			--inline-suppr
+			--suppress=missingIncludeSystem
+			--language=c++
+			--std=c++20
+			--template=gcc
+			-I "include"
+			${CPPCHECK_FILES}
+		WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+		COMMENT "Running Cppcheck"
+		VERBATIM
+	)
+
+	add_dependencies("${PROJECT_NAME}_cppcheck" ${CMAKE_PROJECT_NAME})
 endif()
 
 #TODO: NEED BETTER SOLUTION FOR MEDIA FILES

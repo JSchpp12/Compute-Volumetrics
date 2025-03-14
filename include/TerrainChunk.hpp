@@ -1,14 +1,9 @@
 #pragma once
 
-#include "Handle.hpp"
-#include "ManagerBuffer.hpp"
-#include "ObjVertInfo.hpp"
-#include "ObjIndicesInfo.hpp"
 #include "StarBuffer.hpp"
 #include "StarMesh.hpp"
 #include "FileHelpers.hpp"
 #include "Vertex.hpp"
-#include "FileTexture.hpp"
 #include "MathHelpers.hpp"
 #include "TextureMaterial.hpp"
 #include "StarDevice.hpp"
@@ -32,14 +27,7 @@ public:
 	/// @brief Load meshes from the provided files
 	void load(); 
 
-	std::unique_ptr<star::StarMesh> getMesh(){
-		auto texture = std::make_shared<star::FileTexture>(this->textureFile);
-		auto material = std::make_shared<star::TextureMaterial>(texture);
-
-		star::Handle vertBuffer = star::ManagerBuffer::addRequest(std::make_unique<star::ObjVertInfo>(*verts));
-		star::Handle indBuffer = star::ManagerBuffer::addRequest(std::make_unique<star::ObjIndicesInfo>(*inds));
-		return std::make_unique<star::StarMesh>(vertBuffer, indBuffer, *verts, *inds, material, false); 
-	};
+	std::unique_ptr<star::StarMesh> getMesh();
 
 	std::string& getTextureFile();
 

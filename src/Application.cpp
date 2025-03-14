@@ -12,7 +12,6 @@ void Application::Load()
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
     auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    std::vector<std::shared_ptr<star::GlobalInfo>> sceneBuffers; 
 
     {
         int framesInFLight = std::stoi(star::ConfigFile::getSetting(star::Config_Settings::frames_in_flight)); 
@@ -26,7 +25,13 @@ void Application::Load()
         this->offscreenScene = std::make_unique<star::StarScene>(framesInFLight, this->scene.getCamera(), globalInfos);
         this->offscreenSceneRenderer = std::make_unique<OffscreenRenderer>(*this->offscreenScene);
 
-        auto screen = std::make_unique<Volume>(this->scene.getCamera(), 1280, 720, this->scene.getLights(), this->offscreenSceneRenderer->getRenderToColorImages(), this->offscreenSceneRenderer->getRenderToDepthImages(), globalInfos, lightInfos);
+    
+        star::StarCamera* camera = this->scene.getCamera(); 
+        assert(camera != nullptr); 
+
+        auto screen = std::make_unique<Volume>(*camera, 1280, 720, this->scene.getLights(), this->offscreenSceneRenderer->getRenderToColorImages(), this->offscreenSceneRenderer->getRenderToDepthImages(), globalInfos, lightInfos);
+    
+
         screen->drawBoundingBox = true; 
         auto& s_i = screen->createInstance();
 		s_i.setScale(glm::vec3{ 0.005, 0.005, 0.005 });
@@ -44,30 +49,30 @@ void Application::Load()
     this->offscreenScene->add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{ -1.0, 0.0, 0.0 }));
     this->offscreenScene->add(std::move(horse));
     {
-        auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-         auto terrainPath = "C:\\repos\\aburn\\usr\\modules\\Fog\\mm\\terrain\\airport\\s2045440_geo.tif";
+        // auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+        //  auto terrainPath = "C:\\repos\\aburn\\usr\\modules\\Fog\\mm\\terrain\\airport\\s2045440_geo.tif";
+        // // auto terrainTexture = mediaDirectoryPath + "terrains/super_texture.jpg";
+        // //auto terrainPath = mediaDirectoryPath + "terrains/final.tif";
         // auto terrainTexture = mediaDirectoryPath + "terrains/super_texture.jpg";
-        //auto terrainPath = mediaDirectoryPath + "terrains/final.tif";
-        auto terrainTexture = mediaDirectoryPath + "terrains/super_texture.jpg";
 
-        float top = 39.22153016394154;
-        float bottom = 39.20776235809999;
-        float yDiff = top - bottom;
+        // float top = 39.22153016394154;
+        // float bottom = 39.20776235809999;
+        // float yDiff = top - bottom;
 
-        float left = -82.24766761017314;
-        float right = -82.2299693221875;
-        float xDiff = left - right;
+        // float left = -82.24766761017314;
+        // float right = -82.2299693221875;
+        // float xDiff = left - right;
 
-        top = 0.0f + (yDiff / 2);
-        bottom = 0.0f - (yDiff / 2);
-        left = 0.0f - (xDiff / 2);
-        right = 0.0f + (xDiff / 2);
+        // top = 0.0f + (yDiff / 2);
+        // bottom = 0.0f - (yDiff / 2);
+        // left = 0.0f - (xDiff / 2);
+        // right = 0.0f + (xDiff / 2);
 
-        auto terrain = std::make_unique<Terrain>(terrainInfoPath, terrainPath, terrainTexture, glm::vec3{ top, left, 0 }, glm::vec3{ bottom, right, 0 });
-        auto& t_i = terrain->createInstance();
-        t_i.setScale(glm::vec3(0.01, 0.01, 0.01));
-        t_i.rotateGlobal(star::Type::Axis::z, 90);
-        this->offscreenScene->add(std::move(terrain));
+        // auto terrain = std::make_unique<Terrain>(terrainInfoPath, terrainPath, terrainTexture, glm::vec3{ top, left, 0 }, glm::vec3{ bottom, right, 0 });
+        // auto& t_i = terrain->createInstance();
+        // t_i.setScale(glm::vec3(0.01, 0.01, 0.01));
+        // t_i.rotateGlobal(star::Type::Axis::z, 90);
+        // this->offscreenScene->add(std::move(terrain));
     }
 
     this->scene.add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{-1.0, 0.0, 0.0}));

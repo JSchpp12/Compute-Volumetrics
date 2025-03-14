@@ -1,5 +1,16 @@
 #include "VolumeRenderer.hpp"
 
+#include "CameraInfo.hpp"
+#include "ConfigFile.hpp"
+#include "ManagerRenderResource.hpp"
+
+VolumeRenderer::VolumeRenderer(star::StarCamera & camera, const std::vector<star::Handle>& instanceModelInfo, const std::vector<star::Handle>& instanceNormalInfo, std::vector<std::unique_ptr<star::StarTexture>>* offscreenRenderToColors, std::vector<std::unique_ptr<star::StarTexture>>* offscreenRenderToDepths, const std::vector<star::Handle>& globalInfoBuffers, const std::vector<star::Handle>& sceneLightInfoBuffers, const star::Handle & volumeTexture, const std::array<glm::vec4,2>& aabbBounds)
+: offscreenRenderToColors(offscreenRenderToColors), offscreenRenderToDepths(offscreenRenderToDepths),
+globalInfoBuffers(globalInfoBuffers), sceneLightInfoBuffers(sceneLightInfoBuffers), 
+aabbBounds(aabbBounds), camera(camera),
+instanceModelInfo(instanceModelInfo), volumeTexture(volumeTexture), instanceNormalInfo(instanceNormalInfo) {
+	this->cameraShaderInfo = star::ManagerRenderResource::addRequest(std::make_unique<star::CameraInfo>(camera), true);
+}
 void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer& commandBuffer, const int& frameInFlightIndex)
 {
 	vk::ImageMemoryBarrier prepOffscreenImages{}; 
@@ -117,7 +128,7 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 {
 	this->displaySize = std::make_unique<vk::Extent2D>(screensize);
 	{
-		auto settings = star::StarImage::TextureCreateSettings{
+		auto settings = star::StarTexture::TextureCreateSettings{
 			static_cast<int>(screensize.width),
 			static_cast<int>(screensize.height),
 			4,
@@ -130,14 +141,17 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 			VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, 
 			vk::ImageLayout::eShaderReadOnlyOptimal,
 			false, 
-			true
+			true, 
+			{}, 
+			1.0f, 
+			vk::Filter::eNearest, 
+			"VolumeRenderer"
 		};
 
 		this->computeWriteToImages.resize(numFramesInFlight);
 
 		for (int i = 0; i < numFramesInFlight; i++) {
-			this->computeWriteToImages[i] = std::make_unique<star::StarImage>(settings);
-			this->computeWriteToImages[i]->prepRender(device);
+			this->computeWriteToImages[i] = std::make_unique<star::StarTexture>(settings, device.getDevice(), device.getAllocator().get());
 
 			//set the layout to general for compute shader use
 			auto oneTime = device.beginSingleTimeCommands();
@@ -148,7 +162,7 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 
 	for (int i = 0; i < numFramesInFlight; i++) {
 		this->aabbInfoBuffers.emplace_back(
-			star::ManagerBuffer::addRequest(std::make_unique<AABBInfo>(this->aabbBounds))
+			star::ManagerRenderResource::addRequest(std::make_unique<AABBController>(this->aabbBounds))
 		); 
 	}
 }
@@ -158,7 +172,7 @@ void VolumeRenderer::destroyResources(star::StarDevice& device)
 	this->compShaderInfo.reset(); 
 
 	for (auto& computeWriteToImage : this->computeWriteToImages) {
-		computeWriteToImage->cleanupRender(device); 
+		computeWriteToImage.reset();
 	}
 
 	this->computePipeline.reset();
@@ -196,15 +210,15 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 		shaderInfoBuilder
 			.startOnFrameIndex(i)
 			.startSet()
-			.add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral)
-			.add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eGeneral)
-			.add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral)
-			.add(this->cameraShaderInfo)
-			.add(this->aabbInfoBuffers.at(i))
-			.add(*this->volumeTexture, vk::ImageLayout::eGeneral)
+			.add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, false)
+			.add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eGeneral, false)
+			.add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, false)
+			.add(this->cameraShaderInfo, false)
+			.add(this->aabbInfoBuffers.at(i), false)
+			.add(this->volumeTexture, vk::ImageLayout::eGeneral, true)
 			.startSet()
-			.add(this->globalInfoBuffers.at(i))
-			.add(this->instanceModelInfo.at(i));
+			.add(this->globalInfoBuffers.at(i), false)
+			.add(this->instanceModelInfo.at(i), false);
 	}
 
 	this->compShaderInfo = shaderInfoBuilder.build();

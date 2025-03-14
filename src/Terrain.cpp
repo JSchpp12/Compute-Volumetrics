@@ -18,6 +18,10 @@ void Terrain::loadGeometry()
 
 	std::vector<TerrainChunk> chunks = std::vector<TerrainChunk>();
 	for (int i = 0; i < fileInfo.infos().size(); i++){
+
+		if (i == 5)
+			break;
+			
 		chunks.push_back(TerrainChunk{
 			fileInfo.infos()[i].heightFile, 
 			fileInfo.infos()[i].surfaceTexture,

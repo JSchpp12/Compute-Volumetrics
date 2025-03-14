@@ -1,7 +1,5 @@
 #pragma once
 
-#include "ObjIndicesInfo.hpp"
-#include "ObjVertInfo.hpp"
 #include "StarObject.hpp"
 #include "TextureMaterial.hpp"
 #include "TerrainChunk.hpp"

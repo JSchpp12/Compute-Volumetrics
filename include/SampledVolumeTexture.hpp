@@ -1,33 +1,29 @@
 #pragma once 
 
-#include "StarImage.hpp"
+#include "StarTexture.hpp"
+#include "ManagerController_RenderResource_Texture.hpp"
+#include "TransferRequest_Memory.hpp"
 
 #include <vector>
 #include <memory>
 
-class SampledVolumeTexture : public star::StarImage {
-public:
-	SampledVolumeTexture(std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData)
-		: sampledData(std::move(sampledData)),
-		star::StarImage(
-			star::StarImage::TextureCreateSettings{
-				static_cast<int>(sampledData->size()),
-				static_cast<int>(sampledData->at(0).size()),
-				1,
-				1,
-				4,
-				vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
-				vk::Format::eR32Sfloat,
-				vk::ImageAspectFlagBits::eColor,
-				VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
-				VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-				vk::ImageLayout::eShaderReadOnlyOptimal,
-				false, true})
-	{
-	};
+class SampledVolumeRequest: public star::TransferRequest::Memory<star::StarTexture::TextureCreateSettings>{
+	public:
+	SampledVolumeRequest(std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData) : sampledData(std::move(sampledData)){}
 
-protected:
-	std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData = std::unique_ptr<std::vector<std::vector<std::vector<float>>>>(); 
+	star::StarTexture::TextureCreateSettings getCreateArgs(const vk::PhysicalDeviceProperties& deviceProperties) const override; 
 
-	std::unique_ptr<star::StarBuffer> loadImageData(star::StarDevice& device) override; 
+	void writeData(star::StarBuffer& buffer) const override; 
+
+	private:
+	std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData; 
+};
+
+class SampledVolumeController : public star::ManagerController::RenderResource::Texture{
+	public:
+	SampledVolumeController(std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData) : sampledData(std::move(sampledData)){}
+
+	std::unique_ptr<star::TransferRequest::Memory<star::StarTexture::TextureCreateSettings>> createTransferRequest() override;
+	protected:
+	std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData;
 };

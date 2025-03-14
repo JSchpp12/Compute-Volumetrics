@@ -1,12 +1,16 @@
 #include "Volume.hpp"
 
-Volume::Volume(star::StarCamera* camera, const size_t screenWidth, const size_t screenHeight, 
+#include "SampledVolumeTexture.hpp"
+#include "ManagerRenderResource.hpp"
+#include "ManagerController_RenderResource_VertInfo.hpp"
+#include "ManagerController_RenderResource_IndicesInfo.hpp"
+
+Volume::Volume(star::StarCamera& camera, const size_t screenWidth, const size_t screenHeight, 
 std::vector<std::unique_ptr<star::Light>>& lightList, 
-std::vector<std::unique_ptr<star::StarImage>>* offscreenRenderToColorImages,
-std::vector<std::unique_ptr<star::StarImage>>* offscreenRenderToDepthImages,
+std::vector<std::unique_ptr<star::StarTexture>>* offscreenRenderToColorImages,
+std::vector<std::unique_ptr<star::StarTexture>>* offscreenRenderToDepthImages,
 std::vector<star::Handle>& globalInfos, 
-std::vector<star::Handle>& lightInfos) : camera(camera), screenDimensions(screenWidth, screenHeight), lightList(lightList), 
-StarObject(){
+std::vector<star::Handle>& lightInfos) : camera(camera), screenDimensions(screenWidth, screenHeight), lightList(lightList), StarObject(){
     openvdb::initialize();
     loadModel();
 
@@ -20,7 +24,7 @@ StarObject(){
         }
     }
 
-    this->volumeRenderer = std::make_unique<VolumeRenderer>(this->camera, this->instanceModelInfos, this->instanceNormalInfos, offscreenRenderToColorImages, offscreenRenderToDepthImages, globalInfos, lightInfos, this->sampledTexture.get(), this->aabbBounds);
+    this->volumeRenderer = std::make_unique<VolumeRenderer>(this->camera, this->instanceModelInfos, this->instanceNormalInfos, offscreenRenderToColorImages, offscreenRenderToDepthImages, globalInfos, lightInfos, this->sampledTexture, this->aabbBounds);
     this->volumeRendererCleanup = std::make_unique<VolumeRendererCleanup>(this->volumeRenderer->getRenderToImages(), offscreenRenderToColorImages, offscreenRenderToDepthImages);
     
     loadGeometry();
@@ -196,12 +200,12 @@ void Volume::loadModel()
     auto sampledBoundrySize = bounds.extents().asVec3i();
 	std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledGridData = std::unique_ptr<std::vector<std::vector<std::vector<float>>>>(new std::vector(sampledBoundrySize.x(), std::vector<std::vector<float>>(sampledBoundrySize.y(), std::vector<float>(sampledBoundrySize.z(), 0.0f))));
 
-   std::cout << "Sampling grid with step size of: " << step_size << std::endl; 
-	size_t halfTotalSteps = sampledGridData->size() / 2;
-   ProcessVolume processor = ProcessVolume(this->grid.get(), *sampledGridData, step_size, halfTotalSteps);
-	oneapi::tbb::parallel_for(bounds, processor);
+    std::cout << "Sampling grid with step size of: " << step_size << std::endl; 
+    size_t halfTotalSteps = sampledGridData->size() / 2;
+    ProcessVolume processor = ProcessVolume(this->grid.get(), *sampledGridData, step_size, halfTotalSteps);
+    oneapi::tbb::parallel_for(bounds, processor);
 
-	this->sampledTexture = std::make_unique<SampledVolumeTexture>(std::move(sampledGridData));
+	this->sampledTexture = star::ManagerRenderResource::addRequest(std::make_unique<SampledVolumeController>(std::move(sampledGridData)));
     std::cout << "Done" << std::endl; 
 }
 
@@ -241,8 +245,8 @@ void Volume::loadGeometry()
     std::unique_ptr<ScreenMaterial> material = std::unique_ptr<ScreenMaterial>(std::make_unique<ScreenMaterial>(this->volumeRenderer->getRenderToImages()));
     auto newMeshes = std::vector<std::unique_ptr<star::StarMesh>>();
 
-    star::Handle vertBuffer = star::ManagerBuffer::addRequest(std::make_unique<star::ObjVertInfo>(*verts));
-    star::Handle indBuffer = star::ManagerBuffer::addRequest(std::make_unique<star::ObjIndicesInfo>(*inds));
+    star::Handle vertBuffer = star::ManagerRenderResource::addRequest(std::make_unique<star::ManagerController::RenderResource::VertInfo>(*verts));
+    star::Handle indBuffer = star::ManagerRenderResource::addRequest(std::make_unique<star::ManagerController::RenderResource::IndicesInfo>(*inds));
 
     newMeshes.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(vertBuffer, indBuffer, *verts, *inds, std::move(material), this->aabbBounds[0],this->aabbBounds[1], false)));
 
@@ -282,15 +286,11 @@ void Volume::recordRenderPassCommands(vk::CommandBuffer& commandBuffer, vk::Pipe
 
 void Volume::prepRender(star::StarDevice& device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout, star::RenderingTargetInfo renderingInfo, int numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder)
 {
-    this->sampledTexture->prepRender(device);
-    
     this->star::StarObject::prepRender(device, swapChainExtent, pipelineLayout, renderingInfo, numSwapChainImages, fullEngineBuilder);
 }
 
 void Volume::prepRender(star::StarDevice& device, int numSwapChainImages, star::StarPipeline& sharedPipeline, star::StarShaderInfo::Builder fullEngineBuilder)
 {
-    this->sampledTexture->prepRender(device);
-
     this->star::StarObject::prepRender(device, numSwapChainImages, sharedPipeline, fullEngineBuilder);
 }
 

@@ -5,11 +5,11 @@ OffscreenRenderer::OffscreenRenderer(star::StarScene& scene)
 {
 }
 
-std::vector<std::unique_ptr<star::StarImage>> OffscreenRenderer::createRenderToImages(star::StarDevice& device, const int& numFramesInFlight)
+std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderToImages(star::StarDevice& device, const int& numFramesInFlight)
 {
-	std::vector<std::unique_ptr<star::StarImage>> newRenderToImages = std::vector<std::unique_ptr<star::StarImage>>();
+	std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages = std::vector<std::unique_ptr<star::StarTexture>>();
 
-	auto settings = star::StarImage::TextureCreateSettings{
+	auto settings = star::StarTexture::TextureCreateSettings{
 		static_cast<int>(this->swapChainExtent->width),
 		static_cast<int>(this->swapChainExtent->height),
 		4,
@@ -21,11 +21,14 @@ std::vector<std::unique_ptr<star::StarImage>> OffscreenRenderer::createRenderToI
 		VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
 		VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
 		vk::ImageLayout::eColorAttachmentOptimal,
-		false, false };
+		false, false, 
+		{},
+		1.0f,
+		vk::Filter::eNearest,
+		"OffscreenRenderColor"};
 
 	for (int i = 0; i < numFramesInFlight; i++) {
-		newRenderToImages.push_back(std::make_unique<star::StarImage>(settings));
-		newRenderToImages.back()->prepRender(device);
+		newRenderToImages.push_back(std::make_unique<star::StarTexture>(settings, device.getDevice(), device.getAllocator().get()));
 
 		auto oneTimeSetup = device.beginSingleTimeCommands();
 		newRenderToImages.back()->transitionLayout(oneTimeSetup, vk::ImageLayout::eColorAttachmentOptimal, vk::AccessFlagBits::eNone, vk::AccessFlagBits::eColorAttachmentWrite, vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput);
@@ -35,11 +38,11 @@ std::vector<std::unique_ptr<star::StarImage>> OffscreenRenderer::createRenderToI
 	return newRenderToImages;
 }
 
-std::vector<std::unique_ptr<star::StarImage>> OffscreenRenderer::createRenderToDepthImages(star::StarDevice& device, const int& numFramesInFlight)
+std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderToDepthImages(star::StarDevice& device, const int& numFramesInFlight)
 {
-	std::vector<std::unique_ptr<star::StarImage>> newRenderToImages = std::vector<std::unique_ptr<star::StarImage>>();
+	std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages = std::vector<std::unique_ptr<star::StarTexture>>();
 
-	auto settings = star::StarImage::TextureCreateSettings{
+	auto settings = star::StarTexture::TextureCreateSettings{
 		static_cast<int>(this->swapChainExtent->width),
 		static_cast<int>(this->swapChainExtent->height),
 		1,
@@ -51,12 +54,15 @@ std::vector<std::unique_ptr<star::StarImage>> OffscreenRenderer::createRenderToD
 		VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
 		VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
 		vk::ImageLayout::eDepthAttachmentOptimal,
-		false, false
+		false, false, 
+		{}, 
+		1.0f,
+		vk::Filter::eNearest, 
+		"OffscreenDepths"
 	};
 
 	for (int i = 0; i < numFramesInFlight; i++) {
-		newRenderToImages.push_back(std::make_unique<star::StarImage>(settings));
-		newRenderToImages.back()->prepRender(device); 
+		newRenderToImages.push_back(std::make_unique<star::StarTexture>(settings, device.getDevice(), device.getAllocator().get()));
 
 		auto oneTimeSetup = device.beginSingleTimeCommands();
 

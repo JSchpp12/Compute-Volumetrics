@@ -1,7 +1,5 @@
 #pragma once
 
-#include "ObjVertInfo.hpp"
-#include "ObjIndicesInfo.hpp"
 #include "FileHelpers.hpp"
 #include "RenderingTargetInfo.hpp"
 #include "StarObject.hpp"
@@ -18,7 +16,6 @@
 #include "VolumeRendererCleanup.hpp"
 #include "Light.hpp"
 #include "FileTexture.hpp"
-#include "SampledVolumeTexture.hpp"
 
 #include "ScreenMaterial.hpp"
 
@@ -81,10 +78,10 @@ public:
     bool rayMarchToAABB = false;
 
     ~Volume() = default;
-    Volume(star::StarCamera* camera, const size_t screenWidth, const size_t screenHeight, 
+    Volume(star::StarCamera& camera, const size_t screenWidth, const size_t screenHeight, 
         std::vector<std::unique_ptr<star::Light>>& lightList, 
-        std::vector<std::unique_ptr<star::StarImage>>* offscreenRenderToColorImages,
-		std::vector<std::unique_ptr<star::StarImage>>* offscreenRenderToDepthImages,
+        std::vector<std::unique_ptr<star::StarTexture>>* offscreenRenderToColorImages,
+		std::vector<std::unique_ptr<star::StarTexture>>* offscreenRenderToDepthImages,
         std::vector<star::Handle>& globalInfos, 
         std::vector<star::Handle>& lightInfos);
 
@@ -109,9 +106,9 @@ public:
         this->sigma_absorbtion = newCoef;
     }
 protected:
-    star::StarCamera* camera = nullptr; 
+    star::StarCamera& camera; 
     star::Handle cameraShaderInfo = star::Handle(); 
-    std::unique_ptr<SampledVolumeTexture> sampledTexture = nullptr; 
+    star::Handle sampledTexture = star::Handle(); 
     std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr; 
 	std::unique_ptr<VolumeRendererCleanup> volumeRendererCleanup = nullptr;
     std::array<glm::vec4, 2> aabbBounds; 
