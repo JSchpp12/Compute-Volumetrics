@@ -1,0 +1,60 @@
+{
+  "version": 8,
+  "configurePresets": [
+    {
+      "name": "x86-Debug",
+      "displayName": "VSC - Debug",
+      "description": "Using compilers for Visual Studio 17 2022 (x64 architecture)",
+      "generator": "Visual Studio 17 2022",
+      "toolset": "host=x64",
+      "architecture": "x64",
+      "inherits": "vcpkg",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "environment": {
+         "VCPKG_ROOT": "${sourceDir}/extern/vcpkg"
+      },
+      "cacheVariables": {
+          "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+          "CMAKE_C_COMPILER": "cl.exe",
+          "CMAKE_CXX_COMPILER": "cl.exe",
+          "CMAKE_BUILD_TYPE": "Debug",
+          "CMAKE_CXX_FLAGS": "/MP /EHsc"
+      }
+    },
+    {
+      "name": "x86-Release",
+      "displayName": "VSC - Release ",
+      "description": "Using compilers for Visual Studio 17 2022 (x64 architecture)",
+      "generator": "Visual Studio 17 2022",
+      "toolset": "host=x64",
+      "architecture": "x64",
+      "inherits": "vcpkg",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "environment": {
+         "VCPKG_ROOT": "${sourceDir}/extern/vcpkg"
+      },
+      "cacheVariables": {
+          "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+          "CMAKE_C_COMPILER": "cl.exe",
+          "CMAKE_CXX_COMPILER": "cl.exe",
+          "CMAKE_BUILD_TYPE": "Release",
+          "CMAKE_CXX_FLAGS": "/MP /EHsc"
+      }
+    }
+    
+  ],
+  "buildPresets": [
+    {
+      "name": "x86-debug",
+      "displayName": "Visual Studio Community 2022 Release - amd64 - Debug",
+      "configurePreset": "x86-Debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "x86 - release",
+      "displayName": "Visual Studio Community 2022 Release - amd64 - Release",
+      "configurePreset": "x86-Release",
+      "configuration": "Release"
+  }
+  ]
+}
