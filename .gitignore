@@ -9,3 +9,5 @@ vcpkg_installed/*
 CMakeSettings.json
 *.continueignore
 build_vs/*
+CMakeUserPresets.json
+CMakePresets.json
