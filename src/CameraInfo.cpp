@@ -2,17 +2,13 @@
 
 void star::TransferRequest::CameraInfo::writeData(star::StarBuffer& buffer) const
 {
-
-	// data(
-	// 	CameraData{
-
 	buffer.map(); 
 
 	auto data = CameraData{
 		glm::inverse(camera.getProjectionMatrix()),
 		glm::vec2(camera.getResolution()),
 		camera.getResolution().x / camera.getResolution().y,
-		tan(glm::radians(camera.getFieldOfView()))
+		tan(glm::radians(camera.getHorizontalFieldOfView()))
 	};
 
 	buffer.writeToBuffer(&data, sizeof(CameraData));

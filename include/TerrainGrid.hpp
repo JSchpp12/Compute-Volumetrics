@@ -1,19 +1,20 @@
 #pragma once
 
+#include "TerrainChunk.hpp"
+
 #include <glm/glm.hpp>
 
 #include <string>
-#include <array>
 #include <vector>
-#include <limits>
 #include <optional>
-#include <memory>
+#include <set>
 
 class TerrainGrid {
 
 public:
     void add(const std::string& heightFile, const std::string& textureFile, const glm::vec2& upperLeft, const glm::vec2& lowerRight);
 
+    std::vector<TerrainChunk> getFinalizedChunks(); 
 private:
     enum class Direction {
         north = 0,
@@ -27,38 +28,41 @@ private:
     };
 
     struct ChunkInfo {
+        ChunkInfo(const ChunkInfo& o) : heightFile(o.heightFile), textureFile(o.textureFile), upperLeft(o.upperLeft), lowerRight(o.lowerRight) {}
         ChunkInfo(const std::string& heightFile, const std::string& textureFile, const glm::vec2& upperLeft, const glm::vec2& lowerRight)
             : heightFile(heightFile), textureFile(textureFile), upperLeft(upperLeft), lowerRight(lowerRight) {}
 
-        const std::string heightFile, textureFile;
-        const glm::vec2 upperLeft, lowerRight;
+        glm::dvec2 getCenter() const{
+
+            double x = (upperLeft.x + lowerRight.x) / 2.0f;
+            double y = (upperLeft.y + lowerRight.y) / 2.0f;
+            return glm::dvec2{
+                x, y
+            };
+        }
+        std::string heightFile, textureFile;
+        glm::vec2 upperLeft, lowerRight;
     };
 
-    struct Space {
-        Space() = default;
-        Space(const std::string& heightFile, const std::string& textureFile, const glm::vec2& upperLeft, const glm::vec2& lowerRight)
-        : chunk(std::make_unique<ChunkInfo>(heightFile, textureFile, upperLeft, lowerRight)) {}
-        ~Space() = default;
+    struct Space{
+        Space() = default; 
 
-        std::unique_ptr<ChunkInfo> chunk = nullptr;
-        std::array<Space*, 8> neighbors = std::array<Space*, 8>();
+        std::optional<ChunkInfo> chunkInfo = std::nullopt; 
     };
 
-    std::vector<std::unique_ptr<Space>> spaceStorage;
+    std::vector<ChunkInfo> chunkInfos = std::vector<ChunkInfo>(); 
 
-    static std::optional<std::pair<Space*, const Direction>> findInsertParent(Space* newSpace, Space* parent, Space* currentSearchSpace, const Direction* previousDirection);
+    std::set<float> createXBins(const std::vector<ChunkInfo>& chunkInfos);
+    
+    std::set<float> createYBins(const std::vector<ChunkInfo>& chunkInfos); 
 
-    static bool isOnThisSideOfMain(const ChunkInfo& main, const ChunkInfo& secondary, const Direction& dir);
-
-    static bool areDoubleClose(const double& valA, const double& valB, const double& epsilon = 0.001f);
+    static std::vector<std::vector<Space>> createGrid(const std::set<float>& binsX, const std::set<float>& binsY, const std::vector<ChunkInfo>& chunkInfos); 
 
     // void moveLineInDirection(Space* mainSpace, const Direction& lineLayoutDirection, const Direction& moveDirection);
 
     static Direction getOppositeDirection(const Direction& direction);
 
-    Space& createNewSpace(const std::string& heightFile, const std::string& textureFile, const glm::vec2& upperLeft, const glm::vec2& lowerRight);
+    static float roundFloat(const float& value); 
 
-    void insert(Space* parentSpace, Space* newSpace, const Direction& direction);
-
-    void moveSpace(Space* spaceToMove, const Direction& direction);
+    static size_t getIndexOfValue(const std::set<float>& bin, const float& value); 
 };

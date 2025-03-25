@@ -1,173 +1,100 @@
 #include "TerrainGrid.hpp"
 
+#include "MathHelpers.hpp"
+
 #include <cmath>
-#include <stdexcept>
-#include <assert.h>
 #include <iostream>
 
 void TerrainGrid::add(const std::string& heightFile, const std::string& textureFile, const glm::vec2& upperLeft, const glm::vec2& lowerRight){
-    Space& newSpace = this->createNewSpace(heightFile, textureFile, upperLeft, lowerRight); 
-    
-    if (this->spaceStorage.size() == 1)
-        return;
-    
-    
-    std::optional<std::pair<Space*, const Direction>> parentOfInsert = findInsertParent(&newSpace, nullptr, this->spaceStorage[0].get(), nullptr); 
 
-    if (!parentOfInsert.has_value())
-        throw std::runtime_error("Failed to find insert position"); 
-
-    auto& result = parentOfInsert.value();
-
-    insert(result.first, &newSpace, result.second);
+    this->chunkInfos.emplace_back(heightFile, textureFile, upperLeft, lowerRight); 
 }
 
-std::optional<std::pair<TerrainGrid::Space*, const TerrainGrid::Direction>> TerrainGrid::findInsertParent(Space* newSpace, Space* parent, Space* currentSearchSpace, const Direction* previousDirection){
-    if (currentSearchSpace == nullptr || !currentSearchSpace->chunk){
-        return std::make_pair(parent, *previousDirection);
-    }
+std::vector<TerrainChunk> TerrainGrid::getFinalizedChunks(){
+    std::set<float> xBins = createXBins(this->chunkInfos);
+    std::set<float> yBins = createYBins(this->chunkInfos); 
 
-    for(int i = 0; i < 8; i++){
-        Direction searchDirection = static_cast<Direction>(i);
-        if (isOnThisSideOfMain(*currentSearchSpace->chunk, *newSpace->chunk, searchDirection)){
-            Space* neighbor = currentSearchSpace->neighbors[i];
+    auto grid = createGrid(xBins, yBins, this->chunkInfos); 
 
-            //check if going back against direction of previous direction
-            if (previousDirection == nullptr || searchDirection != getOppositeDirection(*previousDirection)){
-                return findInsertParent(newSpace, currentSearchSpace, neighbor, &searchDirection);
-            }else{
-                return std::make_optional(std::make_pair(neighbor, static_cast<Direction>(i)));
+    //need to get the size of one chunk
+    float width = std::abs(grid[0][0].chunkInfo.value().lowerRight.x) - std::abs(grid[0][0].chunkInfo.value().upperLeft.x);
+    float height = std::abs(grid[0][0].chunkInfo.value().upperLeft.y) - std::abs(grid[0][0].chunkInfo.value().lowerRight.y); 
+
+    auto centerIndex = std::floor(grid.size() / 2);
+    auto& centerOfGrid = grid[std::floor(grid.size() / 2)][std::floor(grid[0].size() / 2)].chunkInfo.value(); 
+    float centerHeight = TerrainChunk::getCenterHeightFromGDAL(centerOfGrid.heightFile); 
+    const glm::dvec3 centerOfTerrainGrid = glm::dvec3{centerOfGrid.getCenter().x, centerOfGrid.getCenter().y, centerHeight}; 
+    
+    std::vector<TerrainChunk> chunks; 
+    for (int i = 0; i < grid.size(); i++) {
+        for (int j = 0; j < grid[i].size(); j++) {
+            if (grid[i][j].chunkInfo.has_value()){
+                auto info = grid[i][j].chunkInfo.value();
+    
+                chunks.push_back(TerrainChunk(
+                    info.heightFile,
+                    info.textureFile, 
+                    info.upperLeft,
+                    info.lowerRight, 
+                    centerOfTerrainGrid));
             }
         }
     }
 
-    return std::nullopt;
+    //focus at grid[2][2]
+    return chunks;
 }
 
-bool TerrainGrid::isOnThisSideOfMain(const ChunkInfo& mainPiece, const ChunkInfo& secondary, const Direction& dir){
-    if ((dir == Direction::north
-            && areDoubleClose(mainPiece.upperLeft.x, secondary.upperLeft.x)
-            && areDoubleClose(mainPiece.lowerRight.x, secondary.lowerRight.x)
-            && secondary.upperLeft.y > mainPiece.upperLeft.y
-            && secondary.lowerRight.y > mainPiece.lowerRight.y)
-       || (dir == Direction::north_east
-            && mainPiece.upperLeft.y < secondary.upperLeft.y
-            && mainPiece.lowerRight.y < secondary.lowerRight.y
-            && mainPiece.upperLeft.x < secondary.upperLeft.x
-            && mainPiece.lowerRight.x < secondary.lowerRight.x)
-       || (dir == Direction::east
-            && areDoubleClose(mainPiece.upperLeft.y, secondary.upperLeft.y)
-            && areDoubleClose(mainPiece.lowerRight.y, secondary.lowerRight.y)
-            && mainPiece.upperLeft.x < secondary.upperLeft.y
-            && mainPiece.lowerRight.x < secondary.lowerRight.x)
-       || (dir == Direction::south_east
-            && mainPiece.upperLeft.y > secondary.upperLeft.y
-            && mainPiece.lowerRight.y > secondary.lowerRight.y
-            && mainPiece.upperLeft.x < secondary.upperLeft.x
-            && mainPiece.lowerRight.x < secondary.lowerRight.x)
-       || (dir == Direction::south 
-            && areDoubleClose(mainPiece.upperLeft.x, secondary.upperLeft.x)
-            && areDoubleClose(mainPiece.lowerRight.x, secondary.lowerRight.x)
-            && mainPiece.upperLeft.y > secondary.upperLeft.y
-            && mainPiece.lowerRight.y > secondary.lowerRight.y)
-       || (dir == Direction::south_west
-            && mainPiece.upperLeft.y > secondary.upperLeft.y
-            && mainPiece.lowerRight.y > secondary.lowerRight.y
-            && mainPiece.upperLeft.x > secondary.upperLeft.x
-            && mainPiece.lowerRight.x > secondary.lowerRight.x)
-       || (dir == Direction::west
-           && areDoubleClose(mainPiece.upperLeft.y, secondary.upperLeft.y)
-           && areDoubleClose(mainPiece.lowerRight.y, secondary.lowerRight.y)
-           && mainPiece.upperLeft.x > secondary.upperLeft.x
-           && mainPiece.lowerRight.x > secondary.lowerRight.x)
-        || (dir == Direction::north_west
-            && mainPiece.upperLeft.x > secondary.upperLeft.x 
-            && mainPiece.lowerRight.x > secondary.lowerRight.x
-            && mainPiece.upperLeft.y < secondary.upperLeft.y
-            && mainPiece.lowerRight.y < secondary.lowerRight.y)){
-        return true;
+
+std::vector<std::vector<TerrainGrid::Space>> TerrainGrid::createGrid(const std::set<float>& binsX, const std::set<float>& binsY, const std::vector<ChunkInfo>& chunkInfo){
+    std::vector<std::vector<Space>> grid = std::vector<std::vector<Space>>(binsY.size(), std::vector<Space>(binsX.size())); 
+
+    for (auto& info : chunkInfo){
+        size_t xCenter = getIndexOfValue(binsX, roundFloat(info.getCenter().x)); 
+        size_t yCenter = getIndexOfValue(binsY, roundFloat(info.getCenter().y)); 
+
+        assert(yCenter < grid.size() && xCenter < grid[0].size());
+        assert(!grid[yCenter][xCenter].chunkInfo && "Something is already here");
+
+        grid[yCenter][xCenter].chunkInfo = info;  
     }
 
-    return false; 
+    return grid; 
 }
 
-bool TerrainGrid::areDoubleClose(const double& valA, const double& valB, const double& epsilon){
-    return std::fabs(valA - valB) <= epsilon * std::max({1.0, std::fabs(valA), std::fabs(valB)});
-}
+std::set<float> TerrainGrid::createXBins(const std::vector<ChunkInfo>& chunkInfo){
+    std::set<float> bins; 
 
-// void TerrainGrid::moveLineInDirection(Space* mainSpace, const Direction& lineLayoutDirection, const Direction& moveDirection){
-//     assert(mainSpace != nullptr); 
-//     assert(moveDirection == Direction::north || moveDirection == Direction::east || moveDirection == Direction::south || moveDirection == Direction::west);
-//     assert(lineLayoutDirection == Direction::north || lineLayoutDirection == Direction::east || lineLayoutDirection == Direction::south || lineLayoutDirection == Direction::west);
-
-//     Space* focusSpace = mainSpace; 
-//     std::vector<Space*> line = std::vector<Space*>();
-//     while (focusSpace != nullptr){
-//         line.push_back(focusSpace);
-//         focusSpace = focusSpace->neighbors[static_cast<int>(lineLayoutDirection)];
-//     }
-
-//     for (Space* space : line){
-
-//     }
-// }
-
-TerrainGrid::Direction TerrainGrid::getOppositeDirection(const Direction& direction){
-    return static_cast<Direction>((static_cast<int>(direction)+4)%8);
-}
-
-TerrainGrid::Space& TerrainGrid::createNewSpace(const std::string& heightFile, const std::string& textureFile, const glm::vec2& upperLeft, const glm::vec2& lowerRight){
-    this->spaceStorage.emplace_back(std::make_unique<Space>(heightFile, textureFile, upperLeft, lowerRight)); 
-
-    return *this->spaceStorage.back();
-}
-
-void TerrainGrid::insert(Space* parentSpace, Space* newSpace, const Direction& direction){
-    assert(parentSpace != nullptr && newSpace != nullptr);
-
-    if (parentSpace->neighbors[static_cast<int>(direction)] != nullptr){
-        moveSpace(parentSpace->neighbors[static_cast<int>(direction)], direction); 
+    for (auto& info : chunkInfo){
+        bins.insert(roundFloat(info.getCenter().x)); // insert the rounded x-coordinate of the center into the set
     }
 
-    parentSpace->neighbors[static_cast<int>(direction)] = newSpace; 
-    newSpace->neighbors[static_cast<int>(getOppositeDirection(direction))] = parentSpace; 
+    return bins; 
 }
 
-void TerrainGrid::moveSpace(Space* spaceToMove, const Direction& direction){
-    assert(spaceToMove != nullptr); 
+std::set<float> TerrainGrid::createYBins(const std::vector<ChunkInfo>& chunkInfo){
+    std::set<float> bins; 
 
-    const Direction oppositeDirection = getOppositeDirection(direction);
-
-    Space* newSpaceLocation = nullptr;
-    //if there is a space in the direction we are moving, it needs to be moved
-    if (spaceToMove->neighbors[static_cast<int>(direction)] != nullptr){ 
-        //move the existing space
-        moveSpace(spaceToMove->neighbors[static_cast<int>(direction)], direction);
-        newSpaceLocation = spaceToMove->neighbors[static_cast<int>(direction)]; 
-    }else{
-        //create new space and mvoe the chunk data
-        this->spaceStorage.push_back(std::make_unique<Space>()); 
-        newSpaceLocation = this->spaceStorage.back().get(); 
-        newSpaceLocation->chunk = std::move(spaceToMove->chunk); 
+    for (auto& info : chunkInfo){
+        bins.insert(roundFloat(info.getCenter().y)); // insert the rounded y-coordinate of the center into the set
     }
 
-    //update neighbor pointers
-    for (int i = 0; i < 8; i++){
-        if (i != static_cast<int>(getOppositeDirection(direction)) && spaceToMove->neighbors[i] != nullptr){
-            spaceToMove->neighbors[static_cast<int>(getOppositeDirection(static_cast<Direction>(i)))] = newSpaceLocation; 
-        }
+    return bins;
+}
+
+float TerrainGrid::roundFloat(const float& value){
+    float mult = std::pow(10.0, 2);
+    return std::round(value * mult) / mult; 
+}
+
+size_t TerrainGrid::getIndexOfValue(const std::set<float>& bin, const float& value){
+    float roundedValue = roundFloat(value); 
+
+    auto it = bin.find(roundedValue); 
+
+    if (it == bin.end()){   
+        throw std::runtime_error("Value not found in set"); 
     }
 
-    Space* oldOppositeParent = spaceToMove->neighbors[static_cast<int>(getOppositeDirection(direction))];
-    int nextA = static_cast<int>(direction) + 1 % 8; 
-    int nextB = 0; 
-    if (static_cast<int>(direction) == 0)
-        nextB = 7; 
-    else
-        nextB = static_cast<int>(direction) - 1 % 8;
-
-    if (oldOppositeParent != nullptr){
-        oldOppositeParent->neighbors[nextA] = nullptr; 
-        oldOppositeParent->neighbors[nextB] = nullptr; 
-    }
+    return std::distance(bin.begin(), it); 
 }

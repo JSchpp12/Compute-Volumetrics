@@ -11,6 +11,7 @@ aabbBounds(aabbBounds), camera(camera),
 instanceModelInfo(instanceModelInfo), volumeTexture(volumeTexture), instanceNormalInfo(instanceNormalInfo) {
 	this->cameraShaderInfo = star::ManagerRenderResource::addRequest(std::make_unique<star::CameraInfo>(camera), true);
 }
+
 void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer& commandBuffer, const int& frameInFlightIndex)
 {
 	vk::ImageMemoryBarrier prepOffscreenImages{}; 
@@ -66,8 +67,8 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer& commandBuffer, const
 	prepWriteToImages.sType = vk::StructureType::eImageMemoryBarrier;
 	prepWriteToImages.oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 	prepWriteToImages.newLayout = vk::ImageLayout::eGeneral;
-	prepWriteToImages.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	prepWriteToImages.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	prepWriteToImages.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
+	prepWriteToImages.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
 	prepWriteToImages.image = this->computeWriteToImages.at(frameInFlightIndex)->getImage();
 	prepWriteToImages.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
 	prepWriteToImages.subresourceRange.baseMipLevel = 0;

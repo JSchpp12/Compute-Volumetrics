@@ -1,5 +1,7 @@
 #include "Terrain.hpp"
 
+#include "TerrainGrid.hpp"
+
 std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
 {
 	std::unordered_map<star::Shader_Stage, star::StarShader> shaders; 
@@ -16,22 +18,44 @@ void Terrain::loadGeometry()
 {
 	TerrainInfoFile fileInfo = TerrainInfoFile(this->terrainDefFile); 
 
-	std::vector<TerrainChunk> chunks = std::vector<TerrainChunk>();
-	for (int i = 0; i < fileInfo.infos().size(); i++){
+	TerrainGrid grid = TerrainGrid(); 
+	
+	std::set<std::string> targets = {
+		"s2045440",
+		"s2050445",
+		"s2040435"
+	};
 
-		if (i == 5)
-			break;
-			
-		chunks.push_back(TerrainChunk{
-			fileInfo.infos()[i].heightFile, 
-			fileInfo.infos()[i].surfaceTexture,
-			fileInfo.infos()[i].upperLeft,
-			fileInfo.infos()[i].lowerRight
-		});
-	}
-
+	
 	//make sure gdal init is setup before multi-thread init
 	GDALAllRegister();
+	
+	std::set<std::string> alreadyProcessed = std::set<std::string>(); 
+
+	for (int i = 0; i < fileInfo.infos().size(); i++){
+		// if (i == 1)
+		// 	break;
+
+		std::string fileName = star::FileHelpers::GetFileNameWithoutExtension(fileInfo.infos()[i].heightFile);
+		fileName = fileName.substr(0, fileName.find("_geo"));
+		//there are duplicates in json -- MUST FIX
+		if (alreadyProcessed.find(fileName) == alreadyProcessed.end()){
+			alreadyProcessed.insert(fileName); 
+			grid.add(fileInfo.infos()[i].heightFile, fileInfo.infos()[i].surfaceTexture, fileInfo.infos()[i].upperLeft, fileInfo.infos()[i].lowerRight); 
+		}
+
+
+		// chunks.push_back(TerrainChunk{
+		// 	fileInfo.infos()[i].heightFile, 
+		// 	fileInfo.infos()[i].surfaceTexture,
+		// 	glm::vec2{left, top},
+		// 	glm::vec2{right, bottom},
+		// 	centerOffset
+		// });
+	}
+
+	auto chunks = grid.getFinalizedChunks();
+
 
 	//parallel load meshes
 	std::cout << "Launching load tasks" << std::endl;

@@ -20,14 +20,6 @@ void TerrainInfoFile::loadFromFile(const std::string& pathToFile) {
 		float left = float(images[i]["bounding_box"]["west"]);
 		float right = float(images[i]["bounding_box"]["east"]);
 
-		float xDiff = left - right;
-		float yDiff = top - bottom;
-
-		top = 0.0f + (yDiff / 2);
-		bottom = 0.0f - (yDiff / 2);
-		left = 0.0f - (xDiff / 2);
-		right = 0.0f + (xDiff / 2);
-
 		this->parsedInfo[i] = TerrainInfo{
 			glm::vec2(right, bottom),
 			glm::vec2(left, top),

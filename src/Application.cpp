@@ -20,9 +20,10 @@ void Application::Load()
 
         for (int i = 0; i < framesInFLight; i++) {
             globalInfos.at(i) = this->scene.getGlobalInfoBuffer(i); 
+            lightInfos.at(i) = this->scene.getLightInfoBuffer(i);
         }
 
-        this->offscreenScene = std::make_unique<star::StarScene>(framesInFLight, this->scene.getCamera(), globalInfos);
+        this->offscreenScene = std::make_unique<star::StarScene>(framesInFLight, this->scene.getCamera(), globalInfos, lightInfos);
         this->offscreenSceneRenderer = std::make_unique<OffscreenRenderer>(*this->offscreenScene);
 
     
@@ -42,37 +43,39 @@ void Application::Load()
     
     auto horse = star::BasicObject::New(horsePath);
     auto& h_i = horse->createInstance();
-	//horse->drawBoundingBox = true;
-    h_i.setPosition(glm::vec3{ 0.885, -0.75, 0.0 });
+	// horse->drawBoundingBox = true;
+    h_i.setPosition(glm::vec3{ 0.885, 5.0, 0.0 });
     h_i.setScale(glm::vec3{ 0.1, 0.1, 0.1 });
+    // h_i.moveRelative(glm::vec3{0, .0, 0}, 0.5f);
     // horse->drawBoundingBox = true; 
-    this->offscreenScene->add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{ -1.0, 0.0, 0.0 }));
     this->offscreenScene->add(std::move(horse));
+    this->offscreenScene->add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{ -1.0, 0.0, 0.0 }));
+
     {
-        // auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-        //  auto terrainPath = "C:\\repos\\aburn\\usr\\modules\\Fog\\mm\\terrain\\airport\\s2045440_geo.tif";
-        // // auto terrainTexture = mediaDirectoryPath + "terrains/super_texture.jpg";
-        // //auto terrainPath = mediaDirectoryPath + "terrains/final.tif";
+        auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+         auto terrainPath = "C:\\repos\\aburn\\usr\\modules\\Fog\\mm\\terrain\\airport\\s2045440_geo.tif";
         // auto terrainTexture = mediaDirectoryPath + "terrains/super_texture.jpg";
+        //auto terrainPath = mediaDirectoryPath + "terrains/final.tif";
+        auto terrainTexture = mediaDirectoryPath + "terrains/super_texture.jpg";
 
-        // float top = 39.22153016394154;
-        // float bottom = 39.20776235809999;
-        // float yDiff = top - bottom;
+        float top = 39.22153016394154;
+        float bottom = 39.20776235809999;
+        float yDiff = top - bottom;
 
-        // float left = -82.24766761017314;
-        // float right = -82.2299693221875;
-        // float xDiff = left - right;
+        float left = -82.24766761017314;
+        float right = -82.2299693221875;
+        float xDiff = left - right;
 
-        // top = 0.0f + (yDiff / 2);
-        // bottom = 0.0f - (yDiff / 2);
-        // left = 0.0f - (xDiff / 2);
-        // right = 0.0f + (xDiff / 2);
+        top = 0.0f + (yDiff / 2);
+        bottom = 0.0f - (yDiff / 2);
+        left = 0.0f - (xDiff / 2);
+        right = 0.0f + (xDiff / 2);
 
-        // auto terrain = std::make_unique<Terrain>(terrainInfoPath, terrainPath, terrainTexture, glm::vec3{ top, left, 0 }, glm::vec3{ bottom, right, 0 });
-        // auto& t_i = terrain->createInstance();
+        auto terrain = std::make_unique<Terrain>(terrainInfoPath, terrainPath, terrainTexture, glm::vec3{ top, left, 0 }, glm::vec3{ bottom, right, 0 });
+        auto& t_i = terrain->createInstance();
         // t_i.setScale(glm::vec3(0.01, 0.01, 0.01));
         // t_i.rotateGlobal(star::Type::Axis::z, 90);
-        // this->offscreenScene->add(std::move(terrain));
+        this->offscreenScene->add(std::move(terrain));
     }
 
     this->scene.add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{-1.0, 0.0, 0.0}));

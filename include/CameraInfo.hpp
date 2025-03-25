@@ -53,7 +53,7 @@ namespace star{
 
 	class CameraInfo : public star::ManagerController::RenderResource::Buffer {
 		public:
-			CameraInfo(const star::StarCamera& camera) : camera(camera) {};
+			CameraInfo(const star::StarCamera& camera) : camera(camera){};
 		
 		protected:
 			const star::StarCamera& camera; 

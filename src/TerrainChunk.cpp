@@ -1,10 +1,20 @@
 #include "TerrainChunk.hpp"
 
+#include "TextureMaterial.hpp"
+#include "FileHelpers.hpp"
+#include "Vertex.hpp"
+#include "MathHelpers.hpp"
+
 #include "Handle.hpp"
 #include "ManagerRenderResource.hpp"
 #include "ManagerController_RenderResource_TextureFile.hpp"
 #include "ManagerController_RenderResource_VertInfo.hpp"
 #include "ManagerController_RenderResource_IndicesInfo.hpp"
+
+
+TerrainChunk::TerrainChunk(const std::string& heightFile, const std::string& textureFile, const glm::vec2& upperLeft, const glm::vec2& lowerRight, const glm::dvec3& offset) : heightFile(heightFile), textureFile(textureFile), upperLeft(upperLeft), lowerRight(lowerRight), offset(offset){
+	verifyFiles(); 
+}
 
 void TerrainChunk::verifyFiles() const
 {
@@ -13,6 +23,29 @@ void TerrainChunk::verifyFiles() const
 
 	if (!star::FileHelpers::FileExists(this->textureFile))
 		throw std::runtime_error("Texture file does not exist: " + this->textureFile); 
+}
+
+double TerrainChunk::getCenterHeightFromGDAL(const std::string& geoTiff){
+	GDALDataset* dataset = (GDALDataset*)GDALOpen(geoTiff.c_str(), GA_ReadOnly);
+
+	if (dataset == NULL) {
+		throw std::runtime_error("Failed to create dataset");
+	}
+
+	float* line = nullptr;
+
+	GDALRasterBand* band = dataset->GetRasterBand(1);
+	int nXSize = band->GetXSize();
+	int nYSize = band->GetYSize();
+	line = (float*)CPLMalloc(sizeof(float) * nXSize * nYSize);
+	band->RasterIO(GF_Read, 0, 0, nXSize, nYSize, line, nXSize, nYSize, GDT_Float32, 0, 0);
+
+	double result = MathHelpers::feetToMeters(line[(nYSize / 2) * nXSize + (nXSize / 2)]);
+
+	CPLFree(line); 
+	GDALClose(dataset);
+
+	return result; 
 }
 
 void TerrainChunk::load() {
@@ -44,7 +77,7 @@ std::string& TerrainChunk::getTextureFile()
 }
 
 
-void TerrainChunk::loadLocation(GDALDataset* const dataset, const glm::vec2& upperLeft, const glm::vec2& lowerRight, std::vector<star::Vertex>& verts, glm::vec3& terrainCenter) {
+void TerrainChunk::loadLocation(GDALDataset* const dataset, const glm::vec2& upperLeft, const glm::vec2& lowerRight, std::vector<glm::dvec3>& vertPositions, std::vector<glm::vec2>& vertTextureCoords, glm::dvec3& terrainCenter, const glm::vec2& offset) {
 	float* line = nullptr;
 
 	GDALRasterBand* band = dataset->GetRasterBand(1);
@@ -52,28 +85,26 @@ void TerrainChunk::loadLocation(GDALDataset* const dataset, const glm::vec2& upp
 	int nXSize = band->GetXSize();
 	int nYSize = band->GetYSize();
 
-	float xTexStep = 1.0f / nXSize;
-	float yTexStep = 1.0f / nYSize;
+	double xTexStep = 1.0f / nXSize;
+	double yTexStep = 1.0f / nYSize;
 
-	double vert = upperLeft.x - lowerRight.y;
-	double horz = lowerRight.y - upperLeft.y;
+	double vert = (glm::abs(upperLeft.x) - glm::abs(lowerRight.x)) / nXSize;
+	double horz = (glm::abs(lowerRight.y) - glm::abs(upperLeft.y)) / nYSize;
 
 	line = (float*)CPLMalloc(sizeof(float) * nXSize * nYSize);
 	band->RasterIO(GF_Read, 0, 0, nXSize, nYSize, line, nXSize, nYSize, GDT_Float32, 0, 0);
 
-
 	//calculate locations
 	for (int i = 0; i < nYSize; i++) {
 		for (int j = 0; j < nXSize; j++) {
-			auto location = MathHelpers::toECEF(glm::vec3{
-				upperLeft.x - j * vert / nXSize,
-				upperLeft.y + i * horz / nYSize,
-				line[i * nXSize + j]
-			});
+			auto location = glm::dvec3{
+				(upperLeft.x + j * vert),
+				(upperLeft.y + i * horz),
+				line[i * nXSize + j],
+			};
 
-			terrainCenter = (terrainCenter + location) / glm::vec3(2.0f, 2.0f, 2.0f);
-			glm::vec2 texCoord = glm::vec2(j * xTexStep, i * yTexStep);
-			verts.push_back(star::Vertex(location, glm::vec3(), glm::vec3(), texCoord));
+			vertPositions.push_back(location);
+			vertTextureCoords.push_back(glm::vec2(j * xTexStep, i * yTexStep));
 		}
 	}
 
@@ -189,19 +220,52 @@ void TerrainChunk::calculateNormals(std::vector<star::Vertex>& verts, std::vecto
 	}
 }
 
-void TerrainChunk::centerAroundTerrainOrigin(const glm::vec3& terrainCenter, std::vector<star::Vertex>& verts) {
-	//set all verts around origin 
-	for (auto& vert : verts) {
-		vert.pos = vert.pos - terrainCenter;
-		vert.normal = glm::normalize(vert.normal);
+void TerrainChunk::centerAroundTerrainOrigin(const glm::dvec3& terrainCenter, std::vector<glm::dvec3>& vertPositions, const glm::dvec3& worldCenterLatLon) const {
+	//set all verts around origin
+
+	// auto worldCenterECEF = MathHelpers::toECEF(vertPositions[0].x, vertPositions[0].y, vertPositions[0].z); 
+	// auto worldCenterToENUTransformation = MathHelpers::getECEFToENUTransformation(vertPositions[0].x, vertPositions[0].y);
+
+	// auto worldCenterECEF = MathHelpers::toECEF(terrainCenter.x, terrainCenter.y,terrainCenter.z); 
+	// auto worldCenterToENUTransformation = MathHelpers::getECEFToENUTransformation(terrainCenter.x, terrainCenter.y);
+
+	const glm::dvec3 worldCenterECEF = MathHelpers::toECEF(worldCenterLatLon.x, worldCenterLatLon.y, worldCenterLatLon.z); 
+	const auto worldCenterToENUTransformation = MathHelpers::getECEFToENUTransformation(worldCenterLatLon.x, worldCenterLatLon.y);
+
+	for (int i = 0; i < vertPositions.size(); i++) {
+		// const glm::dvec3 vertECEF = MathHelpers::toECEF(vertPositions[i].x, vertPositions[i].y, vertPositions[i].z); 
+
+		// const glm::dvec3 displaced = vertECEF - testCenterECEF;
+		// const glm::vec3 resultPosition = testCenterToENUTransformation * displaced; 
+		// vertPositions[i] = glm::vec3{resultPosition.y, resultPosition.z, resultPosition.x};
+
+		const glm::dvec3 vertECEF = MathHelpers::toECEF(vertPositions[i].x, vertPositions[i].y, vertPositions[i].z); 
+		const glm::dvec3 displacedECEF = vertECEF - worldCenterECEF; 
+		const glm::dvec3 result = worldCenterToENUTransformation * displacedECEF; 
+		vertPositions[i] = glm::vec3{result.x, result.z, result.y}; 
+
+		// const glm::dvec3 displacedECEF =  vertECEF - testCenterECEF; 
+
+		// vertPositions[i] = worldCenterToENUTransformation * displacedECEF; 
 	}
 }
 
 void TerrainChunk::loadGeomInfo(GDALDataset *const dataset, std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds) const {
-	glm::vec3 terrainCenter = glm::vec3(0.0f, 0.0f, 0.0f);
-	loadLocation(dataset, this->upperLeft, this->lowerRight, verts, terrainCenter);
+	glm::dvec3 terrainCenter = glm::dvec3(
+		(this->upperLeft.x + this->lowerRight.x) / 2.0f,
+		(this->upperLeft.y + this->lowerRight.y) / 2.0f, 
+		getCenterHeightFromGDAL(this->heightFile)); 
+	
+	std::vector<glm::dvec3> rawVertPositionCoords;
+	std::vector<glm::vec2> vertTextureCoords; 
+	loadLocation(dataset, this->upperLeft, this->lowerRight, rawVertPositionCoords, vertTextureCoords, terrainCenter, this->offset);
+
 	loadInds(dataset, inds); 
+	centerAroundTerrainOrigin(terrainCenter, rawVertPositionCoords, this->offset);
+
+	for (int i = 0; i < rawVertPositionCoords.size(); i++){
+		verts.push_back(star::Vertex(rawVertPositionCoords.at(i), {}, {}, vertTextureCoords.at(i))); 
+	}
 
 	calculateNormals(verts, inds);
-	centerAroundTerrainOrigin(terrainCenter, verts);
 }

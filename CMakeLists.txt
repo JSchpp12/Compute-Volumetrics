@@ -39,6 +39,7 @@ set(${PROJECT_NAME}_SOURCE
 	"src/TerrainChunk.cpp"
 	"src/MathHelpers.cpp"
 	"src/TerrainChunkInfo.cpp"
+	"src/TerrainGrid.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -58,6 +59,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/TerrainChunk.hpp"
 	"include/MathHelpers.hpp"
 	"include/TerrainChunkInfo.hpp"
+	"include/TerrainGrid.hpp"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")

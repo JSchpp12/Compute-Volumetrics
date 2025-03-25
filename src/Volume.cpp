@@ -176,7 +176,7 @@ void Volume::loadModel()
     openvdb::math::CoordBBox bounds; 
     gridAccessor.tree().getIndexRange(bounds);
 
-    size_t step_size = 50;
+    size_t step_size = 200;
     {
         openvdb::math::Coord min = bounds.min();
         {
