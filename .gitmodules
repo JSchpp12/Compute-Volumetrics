@@ -4,3 +4,6 @@
 [submodule "extern/vcpkg"]
 	path = extern/vcpkg
 	url = https://github.com/microsoft/vcpkg.git
+[submodule "extern/terrain_stitcher"]
+	path = extern/terrain_stitcher
+	url = https://github.com/JSchpp12/Terrain-Stitcher.git
