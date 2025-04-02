@@ -125,7 +125,7 @@ std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::StarDevice& devi
     auto newPipeline = std::make_unique<star::StarGraphicsPipeline>(device, settings, graphicsShaders.at(star::Shader_Stage::vertex), graphicsShaders.at(star::Shader_Stage::fragment));
     newPipeline->init();
 
-    return std::move(newPipeline);
+    return newPipeline;
 }
 
 void Volume::loadModel()

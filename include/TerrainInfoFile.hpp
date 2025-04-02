@@ -2,25 +2,19 @@
 
 #include "FileHelpers.hpp"
 
-#include <nlohmann/json.hpp>
 #include <glm/glm.hpp>
 
 #include <string>
 #include <vector>
-#include <stdio.h>
 
 class TerrainInfoFile {
 public:
 	struct TerrainInfo {
-		glm::vec2 lowerRight = glm::vec2();
-		glm::vec2 upperLeft = glm::vec2();
-		std::string heightFile = std::string(); 
-		std::string surfaceTexture = std::string();
+		glm::dvec2 cornerNE, cornerSE, cornerSW, cornerNW;
+		std::string heightFile, textureFile; 
 
-		TerrainInfo(const glm::vec2& lowerRight, const glm::vec2& upperLeft, 
-			const std::string& heightFile, const std::string& surfaceTexture)
-			: lowerRight(lowerRight), upperLeft(upperLeft), heightFile(heightFile), surfaceTexture(surfaceTexture) {
-		}
+		TerrainInfo(const glm::dvec2& cornerNE, const glm::dvec2& cornerSE, const glm::dvec2& cornerSW, const glm::dvec2& cornerNW, const std::string& heightFile, const std::string& textureFile)
+		: cornerNE(cornerNE), cornerSE(cornerSE), cornerSW(cornerSW), cornerNW(cornerNW), heightFile(heightFile), textureFile(textureFile) {}
 
 		TerrainInfo() = default; 
 	};

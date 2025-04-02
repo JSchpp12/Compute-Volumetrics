@@ -14,7 +14,7 @@
 class TerrainChunk {
 public:
 	TerrainChunk(const std::string& heightFile, const std::string& textureFile,
-		const glm::vec2& upperLeft, const glm::vec2& lowerRight, const glm::dvec3& offset);
+		const glm::dvec2& upperLeft, const glm::dvec2& lowerRight, const glm::dvec3& offset);
 
 	/// @brief Load meshes from the provided files
 	void load(); 
@@ -41,7 +41,7 @@ private:
 	std::unique_ptr<star::StarBuffer> indBuffer, vertBuffer;
 	std::unique_ptr<star::StarMesh> mesh;
 	std::string heightFile, textureFile; 
-	glm::vec2 upperLeft, lowerRight;
+	const glm::dvec2 upperLeft, lowerRight;
 	const glm::dvec3 offset; 
 
 	void verifyFiles() const; 

@@ -30,7 +30,7 @@ void Application::Load()
         star::StarCamera* camera = this->scene.getCamera(); 
         assert(camera != nullptr); 
 
-        auto screen = std::make_unique<Volume>(*camera, 1280, 720, this->scene.getLights(), this->offscreenSceneRenderer->getRenderToColorImages(), this->offscreenSceneRenderer->getRenderToDepthImages(), globalInfos, lightInfos);
+        auto screen = std::make_unique<Volume>(*camera, std::stoi(star::ConfigFile::getSetting(star::Config_Settings::resolution_x)), std::stoi(star::ConfigFile::getSetting(star::Config_Settings::resolution_x)), this->scene.getLights(), this->offscreenSceneRenderer->getRenderToColorImages(), this->offscreenSceneRenderer->getRenderToDepthImages(), globalInfos, lightInfos);
     
 
         screen->drawBoundingBox = true; 
@@ -53,7 +53,7 @@ void Application::Load()
 
     {
         auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-         auto terrainPath = "C:\\repos\\aburn\\usr\\modules\\Fog\\mm\\terrain\\airport\\s2045440_geo.tif";
+        auto terrainPath = "C:\\repos\\aburn\\usr\\modules\\Fog\\mm\\terrain\\airport\\s2045440_geo.tif";
         // auto terrainTexture = mediaDirectoryPath + "terrains/super_texture.jpg";
         //auto terrainPath = mediaDirectoryPath + "terrains/final.tif";
         auto terrainTexture = mediaDirectoryPath + "terrains/super_texture.jpg";

@@ -12,7 +12,7 @@
 #include "ManagerController_RenderResource_IndicesInfo.hpp"
 
 
-TerrainChunk::TerrainChunk(const std::string& heightFile, const std::string& textureFile, const glm::vec2& upperLeft, const glm::vec2& lowerRight, const glm::dvec3& offset) : heightFile(heightFile), textureFile(textureFile), upperLeft(upperLeft), lowerRight(lowerRight), offset(offset){
+TerrainChunk::TerrainChunk(const std::string& heightFile, const std::string& textureFile, const glm::dvec2& upperLeft, const glm::dvec2& lowerRight, const glm::dvec3& offset) : heightFile(heightFile), textureFile(textureFile), upperLeft(upperLeft), lowerRight(lowerRight), offset(offset){
 	verifyFiles(); 
 }
 
@@ -229,7 +229,7 @@ void TerrainChunk::centerAroundTerrainOrigin(const glm::dvec3& terrainCenter, st
 	// auto worldCenterECEF = MathHelpers::toECEF(terrainCenter.x, terrainCenter.y,terrainCenter.z); 
 	// auto worldCenterToENUTransformation = MathHelpers::getECEFToENUTransformation(terrainCenter.x, terrainCenter.y);
 
-	const glm::dvec3 worldCenterECEF = MathHelpers::toECEF(worldCenterLatLon.x, worldCenterLatLon.y, worldCenterLatLon.z); 
+	const glm::dvec3 worldCenterECEF = MathHelpers::toECEF(worldCenterLatLon.x, worldCenterLatLon.y, MathHelpers::feetToMeters(worldCenterLatLon.z)); 
 	const auto worldCenterToENUTransformation = MathHelpers::getECEFToENUTransformation(worldCenterLatLon.x, worldCenterLatLon.y);
 
 	for (int i = 0; i < vertPositions.size(); i++) {

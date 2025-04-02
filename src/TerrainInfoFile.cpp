@@ -1,5 +1,9 @@
 #include "TerrainInfoFile.hpp"
 
+#include <nlohmann/json.hpp>
+
+#include <iostream>
+
 TerrainInfoFile::TerrainInfoFile(const std::string& pathToFile) {
 	loadFromFile(pathToFile);
 }
@@ -15,14 +19,11 @@ void TerrainInfoFile::loadFromFile(const std::string& pathToFile) {
 	this->parsedInfo.resize(images.size());
 
 	for (int i = 0; i < images.size(); i++) {
-		float top = float(images[i]["bounding_box"]["north"]);
-		float bottom = float(images[i]["bounding_box"]["south"]);
-		float left = float(images[i]["bounding_box"]["west"]);
-		float right = float(images[i]["bounding_box"]["east"]);
-
 		this->parsedInfo[i] = TerrainInfo{
-			glm::vec2(right, bottom),
-			glm::vec2(left, top),
+			glm::dvec2(double(images[i]["corners"]["NE"]["lat"]), double(images[i]["corners"]["NE"]["lon"])),
+			glm::dvec2(double(images[i]["corners"]["SE"]["lat"]), double(images[i]["corners"]["SE"]["lon"])),
+			glm::dvec2(double(images[i]["corners"]["SW"]["lat"]), double(images[i]["corners"]["SW"]["lon"])),
+			glm::dvec2(double(images[i]["corners"]["NW"]["lat"]), double(images[i]["corners"]["NW"]["lon"])),
 			std::string(images[i]["height_file"]),
 			std::string(images[i]["texture_file"])
 		};

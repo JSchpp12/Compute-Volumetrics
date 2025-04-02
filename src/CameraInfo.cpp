@@ -8,7 +8,7 @@ void star::TransferRequest::CameraInfo::writeData(star::StarBuffer& buffer) cons
 		glm::inverse(camera.getProjectionMatrix()),
 		glm::vec2(camera.getResolution()),
 		camera.getResolution().x / camera.getResolution().y,
-		tan(glm::radians(camera.getHorizontalFieldOfView()))
+		tan(camera.getVerticalFieldOfView(true))
 	};
 
 	buffer.writeToBuffer(&data, sizeof(CameraData));
