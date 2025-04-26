@@ -22,7 +22,8 @@ std::vector<TerrainChunk> TerrainGrid::getFinalizedChunks(){
 
     auto centerIndex = std::floor(grid.size() / 2);
     auto& centerOfGrid = grid[std::floor(grid.size() / 2)][std::floor(grid[0].size() / 2)].chunkInfo.value(); 
-    float centerHeight = TerrainChunk::getCenterHeightFromGDAL(centerOfGrid.heightFile); 
+    // float centerHeight = TerrainChunk::getCenterHeightFromGDAL(centerOfGrid.heightFile);
+    float centerHeight = 0.0f;  
     const glm::dvec3 centerOfTerrainGrid = glm::dvec3{centerOfGrid.getCenter().x, centerOfGrid.getCenter().y, centerHeight}; 
     
     std::vector<TerrainChunk> chunks; 
@@ -31,12 +32,12 @@ std::vector<TerrainChunk> TerrainGrid::getFinalizedChunks(){
             if (grid[i][j].chunkInfo.has_value()){
                 auto info = grid[i][j].chunkInfo.value();
     
-                chunks.push_back(TerrainChunk(
-                    info.heightFile,
-                    info.textureFile, 
-                    info.upperLeft,
-                    info.lowerRight, 
-                    centerOfTerrainGrid));
+                // chunks.push_back(TerrainChunk(
+                //     info.heightFile,
+                //     info.textureFile, 
+                //     info.upperLeft,
+                //     info.lowerRight, 
+                //     centerOfTerrainGrid));
             }
         }
     }
@@ -44,7 +45,6 @@ std::vector<TerrainChunk> TerrainGrid::getFinalizedChunks(){
     //focus at grid[2][2]
     return chunks;
 }
-
 
 std::vector<std::vector<TerrainGrid::Space>> TerrainGrid::createGrid(const std::set<float>& binsX, const std::set<float>& binsY, const std::vector<ChunkInfo>& chunkInfo){
     std::vector<std::vector<Space>> grid = std::vector<std::vector<Space>>(binsY.size(), std::vector<Space>(binsX.size())); 

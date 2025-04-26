@@ -11,21 +11,16 @@
 #include "ManagerController_RenderResource_VertInfo.hpp"
 #include "ManagerController_RenderResource_IndicesInfo.hpp"
 
+#include <glm/gtc/matrix_transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/transform.hpp>
 
-TerrainChunk::TerrainChunk(const std::string& heightFile, const std::string& textureFile, const glm::dvec2& upperLeft, const glm::dvec2& lowerRight, const glm::dvec3& offset) : heightFile(heightFile), textureFile(textureFile), upperLeft(upperLeft), lowerRight(lowerRight), offset(offset){
-	verifyFiles(); 
-}
-
-void TerrainChunk::verifyFiles() const
-{
-	if (!star::FileHelpers::FileExists(this->heightFile))
-		throw std::runtime_error("Height file does not exist: " + this->heightFile);
-
+TerrainChunk::TerrainChunk(const std::string& fullHeightFile, const std::string& textureFile, const glm::dvec2& northEast, const glm::dvec2& southEast, const glm::dvec2& southWest, const glm::dvec2& northWest, const glm::dvec2& center, const glm::dvec3& offset) : textureFile(textureFile), fullHeightFile(fullHeightFile), northEast(northEast), southEast(southEast), southWest(southWest), northWest(northWest), offset(offset), center(center) {
 	if (!star::FileHelpers::FileExists(this->textureFile))
 		throw std::runtime_error("Texture file does not exist: " + this->textureFile); 
 }
 
-double TerrainChunk::getCenterHeightFromGDAL(const std::string& geoTiff){
+double TerrainChunk::getCenterHeightFromGDAL(const std::string& geoTiff, const glm::dvec2& centerLatLon){
 	GDALDataset* dataset = (GDALDataset*)GDALOpen(geoTiff.c_str(), GA_ReadOnly);
 
 	if (dataset == NULL) {
@@ -35,12 +30,15 @@ double TerrainChunk::getCenterHeightFromGDAL(const std::string& geoTiff){
 	float* line = nullptr;
 
 	GDALRasterBand* band = dataset->GetRasterBand(1);
+	
+	// const glm::vec2 pixCoords = latLonToTextureCoords(centerLatLon, dataset); 
+
 	int nXSize = band->GetXSize();
 	int nYSize = band->GetYSize();
 	line = (float*)CPLMalloc(sizeof(float) * nXSize * nYSize);
 	band->RasterIO(GF_Read, 0, 0, nXSize, nYSize, line, nXSize, nYSize, GDT_Float32, 0, 0);
 
-	double result = MathHelpers::feetToMeters(line[(nYSize / 2) * nXSize + (nXSize / 2)]);
+	double result = line[0];
 
 	CPLFree(line); 
 	GDALClose(dataset);
@@ -52,15 +50,17 @@ void TerrainChunk::load() {
 	this->verts = std::make_unique<std::vector<star::Vertex>>();
 	this->inds = std::make_unique<std::vector<uint32_t>>();
 
-	GDALDataset* dataset = (GDALDataset*)GDALOpen(this->heightFile.c_str(), GA_ReadOnly);
+	TerrainDataset dataset = TerrainDataset(
+		this->fullHeightFile, 
+		this->northEast, 
+		this->southEast, 
+		this->southWest, 
+		this->northWest, 
+		this->center,
+		this->offset
+	); 
 
-	if (dataset == NULL) {
-		throw std::runtime_error("Failed to create dataset");
-	}
-
-	loadGeomInfo(dataset, *this->verts, *this->inds);
-
-	GDALClose(dataset);
+	loadGeomInfo(dataset, *this->verts, *this->inds); 
 }
 
 std::unique_ptr<star::StarMesh> TerrainChunk::getMesh(){
@@ -76,64 +76,67 @@ std::string& TerrainChunk::getTextureFile()
 	return this->textureFile;
 }
 
+void TerrainChunk::loadLocation(TerrainDataset & dataset, std::vector<glm::dvec3>& vertPositions, std::vector<glm::vec2>& vertTextureCoords) {
+	double xTexStep = 1.0f / (double)(dataset.getPixSize().x-1);
+	double yTexStep = 1.0f / (double)(dataset.getPixSize().y-1);
 
-void TerrainChunk::loadLocation(GDALDataset* const dataset, const glm::vec2& upperLeft, const glm::vec2& lowerRight, std::vector<glm::dvec3>& vertPositions, std::vector<glm::vec2>& vertTextureCoords, glm::dvec3& terrainCenter, const glm::vec2& offset) {
-	float* line = nullptr;
+	const glm::dvec2 horzLine_north = dataset.getNorthEast() - dataset.getNorthWest(); 
+	const glm::dvec2 horzLine_south = dataset.getSouthEast() - dataset.getSouthWest();
+	const glm::dvec2 vertLine_west = dataset.getSouthWest() - dataset.getNorthWest();
+	const glm::dvec2 vertLine_east = dataset.getSouthEast() - dataset.getNorthEast();
 
-	GDALRasterBand* band = dataset->GetRasterBand(1);
+	const double horzStep_north = (glm::length(horzLine_north) / (double)(dataset.getPixSize().x-1)); 
+	const double horzStep_south = (glm::length(horzLine_south) / (double)(dataset.getPixSize().x-1)); 
+	const double vertStep_west = (glm::length(vertLine_west) / (double)(dataset.getPixSize().y-1)); 
+	const double vertStep_east = (glm::length(vertLine_east) / (double)(dataset.getPixSize().y-1)); 
 
-	int nXSize = band->GetXSize();
-	int nYSize = band->GetYSize();
-
-	double xTexStep = 1.0f / nXSize;
-	double yTexStep = 1.0f / nYSize;
-
-	double vert = (glm::abs(upperLeft.x) - glm::abs(lowerRight.x)) / nXSize;
-	double horz = (glm::abs(lowerRight.y) - glm::abs(upperLeft.y)) / nYSize;
-
-	line = (float*)CPLMalloc(sizeof(float) * nXSize * nYSize);
-	band->RasterIO(GF_Read, 0, 0, nXSize, nYSize, line, nXSize, nYSize, GDT_Float32, 0, 0);
+	const glm::dvec2 horzLineDir_north = glm::normalize(horzLine_north);
+	const glm::dvec2 horzLineDir_south = glm::normalize(horzLine_south); 
+	const glm::dvec2 vertLineDir_west = glm::normalize(vertLine_west);
+	const glm::dvec2 vertLineDir_east = glm::normalize(vertLine_east); 
 
 	//calculate locations
-	for (int i = 0; i < nYSize; i++) {
-		for (int j = 0; j < nXSize; j++) {
-			auto location = glm::dvec3{
-				(upperLeft.x + j * vert),
-				(upperLeft.y + i * horz),
-				line[i * nXSize + j],
-			};
+	for (int i = 0; i < dataset.getPixSize().y; i++) {
+		//problem is here
+		const glm::dvec2 bordPosWest = dataset.getNorthWest() + (vertLineDir_west * vertStep_west * (double)i);
+		const glm::dvec2 bordPosEast = dataset.getNorthEast() + (vertLineDir_east * vertStep_east * (double)i); 
 
-			vertPositions.push_back(location);
+		for (int j = 0; j < dataset.getPixSize().x; j++) {
+			const glm::dvec2 bordPosNorth = dataset.getNorthWest() + (horzLineDir_north * horzStep_north * (double)j);
+			const glm::dvec2 bordPosSouth = dataset.getSouthWest() + (horzLineDir_south * horzStep_south * (double)j);
+
+			//find intersection of two 
+			const glm::dvec2 intersection = calcIntersection(Line{bordPosNorth, bordPosSouth}, Line{bordPosWest, bordPosEast}); 
+
+			vertPositions.push_back(glm::dvec3{
+				intersection.x, 
+				intersection.y,
+				dataset.getElevationAt(intersection)
+			});
+				
 			vertTextureCoords.push_back(glm::vec2(j * xTexStep, i * yTexStep));
 		}
 	}
-
-	CPLFree(line);
 }
 
-void TerrainChunk::loadInds(GDALDataset* const dataset, std::vector<uint32_t>& inds) {
-	GDALRasterBand* band = dataset->GetRasterBand(1); 
-
-	int nXSize = band->GetXSize();
-	int nYSize = band->GetYSize();
-
+void TerrainChunk::loadInds(TerrainDataset& dataset, std::vector<uint32_t>& inds) {
 	uint32_t indexCounter = 0;
 
-	for (int i = 0; i < nYSize; i++) {
-		for (int j = 0; j < nXSize; j++) {
-			if (j % 2 == 1 && i % 2 == 1 && i != nYSize - 1 && j != nXSize - 1) {
+	for (int i = 0; i < dataset.getPixSize().y; i++) {
+		for (int j = 0; j < dataset.getPixSize().x; j++) {
+			if (j % 2 == 1 && i % 2 == 1) {
 				//this is a 'central' vert where drawing should be based around
 				// 
 				//uppper left
 				uint32_t center = indexCounter;
 				uint32_t centerLeft = indexCounter - 1;
 				uint32_t centerRight = indexCounter + 1;
-				uint32_t upperLeft = indexCounter - 1 - nXSize;
-				uint32_t upperCenter = indexCounter - nXSize;
-				uint32_t upperRight = indexCounter - nXSize + 1;
-				uint32_t lowerLeft = indexCounter + nXSize - 1;
-				uint32_t lowerCenter = indexCounter + nXSize;
-				uint32_t lowerRight = indexCounter + nXSize + 1;
+				uint32_t upperLeft = indexCounter - 1 - dataset.getPixSize().x;
+				uint32_t upperCenter = indexCounter - dataset.getPixSize().x;
+				uint32_t upperRight = indexCounter - dataset.getPixSize().x + 1;
+				uint32_t lowerLeft = indexCounter + dataset.getPixSize().x - 1;
+				uint32_t lowerCenter = indexCounter + dataset.getPixSize().x;
+				uint32_t lowerRight = indexCounter + dataset.getPixSize().x + 1;
 				//1
 				inds.push_back(center);
 				inds.push_back(upperLeft);
@@ -143,39 +146,38 @@ void TerrainChunk::loadInds(GDALDataset* const dataset, std::vector<uint32_t>& i
 				inds.push_back(upperCenter);
 				inds.push_back(upperLeft);
 
-				if (i != i - 1 && j == j - 1)
-				{
-					//side piece
-					//cant do 3,4,5,6,
-					//7
-					inds.push_back(center);
-					inds.push_back(lowerLeft);
-					inds.push_back(lowerCenter);
-					//8
-					inds.push_back(center);
-					inds.push_back(centerLeft);
-					inds.push_back(lowerLeft);
-
-				}
-				else if (i == i - 1 && j != j - 1)
+				if (i == dataset.getPixSize().y - 1 && j != dataset.getPixSize().x - 1)
 				{
 					//bottom piece
-					//cant do 5,6,7,8
-					//3
-					inds.push_back(center);
-					inds.push_back(upperRight);
-					inds.push_back(upperCenter);
-					//4
+					//can do 3,4,5,6,
+					//7
 					inds.push_back(center);
 					inds.push_back(centerRight);
 					inds.push_back(upperRight);
+					//8
+					inds.push_back(center);
+					inds.push_back(upperRight);
+					inds.push_back(upperCenter);
 				}
-				else if (i != i - 1 && j != j - 1) {
+				else if (i != dataset.getPixSize().y - 1 && j == dataset.getPixSize().x - 1)
+				{
+					//side piece
+					//cant do 5,6,7,8
+					//3
+					inds.push_back(center);
+					inds.push_back(centerLeft);
+					inds.push_back(lowerLeft);
+					//4
+					inds.push_back(center);
+					inds.push_back(lowerLeft);
+					inds.push_back(lowerCenter);
+				}
+				else if (i != dataset.getPixSize().y - 1 && j != dataset.getPixSize().x - 1) {
 					//3
 					inds.push_back(center);
 					inds.push_back(upperRight);
 					inds.push_back(upperCenter);
-					//4
+					//7
 					inds.push_back(center);
 					inds.push_back(centerRight);
 					inds.push_back(upperRight);
@@ -220,52 +222,140 @@ void TerrainChunk::calculateNormals(std::vector<star::Vertex>& verts, std::vecto
 	}
 }
 
-void TerrainChunk::centerAroundTerrainOrigin(const glm::dvec3& terrainCenter, std::vector<glm::dvec3>& vertPositions, const glm::dvec3& worldCenterLatLon) const {
-	//set all verts around origin
-
-	// auto worldCenterECEF = MathHelpers::toECEF(vertPositions[0].x, vertPositions[0].y, vertPositions[0].z); 
-	// auto worldCenterToENUTransformation = MathHelpers::getECEFToENUTransformation(vertPositions[0].x, vertPositions[0].y);
-
-	// auto worldCenterECEF = MathHelpers::toECEF(terrainCenter.x, terrainCenter.y,terrainCenter.z); 
-	// auto worldCenterToENUTransformation = MathHelpers::getECEFToENUTransformation(terrainCenter.x, terrainCenter.y);
-
-	const glm::dvec3 worldCenterECEF = MathHelpers::toECEF(worldCenterLatLon.x, worldCenterLatLon.y, MathHelpers::feetToMeters(worldCenterLatLon.z)); 
+void TerrainChunk::centerAroundTerrainOrigin(std::vector<glm::dvec3>& vertPositions, const glm::dvec3& worldCenterLatLon) const {
+	const glm::dvec3 worldCenterECEF = MathHelpers::toECEF(worldCenterLatLon.x, worldCenterLatLon.y, worldCenterLatLon.z); 
 	const auto worldCenterToENUTransformation = MathHelpers::getECEFToENUTransformation(worldCenterLatLon.x, worldCenterLatLon.y);
 
 	for (int i = 0; i < vertPositions.size(); i++) {
-		// const glm::dvec3 vertECEF = MathHelpers::toECEF(vertPositions[i].x, vertPositions[i].y, vertPositions[i].z); 
-
-		// const glm::dvec3 displaced = vertECEF - testCenterECEF;
-		// const glm::vec3 resultPosition = testCenterToENUTransformation * displaced; 
-		// vertPositions[i] = glm::vec3{resultPosition.y, resultPosition.z, resultPosition.x};
-
 		const glm::dvec3 vertECEF = MathHelpers::toECEF(vertPositions[i].x, vertPositions[i].y, vertPositions[i].z); 
+
 		const glm::dvec3 displacedECEF = vertECEF - worldCenterECEF; 
 		const glm::dvec3 result = worldCenterToENUTransformation * displacedECEF; 
-		vertPositions[i] = glm::vec3{result.x, result.z, result.y}; 
 
-		// const glm::dvec3 displacedECEF =  vertECEF - testCenterECEF; 
-
-		// vertPositions[i] = worldCenterToENUTransformation * displacedECEF; 
+		vertPositions[i] = glm::vec3{result.y, result.z, result.x}; 
 	}
 }
 
-void TerrainChunk::loadGeomInfo(GDALDataset *const dataset, std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds) const {
-	glm::dvec3 terrainCenter = glm::dvec3(
-		(this->upperLeft.x + this->lowerRight.x) / 2.0f,
-		(this->upperLeft.y + this->lowerRight.y) / 2.0f, 
-		getCenterHeightFromGDAL(this->heightFile)); 
-	
-	std::vector<glm::dvec3> rawVertPositionCoords;
-	std::vector<glm::vec2> vertTextureCoords; 
-	loadLocation(dataset, this->upperLeft, this->lowerRight, rawVertPositionCoords, vertTextureCoords, terrainCenter, this->offset);
+void TerrainChunk::loadGeomInfo(TerrainDataset & dataset, std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds) const {
+	std::vector<glm::dvec3> rawVertPositionCoords = std::vector<glm::dvec3>();
+	std::vector<glm::vec2> vertTextureCoords = std::vector<glm::vec2>();
+
+	loadLocation(dataset, rawVertPositionCoords, vertTextureCoords);
 
 	loadInds(dataset, inds); 
-	centerAroundTerrainOrigin(terrainCenter, rawVertPositionCoords, this->offset);
+
+	centerAroundTerrainOrigin(rawVertPositionCoords, dataset.getOffset());
 
 	for (int i = 0; i < rawVertPositionCoords.size(); i++){
 		verts.push_back(star::Vertex(rawVertPositionCoords.at(i), {}, {}, vertTextureCoords.at(i))); 
 	}
 
 	calculateNormals(verts, inds);
+}
+
+glm::dvec2 TerrainChunk::calcStep(const glm::dvec2& startPoint, const glm::dvec2& horizontalDirection, const double& horizontalStepSize, const glm::dvec2& verticalDirection, const double& verticalStepSize, const int& stepsX, const int& stepsY){
+	return glm::dvec2{startPoint + (horizontalDirection * horizontalStepSize * double(stepsX)) + (verticalDirection * verticalStepSize * double(stepsY))};
+}
+
+glm::dvec2 TerrainChunk::calcIntersection(const Line& lineA, const Line& lineB){
+	const double calcX = (lineB.intercept - lineA.intercept) / (lineA.slope - lineB.slope);
+	return glm::dvec2{calcX, lineA.y(calcX)}; 
+}
+
+TerrainChunk::TerrainDataset::~TerrainDataset(){
+	try{
+		if (this->gdalBuffer){
+			CPLFree(this->gdalBuffer); 
+			this->gdalBuffer = nullptr;
+		}
+	}catch (std::exception ex){
+		throw std::runtime_error("Memory leak found!"); 
+	}
+}
+
+TerrainChunk::TerrainDataset::TerrainDataset(const std::string& path, const glm::dvec2& northEast, const glm::dvec2& southEast, const glm::dvec2& southWest, const glm::dvec2& northWest, const glm::dvec2& center, const glm::dvec3& offset) 
+: path(path), northEast(northEast), southEast(southEast), southWest(southWest), northWest(northWest), center(center), offset(offset) {
+	if (!star::FileHelpers::FileExists(path)){
+		throw std::runtime_error("File does not exist"); 
+	}
+
+	GDALDataset* dataset = (GDALDataset*)GDALOpen(path.c_str(), GA_ReadOnly);
+	if (dataset == NULL) {
+		throw std::runtime_error("Failed to create dataset");
+	}
+
+	initTransforms(dataset);
+	initPixelCoords(northEast, northWest, southEast); 
+	initBandSizes(dataset);
+	initGDALBuffer(dataset);
+
+	GDALClose(dataset);
+}
+
+glm::ivec2 TerrainChunk::TerrainDataset::getTextureCoordsFromLatLon(const glm::dvec2& latLon) const{
+	const double lat = latLon.x; 
+	const double lon = latLon.y; 
+
+	int pixelX = static_cast<int>((lon - geoTransforms[0]) / geoTransforms[1]); 
+	int pixelY = static_cast<int>((lat - geoTransforms[3]) / geoTransforms[5]); 
+
+	return glm::ivec2{pixelX, pixelY}; 
+}
+
+float TerrainChunk::TerrainDataset::getElevationAt(const glm::dvec2& latLon){
+	//convert the lat lon to pixel coords
+	glm::ivec2 pixel = getTextureCoordsFromLatLon(latLon); 
+	pixel.x = pixel.x - this->pixOffset.x + this->pixBorderSize; 
+	pixel.y = pixel.y - this->pixOffset.y + this->pixBorderSize;
+
+	// //offset into pixel data
+	const int readIndex = pixel.y * (this->pixSize.x + 2 * this->pixBorderSize) + pixel.x;
+	float height = this->gdalBuffer[readIndex];
+
+	if (height < 1.0f)
+		std::cout << "test"; 
+
+	return height; 
+}
+
+void TerrainChunk::TerrainDataset::initTransforms(GDALDataset * dataset){
+	if (GDALGetGeoTransform(dataset, this->geoTransforms) != CPLE_None){
+		throw std::exception("Failed to obtain proper geotransform"); 
+	}
+}
+
+void TerrainChunk::TerrainDataset::initPixelCoords(const glm::dvec2& northEast, const glm::dvec2& northWest, const glm::dvec2& southEast){
+	const glm::ivec2 tNorthEast = getTextureCoordsFromLatLon(northEast); 
+	const glm::ivec2 tNorthWest = getTextureCoordsFromLatLon(northWest);
+	const glm::ivec2 tSouthEast = getTextureCoordsFromLatLon(southEast); 
+	const glm::ivec2 tSouthWest = getTextureCoordsFromLatLon(southWest);  
+
+	this->pixSize = glm::ivec2{tNorthEast.x - tNorthWest.x, tSouthEast.y - tNorthEast.y};
+	this->pixOffset = glm::ivec2{tSouthWest.x, tSouthEast.y - (tSouthEast.y - tNorthEast.y)};
+	this->maxPixBounds = this->pixSize + this->pixOffset; 
+}
+
+void TerrainChunk::TerrainDataset::initBandSizes(GDALDataset * dataset){
+	GDALRasterBand* band = dataset->GetRasterBand(1);
+	this->fullPixSize = glm::ivec2{band->GetXSize(), band->GetYSize()};
+}
+
+void TerrainChunk::TerrainDataset::initGDALBuffer(GDALDataset * dataset){
+	this->gdalBuffer = (float*)CPLMalloc(sizeof(float) * (this->pixSize.x + 2 * this->pixBorderSize) * (this->pixSize.y + 2 * this->pixBorderSize));
+
+	GDALRasterBand* band = dataset->GetRasterBand(1);
+	CPLErr error = band->RasterIO(
+		GF_Read, 
+		this->pixOffset.x - this->pixBorderSize, 
+		this->pixOffset.y - this->pixBorderSize, 
+		this->pixSize.x + (2 * this->pixBorderSize),
+		this->pixSize.y + (2 * this->pixBorderSize), 
+		this->gdalBuffer, 
+		this->pixSize.x + (2 * this->pixBorderSize), 
+		this->pixSize.y + (2 * this->pixBorderSize), 
+		GDT_Float32, 
+		0, 0);
+
+	if (error != CE_None)
+		throw std::runtime_error("Failed to read raster band"); 
 }

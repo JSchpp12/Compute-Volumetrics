@@ -37,41 +37,28 @@ void Terrain::loadGeometry()
 	glm::dvec3 worldCenter = glm::dvec3(); 
 
 	for (int i = 0; i < fileInfo.infos().size(); i++){
-		std::string fileName = star::FileHelpers::GetFileNameWithoutExtension(fileInfo.infos()[i].heightFile);
-		fileName = fileName.substr(0, fileName.find("_geo"));
-		//there are duplicates in json -- MUST FIX
-		if (alreadyProcessed.find(fileName) == alreadyProcessed.end()){
-			alreadyProcessed.insert(fileName);
+		if (!setWorldCenter){
+			setWorldCenter = true; 
 
-			
-			if (!setWorldCenter){
-				setWorldCenter = true; 
-				const std::string path = terrainPath + "/" + fileInfo.infos()[i].heightFile;
-				float height = TerrainChunk::getCenterHeightFromGDAL(path); 
+			float height = TerrainChunk::getCenterHeightFromGDAL(terrainPath + "/" + fileInfo.getFullHeightFilePath(), glm::dvec3{}); 
 
-				worldCenter = glm::dvec3{
-					fileInfo.infos()[i].cornerSE.x,
-					fileInfo.infos()[i].cornerSE.y, 
-					height};
-			}
-
-			chunks.push_back(TerrainChunk{
-				terrainPath + "/" + fileInfo.infos()[i].heightFile, 
-				terrainPath + "/" + fileInfo.infos()[i].textureFile,
-				fileInfo.infos()[i].cornerNW,
-				fileInfo.infos()[i].cornerSE,
-				worldCenter
-			});
-
-			// grid.add(fileInfo.infos()[i].heightFile, 
-			// 	fileInfo.infos()[i].textureFile,
-			// 	fileInfo.infos()[i].cornerNW,
-			// 	fileInfo.infos()[i].cornerSE);
+			worldCenter = glm::dvec3{
+				fileInfo.infos()[i].cornerNW.x,
+				fileInfo.infos()[i].cornerNW.y, 
+				height};
 		}
+
+		chunks.emplace_back(
+			terrainPath + "/" + fileInfo.getFullHeightFilePath(),
+			terrainPath + "/" + fileInfo.infos()[i].textureFile,
+			fileInfo.infos()[i].cornerNE, 
+			fileInfo.infos()[i].cornerSE,
+			fileInfo.infos()[i].cornerSW,
+			fileInfo.infos()[i].cornerNW,
+			fileInfo.infos()[i].center,
+			worldCenter
+		);
 	}
-
-	// auto test = grid.getFinalizedChunks(); 
-
 
 	//parallel load meshes
 	std::cout << "Launching load tasks" << std::endl;

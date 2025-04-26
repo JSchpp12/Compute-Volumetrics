@@ -16,6 +16,7 @@ void TerrainInfoFile::loadFromFile(const std::string& pathToFile) {
 	nlohmann::json j = nlohmann::json::parse(i);
 
 	auto& images = j["images"]; 
+	this->fullHeightFilePath = j["full_terrain_file"]; 
 	this->parsedInfo.resize(images.size());
 
 	for (int i = 0; i < images.size(); i++) {
@@ -24,7 +25,7 @@ void TerrainInfoFile::loadFromFile(const std::string& pathToFile) {
 			glm::dvec2(double(images[i]["corners"]["SE"]["lat"]), double(images[i]["corners"]["SE"]["lon"])),
 			glm::dvec2(double(images[i]["corners"]["SW"]["lat"]), double(images[i]["corners"]["SW"]["lon"])),
 			glm::dvec2(double(images[i]["corners"]["NW"]["lat"]), double(images[i]["corners"]["NW"]["lon"])),
-			std::string(images[i]["height_file"]),
+			glm::dvec2(double(images[i]["corners"]["center"]["lat"]), double(images[i]["corners"]["center"]["lon"])),
 			std::string(images[i]["texture_file"])
 		};
 	}
