@@ -131,10 +131,17 @@ add_custom_target(
 	DEPENDS ${${PROJECT_NAME}_SOURCE}
 )
 
+set(FINAL_APPLICATION_DIR "")
+if (MSVC)
+	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}")
+else()
+	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+endif()
+
 add_custom_command(
 	TARGET
 		always_run_target
 	POST_BUILD
 	COMMAND 
-		python ${PREP_MEDIA_CMD} buildDir=${CMAKE_CURRENT_BINARY_DIR} mediaDir=${CMAKE_CURRENT_SOURCE_DIR}/media configFile=${CMAKE_CURRENT_SOURCE_DIR}/StarEngine.cfg
+		python ${PREP_MEDIA_CMD} buildDir=${FINAL_APPLICATION_DIR} mediaDir=${CMAKE_CURRENT_SOURCE_DIR}/media configFile=${CMAKE_CURRENT_SOURCE_DIR}/StarEngine.cfg
 )
