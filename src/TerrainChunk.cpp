@@ -32,8 +32,6 @@ double TerrainChunk::getCenterHeightFromGDAL(const std::string& geoTiff, const g
 	float* line = nullptr;
 
 	GDALRasterBand* band = dataset->GetRasterBand(1);
-	
-	// const glm::vec2 pixCoords = latLonToTextureCoords(centerLatLon, dataset); 
 
 	int nXSize = band->GetXSize();
 	int nYSize = band->GetYSize();
@@ -110,31 +108,12 @@ void TerrainChunk::loadLocation(TerrainDataset & dataset, std::vector<glm::dvec3
 			//find intersection of two 
 			const glm::dvec2 intersection = calcIntersection(Line{bordPosNorth, bordPosSouth}, Line{bordPosWest, bordPosEast}); 
 
-			if (j == dataset.getPixSize().x -1){
-				auto texCoords = dataset.applyOffsetToTexCoords(dataset.getTexCoordsFromLatLon(intersection)); 
-				// texCoords.x += 1;
+			vertPositions.push_back(glm::dvec3{
+				intersection.x, 
+				intersection.y,
+				dataset.getElevationAtTexCoords(dataset.applyOffsetToTexCoords(dataset.getTexCoordsFromLatLon(intersection)))
+			});
 
-				vertPositions.push_back(glm::dvec3{
-					intersection.x, 
-					intersection.y,
-					dataset.getElevationAtTexCoords(texCoords)
-				});
-			}else{
-				vertPositions.push_back(glm::dvec3{
-					intersection.x, 
-					intersection.y,
-					dataset.getElevationAtTexCoords(dataset.applyOffsetToTexCoords(dataset.getTexCoordsFromLatLon(intersection)))
-				});
-			}
-
-			if (j == 0){
-				firstLine.push_back(vertPositions.back()); 
-			}
-
-			if (j == dataset.getPixSize().x - 1){
-				lastLine.push_back(vertPositions.back()); 
-			}
-				
 			vertTextureCoords.push_back(glm::vec2(j * xTexStep, i * yTexStep));
 		}
 	}
@@ -346,8 +325,20 @@ void TerrainChunk::TerrainDataset::initPixelCoords(const glm::dvec2& northEast, 
 	const glm::ivec2 tSouthEast = getTexCoordsFromLatLon(southEast); 
 	const glm::ivec2 tSouthWest = getTexCoordsFromLatLon(southWest);  
 
-	this->pixSize = glm::ivec2{tNorthEast.x - tNorthWest.x, tSouthEast.y - tNorthEast.y};
-	this->pixOffset = glm::ivec2{tSouthWest.x, tSouthEast.y - (tSouthEast.y - tNorthEast.y)};
+	const auto crossA = glm::ivec2{
+		std::abs(tSouthEast.x - tNorthWest.x), 
+		std::abs(tSouthEast.y - tNorthWest.y)
+	};
+	const auto crossB = glm::ivec2{
+		std::abs(tSouthWest.x - tNorthEast.x),
+		std::abs(tSouthWest.y - tNorthEast.y)
+	}; 
+	this->pixSize = glm::ivec2{
+		std::floor((crossA.x + crossB.x) / 2),
+		std::floor((crossA.y + crossB.y) / 2)
+	};
+
+	this->pixOffset = tNorthWest; 
 	this->maxPixBounds = this->pixSize + this->pixOffset; 
 }
 
