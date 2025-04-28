@@ -39,6 +39,9 @@ public:
 
 	static double getCenterHeightFromGDAL(const std::string& geoTiff, const glm::dvec2& centerLatLon); 
 
+	std::vector<glm::dvec3> lastLine; 
+	std::vector<glm::dvec3> firstLine; 
+
 private:
 	struct Line{
 		const double slope, intercept;  
@@ -60,9 +63,11 @@ private:
 		
 		~TerrainDataset();
 
-		float getElevationAt(const glm::dvec2& latLon); 
+		float getElevationAtTexCoords(const glm::ivec2& texCoords) const; 
 
-		glm::ivec2 getTextureCoordsFromLatLon(const glm::dvec2& latLon) const; 
+		glm::ivec2 getTexCoordsFromLatLon(const glm::dvec2& latLon) const; 
+
+		glm::ivec2 applyOffsetToTexCoords(const glm::ivec2& texCoords) const; 
 
 		const glm::dvec2& getNorthEast() const {return this->northEast;}
 		const glm::dvec2& getSouthEast() const {return this->southEast;}
@@ -105,7 +110,9 @@ private:
 	/// @return 
 	static void loadLocation(TerrainDataset & dataset,
 		std::vector<glm::dvec3>& vertPositions, 
-		std::vector<glm::vec2>& vertTextureCoords);
+		std::vector<glm::vec2>& vertTextureCoords,
+	std::vector<glm::dvec3>& firstLine, 
+	std::vector<glm::dvec3>& lastLine);
 
 	static void loadInds(TerrainDataset& dataset, std::vector<uint32_t>& inds);
 
@@ -116,7 +123,7 @@ private:
 	/// @param verts all of the vertices to update
 	void centerAroundTerrainOrigin(std::vector<glm::dvec3>& vertPositions, const glm::dvec3& worldCenterLatLon) const;
 
-	void loadGeomInfo(TerrainDataset & dataset, std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds) const; 
+	void loadGeomInfo(TerrainDataset & dataset, std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds, std::vector<glm::dvec3>& firstLine, std::vector<glm::dvec3>& lastLine) const; 
 
 	static glm::dvec2 calcStep(const glm::dvec2& startPoint, const glm::dvec2& horizontalDirection, const double& horizontalStepSize, const glm::dvec2& verticalDirection, const double& verticalStepSize, const int& stepsX, const int& stepsY); 
 

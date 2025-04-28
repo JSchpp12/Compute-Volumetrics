@@ -15,6 +15,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 
+#include <stdexcept>
+
 TerrainChunk::TerrainChunk(const std::string& fullHeightFile, const std::string& textureFile, const glm::dvec2& northEast, const glm::dvec2& southEast, const glm::dvec2& southWest, const glm::dvec2& northWest, const glm::dvec2& center, const glm::dvec3& offset) : textureFile(textureFile), fullHeightFile(fullHeightFile), northEast(northEast), southEast(southEast), southWest(southWest), northWest(northWest), offset(offset), center(center) {
 	if (!star::FileHelpers::FileExists(this->textureFile))
 		throw std::runtime_error("Texture file does not exist: " + this->textureFile); 
@@ -60,7 +62,7 @@ void TerrainChunk::load() {
 		this->offset
 	); 
 
-	loadGeomInfo(dataset, *this->verts, *this->inds); 
+	loadGeomInfo(dataset, *this->verts, *this->inds, this->firstLine, this->lastLine); 
 }
 
 std::unique_ptr<star::StarMesh> TerrainChunk::getMesh(){
@@ -76,7 +78,7 @@ std::string& TerrainChunk::getTextureFile()
 	return this->textureFile;
 }
 
-void TerrainChunk::loadLocation(TerrainDataset & dataset, std::vector<glm::dvec3>& vertPositions, std::vector<glm::vec2>& vertTextureCoords) {
+void TerrainChunk::loadLocation(TerrainDataset & dataset, std::vector<glm::dvec3>& vertPositions, std::vector<glm::vec2>& vertTextureCoords, std::vector<glm::dvec3>& firstLine, std::vector<glm::dvec3>& lastLine) {
 	double xTexStep = 1.0f / (double)(dataset.getPixSize().x-1);
 	double yTexStep = 1.0f / (double)(dataset.getPixSize().y-1);
 
@@ -108,11 +110,30 @@ void TerrainChunk::loadLocation(TerrainDataset & dataset, std::vector<glm::dvec3
 			//find intersection of two 
 			const glm::dvec2 intersection = calcIntersection(Line{bordPosNorth, bordPosSouth}, Line{bordPosWest, bordPosEast}); 
 
-			vertPositions.push_back(glm::dvec3{
-				intersection.x, 
-				intersection.y,
-				dataset.getElevationAt(intersection)
-			});
+			if (j == dataset.getPixSize().x -1){
+				auto texCoords = dataset.applyOffsetToTexCoords(dataset.getTexCoordsFromLatLon(intersection)); 
+				// texCoords.x += 1;
+
+				vertPositions.push_back(glm::dvec3{
+					intersection.x, 
+					intersection.y,
+					dataset.getElevationAtTexCoords(texCoords)
+				});
+			}else{
+				vertPositions.push_back(glm::dvec3{
+					intersection.x, 
+					intersection.y,
+					dataset.getElevationAtTexCoords(dataset.applyOffsetToTexCoords(dataset.getTexCoordsFromLatLon(intersection)))
+				});
+			}
+
+			if (j == 0){
+				firstLine.push_back(vertPositions.back()); 
+			}
+
+			if (j == dataset.getPixSize().x - 1){
+				lastLine.push_back(vertPositions.back()); 
+			}
 				
 			vertTextureCoords.push_back(glm::vec2(j * xTexStep, i * yTexStep));
 		}
@@ -236,11 +257,11 @@ void TerrainChunk::centerAroundTerrainOrigin(std::vector<glm::dvec3>& vertPositi
 	}
 }
 
-void TerrainChunk::loadGeomInfo(TerrainDataset & dataset, std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds) const {
+void TerrainChunk::loadGeomInfo(TerrainDataset & dataset, std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds, std::vector<glm::dvec3>& firstLine, std::vector<glm::dvec3>& lastLine) const {
 	std::vector<glm::dvec3> rawVertPositionCoords = std::vector<glm::dvec3>();
 	std::vector<glm::vec2> vertTextureCoords = std::vector<glm::vec2>();
 
-	loadLocation(dataset, rawVertPositionCoords, vertTextureCoords);
+	loadLocation(dataset, rawVertPositionCoords, vertTextureCoords, firstLine, lastLine);
 
 	loadInds(dataset, inds); 
 
@@ -269,7 +290,7 @@ TerrainChunk::TerrainDataset::~TerrainDataset(){
 			this->gdalBuffer = nullptr;
 		}
 	}catch (std::exception ex){
-		throw std::runtime_error("Memory leak found!"); 
+		std::cerr << "Memory leak found" << std::endl; 
 	}
 }
 
@@ -292,43 +313,38 @@ TerrainChunk::TerrainDataset::TerrainDataset(const std::string& path, const glm:
 	GDALClose(dataset);
 }
 
-glm::ivec2 TerrainChunk::TerrainDataset::getTextureCoordsFromLatLon(const glm::dvec2& latLon) const{
-	const double lat = latLon.x; 
-	const double lon = latLon.y; 
-
-	int pixelX = static_cast<int>((lon - geoTransforms[0]) / geoTransforms[1]); 
-	int pixelY = static_cast<int>((lat - geoTransforms[3]) / geoTransforms[5]); 
-
-	return glm::ivec2{pixelX, pixelY}; 
+glm::ivec2 TerrainChunk::TerrainDataset::getTexCoordsFromLatLon(const glm::dvec2& latLon) const{
+	return glm::ivec2{
+		static_cast<int>((latLon.y - geoTransforms[0]) / geoTransforms[1]), 
+		static_cast<int>((latLon.x - geoTransforms[3]) / geoTransforms[5])
+	}; 
 }
 
-float TerrainChunk::TerrainDataset::getElevationAt(const glm::dvec2& latLon){
-	//convert the lat lon to pixel coords
-	glm::ivec2 pixel = getTextureCoordsFromLatLon(latLon); 
-	pixel.x = pixel.x - this->pixOffset.x + this->pixBorderSize; 
-	pixel.y = pixel.y - this->pixOffset.y + this->pixBorderSize;
+glm::ivec2 TerrainChunk::TerrainDataset::applyOffsetToTexCoords(const glm::ivec2& texCoords) const{
+	return glm::ivec2{
+		texCoords.x - this->pixOffset.x + this->pixBorderSize,
+		texCoords.y - this->pixOffset.y + this->pixBorderSize
+	};
+}
 
-	// //offset into pixel data
-	const int readIndex = pixel.y * (this->pixSize.x + 2 * this->pixBorderSize) + pixel.x;
+float TerrainChunk::TerrainDataset::getElevationAtTexCoords(const glm::ivec2& texCoords) const{
+	const int readIndex = texCoords.y * (this->pixSize.x + (2 * this->pixBorderSize)) + texCoords.x;
 	float height = this->gdalBuffer[readIndex];
-
-	if (height < 1.0f)
-		std::cout << "test"; 
 
 	return height; 
 }
 
 void TerrainChunk::TerrainDataset::initTransforms(GDALDataset * dataset){
 	if (GDALGetGeoTransform(dataset, this->geoTransforms) != CPLE_None){
-		throw std::exception("Failed to obtain proper geotransform"); 
+		throw std::runtime_error("Failed to obtain proper geotransform"); 
 	}
 }
 
 void TerrainChunk::TerrainDataset::initPixelCoords(const glm::dvec2& northEast, const glm::dvec2& northWest, const glm::dvec2& southEast){
-	const glm::ivec2 tNorthEast = getTextureCoordsFromLatLon(northEast); 
-	const glm::ivec2 tNorthWest = getTextureCoordsFromLatLon(northWest);
-	const glm::ivec2 tSouthEast = getTextureCoordsFromLatLon(southEast); 
-	const glm::ivec2 tSouthWest = getTextureCoordsFromLatLon(southWest);  
+	const glm::ivec2 tNorthEast = getTexCoordsFromLatLon(northEast); 
+	const glm::ivec2 tNorthWest = getTexCoordsFromLatLon(northWest);
+	const glm::ivec2 tSouthEast = getTexCoordsFromLatLon(southEast); 
+	const glm::ivec2 tSouthWest = getTexCoordsFromLatLon(southWest);  
 
 	this->pixSize = glm::ivec2{tNorthEast.x - tNorthWest.x, tSouthEast.y - tNorthEast.y};
 	this->pixOffset = glm::ivec2{tSouthWest.x, tSouthEast.y - (tSouthEast.y - tNorthEast.y)};
