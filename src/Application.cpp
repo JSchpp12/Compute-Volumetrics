@@ -26,13 +26,11 @@ void Application::Load()
         this->offscreenScene = std::make_unique<star::StarScene>(framesInFLight, this->scene.getCamera(), globalInfos, lightInfos);
         this->offscreenSceneRenderer = std::make_unique<OffscreenRenderer>(*this->offscreenScene);
 
-    
         star::StarCamera* camera = this->scene.getCamera(); 
         assert(camera != nullptr); 
 
         auto screen = std::make_unique<Volume>(*camera, std::stoi(star::ConfigFile::getSetting(star::Config_Settings::resolution_x)), std::stoi(star::ConfigFile::getSetting(star::Config_Settings::resolution_x)), this->scene.getLights(), this->offscreenSceneRenderer->getRenderToColorImages(), this->offscreenSceneRenderer->getRenderToDepthImages(), globalInfos, lightInfos);
     
-
         screen->drawBoundingBox = true; 
         auto& s_i = screen->createInstance();
 		s_i.setScale(glm::vec3{ 0.005, 0.005, 0.005 });
@@ -45,36 +43,15 @@ void Application::Load()
     auto& h_i = horse->createInstance();
 	// horse->drawBoundingBox = true;
     h_i.setPosition(glm::vec3{ 0.885, 5.0, 0.0 });
-    h_i.setScale(glm::vec3{ 0.1, 0.1, 0.1 });
-    // h_i.moveRelative(glm::vec3{0, .0, 0}, 0.5f);
-    // horse->drawBoundingBox = true; 
+    this->testObject = &h_i; 
     this->offscreenScene->add(std::move(horse));
     this->offscreenScene->add(std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{ 0, 10, 0 }, glm::vec3{ -1.0, 0.0, 0.0 }));
 
     {
         auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-        auto terrainPath = "C:\\repos\\aburn\\usr\\modules\\Fog\\mm\\terrain\\airport\\s2045440_geo.tif";
-        // auto terrainTexture = mediaDirectoryPath + "terrains/super_texture.jpg";
-        //auto terrainPath = mediaDirectoryPath + "terrains/final.tif";
-        auto terrainTexture = mediaDirectoryPath + "terrains/super_texture.jpg";
 
-        float top = 39.22153016394154;
-        float bottom = 39.20776235809999;
-        float yDiff = top - bottom;
-
-        float left = -82.24766761017314;
-        float right = -82.2299693221875;
-        float xDiff = left - right;
-
-        top = 0.0f + (yDiff / 2);
-        bottom = 0.0f - (yDiff / 2);
-        left = 0.0f - (xDiff / 2);
-        right = 0.0f + (xDiff / 2);
-
-        auto terrain = std::make_unique<Terrain>(terrainInfoPath, terrainPath, terrainTexture, glm::vec3{ top, left, 0 }, glm::vec3{ bottom, right, 0 });
+        auto terrain = std::make_unique<Terrain>(terrainInfoPath);
         auto& t_i = terrain->createInstance();
-        // t_i.setScale(glm::vec3(0.01, 0.01, 0.01));
-        // t_i.rotateGlobal(star::Type::Axis::z, 90);
         this->offscreenScene->add(std::move(terrain));
     }
 
@@ -91,15 +68,6 @@ void Application::Load()
 
 void Application::onKeyPress(int key, int scancode, int mods)
 {
-    if (key == star::KEY::P) {
-        auto time = std::time(nullptr); 
-        auto tm = *std::localtime(&time);
-        std::ostringstream oss;
-        oss << std::put_time(&tm, "%Y-%m-%d-%H-%M-%S") << ".png";
-        auto stringName = oss.str();
-        star::StarEngine::takeScreenshot(stringName);
-    }
-
   //  if (key == star::KEY::H && !this->vol->udpdateVolumeRender)
   //      this->vol->udpdateVolumeRender = true;
   //  if (key == star::KEY::V)
@@ -118,13 +86,39 @@ void Application::onKeyPress(int key, int scancode, int mods)
   //      this->vol->rayMarchToAABB = !this->vol->rayMarchToAABB;
   //      this->vol->rayMarchToVolumeBoundry = false; 
   //  }
-    if (key == star::KEY::P) {
-		star::StarEngine::takeScreenshot("screenshot.png");
-    }
 }
 
 void Application::onKeyRelease(int key, int scancode, int mods)
 {
+    const float MILES_TO_METERS = 1609.35; 
+
+    if (key == star::KEY::P) {
+        auto time = std::time(nullptr); 
+        auto tm = *std::localtime(&time);
+        std::ostringstream oss;
+        oss << std::put_time(&tm, "%Y-%m-%d-%H-%M-%S") << ".png";
+        auto stringName = oss.str();
+        star::StarEngine::takeScreenshot(stringName);
+    }
+
+    if (key == star::KEY::SPACE){
+        auto camPosition = this->scene.getCamera()->getPosition();
+        auto camLookDirection = this->scene.getCamera()->getForwardVector(); 
+        
+        this->testObject->setPosition(glm::vec3{
+            camPosition.x + (camLookDirection.x * MILES_TO_METERS),
+            camPosition.y + (camLookDirection.y * MILES_TO_METERS),
+            camPosition.z + (camLookDirection.z * MILES_TO_METERS)
+        });
+    }
+
+    if (key == star::KEY::L){
+        this->vol->setFogType(VolumeRenderer::FogType::linear); 
+    }
+
+    if (key == star::KEY::K){
+        this->vol->setFogType(VolumeRenderer::FogType::marched); 
+    }
 }
 
 void Application::onMouseMovement(double xpos, double ypos)

@@ -40,6 +40,7 @@ set(${PROJECT_NAME}_SOURCE
 	"src/MathHelpers.cpp"
 	"src/TerrainChunkInfo.cpp"
 	"src/TerrainGrid.cpp"
+	"src/FogControlInfo.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -60,6 +61,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/MathHelpers.hpp"
 	"include/TerrainChunkInfo.hpp"
 	"include/TerrainGrid.hpp"
+	"include/FogControlInfo.hpp"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")
@@ -125,7 +127,8 @@ if (CPPCHECK_EXECUTABLE)
 endif()
 
 #TODO: NEED BETTER SOLUTION FOR MEDIA FILES
-set(PREP_MEDIA_CMD "${CMAKE_CURRENT_SOURCE_DIR}/PrepareMedia.py")
+set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/StarlightAppBuilder/")
+set(PREP_MEDIA_CMD "${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py")
 add_custom_target(
 	always_run_target ALL 
 	DEPENDS ${${PROJECT_NAME}_SOURCE}
@@ -143,5 +146,5 @@ add_custom_command(
 		always_run_target
 	POST_BUILD
 	COMMAND 
-		python ${PREP_MEDIA_CMD} buildDir=${FINAL_APPLICATION_DIR} mediaDir=${CMAKE_CURRENT_SOURCE_DIR}/media configFile=${CMAKE_CURRENT_SOURCE_DIR}/StarEngine.cfg
+		python ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps
 )

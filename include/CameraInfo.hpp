@@ -16,15 +16,18 @@ namespace star{
 					glm::mat4 inverseProjMatrix 	= glm::mat4(); 
 					glm::vec2 resolution 			= glm::vec2(); 
 					float aspectRatio 				= 0.0f;
+					float farClipDist				= 0.0f;
+					float nearClipDist				= 0.0f;
 					double scale 					= 0.0f; 
 		
 					CameraData() = default;
 		
 					CameraData(const glm::mat4& inverseProjMatrix, const glm::vec2& resolution, 
-						const float& aspectRatio, const double& scale) : 
-						inverseProjMatrix(inverseProjMatrix), resolution(resolution), 
-						aspectRatio(aspectRatio), scale(scale) {}
-		
+						const float& aspectRatio, const float& farClipDist, const float& nearClipDist, 
+						const double& scale) 
+						: inverseProjMatrix(inverseProjMatrix), resolution(resolution), 
+						aspectRatio(aspectRatio), farClipDist(farClipDist), nearClipDist(nearClipDist), 
+						scale(scale) {}
 				};
 		
 				CameraInfo(const star::StarCamera& camera) : camera(camera)

@@ -15,9 +15,8 @@
 
 class Terrain : public star::StarObject{
 public:
-	Terrain(const std::string& terrainDefFile, const std::string& terrainDefPath, const std::string& texturePath, const glm::vec3& upperLeft, const glm::vec3& lowerRight)
-		: terrainDefFile(terrainDefFile), terrainDefPath(terrainDefPath), texturePath(texturePath), 
-		upperLeft(upperLeft), lowerRight(lowerRight) {
+	Terrain(const std::string& terrainDefFile)
+		: terrainDefFile(terrainDefFile){
 			loadGeometry();
 		};
 
@@ -27,6 +26,5 @@ protected:
 	void loadGeometry();
 
 private: 
-	const std::string terrainDefPath, texturePath, terrainDefFile; 
-	const glm::vec3 upperLeft, lowerRight; 
+	const std::string terrainDefFile;
 };

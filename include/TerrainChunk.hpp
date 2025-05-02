@@ -75,7 +75,7 @@ private:
 		const glm::dvec2& getNorthWest() const {return this->northWest;}
 		const glm::dvec3& getOffset() const {return this->offset;}
 		const glm::ivec2& getPixSize() const {return this->pixSize;}
-		
+		const glm::dvec2& getCenter() const {return this->center;}
 		private:
 		const std::string path; 
 		const glm::dvec2 northEast, southEast, southWest, northWest, center;

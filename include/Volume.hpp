@@ -101,9 +101,17 @@ public:
     virtual void prepRender(star::StarDevice& device, int numSwapChainImages, 
         star::StarPipeline& sharedPipeline, star::StarShaderInfo::Builder fullEngineBuilder) override;
 
+    void setFogType(const VolumeRenderer::FogType& fogType){
+        this->volumeRenderer->setFogType(fogType); 
+    }
+
     void setAbsorbCoef(const float& newCoef) {
         assert(newCoef > 0 && "Coeff must be greater than 0");
         this->sigma_absorbtion = newCoef;
+    }
+
+    void setFogFarDistance(const float& newFogFarDist){
+        
     }
 protected:
     star::StarCamera& camera; 

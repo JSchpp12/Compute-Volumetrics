@@ -1,5 +1,7 @@
 #version 450
 
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in; 
+
 struct Light_Type{
 	uint point; 
 	uint directional; 
@@ -29,6 +31,8 @@ layout(set = 0, binding = 3) uniform additionalCamerainfo{
 	mat4 inverseProjMatrix;
 	vec2 cameraDimensions; 
 	float aspectRatio;
+    float farClipDist;
+    float nearClipDist;
 	double scale;
 } addCamInfo; 
 layout(set = 0, binding = 4) uniform aabbInfo{
@@ -42,12 +46,9 @@ layout(set = 1, binding = 0) uniform GlobalUniformBufferObject {
 	mat4 inverseView; 
 	int numLights;
 } globalUbo;
-
 layout(set = 1, binding = 1) uniform instanceModelMatrix{
 	mat4 modelMatrix[1024]; 
 };
-
-layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in; 
 
 struct Ray {
 	vec4 origin; 
@@ -133,7 +134,6 @@ void main(){
 	// ivec2 screenCoords = ivec2(target_x, target_y); 
 	// double depthValue = imageLoad(inputSceneDepth, screenCoords).r; 
 	// float depthDistane = distanceFromDepth(screenCoords, depthValue); 
-
 
 	Ray camRay = getRayForPixel(target_x, target_y); 
 	vec4 imgColor = vec4(imageLoad(inputSceneColor, ivec2(target_x, target_y)));

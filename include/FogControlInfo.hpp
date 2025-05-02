@@ -1,0 +1,29 @@
+#pragma once
+
+#include "ManagerController_RenderResource_Buffer.hpp"
+#include "TransferRequest_Memory.hpp"
+
+class FogControlInfoTransfer : public star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>{
+public:
+    FogControlInfoTransfer(const float& fogNearDist, const float& fogFarDist); 
+    ~FogControlInfoTransfer() = default; 
+
+    star::StarBuffer::BufferCreationArgs getCreateArgs(const vk::PhysicalDeviceProperties& deviceProperties) const override; 
+
+    void writeData(star::StarBuffer& buffer) const override; 
+    
+private:
+    float fogNearDist, fogFarDist; 
+};
+
+class FogControlInfoController : public star::ManagerController::RenderResource::Buffer{
+public:
+    FogControlInfoController(const uint8_t& frameInFlightIndexToUpdateOn, const float& fogNearDist, const float& fogFarDist); 
+
+    std::unique_ptr<star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>> createTransferRequest() override;
+
+    bool isValid(const uint8_t& currentFrameInFlightIndex) const override; 
+private: 
+    const float& currentFogNearDist, currentFogFarDist;
+    float lastFogNearDist, lastFogFarDist;  
+};

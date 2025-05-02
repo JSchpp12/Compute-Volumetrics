@@ -10,6 +10,7 @@ star::StarTexture::TextureCreateSettings SampledVolumeRequest::getCreateArgs(con
 		4,
 		vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
 		vk::Format::eR32Sfloat,
+		{},
 		vk::ImageAspectFlagBits::eColor,
 		VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
 		VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,

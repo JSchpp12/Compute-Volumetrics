@@ -3,6 +3,7 @@
 #include "CameraInfo.hpp"
 #include "ConfigFile.hpp"
 #include "ManagerRenderResource.hpp"
+#include "FogControlInfo.hpp"
 
 VolumeRenderer::VolumeRenderer(star::StarCamera & camera, const std::vector<star::Handle>& instanceModelInfo, const std::vector<star::Handle>& instanceNormalInfo, std::vector<std::unique_ptr<star::StarTexture>>* offscreenRenderToColors, std::vector<std::unique_ptr<star::StarTexture>>* offscreenRenderToDepths, const std::vector<star::Handle>& globalInfoBuffers, const std::vector<star::Handle>& sceneLightInfoBuffers, const star::Handle & volumeTexture, const std::array<glm::vec4,2>& aabbBounds)
 : offscreenRenderToColors(offscreenRenderToColors), offscreenRenderToDepths(offscreenRenderToDepths),
@@ -87,7 +88,16 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer& commandBuffer, const
 		prepWriteToImages
 	);
 
-	this->computePipeline->bind(commandBuffer);
+	switch(this->currentFogType){
+		case(FogType::marched):
+		this->marchedPipeline->bind(commandBuffer);
+		break;
+		case(FogType::linear):
+		this->linearPipeline->bind(commandBuffer);
+		break;
+		default:
+		throw std::runtime_error("Unsupported type");
+	}
 
 	auto sets = this->compShaderInfo->getDescriptors(frameInFlightIndex);
 	commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0, static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
@@ -137,6 +147,7 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 			1,
 			vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled, 
 			vk::Format::eR8G8B8A8Unorm,
+			{},
 			vk::ImageAspectFlagBits::eColor,
 			VMA_MEMORY_USAGE_GPU_ONLY, 
 			VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, 
@@ -161,10 +172,14 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 		}
  	}
 
-	for (int i = 0; i < numFramesInFlight; i++) {
+	for (uint8_t i = 0; i < numFramesInFlight; i++) {
 		this->aabbInfoBuffers.emplace_back(
 			star::ManagerRenderResource::addRequest(std::make_unique<AABBController>(this->aabbBounds))
 		); 
+
+		this->fogControlShaderInfo.emplace_back(
+			star::ManagerRenderResource::addRequest(std::make_unique<FogControlInfoController>(i, this->fogNearDist, this->fogFarDist))
+		);
 	}
 }
 
@@ -176,7 +191,8 @@ void VolumeRenderer::destroyResources(star::StarDevice& device)
 		computeWriteToImage.reset();
 	}
 
-	this->computePipeline.reset();
+	this->marchedPipeline.reset();
+	this->linearPipeline.reset(); 
 	device.getDevice().destroyPipelineLayout(*this->computePipelineLayout);	
 }
 
@@ -184,7 +200,7 @@ std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescrip
 {
 	return std::vector<std::pair<vk::DescriptorType, const int>>{
 		std::make_pair(vk::DescriptorType::eStorageImage, (3 * numFramesInFlight)),
-		std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + ( 3 * numFramesInFlight) ),
+		std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + ( 4 * numFramesInFlight) ),
 		std::make_pair(vk::DescriptorType::eStorageBuffer, 1)
 	};
 }
@@ -204,6 +220,9 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 		.addSetLayout(star::StarDescriptorSetLayout::Builder(device)
 			.addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
 			.addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+			.build())
+		.addSetLayout(star::StarDescriptorSetLayout::Builder(device)
+			.addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
 			.build());
 
 	for (int i = 0; i < numFramesInFlight; i++) {
@@ -211,15 +230,17 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 		shaderInfoBuilder
 			.startOnFrameIndex(i)
 			.startSet()
-			.add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, false)
-			.add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eGeneral, false)
+			.add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
+			.add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eGeneral, vk::Format::eR32Sfloat, false)
 			.add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, false)
 			.add(this->cameraShaderInfo, false)
 			.add(this->aabbInfoBuffers.at(i), false)
 			.add(this->volumeTexture, vk::ImageLayout::eGeneral, true)
 			.startSet()
 			.add(this->globalInfoBuffers.at(i), false)
-			.add(this->instanceModelInfo.at(i), false);
+			.add(this->instanceModelInfo.at(i), false)
+			.startSet()
+			.add(this->fogControlShaderInfo.at(i), false);
 	}
 
 	this->compShaderInfo = shaderInfoBuilder.build();
@@ -239,6 +260,11 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 	std::string compShaderPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/volume.comp";
 	auto compShader = star::StarShader(compShaderPath, star::Shader_Stage::compute);
 
-	this->computePipeline = std::make_unique<star::StarComputePipeline>(device, *this->computePipelineLayout, compShader);
-	this->computePipeline->init();
+	this->marchedPipeline = std::make_unique<star::StarComputePipeline>(device, *this->computePipelineLayout, compShader);
+	this->marchedPipeline->init();
+
+	std::string linearFogPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/linearFog.comp"; 
+	auto linearCompShader = star::StarShader(linearFogPath, star::Shader_Stage::compute); 
+	this->linearPipeline = std::make_unique<star::StarComputePipeline>(device, *this->computePipelineLayout, linearCompShader); 
+	this->linearPipeline->init(); 
 }

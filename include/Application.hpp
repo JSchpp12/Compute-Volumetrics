@@ -46,6 +46,7 @@ private:
 	std::unique_ptr<star::StarScene> offscreenScene = std::unique_ptr<star::StarScene>();
     std::unique_ptr<OffscreenRenderer> offscreenSceneRenderer = std::unique_ptr<OffscreenRenderer>();
 
+    star::StarObjectInstance* testObject = nullptr; 
     Volume* vol = nullptr;
 
     void onKeyRelease(int key, int scancode, int mods) override;

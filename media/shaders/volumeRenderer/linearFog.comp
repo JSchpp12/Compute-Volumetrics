@@ -1,0 +1,174 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in; 
+
+struct Light_Type{
+	uint point; 
+	uint directional; 
+	uint spot;
+};
+
+struct Light{
+	vec4 position;
+	vec4 direction;
+
+	//properties
+	vec4 ambient; 
+	vec4 diffuse;
+	vec4 specular; 
+	//controls.x = inner cutoff angle 
+	//controls.y = outer cutoff angle
+	vec4 controls; 
+	//settings.x = enabled
+	//settings.y = type
+	uvec4 settings; 
+};
+
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D inputSceneColor; 
+layout(set = 0, binding = 1, r32f) uniform readonly image2D inputSceneDepth; 
+layout(set = 0, binding = 2, rgba8) uniform writeonly image2D outputImage; 
+layout(set = 0, binding = 3) uniform additionalCamerainfo{
+	mat4 inverseProjMatrix;
+	vec2 cameraDimensions; 
+	float aspectRatio;
+    float farClipDist;
+    float nearClipDist;
+	double scale;
+} addCamInfo; 
+layout(set = 0, binding = 4) uniform aabbInfo{
+    vec4 bounds[2];
+} aabb;
+
+layout(set = 1, binding = 0) uniform GlobalUniformBufferObject {
+	mat4 proj;
+	mat4 view;  
+	mat4 inverseView; 
+	int numLights;
+} globalUbo;
+layout(set = 1, binding = 1) uniform InstanceModelMatrix{
+	mat4 modelMatrix[1024]; 
+};
+
+layout(set = 2, binding = 0) uniform FogControlerInfo{
+    float nearDistance;
+    float farDistance;
+} fogInfo; 
+
+struct Ray {
+	vec4 origin; 
+	vec4 direction; 
+	vec4 invDirection; 
+	bool signed[3]; 
+};
+
+float distanceFromDepth(ivec2 coords, double depth){
+	vec4 screenPos = vec4(coords * 2.0 - 1.0, depth, 1.0); 
+	vec4 viewPos = addCamInfo.inverseProjMatrix * screenPos; 
+	viewPos /= viewPos.w; 
+	return length(viewPos.xyz); 
+}
+
+Ray createRay(vec4 origin, vec4 direction){
+	vec4 invDir = vec4(normalize(1.0 / direction.xyz), 0.0); 
+
+	return Ray(
+		origin, 
+		direction, 
+		invDir,
+		bool[3](bool(invDir.x < 0), bool(invDir.y < 0), bool(invDir.z < 0))
+	);
+}
+
+Ray getRayForPixel(const ivec2 pixelCoords){
+	vec3 pixelLocCamera = vec3(
+		(2 * ((float(pixelCoords.x) + 0.5) / addCamInfo.cameraDimensions.x) - 1) * addCamInfo.aspectRatio * addCamInfo.scale,
+		(1 - 2 * ((float(pixelCoords.y) + 0.5) / addCamInfo.cameraDimensions.y)) * addCamInfo.scale,
+		float(-1.0)
+	);
+
+	vec4 origin = globalUbo.inverseView * vec4(0,0,0,1); 
+	vec3 normPixLoc = normalize(pixelLocCamera); 
+	vec4 point = globalUbo.inverseView * vec4(normPixLoc, 1.0); 
+	vec4 normDir = normalize(point - origin); 
+
+	return createRay(origin, normDir); 
+}
+
+bool rayBoxIntersect(Ray ray, inout float t0, inout float t1){
+	vec4 traAABBBounds[2] = vec4[2](
+		vec4(modelMatrix[0] * aabb.bounds[0]), 
+		vec4(modelMatrix[0] * aabb.bounds[1])
+	);
+
+	float tmin = -(1.0 / 0.0); 
+	float tmax = (1.0 / 0.0); 
+	float txmin = 0, txmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0; 
+
+	txmin = (traAABBBounds[int(ray.signed[0])].x - ray.origin.x) * ray.invDirection.x; 
+	txmax = (traAABBBounds[int(!ray.signed[0])].x - ray.origin.x) * ray.invDirection.x; 
+
+	tmin = min(txmin, txmax); 
+	tmax = max(txmin, txmax); 
+
+	tymin = (traAABBBounds[int(ray.signed[1])].y - ray.origin.y) * ray.invDirection.y; 
+	tymax = (traAABBBounds[int(!ray.signed[1])].y - ray.origin.y) * ray.invDirection.y; 
+
+	tmin = max(tmin, min(tymin, tymax)); 
+	tmax = min(tmax, max(tymin, tymax)); 
+
+	tzmin = (traAABBBounds[int(ray.signed[2])].z - ray.origin.z) * ray.invDirection.z; 
+	tzmax = (traAABBBounds[int(!ray.signed[2])].z - ray.origin.z) * ray.invDirection.z; 
+
+	tmin = max(tmin, min(tzmin, tzmax)); 
+	tmax = min(tmax, max(tzmin, tzmax)); 
+
+	t0 = tmin; 
+	t1 = tmax; 
+
+	return tmax >= max(0.0, tmin);  
+}
+
+ivec2 getTargetPixelCoords(){
+    return ivec2(
+        (gl_LocalInvocationID.x) + ((gl_WorkGroupID.x) * 16),
+        (gl_LocalInvocationID.y) + ((gl_WorkGroupID.y) * 16)
+    );
+}
+
+float linearizeDepth(const float depth, const float camNearClipDist, const float camFarClipDist){
+    /* convert depth value back to linear space -- based on proj matrix
+    Source: http://www.songho.ca/opengl/gl_projectionmatrix.html
+    Source2: https://learnopengl.com/Advanced-OpenGL/Depth-testing
+    */
+
+   //openGL transorms depth from [0,1] to [-1, 1] -- inverse
+   const float z = depth * 2.0 - 1.0;
+   //inverse of applied depth function 
+   return (2.0 * camNearClipDist * camFarClipDist) / (camFarClipDist + camNearClipDist - z * (camFarClipDist - camNearClipDist));
+}
+
+float calcFogAmt(const float depth, const float fogFarDist, const float fogNearDist){
+   //check if within bounds of set fog distances
+   if (depth >= fogFarDist)
+      return 1.0;
+   if (depth <= fogNearDist)
+      return 0.0;
+
+   //calc distance from far fog dist and interpolate
+   float fogAmt = (1 - (fogFarDist - depth) / (fogFarDist - fogNearDist)); 
+   return fogAmt; 
+}
+
+void main(){
+    const ivec2 targetPixel = getTargetPixelCoords(); 
+
+	const Ray camRay = getRayForPixel(targetPixel); 
+    float targetPixelInputDepth = imageLoad(inputSceneDepth, targetPixel).r;
+    targetPixelInputDepth = linearizeDepth(targetPixelInputDepth, addCamInfo.nearClipDist, addCamInfo.farClipDist); 
+
+	const vec4 targetPixelInputColor = vec4(imageLoad(inputSceneColor, targetPixel));
+    const float fogAmt = calcFogAmt(targetPixelInputDepth, fogInfo.nearDistance, fogInfo.farDistance);
+
+    const vec4 finalColor = mix(targetPixelInputColor, vec4(1.0, 1.0, 1.0, 1.0), fogAmt); 
+    imageStore(outputImage, targetPixel, finalColor); 
+}
