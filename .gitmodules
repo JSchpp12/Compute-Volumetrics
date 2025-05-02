@@ -7,3 +7,6 @@
 [submodule "extern/terrain_stitcher"]
 	path = extern/terrain_stitcher
 	url = https://github.com/JSchpp12/Terrain-Stitcher.git
+[submodule "extern/StarlightAppBuilder"]
+	path = extern/StarlightAppBuilder
+	url = https://github.com/JSchpp12/StarlightAppBuilder
