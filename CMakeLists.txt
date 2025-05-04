@@ -141,10 +141,21 @@ else()
 	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 endif()
 
-add_custom_command(
-	TARGET
-		always_run_target
-	POST_BUILD
-	COMMAND 
-		python ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps
-)
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+	add_custom_command(
+		TARGET
+			always_run_target
+		POST_BUILD
+		COMMAND 
+			python ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps --fastest
+	)
+else()
+	add_custom_command(
+		TARGET
+			always_run_target
+		POST_BUILD
+		COMMAND 
+			python ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps
+	)
+endif()
+

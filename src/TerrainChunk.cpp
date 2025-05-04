@@ -6,6 +6,7 @@
 #include "MathHelpers.hpp"
 
 #include "Handle.hpp"
+#include "ConfigFile.hpp"
 #include "ManagerRenderResource.hpp"
 #include "ManagerController_RenderResource_TextureFile.hpp"
 #include "ManagerController_RenderResource_VertInfo.hpp"
@@ -17,9 +18,12 @@
 
 #include <stdexcept>
 
-TerrainChunk::TerrainChunk(const std::string& fullHeightFile, const std::string& textureFile, const glm::dvec2& northEast, const glm::dvec2& southEast, const glm::dvec2& southWest, const glm::dvec2& northWest, const glm::dvec2& center, const glm::dvec3& offset) : textureFile(textureFile), fullHeightFile(fullHeightFile), northEast(northEast), southEast(southEast), southWest(southWest), northWest(northWest), offset(offset), center(center) {
-	if (!star::FileHelpers::FileExists(this->textureFile))
-		throw std::runtime_error("Texture file does not exist: " + this->textureFile); 
+TerrainChunk::TerrainChunk(const std::string& fullHeightFile, const std::string& nTextureFile, const glm::dvec2& northEast, const glm::dvec2& southEast, const glm::dvec2& southWest, const glm::dvec2& northWest, const glm::dvec2& center, const glm::dvec3& offset) : textureFile(textureFile), fullHeightFile(fullHeightFile), northEast(northEast), southEast(southEast), southWest(southWest), northWest(northWest), offset(offset), center(center) {
+	std::string terrainDir = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "/terrains";
+	std::optional<std::string> matchedFile = star::FileHelpers::FindFileInDirectoryWithSameNameIgnoreFileType(terrainDir, nTextureFile); 
+	assert(matchedFile.has_value() && "Unable to find matching texture file");
+
+	this->textureFile = matchedFile.value();
 }
 
 double TerrainChunk::getCenterHeightFromGDAL(const std::string& geoTiff, const glm::dvec2& centerLatLon){

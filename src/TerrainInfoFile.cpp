@@ -26,7 +26,7 @@ void TerrainInfoFile::loadFromFile(const std::string& pathToFile) {
 			glm::dvec2(double(images[i]["corners"]["SW"]["lat"]), double(images[i]["corners"]["SW"]["lon"])),
 			glm::dvec2(double(images[i]["corners"]["NW"]["lat"]), double(images[i]["corners"]["NW"]["lon"])),
 			glm::dvec2(double(images[i]["corners"]["center"]["lat"]), double(images[i]["corners"]["center"]["lon"])),
-			std::string(images[i]["texture_file"])
+			std::string(images[i]["texture_name_no_extension"])
 		};
 	}
 }

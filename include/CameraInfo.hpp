@@ -61,6 +61,6 @@ namespace star{
 		protected:
 			const star::StarCamera& camera; 
 
-			std::unique_ptr<star::TransferRequest::Memory<StarBuffer::BufferCreationArgs>> createTransferRequest() override;
+			std::unique_ptr<star::TransferRequest::Memory<StarBuffer::BufferCreationArgs>> createTransferRequest(const vk::PhysicalDevice& physicalDevice) override;
 	};
 }

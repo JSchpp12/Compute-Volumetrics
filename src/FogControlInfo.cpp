@@ -33,7 +33,7 @@ FogControlInfoController::FogControlInfoController(const uint8_t& frameInFlightI
 
 }
 
-std::unique_ptr<star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>> FogControlInfoController::createTransferRequest(){
+std::unique_ptr<star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>> FogControlInfoController::createTransferRequest(const vk::PhysicalDevice& physicalDevice){
     this->lastFogFarDist = this->currentFogFarDist; 
     this->lastFogNearDist = this->currentFogNearDist;
 

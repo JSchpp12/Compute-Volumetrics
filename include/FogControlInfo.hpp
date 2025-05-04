@@ -20,7 +20,7 @@ class FogControlInfoController : public star::ManagerController::RenderResource:
 public:
     FogControlInfoController(const uint8_t& frameInFlightIndexToUpdateOn, const float& fogNearDist, const float& fogFarDist); 
 
-    std::unique_ptr<star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>> createTransferRequest() override;
+    std::unique_ptr<star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>> createTransferRequest(const vk::PhysicalDevice& physicalDevice) override;
 
     bool isValid(const uint8_t& currentFrameInFlightIndex) const override; 
 private: 

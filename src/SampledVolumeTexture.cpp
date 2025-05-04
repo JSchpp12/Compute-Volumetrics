@@ -38,7 +38,7 @@ void SampledVolumeRequest::writeData(star::StarBuffer &buffer) const
 	buffer.unmap();
 }
 
-std::unique_ptr<star::TransferRequest::Memory<star::StarTexture::TextureCreateSettings>> SampledVolumeController::createTransferRequest()
+std::unique_ptr<star::TransferRequest::Memory<star::StarTexture::TextureCreateSettings>> SampledVolumeController::createTransferRequest(const vk::PhysicalDevice& physicalDevice)
 {
     return std::make_unique<SampledVolumeRequest>(std::move(this->sampledData));
 }

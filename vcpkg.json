@@ -9,12 +9,16 @@
     "glfw3",
     "vulkan-memory-allocator",
     "tbb",
-    "ktx",
     "basisu",
     "tinyobjloader",
     "boost-thread",
     "boost-lockfree",
     "boost-container",
+    "boost-filesystem",
+    {
+      "name": "ktx",
+      "features": ["vulkan"]
+    },
     {
       "name": "gdal",
       "features": [ "png", "geos" ]

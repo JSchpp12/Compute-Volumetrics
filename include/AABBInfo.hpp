@@ -35,7 +35,7 @@ class AABBController : public star::ManagerController::RenderResource::Buffer {
 	public:
 	AABBController(const std::array<glm::vec4, 2>& aabbBounds) : aabbBounds(aabbBounds){} 
 
-	std::unique_ptr<star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>> createTransferRequest() override;
+	std::unique_ptr<star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>> createTransferRequest(const vk::PhysicalDevice& physicalDevice) override;
 
 	private:
 	const std::array<glm::vec4, 2 > aabbBounds;
