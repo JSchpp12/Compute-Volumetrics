@@ -24,7 +24,14 @@ git clone --recurse-submodules https://github.com/JSchpp12/Compute-Volumetrics
 
 #### StarlightAppBuilder
 
-Located in extern/StarlightAppBuilder. Run coresponding bat/shell init script in extern/StarlightAppBuilder.
+Located in extern/StarlightAppBuilder. Make sure to update submodules:
+
+```cmd
+git submodule init
+git submodule update
+```
+
+Run coresponding bat/shell init script in extern/StarlightAppBuilder.
 
 #### Application Setup
 
