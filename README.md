@@ -28,9 +28,6 @@ Located in extern/StarlightAppBuilder. Run coresponding bat/shell init script in
 
 #### Application Setup
 
-Not all media is included in the git repo itself. The media will be included as a release. Download the zip of the media file and extract the contents to the media directory.
-
-Run the coresponding bat/shell build script located in the root of this project. For windows, this might be build_release.bat.
-
+Run the coresponding bat/shell build script located in the root of this project. For windows, this might be build_release.bat. VCPKG/CMake will handle the rest!
 
 ## Troubleshooting
