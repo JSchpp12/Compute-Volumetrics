@@ -9,6 +9,6 @@ void AABBTransfer::writeData(star::StarBuffer& buffer) const{
 	buffer.unmap(); 
 }
 
-std::unique_ptr<star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>> AABBController::createTransferRequest(const vk::PhysicalDevice& physicalDevice) {
+std::unique_ptr<star::TransferRequest::Buffer> AABBController::createTransferRequest(const vk::PhysicalDevice& physicalDevice) {
 	return std::make_unique<AABBTransfer>(this->aabbBounds);
 }

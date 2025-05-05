@@ -1,7 +1,7 @@
 #pragma once 
 
 #include "ManagerController_RenderResource_Buffer.hpp"
-#include "TransferRequest_Memory.hpp"
+#include "TransferRequest_Buffer.hpp"
 #include "StarBuffer.hpp"
 
 #include <glm/glm.hpp>
@@ -9,11 +9,11 @@
 #include <array>
 
 
-class AABBTransfer : public star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>{
+class AABBTransfer : public star::TransferRequest::Buffer{
 	public:
 	AABBTransfer(const std::array<glm::vec4, 2>& aabbBounds) : aabbBounds(aabbBounds){}
 
-	star::StarBuffer::BufferCreationArgs getCreateArgs(const vk::PhysicalDeviceProperties& deviceProperties) const override{
+	star::StarBuffer::BufferCreationArgs getCreateArgs() const override{
 		return star::StarBuffer::BufferCreationArgs(
 			sizeof(glm::vec4),
 			2,
@@ -35,7 +35,7 @@ class AABBController : public star::ManagerController::RenderResource::Buffer {
 	public:
 	AABBController(const std::array<glm::vec4, 2>& aabbBounds) : aabbBounds(aabbBounds){} 
 
-	std::unique_ptr<star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>> createTransferRequest(const vk::PhysicalDevice& physicalDevice) override;
+	std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(const vk::PhysicalDevice& physicalDevice) override;
 
 	private:
 	const std::array<glm::vec4, 2 > aabbBounds;

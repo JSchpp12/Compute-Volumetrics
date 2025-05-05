@@ -17,7 +17,7 @@ void FogControlInfoTransfer::writeData(star::StarBuffer& buffer) const{
     buffer.unmap(); 
 }
 
-star::StarBuffer::BufferCreationArgs FogControlInfoTransfer::getCreateArgs(const vk::PhysicalDeviceProperties& deviceProperties) const{
+star::StarBuffer::BufferCreationArgs FogControlInfoTransfer::getCreateArgs() const{
     return star::StarBuffer::BufferCreationArgs(
         sizeof(float),
         2,
@@ -33,11 +33,12 @@ FogControlInfoController::FogControlInfoController(const uint8_t& frameInFlightI
 
 }
 
-std::unique_ptr<star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>> FogControlInfoController::createTransferRequest(const vk::PhysicalDevice& physicalDevice){
+std::unique_ptr<star::TransferRequest::Buffer> FogControlInfoController::createTransferRequest(const vk::PhysicalDevice& physicalDevice){
+    
     this->lastFogFarDist = this->currentFogFarDist; 
     this->lastFogNearDist = this->currentFogNearDist;
 
-    return std::make_unique<FogControlInfoTransfer>(this->currentFogNearDist, this->currentFogFarDist); 
+    return std::make_unique<FogControlInfoTransfer>(this->currentFogNearDist, this->currentFogFarDist);
 }
 
 bool FogControlInfoController::isValid(const uint8_t& currentFrameInFlightIndex) const {

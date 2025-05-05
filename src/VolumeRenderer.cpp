@@ -10,7 +10,7 @@ VolumeRenderer::VolumeRenderer(star::StarCamera & camera, const std::vector<star
 globalInfoBuffers(globalInfoBuffers), sceneLightInfoBuffers(sceneLightInfoBuffers), 
 aabbBounds(aabbBounds), camera(camera),
 instanceModelInfo(instanceModelInfo), volumeTexture(volumeTexture), instanceNormalInfo(instanceNormalInfo) {
-	this->cameraShaderInfo = star::ManagerRenderResource::addRequest(std::make_unique<star::CameraInfo>(camera), true);
+	this->cameraShaderInfo = star::ManagerRenderResource::addRequest(std::make_unique<CameraInfoController>(camera), true);
 }
 
 void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer& commandBuffer, const int& frameInFlightIndex)
@@ -231,7 +231,7 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 			.startOnFrameIndex(i)
 			.startSet()
 			.add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
-			.add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eGeneral, vk::Format::eR32Sfloat, false)
+			.add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eGeneral, false)
 			.add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, false)
 			.add(this->cameraShaderInfo, false)
 			.add(this->aabbInfoBuffers.at(i), false)

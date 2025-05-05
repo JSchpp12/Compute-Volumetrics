@@ -1,6 +1,6 @@
 #include "CameraInfo.hpp"
 
-void star::TransferRequest::CameraInfo::writeData(star::StarBuffer& buffer) const
+void CameraInfo::writeData(star::StarBuffer& buffer) const
 {
 	buffer.map(); 
 
@@ -18,7 +18,7 @@ void star::TransferRequest::CameraInfo::writeData(star::StarBuffer& buffer) cons
 	buffer.unmap(); 
 }
 
-std::unique_ptr<star::TransferRequest::Memory<star::StarBuffer::BufferCreationArgs>> star::CameraInfo::createTransferRequest(const vk::PhysicalDevice& physicalDevice)
+std::unique_ptr<star::TransferRequest::Buffer> CameraInfoController::createTransferRequest(const vk::PhysicalDevice& physicalDevice)
 {
-	return std::make_unique<TransferRequest::CameraInfo>(this->camera); 
+	return std::make_unique<CameraInfo>(this->camera);
 }
