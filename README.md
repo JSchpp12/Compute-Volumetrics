@@ -1,25 +1,36 @@
 # Volumetric Rendering with Vulkan and OpenVDB
 
+## About
+
 This is a template for applications utilizing Starlight.
 
-## Requirenments
+## Requirements
 
-A major step of the setup for this project is to build the openVDB libs that will be used. The necessary dependencies for openVDB to build are included as submodules. However, there are some caveats.
-The following must be installed:
+The following are required in order to build this project: 
 
-- Python3
-- Cmake
-- All depdencies for [openVDB](https://www.openvdb.org/documentation/doxygen/dependencies.html):
-  - zlib
-  - blosc
-  - tbb
-  - boost
+- Python 3.12 or newer
+- CMake
+- Compiler with c++ 20 support 
 
 ## Setup
 
-1. Clone this repository making sure to recurse submodules
+Clone this repository:
 
-2. Run the corresponding bat or sh file for your operating system and vcpkg/cmake will handle the rest!
+```cmd
+git clone --recurse-submodules https://github.com/JSchpp12/Compute-Volumetrics
+```
+
+### Project Setup
+
+#### StarlightAppBuilder
+
+Located in extern/StarlightAppBuilder. Run coresponding bat/shell init script in extern/StarlightAppBuilder.
+
+#### Application Setup
+
+Not all media is included in the git repo itself. The media will be included as a release. Download the zip of the media file and extract the contents to the media directory.
+
+Run the coresponding bat/shell build script located in the root of this project. For windows, this might be build_release.bat.
+
 
 ## Troubleshooting
-
