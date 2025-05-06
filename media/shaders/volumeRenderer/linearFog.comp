@@ -25,8 +25,10 @@ struct Light{
 };
 
 layout(set = 0, binding = 0, rgba8) uniform readonly image2D inputSceneColor; 
-layout(set = 0, binding = 1, r32f) uniform readonly image2D inputSceneDepth; 
-layout(set = 0, binding = 2, rgba8) uniform writeonly image2D outputImage; 
+layout(set = 0, binding = 1, rgba8) uniform writeonly image2D outputImage;
+layout(set = 0, binding = 2) buffer inputImageDepthInfo{
+	float depths[];
+} depthInfo;
 layout(set = 0, binding = 3) uniform additionalCamerainfo{
 	mat4 inverseProjMatrix;
 	vec2 cameraDimensions; 
@@ -163,7 +165,8 @@ void main(){
     const ivec2 targetPixel = getTargetPixelCoords(); 
 
 	const Ray camRay = getRayForPixel(targetPixel); 
-    float targetPixelInputDepth = imageLoad(inputSceneDepth, targetPixel).r;
+    // float targetPixelInputDepth = imageLoad(inputSceneDepth, targetPixel).r;
+	float targetPixelInputDepth = 0; 
     targetPixelInputDepth = linearizeDepth(targetPixelInputDepth, addCamInfo.nearClipDist, addCamInfo.farClipDist); 
 
 	const vec4 targetPixelInputColor = vec4(imageLoad(inputSceneColor, targetPixel));
