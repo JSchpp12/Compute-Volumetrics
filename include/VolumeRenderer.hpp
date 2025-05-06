@@ -8,6 +8,8 @@
 #include "AABBInfo.hpp"
 #include "StarShaderInfo.hpp"
 #include "StarCamera.hpp"
+#include "StarBuffer.hpp"
+#include "CopyDepthTextureToBuffer.hpp"
 #include "StarObjectInstance.hpp"
 #include "SampledVolumeTexture.hpp"
 
@@ -72,6 +74,7 @@ private:
 	std::vector<std::unique_ptr<star::StarTexture>> computeWriteToImages = std::vector<std::unique_ptr<star::StarTexture>>();
 	std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
 	std::unique_ptr<star::StarComputePipeline> marchedPipeline, linearPipeline = std::unique_ptr<star::StarComputePipeline>();
+	std::vector<std::unique_ptr<star::StarBuffer>> renderToDepthBuffers = std::vector<std::unique_ptr<star::StarBuffer>>(); 
 
 	FogType currentFogType = FogType::marched; 
 	float fogNearDist = 0.001f, fogFarDist = 100.0f; 

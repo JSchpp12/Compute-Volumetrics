@@ -41,6 +41,7 @@ set(${PROJECT_NAME}_SOURCE
 	"src/TerrainChunkInfo.cpp"
 	"src/TerrainGrid.cpp"
 	"src/FogControlInfo.cpp"
+	"src/CopyDepthTextureToBuffer.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -62,6 +63,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/TerrainChunkInfo.hpp"
 	"include/TerrainGrid.hpp"
 	"include/FogControlInfo.hpp"
+	"include/CopyDepthTextureToBuffer.hpp"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")

@@ -172,6 +172,15 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 		}
  	}
 
+	star::StarBuffer::BufferCreationArgs cpyDepth; 
+	cpyDepth.instanceSize = sizeof(float); 
+	cpyDepth.instanceCount = screensize.height * screensize.width; 
+	cpyDepth.memoryUsageFlags = VmaMemoryUsage::VMA_MEMORY_USAGE_GPU_ONLY;
+	cpyDepth.creationFlags = VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT; 
+	cpyDepth.useFlags = vk::BufferUsageFlagBits::eStorageBuffer;
+	cpyDepth.sharingMode = vk::SharingMode::eConcurrent;
+	cpyDepth.allocationName = "CopyToDepthImage-"; 
+
 	for (uint8_t i = 0; i < numFramesInFlight; i++) {
 		this->aabbInfoBuffers.emplace_back(
 			star::ManagerRenderResource::addRequest(std::make_unique<AABBController>(this->aabbBounds))
@@ -179,6 +188,10 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 
 		this->fogControlShaderInfo.emplace_back(
 			star::ManagerRenderResource::addRequest(std::make_unique<FogControlInfoController>(i, this->fogNearDist, this->fogFarDist))
+		);
+
+		this->renderToDepthBuffers.emplace_back(
+			std::make_unique<star::StarBuffer>(device.getAllocator().get(), cpyDepth)
 		);
 	}
 }
@@ -212,7 +225,7 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 		.addSetLayout(star::StarDescriptorSetLayout::Builder(device)
 			.addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
 			.addBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-			.addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+			.addBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
 			.addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
 			.addBinding(4, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
 			.addBinding(5, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
@@ -231,8 +244,8 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 			.startOnFrameIndex(i)
 			.startSet()
 			.add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
-			.add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eGeneral, false)
 			.add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, false)
+			.add(*this->renderToDepthBuffers.at(i))
 			.add(this->cameraShaderInfo, false)
 			.add(this->aabbInfoBuffers.at(i), false)
 			.add(this->volumeTexture, vk::ImageLayout::eGeneral, true)
