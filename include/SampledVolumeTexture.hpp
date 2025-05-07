@@ -11,7 +11,7 @@ class SampledVolumeRequest: public star::TransferRequest::Texture{
 	public:
 	SampledVolumeRequest(std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData) : sampledData(std::move(sampledData)){}
 
-	star::StarTexture::TextureCreateSettings getCreateArgs() const override; 
+	star::StarTexture::RawTextureCreateSettings getCreateArgs() const override; 
 
 	void writeData(star::StarBuffer& buffer) const override; 
 

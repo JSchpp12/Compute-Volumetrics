@@ -2,8 +2,8 @@
 
 #include "CastHelpers.hpp"
 
-star::StarTexture::TextureCreateSettings SampledVolumeRequest::getCreateArgs() const{
-	return star::StarTexture::TextureCreateSettings{
+star::StarTexture::RawTextureCreateSettings SampledVolumeRequest::getCreateArgs() const{
+	return star::StarTexture::RawTextureCreateSettings{
 		static_cast<int>(sampledData->size()),
 		static_cast<int>(sampledData->at(0).size()),
 		1,

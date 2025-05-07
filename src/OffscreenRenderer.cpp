@@ -5,11 +5,57 @@ OffscreenRenderer::OffscreenRenderer(star::StarScene& scene)
 {
 }
 
+void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer& commandBuffer, const int& frameInFlightIndex){
+	vk::Viewport viewport = this->prepareRenderingViewport();
+	commandBuffer.setViewport(0, viewport);
+
+	this->recordPreRenderingCalls(commandBuffer, frameInFlightIndex);
+
+	{
+		//dynamic rendering used...so dont need all that extra stuff
+		vk::RenderingAttachmentInfo colorAttachmentInfo = prepareDynamicRenderingInfoColorAttachment(frameInFlightIndex);
+		vk::RenderingAttachmentInfo depthAttachmentInfo = prepareDynamicRenderingInfoDepthAttachment(frameInFlightIndex);
+
+		auto renderArea = vk::Rect2D{ vk::Offset2D{}, *this->swapChainExtent };
+		vk::RenderingInfoKHR renderInfo{};
+		renderInfo.renderArea = renderArea;
+		renderInfo.layerCount = 1;
+		renderInfo.pDepthAttachment = &depthAttachmentInfo;
+		renderInfo.pColorAttachments = &colorAttachmentInfo;
+		renderInfo.colorAttachmentCount = 1;
+		commandBuffer.beginRendering(renderInfo);
+	}
+
+	this->recordRenderingCalls(commandBuffer, frameInFlightIndex);
+
+	// std::vector<vk::ImageMemoryBarrier2> memBar = std::vector<vk::ImageMemoryBarrier2>{createMemoryBarrierPrepForDepthCopy(this->renderToDepthImages.at(frameInFlightIndex)->getImage())}; 
+	// vk::DependencyInfo depInfo; 
+	// depInfo.sType = vk::StructureType::eDependencyInfo; 
+	// depInfo.imageMemoryBarrierCount = 1; 
+	// depInfo.pImageMemoryBarriers = memBar.data(); 
+	// depInfo.sType = vk::StructureType::eDependencyInfo; 
+	
+	// commandBuffer.pipelineBarrier2(depInfo); 
+	
+
+	// vk::CopyImageToBufferInfo2 imgCpy; 
+	// imgCpy.sType = vk::StructureType::eCopyImageToBufferInfo2; 
+	// imgCpy.dstBuffer = this->depthInfoStorageBuffers.at(frameInFlightIndex)->getVulkanBuffer();
+	// imgCpy.srcImage = this->renderToDepthImages.at(frameInFlightIndex)->getImage();
+	// imgCpy.regionCount
+
+
+
+	commandBuffer.copyBufferToImage2(imgCpy); 
+
+	commandBuffer.endRendering();
+}
+
 std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderToImages(star::StarDevice& device, const int& numFramesInFlight)
 {
 	std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages = std::vector<std::unique_ptr<star::StarTexture>>();
 
-	auto settings = star::StarTexture::TextureCreateSettings{
+	auto settings = star::StarTexture::RawTextureCreateSettings{
 		static_cast<int>(this->swapChainExtent->width),
 		static_cast<int>(this->swapChainExtent->height),
 		4,
@@ -43,7 +89,7 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
 {
 	std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages = std::vector<std::unique_ptr<star::StarTexture>>();
 
-	auto settings = star::StarTexture::TextureCreateSettings{
+	auto settings = star::StarTexture::RawTextureCreateSettings{
 		static_cast<int>(this->swapChainExtent->width),
 		static_cast<int>(this->swapChainExtent->height),
 		1,
@@ -56,7 +102,7 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
 		VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
 		VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
 		vk::ImageLayout::eDepthAttachmentOptimal,
-		false, false, 
+		false, true, 
 		{}, 
 		1.0f,
 		vk::Filter::eNearest, 
@@ -100,6 +146,10 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
 	return newRenderToImages;
 }
 
+std::vector<std::shared_ptr<star::StarBuffer>> OffscreenRenderer::createDepthBufferContainers(star::StarDevice& device){
+	return std::vector<std::shared_ptr<star::StarBuffer>>();
+}
+
 star::Command_Buffer_Order_Index OffscreenRenderer::getCommandBufferOrderIndex()
 {
 	return star::Command_Buffer_Order_Index::first; 
@@ -129,4 +179,30 @@ bool OffscreenRenderer::getWillBeRecordedOnce()
 vk::Format OffscreenRenderer::getCurrentRenderToImageFormat()
 {
 	return vk::Format::eR8G8B8A8Snorm;
+}
+
+vk::ImageMemoryBarrier2 OffscreenRenderer::createMemoryBarrierPrepForDepthCopy(const vk::Image& depthImage){
+	vk::ImageMemoryBarrier2 memBar; 
+	memBar.sType = vk::StructureType::eImageMemoryBarrier2; 
+	memBar.srcStageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests;
+	memBar.srcAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+	memBar.dstStageMask = vk::PipelineStageFlagBits2::eCopy;
+	memBar.dstAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentRead; 
+	memBar.image = depthImage; 
+	memBar.oldLayout = vk::ImageLayout::eDepthAttachmentOptimal; 
+	memBar.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+	memBar.subresourceRange.baseArrayLayer = 0;
+	memBar.subresourceRange.baseMipLevel = 0;
+	memBar.subresourceRange.layerCount = 1;
+	memBar.subresourceRange.levelCount = 1;
+	memBar.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth; 
+
+	// vk::MemoryBarrier2 memBar; 
+	// memBar.sType = vk::StructureType::eMemoryBarrier2; 
+	// memBar.srcStageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests; 
+	// memBar.srcAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
+	// memBar.dstStageMask = vk::PipelineStageFlagBits2::eTransfer; 
+	// memBar.dstAccessMask = vk::AccessFlagBits2::eTransferRead;
+
+	return memBar;
 }

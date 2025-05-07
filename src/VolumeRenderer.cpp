@@ -139,7 +139,7 @@ void VolumeRenderer::initResources(star::StarDevice& device, const int& numFrame
 {
 	this->displaySize = std::make_unique<vk::Extent2D>(screensize);
 	{
-		auto settings = star::StarTexture::TextureCreateSettings{
+		auto settings = star::StarTexture::RawTextureCreateSettings{
 			static_cast<int>(screensize.width),
 			static_cast<int>(screensize.height),
 			4,
@@ -214,7 +214,8 @@ std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescrip
 	return std::vector<std::pair<vk::DescriptorType, const int>>{
 		std::make_pair(vk::DescriptorType::eStorageImage, (3 * numFramesInFlight)),
 		std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + ( 4 * numFramesInFlight) ),
-		std::make_pair(vk::DescriptorType::eStorageBuffer, 1)
+		std::make_pair(vk::DescriptorType::eStorageBuffer, 1),
+		std::make_pair(vk::DescriptorType::eSampledImage, 1)
 	};
 }
 
@@ -224,8 +225,8 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 	shaderInfoBuilder
 		.addSetLayout(star::StarDescriptorSetLayout::Builder(device)
 			.addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-			.addBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-			.addBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
+			.addBinding(1, vk::DescriptorType::eSampledImage, vk::ShaderStageFlagBits::eCompute)
+			.addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
 			.addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
 			.addBinding(4, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
 			.addBinding(5, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
@@ -244,8 +245,8 @@ void VolumeRenderer::createDescriptors(star::StarDevice& device, const int& numF
 			.startOnFrameIndex(i)
 			.startSet()
 			.add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
+			.add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal, vk::Format::eD32Sfloat, false)
 			.add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, false)
-			.add(*this->renderToDepthBuffers.at(i))
 			.add(this->cameraShaderInfo, false)
 			.add(this->aabbInfoBuffers.at(i), false)
 			.add(this->volumeTexture, vk::ImageLayout::eGeneral, true)
