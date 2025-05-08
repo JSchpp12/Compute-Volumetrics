@@ -23,7 +23,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 add_subdirectory("extern/starlight") 
 
-set(${PROJECT_NAME}_SOURCE 
+set(${PROJECT_NAME}_SOURCES
 	"src/main.cpp"
  	"src/Application.cpp"
 	"src/Volume.cpp"
@@ -68,7 +68,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/CopyDepthTextureToBuffer.hpp"
 )
 
-add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCE};${${PROJECT_NAME}_HEADERS}")
+add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCES};${${PROJECT_NAME}_HEADERS}")
 
 target_include_directories(${PROJECT_NAME}
 	PRIVATE "include"
@@ -135,7 +135,7 @@ set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/StarlightAppBu
 set(PREP_MEDIA_CMD "${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py")
 add_custom_target(
 	always_run_target ALL 
-	DEPENDS ${${PROJECT_NAME}_SOURCE}
+	DEPENDS ${${PROJECT_NAME}_SOURCES}
 )
 
 set(FINAL_APPLICATION_DIR "")

@@ -1,11 +1,12 @@
-#include "StarEngine.hpp"
 #include "Application.hpp"
+#include "StarEngine.hpp"
 
-int main() {
+int main()
+{
     auto engine = star::StarEngine();
     auto application = Application(engine.getScene());
     application.Load();
     engine.init(application);
 
-    engine.Run(); 
+    engine.Run();
 }

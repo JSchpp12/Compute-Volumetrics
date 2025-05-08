@@ -1,8 +1,7 @@
-#pragma once 
+#pragma once
 
 // #include "BufferManagerRequest.hpp"
 // #include "BufferMemoryTransferRequest.hpp"
-
 
 // class TerrainChunkTransfer : public star::BufferMemoryTransferRequest{
 //     public:

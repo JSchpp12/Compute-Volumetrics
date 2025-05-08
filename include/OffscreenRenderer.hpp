@@ -1,33 +1,36 @@
-#pragma once 
+#pragma once
 
 #include "SceneRenderer.hpp"
 
-class OffscreenRenderer : public star::SceneRenderer {
-public:
-	OffscreenRenderer(star::StarScene& scene);
+class OffscreenRenderer : public star::SceneRenderer
+{
+  public:
+    OffscreenRenderer(star::StarScene &scene);
 
-	virtual void recordCommandBuffer(vk::CommandBuffer& commandBuffer, const int& frameInFlightIndex) override;
+    virtual void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
 
-private:
-	std::vector<std::shared_ptr<star::StarBuffer>> depthInfoStorageBuffers; 
-	
-	std::vector<std::unique_ptr<star::StarTexture>> createRenderToImages(star::StarDevice& device, const int& numFramesInFlight) override;
+  private:
+    std::vector<std::shared_ptr<star::StarBuffer>> depthInfoStorageBuffers;
 
-	std::vector<std::unique_ptr<star::StarTexture>> createRenderToDepthImages(star::StarDevice& device, const int& numFramesInFlight) override;
+    std::vector<std::unique_ptr<star::StarTexture>> createRenderToImages(star::StarDevice &device,
+                                                                         const int &numFramesInFlight) override;
 
-	std::vector<std::shared_ptr<star::StarBuffer>> createDepthBufferContainers(star::StarDevice& device); 
-	// Inherited via SceneRenderer
-	star::Command_Buffer_Order_Index getCommandBufferOrderIndex() override; 
+    std::vector<std::unique_ptr<star::StarTexture>> createRenderToDepthImages(star::StarDevice &device,
+                                                                              const int &numFramesInFlight) override;
 
-	star::Command_Buffer_Order getCommandBufferOrder() override;
+    std::vector<std::shared_ptr<star::StarBuffer>> createDepthBufferContainers(star::StarDevice &device);
+    // Inherited via SceneRenderer
+    star::Command_Buffer_Order_Index getCommandBufferOrderIndex() override;
 
-	vk::PipelineStageFlags getWaitStages() override;
+    star::Command_Buffer_Order getCommandBufferOrder() override;
 
-	bool getWillBeSubmittedEachFrame() override;
+    vk::PipelineStageFlags getWaitStages() override;
 
-	bool getWillBeRecordedOnce() override;
+    bool getWillBeSubmittedEachFrame() override;
 
-	vk::Format getCurrentRenderToImageFormat() override;
+    bool getWillBeRecordedOnce() override;
 
-	static vk::ImageMemoryBarrier2 createMemoryBarrierPrepForDepthCopy(const vk::Image& depthImage);
+    vk::Format getCurrentRenderToImageFormat() override;
+
+    static vk::ImageMemoryBarrier2 createMemoryBarrierPrepForDepthCopy(const vk::Image &depthImage);
 };

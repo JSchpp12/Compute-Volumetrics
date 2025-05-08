@@ -1,147 +1,185 @@
 #pragma once
 
-#include "StarBuffer.hpp"
-#include "StarMesh.hpp"
-#include "StarDevice.hpp"
-
-#include <tbb/tbb.h>
-#include <glm/glm.hpp>
 #include <gdal_priv.h>
 #include <ogr_spatialref.h>
+#include <tbb/tbb.h>
 
-#include <string>
+#include <glm/glm.hpp>
 #include <memory>
+#include <string>
 
-class TerrainChunk {
-public:
-	TerrainChunk(const std::string& fullHeightFile, 
-		const std::string& nTextureFile, 
-		const glm::dvec2& northEast, const glm::dvec2& southEast, 
-		const glm::dvec2& southWest, const glm::dvec2& northWest, 
-		const glm::dvec2& center, const glm::dvec3& offset);
+#include "StarBuffer.hpp"
+#include "StarDevice.hpp"
+#include "StarMesh.hpp"
 
-	/// @brief Load meshes from the provided files
-	void load(); 
+class TerrainChunk
+{
+  public:
+    TerrainChunk(const std::string &fullHeightFile, const std::string &nTextureFile, const glm::dvec2 &northEast,
+                 const glm::dvec2 &southEast, const glm::dvec2 &southWest, const glm::dvec2 &northWest,
+                 const glm::dvec2 &center, const glm::dvec3 &offset);
 
-	std::unique_ptr<star::StarMesh> getMesh();
+    /// @brief Load meshes from the provided files
+    void load();
 
-	std::string& getTextureFile();
+    std::unique_ptr<star::StarMesh> getMesh();
 
-	star::StarBuffer& getIndexBuffer(){
-		assert(this->indBuffer && "Index buffer has not been initialized. Make sure to call load() first.");
-		return *this->indBuffer;
-	}
+    std::string &getTextureFile();
 
-	star::StarBuffer& getVertexBuffer(){
-		assert(this->vertBuffer && "Vertex buffer has not been initialized. Make sure to call load() first.");
-		return *this->vertBuffer; 
-	}
+    star::StarBuffer &getIndexBuffer()
+    {
+        assert(this->indBuffer && "Index buffer has not been initialized. Make sure to call load() "
+                                  "first.");
+        return *this->indBuffer;
+    }
 
-	static double getCenterHeightFromGDAL(const std::string& geoTiff, const glm::dvec2& centerLatLon); 
+    star::StarBuffer &getVertexBuffer()
+    {
+        assert(this->vertBuffer && "Vertex buffer has not been initialized. Make sure to call load() "
+                                   "first.");
+        return *this->vertBuffer;
+    }
 
-	std::vector<glm::dvec3> lastLine; 
-	std::vector<glm::dvec3> firstLine; 
+    static double getCenterHeightFromGDAL(const std::string &geoTiff, const glm::dvec2 &centerLatLon);
 
-private:
-	struct Line{
-		const double slope, intercept;  
+    std::vector<glm::dvec3> lastLine;
+    std::vector<glm::dvec3> firstLine;
 
-		Line(const glm::dvec2& pointA, const glm::dvec2& pointB) : slope((pointB.y - pointA.y) / (pointB.x - pointA.x)), intercept(pointA.y - (slope * pointA.x))
-		{
-		}
+  private:
+    struct Line
+    {
+        const double slope, intercept;
 
-		double y(const double& x) const{
-			return ((this->slope * x) + this->intercept); 
-		}
-	};
+        Line(const glm::dvec2 &pointA, const glm::dvec2 &pointB)
+            : slope((pointB.y - pointA.y) / (pointB.x - pointA.x)), intercept(pointA.y - (slope * pointA.x))
+        {
+        }
 
-	class TerrainDataset{
-		public:
-		TerrainDataset(const std::string& path, const glm::dvec2& northEast, const glm::dvec2& southEast, 
-			const glm::dvec2& southWest, const glm::dvec2& northWest, 
-			const glm::dvec2& center, const glm::dvec3& offset);
-		
-		~TerrainDataset();
+        double y(const double &x) const
+        {
+            return ((this->slope * x) + this->intercept);
+        }
+    };
 
-		float getElevationAtTexCoords(const glm::ivec2& texCoords) const; 
+    class TerrainDataset
+    {
+      public:
+        TerrainDataset(const std::string &path, const glm::dvec2 &northEast, const glm::dvec2 &southEast,
+                       const glm::dvec2 &southWest, const glm::dvec2 &northWest, const glm::dvec2 &center,
+                       const glm::dvec3 &offset);
 
-		glm::ivec2 getTexCoordsFromLatLon(const glm::dvec2& latLon) const; 
+        ~TerrainDataset();
 
-		glm::ivec2 applyOffsetToTexCoords(const glm::ivec2& texCoords) const; 
+        float getElevationAtTexCoords(const glm::ivec2 &texCoords) const;
 
-		const glm::dvec2& getNorthEast() const {return this->northEast;}
-		const glm::dvec2& getSouthEast() const {return this->southEast;}
-		const glm::dvec2& getSouthWest() const {return this->southWest;}
-		const glm::dvec2& getNorthWest() const {return this->northWest;}
-		const glm::dvec3& getOffset() const {return this->offset;}
-		const glm::ivec2& getPixSize() const {return this->pixSize;}
-		const glm::dvec2& getCenter() const {return this->center;}
-		private:
-		const std::string path; 
-		const glm::dvec2 northEast, southEast, southWest, northWest, center;
-		const glm::dvec3 offset; 
-		const int pixBorderSize = 4; 
+        glm::ivec2 getTexCoordsFromLatLon(const glm::dvec2 &latLon) const;
 
-		float* gdalBuffer = nullptr; 
-		glm::ivec2 fullPixSize, maxPixBounds, pixOffset, pixSize; 
-		OGRCoordinateTransformation *coordinateTransform = nullptr; 
-		double geoTransforms[6]; 
+        glm::ivec2 applyOffsetToTexCoords(const glm::ivec2 &texCoords) const;
 
-		void initTransforms(GDALDataset * dataset);
+        const glm::dvec2 &getNorthEast() const
+        {
+            return this->northEast;
+        }
+        const glm::dvec2 &getSouthEast() const
+        {
+            return this->southEast;
+        }
+        const glm::dvec2 &getSouthWest() const
+        {
+            return this->southWest;
+        }
+        const glm::dvec2 &getNorthWest() const
+        {
+            return this->northWest;
+        }
+        const glm::dvec3 &getOffset() const
+        {
+            return this->offset;
+        }
+        const glm::ivec2 &getPixSize() const
+        {
+            return this->pixSize;
+        }
+        const glm::dvec2 &getCenter() const
+        {
+            return this->center;
+        }
 
-		void initBandSizes(GDALDataset * dataset); 
+      private:
+        const std::string path;
+        const glm::dvec2 northEast, southEast, southWest, northWest, center;
+        const glm::dvec3 offset;
+        const int pixBorderSize = 4;
 
-		void initPixelCoords(const glm::dvec2& northEast, const glm::dvec2& northWest, const glm::dvec2& southEast);
+        float *gdalBuffer = nullptr;
+        glm::ivec2 fullPixSize, maxPixBounds, pixOffset, pixSize;
+        OGRCoordinateTransformation *coordinateTransform = nullptr;
+        double geoTransforms[6];
 
-		void initGDALBuffer(GDALDataset * dataset);
-	};
-	
-	std::unique_ptr<std::vector<star::Vertex>> verts;
-	std::unique_ptr<std::vector<uint32_t>> inds;
-	std::unique_ptr<star::StarBuffer> indBuffer, vertBuffer;
-	std::unique_ptr<star::StarMesh> mesh;
-	std::string textureFile, fullHeightFile; 
-	const glm::dvec2 northEast, southEast, southWest, northWest, center;
-	const glm::dvec3 offset; 
+        void initTransforms(GDALDataset *dataset);
 
-	/// @brief Extract height info from the file and calculate ver
-	/// @param dataset GDALDataset to use
-	/// @param terrainCenter will be updated by function with the calculated terrain center
-	/// @return 
-	static void loadLocation(TerrainDataset & dataset,
-		std::vector<glm::dvec3>& vertPositions, 
-		std::vector<glm::vec2>& vertTextureCoords,
-	std::vector<glm::dvec3>& firstLine, 
-	std::vector<glm::dvec3>& lastLine);
+        void initBandSizes(GDALDataset *dataset);
 
-	static void loadInds(TerrainDataset& dataset, std::vector<uint32_t>& inds);
+        void initPixelCoords(const glm::dvec2 &northEast, const glm::dvec2 &northWest, const glm::dvec2 &southEast);
 
-	static void calculateNormals(std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds);
+        void initGDALBuffer(GDALDataset *dataset);
+    };
 
-	/// @brief Update all vert locations to be centered around the terrain center
-	/// @param terrainCenter center of the terrain
-	/// @param verts all of the vertices to update
-	void centerAroundTerrainOrigin(std::vector<glm::dvec3>& vertPositions, const glm::dvec3& worldCenterLatLon) const;
+    std::unique_ptr<std::vector<star::Vertex>> verts;
+    std::unique_ptr<std::vector<uint32_t>> inds;
+    std::unique_ptr<star::StarBuffer> indBuffer, vertBuffer;
+    std::unique_ptr<star::StarMesh> mesh;
+    std::string textureFile, fullHeightFile;
+    const glm::dvec2 northEast, southEast, southWest, northWest, center;
+    const glm::dvec3 offset;
 
-	void loadGeomInfo(TerrainDataset & dataset, std::vector<star::Vertex>& verts, std::vector<uint32_t>& inds, std::vector<glm::dvec3>& firstLine, std::vector<glm::dvec3>& lastLine) const; 
+    /**
+     * @brief Extract height info from the file and calculate ver
+     *
+     * @param dataset GDALDataset to use
+     * @param vertPositions
+     * @param vertTextureCoords
+     * @param firstLine
+     * @param lastLine
+     */
+    static void loadLocation(TerrainDataset &dataset, std::vector<glm::dvec3> &vertPositions,
+                             std::vector<glm::vec2> &vertTextureCoords, std::vector<glm::dvec3> &firstLine,
+                             std::vector<glm::dvec3> &lastLine);
 
-	static glm::dvec2 calcStep(const glm::dvec2& startPoint, const glm::dvec2& horizontalDirection, const double& horizontalStepSize, const glm::dvec2& verticalDirection, const double& verticalStepSize, const int& stepsX, const int& stepsY); 
+    static void loadInds(TerrainDataset &dataset, std::vector<uint32_t> &inds);
 
-	static glm::dvec2 calcIntersection(const Line& lineA, const Line& lineB); 
+    static void calculateNormals(std::vector<star::Vertex> &verts, std::vector<uint32_t> &inds);
+
+    /// @brief Update all vert locations to be centered around the terrain center
+    /// @param terrainCenter center of the terrain
+    /// @param verts all of the vertices to update
+    void centerAroundTerrainOrigin(std::vector<glm::dvec3> &vertPositions, const glm::dvec3 &worldCenterLatLon) const;
+
+    void loadGeomInfo(TerrainDataset &dataset, std::vector<star::Vertex> &verts, std::vector<uint32_t> &inds,
+                      std::vector<glm::dvec3> &firstLine, std::vector<glm::dvec3> &lastLine) const;
+
+    static glm::dvec2 calcStep(const glm::dvec2 &startPoint, const glm::dvec2 &horizontalDirection,
+                               const double &horizontalStepSize, const glm::dvec2 &verticalDirection,
+                               const double &verticalStepSize,
+                               const int &stepsX, const int &stepsY);
+
+    static glm::dvec2 calcIntersection(const Line &lineA, const Line &lineB);
 };
 
-struct TerrainChunkProcessor {
-	TerrainChunkProcessor(TerrainChunk chunks[]) 
-		: chunks(chunks) {};
+struct TerrainChunkProcessor
+{
+    TerrainChunkProcessor(TerrainChunk chunks[]) : chunks(chunks) {};
 
-	void operator()(const tbb::blocked_range<size_t>& r) const {
-		TerrainChunk* localChunks = this->chunks; 
+    void operator()(const tbb::blocked_range<size_t> &r) const
+    {
+        TerrainChunk *localChunks = this->chunks;
 
-		for (size_t i = r.begin(); i != r.end(); ++i) {
-			localChunks[i].load();
-		}
-	}
+        for (size_t i = r.begin(); i != r.end(); ++i)
+        {
+            localChunks[i].load();
+        }
+    }
 
-private:
-	TerrainChunk* const chunks; 
+  private:
+    TerrainChunk *const chunks;
 };
