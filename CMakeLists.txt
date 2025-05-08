@@ -19,6 +19,8 @@ find_package(OpenVDB CONFIG REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 add_subdirectory("extern/starlight") 
 
 set(${PROJECT_NAME}_SOURCE 
@@ -149,7 +151,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 			always_run_target
 		POST_BUILD
 		COMMAND 
-			python ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps --fastest
+			${Python3_EXECUTABLE} ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps --fastest
 	)
 else()
 	add_custom_command(
@@ -157,7 +159,23 @@ else()
 			always_run_target
 		POST_BUILD
 		COMMAND 
-			python ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps
+			${Python3_EXECUTABLE} ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps
 	)
 endif()
 
+set(FORMAT_STAMP "${CMAKE_BINARY_DIR}/format.stamp")
+set(ALL_FILES ${${PROJECT_NAME}_HEADERS} ${${PROJECT_NAME}_SOURCES})
+# Convert to space-separated string
+string(REPLACE ";" " " FILE_LIST "${ALL_FILES}")
+
+add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/format.stamp
+    COMMAND ${Python3_EXECUTABLE} ${STARLIGHT_APP_BUILDER_DIR}/scripts/SourceCodeFormatter.py ${FILE_LIST} --dir ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_BINARY_DIR}/format.stamp
+    DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/SourceCodeFormatter.py
+    COMMENT "Running clang-format"
+)
+
+add_custom_target(format_cpp_files
+    DEPENDS ${FORMAT_STAMP}
+)
