@@ -1,5 +1,7 @@
 #include "OffscreenRenderer.hpp"
 
+#include "Allocator.hpp"
+
 OffscreenRenderer::OffscreenRenderer(star::StarScene &scene) : star::SceneRenderer(scene)
 {
 }
@@ -30,26 +32,6 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
 
     this->recordRenderingCalls(commandBuffer, frameInFlightIndex);
 
-    // std::vector<vk::ImageMemoryBarrier2> memBar =
-    // std::vector<vk::ImageMemoryBarrier2>{createMemoryBarrierPrepForDepthCopy(this->renderToDepthImages.at(frameInFlightIndex)->getImage())};
-    // vk::DependencyInfo depInfo;
-    // depInfo.sType = vk::StructureType::eDependencyInfo;
-    // depInfo.imageMemoryBarrierCount = 1;
-    // depInfo.pImageMemoryBarriers = memBar.data();
-    // depInfo.sType = vk::StructureType::eDependencyInfo;
-
-    // commandBuffer.pipelineBarrier2(depInfo);
-
-    // vk::CopyImageToBufferInfo2 imgCpy;
-    // imgCpy.sType = vk::StructureType::eCopyImageToBufferInfo2;
-    // imgCpy.dstBuffer =
-    // this->depthInfoStorageBuffers.at(frameInFlightIndex)->getVulkanBuffer();
-    // imgCpy.srcImage =
-    // this->renderToDepthImages.at(frameInFlightIndex)->getImage();
-    // imgCpy.regionCount
-
-    commandBuffer.copyBufferToImage2(imgCpy);
-
     commandBuffer.endRendering();
 }
 
@@ -59,37 +41,55 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
     std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTexture>>();
 
-    auto settings = star::StarTexture::RawTextureCreateSettings{
-        static_cast<int>(this->swapChainExtent->width),
-        static_cast<int>(this->swapChainExtent->height),
-        4,
-        1,
-        1,
-        vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage,
-        this->getCurrentRenderToImageFormat(),
-        {vk::Format::eR8G8B8A8Unorm},
-        vk::ImageAspectFlagBits::eColor,
-        VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
-        VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-        vk::ImageLayout::eColorAttachmentOptimal,
-        false,
-        false,
-        {},
-        1.0f,
-        vk::Filter::eNearest,
-        "OffscreenRenderColor"};
+    auto builder = star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
+		.setCreateInfo(
+			star::Allocator::AllocationBuilder()
+				.setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+				.setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
+				.build(),
+			vk::ImageCreateInfo()
+				.setExtent(
+					vk::Extent3D()
+						.setWidth(static_cast<int>(this->swapChainExtent->width))
+						.setHeight(static_cast<int>(this->swapChainExtent->height))
+						.setDepth(1)
+				)
+				.setUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage)
+				.setImageType(vk::ImageType::e2D)
+				.setMipLevels(1)
+				.setTiling(vk::ImageTiling::eOptimal)
+				.setInitialLayout(vk::ImageLayout::eColorAttachmentOptimal)
+				.setSamples(vk::SampleCountFlagBits::e1)
+				.setSharingMode(vk::SharingMode::eConcurrent),
+			"OffscreenRenderToImages"
+		)
+		.setBaseFormat(this->getCurrentRenderToImageFormat())
+		.addViewInfo(
+			vk::ImageViewCreateInfo()
+				.setViewType(vk::ImageViewType::e2D)
+				.setFormat(this->getCurrentRenderToImageFormat())
+				.setSubresourceRange(
+					vk::ImageSubresourceRange()
+						.setAspectMask(vk::ImageAspectFlagBits::eColor)
+						.setBaseArrayLayer(0)
+						.setLayerCount(1)
+						.setBaseMipLevel(0)
+						.setLevelCount(1)
+				)
+		);
 
     for (int i = 0; i < numFramesInFlight; i++)
     {
-        newRenderToImages.push_back(
-            std::make_unique<star::StarTexture>(settings, device.getDevice(), device.getAllocator().get()));
+        newRenderToImages.emplace_back(builder.build());
 
-        auto oneTimeSetup = device.beginSingleTimeCommands();
-        newRenderToImages.back()->transitionLayout(oneTimeSetup, vk::ImageLayout::eColorAttachmentOptimal,
-                                                   vk::AccessFlagBits::eNone, vk::AccessFlagBits::eColorAttachmentWrite,
-                                                   vk::PipelineStageFlagBits::eTopOfPipe,
-                                                   vk::PipelineStageFlagBits::eColorAttachmentOutput);
-        device.endSingleTimeCommands(oneTimeSetup);
+        // auto oneTimeSetup = device.beginSingleTimeCommands();
+
+        // star::StarTexture::TransitionImageLayout(*newRenderToImages.back(), oneTimeSetup, vk::ImageLayout::eColorAttachmentOptimal,
+        //                                            vk::AccessFlagBits::eNone, vk::AccessFlagBits::eColorAttachmentWrite,
+        //                                            vk::PipelineStageFlagBits::eTopOfPipe,
+        //                                            vk::PipelineStageFlagBits::eColorAttachmentOutput);
+
+        // device.endSingleTimeCommands(oneTimeSetup);
     }
 
     return newRenderToImages;
@@ -101,30 +101,46 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
     std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTexture>>();
 
-    auto settings = star::StarTexture::RawTextureCreateSettings{
-        static_cast<int>(this->swapChainExtent->width),
-        static_cast<int>(this->swapChainExtent->height),
-        1,
-        1,
-        1,
-        vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eStorage,
-        this->findDepthFormat(device),
-        {},
-        vk::ImageAspectFlagBits::eDepth,
-        VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO,
-        VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-        vk::ImageLayout::eDepthAttachmentOptimal,
-        false,
-        true,
-        {},
-        1.0f,
-        vk::Filter::eNearest,
-        "OffscreenDepths"};
+	auto builder = star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
+		.setCreateInfo(
+			star::Allocator::AllocationBuilder()
+				.setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+				.setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
+				.build(),
+			vk::ImageCreateInfo()
+				.setExtent(
+					vk::Extent3D()
+						.setWidth(static_cast<int>(this->swapChainExtent->width))
+						.setHeight(static_cast<int>(this->swapChainExtent->height))
+						.setDepth(1)
+				)
+				.setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled)
+				.setImageType(vk::ImageType::e2D)
+				.setMipLevels(1)
+				.setTiling(vk::ImageTiling::eOptimal)
+				.setInitialLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+				.setSamples(vk::SampleCountFlagBits::e1)
+				.setSharingMode(vk::SharingMode::eConcurrent),
+			"OffscreenRenderToImagesDepth"
+		)
+		.setBaseFormat(this->findDepthFormat(device))
+		.addViewInfo(
+			vk::ImageViewCreateInfo()
+				.setViewType(vk::ImageViewType::e2D)
+				.setFormat(this->findDepthFormat(device))
+				.setSubresourceRange(
+					vk::ImageSubresourceRange()
+						.setAspectMask(vk::ImageAspectFlagBits::eColor)
+						.setBaseArrayLayer(0)
+						.setLayerCount(1)
+						.setBaseMipLevel(0)
+						.setLevelCount(1)
+				)
+		);
 
     for (int i = 0; i < numFramesInFlight; i++)
     {
-        newRenderToImages.push_back(
-            std::make_unique<star::StarTexture>(settings, device.getDevice(), device.getAllocator().get()));
+        newRenderToImages.emplace_back(builder.build()); 
 
         auto oneTimeSetup = device.beginSingleTimeCommands();
 
@@ -135,7 +151,7 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
         barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
         barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
 
-        barrier.image = newRenderToImages.back()->getImage();
+        barrier.image = newRenderToImages.back()->getVulkanImage();
         barrier.srcAccessMask = vk::AccessFlagBits::eNone;
         barrier.dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
 

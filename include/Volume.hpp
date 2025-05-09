@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <tbb/tbb.h>
 
+#define GLM_ENABLE_EXPERIMENTAL 
 #include <glm/ext.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <random>
@@ -17,7 +18,6 @@
 
 #include "ConfigFile.hpp"
 #include "FileHelpers.hpp"
-#include "FileTexture.hpp"
 #include "GeometryHelpers.hpp"
 #include "Light.hpp"
 #include "Ray.hpp"
@@ -32,6 +32,7 @@
 #include "VolumeRenderer.hpp"
 #include "VolumeRendererCleanup.hpp"
 #include "virtual/ModulePlug/RenderResourceModifier.hpp"
+#include "Color.hpp"
 
 constexpr auto NUM_THREADS = 20;
 

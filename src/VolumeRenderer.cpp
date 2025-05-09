@@ -29,7 +29,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     prepOffscreenImages.newLayout = vk::ImageLayout::eGeneral;
     prepOffscreenImages.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
     prepOffscreenImages.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
-    prepOffscreenImages.image = this->offscreenRenderToColors->at(frameInFlightIndex)->getImage();
+    prepOffscreenImages.image = this->offscreenRenderToColors->at(frameInFlightIndex)->getVulkanImage();
     prepOffscreenImages.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
     prepOffscreenImages.subresourceRange.baseMipLevel = 0;
     prepOffscreenImages.subresourceRange.levelCount = 1;
@@ -47,7 +47,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     prepOffscreenDepths.newLayout = vk::ImageLayout::eGeneral;
     prepOffscreenDepths.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
     prepOffscreenDepths.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
-    prepOffscreenDepths.image = this->offscreenRenderToDepths->at(frameInFlightIndex)->getImage();
+    prepOffscreenDepths.image = this->offscreenRenderToDepths->at(frameInFlightIndex)->getVulkanImage();
     prepOffscreenDepths.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
     prepOffscreenDepths.subresourceRange.baseMipLevel = 0;
     prepOffscreenDepths.subresourceRange.levelCount = 1;
@@ -66,7 +66,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     prepWriteToImages.newLayout = vk::ImageLayout::eGeneral;
     prepWriteToImages.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
     prepWriteToImages.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
-    prepWriteToImages.image = this->computeWriteToImages.at(frameInFlightIndex)->getImage();
+    prepWriteToImages.image = this->computeWriteToImages.at(frameInFlightIndex)->getVulkanImage();
     prepWriteToImages.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
     prepWriteToImages.subresourceRange.baseMipLevel = 0;
     prepWriteToImages.subresourceRange.levelCount = 1;
@@ -132,51 +132,98 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
 {
     this->displaySize = std::make_unique<vk::Extent2D>(screensize);
     {
-        auto settings = star::StarTexture::RawTextureCreateSettings{static_cast<int>(screensize.width),
-                                                                    static_cast<int>(screensize.height),
-                                                                    4,
-                                                                    1,
-                                                                    1,
-                                                                    vk::ImageUsageFlagBits::eStorage |
-                                                                        vk::ImageUsageFlagBits::eSampled,
-                                                                    vk::Format::eR8G8B8A8Unorm,
-                                                                    {},
-                                                                    vk::ImageAspectFlagBits::eColor,
-                                                                    VMA_MEMORY_USAGE_GPU_ONLY,
-                                                                    VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-                                                                    vk::ImageLayout::eShaderReadOnlyOptimal,
-                                                                    false,
-                                                                    true,
-                                                                    {},
-                                                                    1.0f,
-                                                                    vk::Filter::eNearest,
-                                                                    "VolumeRenderer"};
+        // auto settings = star::StarTexture::RawTextureCreateSettings{static_cast<int>(screensize.width),
+        //                                                             static_cast<int>(screensize.height),
+        //                                                             4,
+        //                                                             1,
+        //                                                             1,
+        //                                                             vk::ImageUsageFlagBits::eStorage |
+        //                                                                 vk::ImageUsageFlagBits::eSampled,
+        //                                                             vk::Format::eR8G8B8A8Unorm,
+        //                                                             {},
+        //                                                             vk::ImageAspectFlagBits::eColor,
+        //                                                             VMA_MEMORY_USAGE_GPU_ONLY,
+        //                                                             VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+        //                                                             vk::ImageLayout::eShaderReadOnlyOptimal,
+        //                                                             false,
+        //                                                             true,
+        //                                                             {},
+        //                                                             1.0f,
+        //                                                             vk::Filter::eNearest,
+        //                                                             "VolumeRenderer"};
 
-        this->computeWriteToImages.resize(numFramesInFlight);
+        auto builder = star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
+            .setCreateInfo(
+                star::Allocator::AllocationBuilder()
+                    .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                    .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
+                    .build(),
+                vk::ImageCreateInfo()
+                    .setExtent(
+                        vk::Extent3D()
+                            .setWidth(static_cast<int>(this->displaySize->width))
+                            .setHeight(static_cast<int>(this->displaySize->height))
+                            .setDepth(1)
+                    )
+                    .setUsage(vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage)
+                    .setImageType(vk::ImageType::e2D)
+                    .setMipLevels(1)
+                    .setTiling(vk::ImageTiling::eOptimal)
+                    .setInitialLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                    .setSamples(vk::SampleCountFlagBits::e1)
+                    .setSharingMode(vk::SharingMode::eConcurrent),
+                "VolumeRendererImages"
+            )
+            .setBaseFormat(vk::Format::eR8G8B8A8Unorm)
+            .addViewInfo(
+                vk::ImageViewCreateInfo()
+                    .setViewType(vk::ImageViewType::e2D)
+                    .setFormat(vk::Format::eR8G8B8A8Unorm)
+                    .setSubresourceRange(
+                        vk::ImageSubresourceRange()
+                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                            .setBaseArrayLayer(0)
+                            .setLayerCount(1)
+                            .setBaseMipLevel(0)
+                            .setLevelCount(1)
+                    )
+        );
+
 
         for (int i = 0; i < numFramesInFlight; i++)
         {
-            this->computeWriteToImages[i] =
-                std::make_unique<star::StarTexture>(settings, device.getDevice(), device.getAllocator().get());
+            this->computeWriteToImages.emplace_back(builder.build());
 
             // set the layout to general for compute shader use
             auto oneTime = device.beginSingleTimeCommands();
-            this->computeWriteToImages[i]->transitionLayout(oneTime, vk::ImageLayout::eShaderReadOnlyOptimal,
-                                                            vk::AccessFlagBits::eNone, vk::AccessFlagBits::eShaderRead,
-                                                            vk::PipelineStageFlagBits::eTopOfPipe,
-                                                            vk::PipelineStageFlagBits::eComputeShader);
+
+            vk::ImageMemoryBarrier barrier{};
+            barrier.sType = vk::StructureType::eImageMemoryBarrier;
+            barrier.oldLayout = vk::ImageLayout::eUndefined;
+            barrier.newLayout = vk::ImageLayout::eGeneral;
+            barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
+            barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
+
+            barrier.image = this->computeWriteToImages.back()->getVulkanImage();
+            barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+            barrier.dstAccessMask = vk::AccessFlagBits::eShaderWrite;
+
+            barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+            barrier.subresourceRange.baseMipLevel = 0; // image does not have any mipmap levels
+            barrier.subresourceRange.levelCount = 1;   // image is not an array
+            barrier.subresourceRange.baseArrayLayer = 0;
+            barrier.subresourceRange.layerCount = 1;
+
+            oneTime.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,         // which pipeline stages should
+                                                                                        // occurr before barrier
+                                        vk::PipelineStageFlagBits::eComputeShader, // pipeline stage in
+                                                                                        // which operations will
+                                                                                        // wait on the barrier
+                                        {}, {}, nullptr, barrier);
+
             device.endSingleTimeCommands(oneTime);
         }
     }
-
-    star::StarBuffer::BufferCreationArgs cpyDepth;
-    cpyDepth.instanceSize = sizeof(float);
-    cpyDepth.instanceCount = screensize.height * screensize.width;
-    cpyDepth.memoryUsageFlags = VmaMemoryUsage::VMA_MEMORY_USAGE_GPU_ONLY;
-    cpyDepth.creationFlags = VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-    cpyDepth.useFlags = vk::BufferUsageFlagBits::eStorageBuffer;
-    cpyDepth.sharingMode = vk::SharingMode::eConcurrent;
-    cpyDepth.allocationName = "CopyToDepthImage-";
 
     for (uint8_t i = 0; i < numFramesInFlight; i++)
     {
@@ -185,9 +232,6 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
 
         this->fogControlShaderInfo.emplace_back(star::ManagerRenderResource::addRequest(
             std::make_unique<FogControlInfoController>(i, this->fogNearDist, this->fogFarDist)));
-
-        this->renderToDepthBuffers.emplace_back(
-            std::make_unique<star::StarBuffer>(device.getAllocator().get(), cpyDepth));
     }
 }
 

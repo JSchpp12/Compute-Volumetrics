@@ -1,5 +1,6 @@
 #pragma once
 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <GLFW/glfw3.h>
 #include <openvdb/openvdb.h>
 #include <openvdb/tools/SignedFloodFill.h>

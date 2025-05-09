@@ -14,16 +14,11 @@ class AABBTransfer : public star::TransferRequest::Buffer
     {
     }
 
-    star::StarBuffer::BufferCreationArgs getCreateArgs() const override
-    {
-        return star::StarBuffer::BufferCreationArgs(sizeof(glm::vec4), 2,
-                                                    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                                                        VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                                                    VMA_MEMORY_USAGE_AUTO, vk::BufferUsageFlagBits::eUniformBuffer,
-                                                    vk::SharingMode::eConcurrent, "AABBInfoBuffer");
-    }
+    std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device& device, VmaAllocator& allocator) const override; 
 
-    void writeData(star::StarBuffer &buffer) const override;
+    std::unique_ptr<star::StarBuffer> createFinal(vk::Device &device, VmaAllocator &allocator) const override; 
+        
+    void writeDataToStageBuffer(star::StarBuffer& buffer) const override; 
 
   protected:
     const std::array<glm::vec4, 2> aabbBounds;

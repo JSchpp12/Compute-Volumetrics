@@ -10,7 +10,7 @@ void VolumeRendererCleanup::recordCommandBuffer(vk::CommandBuffer &commandBuffer
         barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
         barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
 
-        barrier.image = this->computeOutputTextures->at(frameInFlightIndex)->getImage();
+        barrier.image = this->computeOutputTextures->at(frameInFlightIndex)->getVulkanImage();
         barrier.srcAccessMask = vk::AccessFlagBits::eShaderWrite;
         barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
@@ -36,7 +36,7 @@ void VolumeRendererCleanup::recordCommandBuffer(vk::CommandBuffer &commandBuffer
         barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
         barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
 
-        barrier.image = this->offscreenRenderDepths->at(frameInFlightIndex)->getImage();
+        barrier.image = this->offscreenRenderDepths->at(frameInFlightIndex)->getVulkanImage();
         barrier.srcAccessMask = vk::AccessFlagBits::eNone;
         barrier.dstAccessMask = vk::AccessFlagBits::eNone;
         barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
@@ -57,7 +57,7 @@ void VolumeRendererCleanup::recordCommandBuffer(vk::CommandBuffer &commandBuffer
         barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
         barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
 
-        barrier.image = this->offscreenRenderTextures->at(frameInFlightIndex)->getImage();
+        barrier.image = this->offscreenRenderTextures->at(frameInFlightIndex)->getVulkanImage();
         barrier.srcAccessMask = vk::AccessFlagBits::eNone;
         barrier.dstAccessMask = vk::AccessFlagBits::eNone;
         barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;

@@ -5,7 +5,25 @@ FogControlInfoTransfer::FogControlInfoTransfer(const float &fogNearDist, const f
 {
 }
 
-void FogControlInfoTransfer::writeData(star::StarBuffer &buffer) const
+std::unique_ptr<star::StarBuffer> FogControlInfoTransfer::createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const{
+    auto create = star::StarBuffer::BufferCreationArgs(
+        sizeof(float), 2, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        VMA_MEMORY_USAGE_AUTO, vk::BufferUsageFlagBits::eTransferSrc, vk::SharingMode::eConcurrent,
+        "FogControlBuffer_SRC");
+
+    return std::make_unique<star::StarBuffer>(allocator, create); 
+}
+
+std::unique_ptr<star::StarBuffer> FogControlInfoTransfer::createFinal(vk::Device &device, VmaAllocator &allocator) const{
+    auto create = star::StarBuffer::BufferCreationArgs(
+        sizeof(float), 2, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+        VMA_MEMORY_USAGE_AUTO, vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst, vk::SharingMode::eConcurrent,
+        "FogControlBuffer");
+
+    return std::make_unique<star::StarBuffer>(allocator, create); 
+}
+
+void FogControlInfoTransfer::writeDataToStageBuffer(star::StarBuffer &buffer) const
 {
     buffer.map();
 
@@ -17,14 +35,6 @@ void FogControlInfoTransfer::writeData(star::StarBuffer &buffer) const
     }
 
     buffer.unmap();
-}
-
-star::StarBuffer::BufferCreationArgs FogControlInfoTransfer::getCreateArgs() const
-{
-    return star::StarBuffer::BufferCreationArgs(
-        sizeof(float), 2, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-        VMA_MEMORY_USAGE_AUTO, vk::BufferUsageFlagBits::eUniformBuffer, vk::SharingMode::eConcurrent,
-        "FogControlBuffer");
 }
 
 FogControlInfoController::FogControlInfoController(const uint8_t &frameInFlightIndexToUpdateOn,

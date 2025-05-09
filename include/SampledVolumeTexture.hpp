@@ -15,12 +15,13 @@ class SampledVolumeRequest : public star::TransferRequest::Texture
     {
     }
 
-    star::StarTexture::RawTextureCreateSettings getCreateArgs() const override;
+    virtual std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device& device, VmaAllocator& allocator) const override; 
 
-    void writeData(star::StarBuffer &buffer) const override;
+    virtual std::unique_ptr<star::StarTexture> createFinal(vk::Device& device, VmaAllocator& allocator) const override; 
 
-    void copyFromTransferSRCToDST(star::StarBuffer &srcBuffer, star::StarTexture &dstTexture,
-                                  vk::CommandBuffer &commandBuffer) const override;
+    virtual void copyFromTransferSRCToDST(star::StarBuffer &srcBuffer, star::StarTexture &dst, vk::CommandBuffer &commandBuffer) const override;
+
+    virtual void writeDataToStageBuffer(star::StarBuffer &stagingBuffer) const override; 
 
   private:
     std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData;

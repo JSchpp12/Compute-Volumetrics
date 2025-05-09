@@ -9,9 +9,11 @@ class FogControlInfoTransfer : public star::TransferRequest::Buffer
     FogControlInfoTransfer(const float &fogNearDist, const float &fogFarDist);
     ~FogControlInfoTransfer() = default;
 
-    star::StarBuffer::BufferCreationArgs getCreateArgs() const override;
+    std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device& device, VmaAllocator& allocator) const override; 
 
-    void writeData(star::StarBuffer &buffer) const override;
+    std::unique_ptr<star::StarBuffer> createFinal(vk::Device &device, VmaAllocator &allocator) const override; 
+
+    void writeDataToStageBuffer(star::StarBuffer& buffer) const override; 
 
   private:
     float fogNearDist, fogFarDist;

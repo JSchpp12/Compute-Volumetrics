@@ -10,7 +10,6 @@
 #include "CommandBufferModifier.hpp"
 #include "CopyDepthTextureToBuffer.hpp"
 #include "DescriptorModifier.hpp"
-#include "FileTexture.hpp"
 #include "RenderResourceModifier.hpp"
 #include "SampledVolumeTexture.hpp"
 #include "StarBuffer.hpp"
