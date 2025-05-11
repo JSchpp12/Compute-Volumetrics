@@ -6,7 +6,6 @@
 #include "ManagerRenderResource.hpp"
 
 VolumeRenderer::VolumeRenderer(star::StarCamera &camera, const std::vector<star::Handle> &instanceModelInfo,
-                               const std::vector<star::Handle> &instanceNormalInfo,
                                std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColors,
                                std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepths,
                                const std::vector<star::Handle> &globalInfoBuffers,
@@ -14,8 +13,9 @@ VolumeRenderer::VolumeRenderer(star::StarCamera &camera, const std::vector<star:
                                const star::Handle &volumeTexture, const std::array<glm::vec4, 2> &aabbBounds)
     : offscreenRenderToColors(offscreenRenderToColors), offscreenRenderToDepths(offscreenRenderToDepths),
       globalInfoBuffers(globalInfoBuffers), sceneLightInfoBuffers(sceneLightInfoBuffers), aabbBounds(aabbBounds),
-      camera(camera), instanceModelInfo(instanceModelInfo), volumeTexture(volumeTexture),
-      instanceNormalInfo(instanceNormalInfo)
+      camera(camera), 
+      instanceModelInfo(instanceModelInfo), 
+      volumeTexture(volumeTexture)
 {
     this->cameraShaderInfo =
         star::ManagerRenderResource::addRequest(std::make_unique<CameraInfoController>(camera), true);
@@ -132,25 +132,10 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
 {
     this->displaySize = std::make_unique<vk::Extent2D>(screensize);
     {
-        // auto settings = star::StarTexture::RawTextureCreateSettings{static_cast<int>(screensize.width),
-        //                                                             static_cast<int>(screensize.height),
-        //                                                             4,
-        //                                                             1,
-        //                                                             1,
-        //                                                             vk::ImageUsageFlagBits::eStorage |
-        //                                                                 vk::ImageUsageFlagBits::eSampled,
-        //                                                             vk::Format::eR8G8B8A8Unorm,
-        //                                                             {},
-        //                                                             vk::ImageAspectFlagBits::eColor,
-        //                                                             VMA_MEMORY_USAGE_GPU_ONLY,
-        //                                                             VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-        //                                                             vk::ImageLayout::eShaderReadOnlyOptimal,
-        //                                                             false,
-        //                                                             true,
-        //                                                             {},
-        //                                                             1.0f,
-        //                                                             vk::Filter::eNearest,
-        //                                                             "VolumeRenderer"};
+        uint32_t indices[] = {
+            device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(),
+            device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex()
+        };
 
         auto builder = star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
             .setCreateInfo(
@@ -165,11 +150,14 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
                             .setHeight(static_cast<int>(this->displaySize->height))
                             .setDepth(1)
                     )
-                    .setUsage(vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eStorage)
+                    .setPQueueFamilyIndices(&indices[0])
+                    .setQueueFamilyIndexCount(2)
+                    .setArrayLayers(1)
+                    .setUsage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled)
                     .setImageType(vk::ImageType::e2D)
                     .setMipLevels(1)
                     .setTiling(vk::ImageTiling::eOptimal)
-                    .setInitialLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                    .setInitialLayout(vk::ImageLayout::eUndefined)
                     .setSamples(vk::SampleCountFlagBits::e1)
                     .setSharingMode(vk::SharingMode::eConcurrent),
                 "VolumeRendererImages"
@@ -200,7 +188,7 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
             vk::ImageMemoryBarrier barrier{};
             barrier.sType = vk::StructureType::eImageMemoryBarrier;
             barrier.oldLayout = vk::ImageLayout::eUndefined;
-            barrier.newLayout = vk::ImageLayout::eGeneral;
+            barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
             barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
             barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
 
@@ -284,9 +272,8 @@ void VolumeRenderer::createDescriptors(star::StarDevice &device, const int &numF
         shaderInfoBuilder.startOnFrameIndex(i)
             .startSet()
             .add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
-            .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal, vk::Format::eD32Sfloat,
-                 false)
-            .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, false)
+            .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal, false)
+            .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
             .add(this->cameraShaderInfo, false)
             .add(this->aabbInfoBuffers.at(i), false)
             .add(this->volumeTexture, vk::ImageLayout::eGeneral, true)
@@ -295,7 +282,7 @@ void VolumeRenderer::createDescriptors(star::StarDevice &device, const int &numF
             .add(this->instanceModelInfo.at(i), false)
             .startSet()
             .add(this->fogControlShaderInfo.at(i), false);
-    }
+    } 
 
     this->compShaderInfo = shaderInfoBuilder.build();
 

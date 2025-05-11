@@ -31,7 +31,6 @@ class VolumeRenderer : public star::CommandBufferModifier,
     };
 
     VolumeRenderer(star::StarCamera &camera, const std::vector<star::Handle> &instanceModelInfo,
-                   const std::vector<star::Handle> &instanceNormalInfo,
                    std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColors,
                    std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepths,
                    const std::vector<star::Handle> &globalInfoBuffers,
@@ -73,7 +72,6 @@ class VolumeRenderer : public star::CommandBufferModifier,
   private:
     const star::Handle volumeTexture;
     const std::vector<star::Handle> &instanceModelInfo;
-    const std::vector<star::Handle> &instanceNormalInfo;
     const std::array<glm::vec4, 2> &aabbBounds;
     const star::StarCamera &camera;
     star::Handle cameraShaderInfo;

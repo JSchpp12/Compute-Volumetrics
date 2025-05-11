@@ -1,6 +1,6 @@
 #include "CameraInfo.hpp"
 
-std::unique_ptr<star::StarBuffer> CameraInfo::createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const{
+std::unique_ptr<star::StarBuffer> CameraInfo::createStagingBuffer(vk::Device &device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const{
     auto create = star::StarBuffer::BufferCreationArgs{sizeof(CameraData),
                                                     1,
                                                     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
@@ -13,7 +13,7 @@ std::unique_ptr<star::StarBuffer> CameraInfo::createStagingBuffer(vk::Device &de
     return std::make_unique<star::StarBuffer>(allocator, create); 
 }
 
-std::unique_ptr<star::StarBuffer> CameraInfo::createFinal(vk::Device &device, VmaAllocator &allocator) const{
+std::unique_ptr<star::StarBuffer> CameraInfo::createFinal(vk::Device &device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const{
     auto create = star::StarBuffer::BufferCreationArgs{sizeof(CameraData),
                                                     1,
                                                     VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
@@ -41,7 +41,7 @@ void CameraInfo::writeDataToStageBuffer(star::StarBuffer &buffer) const
 }
 
 std::unique_ptr<star::TransferRequest::Buffer> CameraInfoController::createTransferRequest(
-    const vk::PhysicalDevice &physicalDevice)
+    star::StarDevice &device)
 {
     return std::make_unique<CameraInfo>(this->camera);
 }

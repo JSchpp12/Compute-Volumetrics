@@ -2,7 +2,7 @@
 
 #include "CastHelpers.hpp"
 
-std::unique_ptr<star::StarBuffer> SampledVolumeRequest::createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const{
+std::unique_ptr<star::StarBuffer> SampledVolumeRequest::createStagingBuffer(vk::Device &device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const{
     int width = this->sampledData->size(); 
     int height = this->sampledData->at(0).size(); 
     int depth = 0; 
@@ -19,13 +19,19 @@ std::unique_ptr<star::StarBuffer> SampledVolumeRequest::createStagingBuffer(vk::
     );
 }
 
-std::unique_ptr<star::StarTexture> SampledVolumeRequest::createFinal(vk::Device &device, VmaAllocator &allocator) const
+std::unique_ptr<star::StarTexture> SampledVolumeRequest::createFinal(vk::Device &device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const
 {
+    uint32_t indices[] = {
+        this->computeQueueFamilyIndex,
+        transferQueueFamilyIndex
+    };
+
     return star::StarTexture::Builder(device, allocator)
         .setCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
                 .setUsage(VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO)
+                .setPriority(1.0f)
                 .build(),
             vk::ImageCreateInfo()
                 .setExtent(
@@ -34,11 +40,14 @@ std::unique_ptr<star::StarTexture> SampledVolumeRequest::createFinal(vk::Device 
                         .setHeight(this->sampledData->at(0).size())
                         .setDepth(1)
                 )
-                .setUsage(vk::ImageUsageFlagBits::eSampled)
+                .setPQueueFamilyIndices(&indices[0])
+                .setQueueFamilyIndexCount(2)
+                .setUsage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
                 .setImageType(vk::ImageType::e2D)
+                .setArrayLayers(1)
                 .setMipLevels(1)
                 .setTiling(vk::ImageTiling::eOptimal)
-                .setInitialLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setInitialLayout(vk::ImageLayout::eUndefined)
                 .setSamples(vk::SampleCountFlagBits::e1)
                 .setSharingMode(vk::SharingMode::eConcurrent),
             "SampledVolumeTexture"
@@ -110,7 +119,7 @@ void SampledVolumeRequest::copyFromTransferSRCToDST(star::StarBuffer &srcBuffer,
 }
 
 std::unique_ptr<star::TransferRequest::Texture> SampledVolumeController::createTransferRequest(
-    const vk::PhysicalDevice &physicalDevice)
+    star::StarDevice &device)
 {
-    return std::make_unique<SampledVolumeRequest>(std::move(this->sampledData));
+    return std::make_unique<SampledVolumeRequest>(device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(), std::move(this->sampledData));
 }

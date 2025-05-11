@@ -14,9 +14,9 @@ class AABBTransfer : public star::TransferRequest::Buffer
     {
     }
 
-    std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device& device, VmaAllocator& allocator) const override; 
+    std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device& device, VmaAllocator& allocator, const uint32_t& transferQueueFamilyIndex) const override; 
 
-    std::unique_ptr<star::StarBuffer> createFinal(vk::Device &device, VmaAllocator &allocator) const override; 
+    std::unique_ptr<star::StarBuffer> createFinal(vk::Device &device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const override; 
         
     void writeDataToStageBuffer(star::StarBuffer& buffer) const override; 
 
@@ -32,7 +32,7 @@ class AABBController : public star::ManagerController::RenderResource::Buffer
     }
 
     std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(
-        const vk::PhysicalDevice &physicalDevice) override;
+        star::StarDevice &device) override;
 
   private:
     const std::array<glm::vec4, 2> aabbBounds;

@@ -33,9 +33,9 @@ class CameraInfo : public star::TransferRequest::Buffer
     {
     }
     
-    std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device& device, VmaAllocator& allocator) const override; 
+    std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device& device, VmaAllocator& allocator, const uint32_t& transferQueueFamilyIndex) const override; 
 
-    std::unique_ptr<star::StarBuffer> createFinal(vk::Device &device, VmaAllocator &allocator) const override; 
+    std::unique_ptr<star::StarBuffer> createFinal(vk::Device &device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const override; 
     
     void writeDataToStageBuffer(star::StarBuffer& buffer) const override; 
 
@@ -54,5 +54,5 @@ class CameraInfoController : public star::ManagerController::RenderResource::Buf
     const star::StarCamera &camera;
 
     std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(
-        const vk::PhysicalDevice &physicalDevice) override;
+        star::StarDevice &device) override;
 };

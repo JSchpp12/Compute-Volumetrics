@@ -28,7 +28,7 @@ Volume::Volume(star::StarCamera &camera, const size_t screenWidth, const size_t 
     }
 
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
-        this->camera, this->instanceModelInfos, this->instanceNormalInfos, offscreenRenderToColorImages,
+        this->camera, this->instanceModelInfos, offscreenRenderToColorImages,
         offscreenRenderToDepthImages, globalInfos, lightInfos, this->sampledTexture, this->aabbBounds);
     this->volumeRendererCleanup = std::make_unique<VolumeRendererCleanup>(
         this->volumeRenderer->getRenderToImages(), offscreenRenderToColorImages, offscreenRenderToDepthImages);

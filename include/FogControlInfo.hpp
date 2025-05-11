@@ -9,9 +9,9 @@ class FogControlInfoTransfer : public star::TransferRequest::Buffer
     FogControlInfoTransfer(const float &fogNearDist, const float &fogFarDist);
     ~FogControlInfoTransfer() = default;
 
-    std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device& device, VmaAllocator& allocator) const override; 
+    std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device& device, VmaAllocator& allocator, const uint32_t& transferQueueFamilyIndex) const override; 
 
-    std::unique_ptr<star::StarBuffer> createFinal(vk::Device &device, VmaAllocator &allocator) const override; 
+    std::unique_ptr<star::StarBuffer> createFinal(vk::Device &device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const override; 
 
     void writeDataToStageBuffer(star::StarBuffer& buffer) const override; 
 
@@ -26,7 +26,7 @@ class FogControlInfoController : public star::ManagerController::RenderResource:
                              const float &fogFarDist);
 
     std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(
-        const vk::PhysicalDevice &physicalDevice) override;
+        star::StarDevice &device) override;
 
     bool isValid(const uint8_t &currentFrameInFlightIndex) const override;
 

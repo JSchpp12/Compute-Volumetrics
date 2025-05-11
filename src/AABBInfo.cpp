@@ -1,7 +1,7 @@
 #include "AABBInfo.hpp"
 
 
-std::unique_ptr<star::StarBuffer> AABBTransfer::createStagingBuffer(vk::Device& device, VmaAllocator &allocator) const{
+std::unique_ptr<star::StarBuffer> AABBTransfer::createStagingBuffer(vk::Device& device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const{
     auto create = star::StarBuffer::BufferCreationArgs(sizeof(glm::vec4), 2,
                                                 VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
                                                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
@@ -11,7 +11,7 @@ std::unique_ptr<star::StarBuffer> AABBTransfer::createStagingBuffer(vk::Device& 
     return std::make_unique<star::StarBuffer>(allocator, create); 
 }
 
-std::unique_ptr<star::StarBuffer> AABBTransfer::createFinal(vk::Device &device, VmaAllocator &allocator) const{
+std::unique_ptr<star::StarBuffer> AABBTransfer::createFinal(vk::Device &device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const{
     auto create = star::StarBuffer::BufferCreationArgs(sizeof(glm::vec4), 2,
                                                 VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
                                                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
@@ -33,7 +33,7 @@ void AABBTransfer::writeDataToStageBuffer(star::StarBuffer &buffer) const
 }
 
 std::unique_ptr<star::TransferRequest::Buffer> AABBController::createTransferRequest(
-    const vk::PhysicalDevice &physicalDevice)
+    star::StarDevice &device)
 {
     return std::make_unique<AABBTransfer>(this->aabbBounds);
 }
