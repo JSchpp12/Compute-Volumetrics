@@ -133,6 +133,14 @@ endif()
 set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/StarlightAppBuilder/")
 set(PREP_MEDIA_CMD "${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py")
 set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
+
+set(FINAL_APPLICATION_DIR "")
+if (MSVC)
+	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}")
+else()
+	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+endif()
+
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	add_custom_command(
 		OUTPUT ${CMAKE_BINARY_DIR}/media.stamp
@@ -154,14 +162,6 @@ endif()
 add_custom_target(prepare_media_files
     DEPENDS ${MEDIA_STAMP}
 )
-
-
-set(FINAL_APPLICATION_DIR "")
-if (MSVC)
-	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}")
-else()
-	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}")
-endif()
 
 set(FORMAT_STAMP "${CMAKE_BINARY_DIR}/format.stamp")
 set(ALL_FILES ${${PROJECT_NAME}_HEADERS} ${${PROJECT_NAME}_SOURCES})
