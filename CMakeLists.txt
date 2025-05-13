@@ -130,37 +130,37 @@ if (CPPCHECK_EXECUTABLE)
 	add_dependencies("${PROJECT_NAME}_cppcheck" ${CMAKE_PROJECT_NAME})
 endif()
 
-#TODO: NEED BETTER SOLUTION FOR MEDIA FILES
 set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/StarlightAppBuilder/")
 set(PREP_MEDIA_CMD "${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py")
-add_custom_target(
-	always_run_target ALL 
-	DEPENDS ${${PROJECT_NAME}_SOURCES}
+set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+	add_custom_command(
+		OUTPUT ${CMAKE_BINARY_DIR}/media.stamp
+		COMMAND ${Python3_EXECUTABLE} ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps --fastest
+		COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_BINARY_DIR}/media.stamp
+		DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py
+		COMMENT "Running media prep"
+	)
+else()
+	add_custom_command(
+		OUTPUT ${CMAKE_BINARY_DIR}/media.stamp
+		COMMAND ${Python3_EXECUTABLE} ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps
+		COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_BINARY_DIR}/media.stamp
+		DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py
+		COMMENT "Running media prep"
+	)
+endif()
+
+add_custom_target(prepare_media_files
+    DEPENDS ${MEDIA_STAMP}
 )
+
 
 set(FINAL_APPLICATION_DIR "")
 if (MSVC)
 	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}")
 else()
 	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}")
-endif()
-
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-	add_custom_command(
-		TARGET
-			always_run_target
-		POST_BUILD
-		COMMAND 
-			${Python3_EXECUTABLE} ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps --fastest
-	)
-else()
-	add_custom_command(
-		TARGET
-			always_run_target
-		POST_BUILD
-		COMMAND 
-			${Python3_EXECUTABLE} ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps
-	)
 endif()
 
 set(FORMAT_STAMP "${CMAKE_BINARY_DIR}/format.stamp")
