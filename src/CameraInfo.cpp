@@ -1,27 +1,52 @@
 #include "CameraInfo.hpp"
 
 std::unique_ptr<star::StarBuffer> CameraInfo::createStagingBuffer(vk::Device &device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const{
-    auto create = star::StarBuffer::BufferCreationArgs{sizeof(CameraData),
-                                                    1,
-                                                    VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                                                    VMA_ALLOCATION_CREATE_MAPPED_BIT,
-                                                    VMA_MEMORY_USAGE_AUTO,
-                                                    vk::BufferUsageFlagBits::eTransferSrc,
-                                                    vk::SharingMode::eConcurrent,
-                                                    "CameraInfoBuffer_SRC"};
+    const vk::DeviceSize alignmentSize = star::StarBuffer::GetAlignment(sizeof(CameraData), this->minUniformBufferOffsetAlignment); 
 
-    return std::make_unique<star::StarBuffer>(allocator, create); 
+    return star::StarBuffer::Builder(allocator)
+		.setAllocationCreateInfo(
+			star::Allocator::AllocationBuilder()
+				.setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)
+				.setUsage(VMA_MEMORY_USAGE_AUTO)
+				.build(),
+			vk::BufferCreateInfo()
+				.setSharingMode(vk::SharingMode::eExclusive)
+				.setSize(alignmentSize)
+				.setUsage(vk::BufferUsageFlagBits::eTransferSrc),
+			"CameraInfo_Src"
+		)
+		.setInstanceCount(1)
+		.setInstanceSize(sizeof(CameraData))
+		.setMinOffsetAlignment(this->minUniformBufferOffsetAlignment)
+		.build();
 }
 
 std::unique_ptr<star::StarBuffer> CameraInfo::createFinal(vk::Device &device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const{
-    auto create = star::StarBuffer::BufferCreationArgs{sizeof(CameraData),
-                                                    1,
-                                                    VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-                                                    VMA_MEMORY_USAGE_AUTO,
-                                                    vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferDst,
-                                                    vk::SharingMode::eConcurrent,
-                                                    "CameraInfoBuffer"};
-    return std::make_unique<star::StarBuffer>(allocator, create); 
+    const vk::DeviceSize alignmentSize = star::StarBuffer::GetAlignment(sizeof(CameraData), this->minUniformBufferOffsetAlignment); 
+
+    const std::vector<uint32_t> indices = {
+        this->computeQueueFamilyIndex,
+        transferQueueFamilyIndex
+    };
+
+    return star::StarBuffer::Builder(allocator)
+		.setAllocationCreateInfo(
+			star::Allocator::AllocationBuilder()
+				.setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+				.setUsage(VMA_MEMORY_USAGE_AUTO)
+				.build(),
+			vk::BufferCreateInfo()
+				.setSharingMode(vk::SharingMode::eConcurrent)
+				.setQueueFamilyIndexCount(2)
+				.setQueueFamilyIndices(indices)
+				.setSize(alignmentSize)
+				.setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer),
+			"CameraInfo"
+		)
+		.setInstanceCount(1)
+		.setInstanceSize(sizeof(CameraData))
+		.setMinOffsetAlignment(this->minUniformBufferOffsetAlignment)
+        .build();
 }
 
 void CameraInfo::writeDataToStageBuffer(star::StarBuffer &buffer) const
@@ -35,7 +60,7 @@ void CameraInfo::writeDataToStageBuffer(star::StarBuffer &buffer) const
                            camera.getNearClippingDistance(),
                            tan(camera.getVerticalFieldOfView(true))};
 
-    buffer.writeToBuffer(&data, sizeof(CameraData));
+    buffer.writeToIndex(&data, 0); 
 
     buffer.unmap();
 }
@@ -43,5 +68,8 @@ void CameraInfo::writeDataToStageBuffer(star::StarBuffer &buffer) const
 std::unique_ptr<star::TransferRequest::Buffer> CameraInfoController::createTransferRequest(
     star::StarDevice &device)
 {
-    return std::make_unique<CameraInfo>(this->camera);
+    return std::make_unique<CameraInfo>(
+        this->camera, 
+        device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(), 
+        device.getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment);
 }

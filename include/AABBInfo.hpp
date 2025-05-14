@@ -10,7 +10,8 @@
 class AABBTransfer : public star::TransferRequest::Buffer
 {
   public:
-    AABBTransfer(const std::array<glm::vec4, 2> &aabbBounds) : aabbBounds(aabbBounds)
+    AABBTransfer(const std::array<glm::vec4, 2> &aabbBounds, const uint32_t &computeQueueFamilyIndex, const vk::DeviceSize &minUniformBufferOffsetAlignment) 
+    : aabbBounds(aabbBounds), computeQueueFamilyIndex(computeQueueFamilyIndex), minUniformBufferOffsetAlignment(minUniformBufferOffsetAlignment)
     {
     }
 
@@ -22,6 +23,8 @@ class AABBTransfer : public star::TransferRequest::Buffer
 
   protected:
     const std::array<glm::vec4, 2> aabbBounds;
+    const uint32_t computeQueueFamilyIndex; 
+    const vk::DeviceSize minUniformBufferOffsetAlignment; 
 };
 
 class AABBController : public star::ManagerController::RenderResource::Buffer

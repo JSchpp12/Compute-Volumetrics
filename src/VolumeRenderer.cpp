@@ -175,8 +175,25 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
                             .setBaseMipLevel(0)
                             .setLevelCount(1)
                     )
-        );
-
+            )
+            .setSamplerInfo(
+                vk::SamplerCreateInfo()
+                    .setAnisotropyEnable(true)
+                    .setMaxAnisotropy(star::StarTexture::SelectAnisotropyLevel(device.getPhysicalDevice().getProperties()))
+                    .setMagFilter(star::StarTexture::SelectTextureFiltering(device.getPhysicalDevice().getProperties()))
+                    .setMinFilter(star::StarTexture::SelectTextureFiltering(device.getPhysicalDevice().getProperties()))
+                    .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+                    .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+                    .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
+                    .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                    .setUnnormalizedCoordinates(VK_FALSE)
+                    .setCompareEnable(VK_FALSE)
+                    .setCompareOp(vk::CompareOp::eAlways)
+                    .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                    .setMipLodBias(0.0f)
+                    .setMinLod(0.0f)
+                    .setMaxLod(0.0f)
+            );
 
         for (int i = 0; i < numFramesInFlight; i++)
         {

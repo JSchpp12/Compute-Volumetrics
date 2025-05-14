@@ -64,8 +64,9 @@ void Application::Load()
         this->offscreenScene->add(std::move(terrain));
     }
 
-    this->scene.add(
+        this->scene.add(
         std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{0, 10, 0}, glm::vec3{-1.0, 0.0, 0.0}));
+
 
     std::cout << "Application Controls" << std::endl;
     std::cout << "H - trigger volume render" << std::endl;

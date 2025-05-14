@@ -29,7 +29,8 @@ class CameraInfo : public star::TransferRequest::Buffer
         }
     };
 
-    CameraInfo(const star::StarCamera &camera) : camera(camera)
+    CameraInfo(const star::StarCamera &camera, const uint32_t &computeQueueFamilyIndex, const vk::DeviceSize &minUniformBufferOffsetAlignment) 
+    : camera(camera), computeQueueFamilyIndex(computeQueueFamilyIndex), minUniformBufferOffsetAlignment(minUniformBufferOffsetAlignment)
     {
     }
     
@@ -40,6 +41,8 @@ class CameraInfo : public star::TransferRequest::Buffer
     void writeDataToStageBuffer(star::StarBuffer& buffer) const override; 
 
   protected:
+    const uint32_t computeQueueFamilyIndex; 
+    const vk::DeviceSize minUniformBufferOffsetAlignment;
     const star::StarCamera camera;
 
     // void writeData(star::StarBuffer &buffer) const override;
