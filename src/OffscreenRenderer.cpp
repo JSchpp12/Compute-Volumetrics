@@ -41,64 +41,56 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
     std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTexture>>();
 
-	std::vector<uint32_t> indices = std::vector<uint32_t>();
-	indices.push_back(device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex());
-	if (device.getQueueFamily(star::Queue_Type::Tpresent).getQueueFamilyIndex() != indices.back()){
-		indices.push_back(device.getQueueFamily(star::Queue_Type::Tpresent).getQueueFamilyIndex()); 
-	}
+    std::vector<uint32_t> indices = std::vector<uint32_t>();
+    indices.push_back(device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex());
+    if (device.getQueueFamily(star::Queue_Type::Tpresent).getQueueFamilyIndex() != indices.back())
+    {
+        indices.push_back(device.getQueueFamily(star::Queue_Type::Tpresent).getQueueFamilyIndex());
+    }
 
-    auto builder = star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
-		.setCreateInfo(
-			star::Allocator::AllocationBuilder()
-				.setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
-				.setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
-				.build(),
-			vk::ImageCreateInfo()
-				.setExtent(
-					vk::Extent3D()
-						.setWidth(static_cast<int>(this->swapChainExtent->width))
-						.setHeight(static_cast<int>(this->swapChainExtent->height))
-						.setDepth(1)
-				)
-                .setFlags(vk::ImageCreateFlagBits::eMutableFormat)
-                .setSharingMode(indices.size() == 1 ? vk::SharingMode::eExclusive : vk::SharingMode::eConcurrent)
-                .setQueueFamilyIndexCount(indices.size())
-                .setPQueueFamilyIndices(indices.data())
-                .setArrayLayers(1)
-				.setUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage)
-				.setImageType(vk::ImageType::e2D)
-				.setMipLevels(1)
-				.setTiling(vk::ImageTiling::eOptimal)
-				.setInitialLayout(vk::ImageLayout::eUndefined)
-				.setSamples(vk::SampleCountFlagBits::e1),
-			"OffscreenRenderToImages"
-		)
-		.setBaseFormat(this->getCurrentRenderToImageFormat())
-		.addViewInfo(
-			vk::ImageViewCreateInfo()
-				.setViewType(vk::ImageViewType::e2D)
-				.setFormat(this->getCurrentRenderToImageFormat())
-				.setSubresourceRange(
-					vk::ImageSubresourceRange()
-						.setAspectMask(vk::ImageAspectFlagBits::eColor)
-						.setBaseArrayLayer(0)
-						.setLayerCount(1)
-						.setBaseMipLevel(0)
-						.setLevelCount(1)
-				)
-		)
-        .addViewInfo(
-            vk::ImageViewCreateInfo()
-                .setViewType(vk::ImageViewType::e2D)
-                .setFormat(vk::Format::eR8G8B8A8Unorm)
-                .setSubresourceRange(
-                    vk::ImageSubresourceRange()
-                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                        .setBaseArrayLayer(0)
-                        .setLayerCount(1)
-                        .setBaseMipLevel(0)
-                        .setLevelCount(1))
-        );
+    auto builder =
+        star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
+            .setCreateInfo(
+                star::Allocator::AllocationBuilder()
+                    .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                    .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
+                    .build(),
+                vk::ImageCreateInfo()
+                    .setExtent(vk::Extent3D()
+                                   .setWidth(static_cast<int>(this->swapChainExtent->width))
+                                   .setHeight(static_cast<int>(this->swapChainExtent->height))
+                                   .setDepth(1))
+                    .setFlags(vk::ImageCreateFlagBits::eMutableFormat)
+                    .setSharingMode(indices.size() == 1 ? vk::SharingMode::eExclusive : vk::SharingMode::eConcurrent)
+                    .setQueueFamilyIndexCount(indices.size())
+                    .setPQueueFamilyIndices(indices.data())
+                    .setArrayLayers(1)
+                    .setUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage)
+                    .setImageType(vk::ImageType::e2D)
+                    .setMipLevels(1)
+                    .setTiling(vk::ImageTiling::eOptimal)
+                    .setInitialLayout(vk::ImageLayout::eUndefined)
+                    .setSamples(vk::SampleCountFlagBits::e1),
+                "OffscreenRenderToImages")
+            .setBaseFormat(this->getCurrentRenderToImageFormat())
+            .addViewInfo(vk::ImageViewCreateInfo()
+                             .setViewType(vk::ImageViewType::e2D)
+                             .setFormat(this->getCurrentRenderToImageFormat())
+                             .setSubresourceRange(vk::ImageSubresourceRange()
+                                                      .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                      .setBaseArrayLayer(0)
+                                                      .setLayerCount(1)
+                                                      .setBaseMipLevel(0)
+                                                      .setLevelCount(1)))
+            .addViewInfo(vk::ImageViewCreateInfo()
+                             .setViewType(vk::ImageViewType::e2D)
+                             .setFormat(vk::Format::eR8G8B8A8Unorm)
+                             .setSubresourceRange(vk::ImageSubresourceRange()
+                                                      .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                      .setBaseArrayLayer(0)
+                                                      .setLayerCount(1)
+                                                      .setBaseMipLevel(0)
+                                                      .setLevelCount(1)));
 
     for (int i = 0; i < numFramesInFlight; i++)
     {
@@ -106,14 +98,15 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
 
         // auto oneTimeSetup = device.beginSingleTimeCommands();
 
-        // star::StarTexture::TransitionImageLayout(*newRenderToImages.back(), oneTimeSetup, vk::ImageLayout::eColorAttachmentOptimal,
-        //                                            vk::AccessFlagBits::eNone, vk::AccessFlagBits::eColorAttachmentWrite,
+        // star::StarTexture::TransitionImageLayout(*newRenderToImages.back(), oneTimeSetup,
+        // vk::ImageLayout::eColorAttachmentOptimal,
+        //                                            vk::AccessFlagBits::eNone,
+        //                                            vk::AccessFlagBits::eColorAttachmentWrite,
         //                                            vk::PipelineStageFlagBits::eTopOfPipe,
         //                                            vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
         // device.endSingleTimeCommands(oneTimeSetup);
 
-        
         auto oneTimeSetup = device.beginSingleTimeCommands();
 
         vk::ImageMemoryBarrier barrier{};
@@ -133,11 +126,11 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = 1;
 
-        oneTimeSetup.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,         // which pipeline stages should
-                                                                                    // occurr before barrier
+        oneTimeSetup.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,             // which pipeline stages should
+                                                                                        // occurr before barrier
                                      vk::PipelineStageFlagBits::eColorAttachmentOutput, // pipeline stage in
-                                                                                    // which operations will
-                                                                                    // wait on the barrier
+                                                                                        // which operations will
+                                                                                        // wait on the barrier
                                      {}, {}, nullptr, barrier);
 
         device.endSingleTimeCommands(oneTimeSetup);
@@ -152,55 +145,68 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
     std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTexture>>();
 
-	std::vector<uint32_t> indices = std::vector<uint32_t>();
-	indices.push_back(device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex());
-	if (device.getQueueFamily(star::Queue_Type::Tpresent).getQueueFamilyIndex() != indices.back()){
-		indices.push_back(device.getQueueFamily(star::Queue_Type::Tpresent).getQueueFamilyIndex()); 
-	}
+    std::vector<uint32_t> indices = std::vector<uint32_t>();
+    indices.push_back(device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex());
+    if (device.getQueueFamily(star::Queue_Type::Tpresent).getQueueFamilyIndex() != indices.back())
+    {
+        indices.push_back(device.getQueueFamily(star::Queue_Type::Tpresent).getQueueFamilyIndex());
+    }
 
-	auto builder = star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
-		.setCreateInfo(
-			star::Allocator::AllocationBuilder()
-				.setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
-				.setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
-				.build(),
-			vk::ImageCreateInfo()
-				.setExtent(
-					vk::Extent3D()
-						.setWidth(static_cast<int>(this->swapChainExtent->width))
-						.setHeight(static_cast<int>(this->swapChainExtent->height))
-						.setDepth(1)
-				)
-                .setArrayLayers(1)
-                .setPQueueFamilyIndices(indices.data())
-                .setQueueFamilyIndexCount(indices.size())
-                .setSharingMode(indices.size() == 1 ? vk::SharingMode::eExclusive : vk::SharingMode::eConcurrent)
-				.setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled)
-				.setImageType(vk::ImageType::e2D)
-				.setMipLevels(1)
-				.setTiling(vk::ImageTiling::eOptimal)
-				.setInitialLayout(vk::ImageLayout::eUndefined)
-				.setSamples(vk::SampleCountFlagBits::e1),
-			"OffscreenRenderToImagesDepth"
-		)
-		.setBaseFormat(this->findDepthFormat(device))
-		.addViewInfo(
-			vk::ImageViewCreateInfo()
-				.setViewType(vk::ImageViewType::e2D)
-				.setFormat(this->findDepthFormat(device))
-				.setSubresourceRange(
-					vk::ImageSubresourceRange()
-						.setAspectMask(vk::ImageAspectFlagBits::eDepth)
-						.setBaseArrayLayer(0)
-						.setLayerCount(1)
-						.setBaseMipLevel(0)
-						.setLevelCount(1)
-				)
-		);
+    auto builder =
+        star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
+            .setCreateInfo(
+                star::Allocator::AllocationBuilder()
+                    .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                    .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
+                    .build(),
+                vk::ImageCreateInfo()
+                    .setExtent(vk::Extent3D()
+                                   .setWidth(static_cast<int>(this->swapChainExtent->width))
+                                   .setHeight(static_cast<int>(this->swapChainExtent->height))
+                                   .setDepth(1))
+                    .setArrayLayers(1)
+                    .setPQueueFamilyIndices(indices.data())
+                    .setQueueFamilyIndexCount(indices.size())
+                    .setSharingMode(indices.size() == 1 ? vk::SharingMode::eExclusive : vk::SharingMode::eConcurrent)
+                    .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled)
+                    .setImageType(vk::ImageType::e2D)
+                    .setMipLevels(1)
+                    .setTiling(vk::ImageTiling::eOptimal)
+                    .setInitialLayout(vk::ImageLayout::eUndefined)
+                    .setSamples(vk::SampleCountFlagBits::e1),
+                "OffscreenRenderToImagesDepth")
+            .setBaseFormat(this->findDepthFormat(device))
+            .addViewInfo(vk::ImageViewCreateInfo()
+                             .setViewType(vk::ImageViewType::e2D)
+                             .setFormat(this->findDepthFormat(device))
+                             .setSubresourceRange(vk::ImageSubresourceRange()
+                                                      .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                                      .setBaseArrayLayer(0)
+                                                      .setLayerCount(1)
+                                                      .setBaseMipLevel(0)
+                                                      .setLevelCount(1)))
+            .setSamplerInfo(
+                vk::SamplerCreateInfo()
+                    .setAnisotropyEnable(true)
+                    .setMaxAnisotropy(
+                        star::StarTexture::SelectAnisotropyLevel(device.getPhysicalDevice().getProperties()))
+                    .setMagFilter(star::StarTexture::SelectTextureFiltering(device.getPhysicalDevice().getProperties()))
+                    .setMinFilter(star::StarTexture::SelectTextureFiltering(device.getPhysicalDevice().getProperties()))
+                    .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+                    .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+                    .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
+                    .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                    .setUnnormalizedCoordinates(VK_FALSE)
+                    .setCompareEnable(VK_FALSE)
+                    .setCompareOp(vk::CompareOp::eAlways)
+                    .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                    .setMipLodBias(0.0f)
+                    .setMinLod(0.0f)
+                    .setMaxLod(0.0f));
 
     for (int i = 0; i < numFramesInFlight; i++)
     {
-        newRenderToImages.emplace_back(builder.build()); 
+        newRenderToImages.emplace_back(builder.build());
 
         auto oneTimeSetup = device.beginSingleTimeCommands();
 

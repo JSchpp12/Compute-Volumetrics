@@ -13,9 +13,7 @@ VolumeRenderer::VolumeRenderer(star::StarCamera &camera, const std::vector<star:
                                const star::Handle &volumeTexture, const std::array<glm::vec4, 2> &aabbBounds)
     : offscreenRenderToColors(offscreenRenderToColors), offscreenRenderToDepths(offscreenRenderToDepths),
       globalInfoBuffers(globalInfoBuffers), sceneLightInfoBuffers(sceneLightInfoBuffers), aabbBounds(aabbBounds),
-      camera(camera), 
-      instanceModelInfo(instanceModelInfo), 
-      volumeTexture(volumeTexture)
+      camera(camera), instanceModelInfo(instanceModelInfo), volumeTexture(volumeTexture)
 {
     this->cameraShaderInfo =
         star::ManagerRenderResource::addRequest(std::make_unique<CameraInfoController>(camera), true);
@@ -132,68 +130,60 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
 {
     this->displaySize = std::make_unique<vk::Extent2D>(screensize);
     {
-        uint32_t indices[] = {
-            device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(),
-            device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex()
-        };
+        uint32_t indices[] = {device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(),
+                              device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex()};
 
-        auto builder = star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
-            .setCreateInfo(
-                star::Allocator::AllocationBuilder()
-                    .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
-                    .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
-                    .build(),
-                vk::ImageCreateInfo()
-                    .setExtent(
-                        vk::Extent3D()
-                            .setWidth(static_cast<int>(this->displaySize->width))
-                            .setHeight(static_cast<int>(this->displaySize->height))
-                            .setDepth(1)
-                    )
-                    .setPQueueFamilyIndices(&indices[0])
-                    .setQueueFamilyIndexCount(2)
-                    .setArrayLayers(1)
-                    .setUsage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled)
-                    .setImageType(vk::ImageType::e2D)
-                    .setMipLevels(1)
-                    .setTiling(vk::ImageTiling::eOptimal)
-                    .setInitialLayout(vk::ImageLayout::eUndefined)
-                    .setSamples(vk::SampleCountFlagBits::e1)
-                    .setSharingMode(vk::SharingMode::eConcurrent),
-                "VolumeRendererImages"
-            )
-            .setBaseFormat(vk::Format::eR8G8B8A8Unorm)
-            .addViewInfo(
-                vk::ImageViewCreateInfo()
-                    .setViewType(vk::ImageViewType::e2D)
-                    .setFormat(vk::Format::eR8G8B8A8Unorm)
-                    .setSubresourceRange(
-                        vk::ImageSubresourceRange()
-                            .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                            .setBaseArrayLayer(0)
-                            .setLayerCount(1)
-                            .setBaseMipLevel(0)
-                            .setLevelCount(1)
-                    )
-            )
-            .setSamplerInfo(
-                vk::SamplerCreateInfo()
-                    .setAnisotropyEnable(true)
-                    .setMaxAnisotropy(star::StarTexture::SelectAnisotropyLevel(device.getPhysicalDevice().getProperties()))
-                    .setMagFilter(star::StarTexture::SelectTextureFiltering(device.getPhysicalDevice().getProperties()))
-                    .setMinFilter(star::StarTexture::SelectTextureFiltering(device.getPhysicalDevice().getProperties()))
-                    .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
-                    .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
-                    .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
-                    .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-                    .setUnnormalizedCoordinates(VK_FALSE)
-                    .setCompareEnable(VK_FALSE)
-                    .setCompareOp(vk::CompareOp::eAlways)
-                    .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-                    .setMipLodBias(0.0f)
-                    .setMinLod(0.0f)
-                    .setMaxLod(0.0f)
-            );
+        auto builder =
+            star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
+                .setCreateInfo(star::Allocator::AllocationBuilder()
+                                   .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                                   .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
+                                   .build(),
+                               vk::ImageCreateInfo()
+                                   .setExtent(vk::Extent3D()
+                                                  .setWidth(static_cast<int>(this->displaySize->width))
+                                                  .setHeight(static_cast<int>(this->displaySize->height))
+                                                  .setDepth(1))
+                                   .setPQueueFamilyIndices(&indices[0])
+                                   .setQueueFamilyIndexCount(2)
+                                   .setArrayLayers(1)
+                                   .setUsage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled)
+                                   .setImageType(vk::ImageType::e2D)
+                                   .setMipLevels(1)
+                                   .setTiling(vk::ImageTiling::eOptimal)
+                                   .setInitialLayout(vk::ImageLayout::eUndefined)
+                                   .setSamples(vk::SampleCountFlagBits::e1)
+                                   .setSharingMode(vk::SharingMode::eConcurrent),
+                               "VolumeRendererImages")
+                .setBaseFormat(vk::Format::eR8G8B8A8Unorm)
+                .addViewInfo(vk::ImageViewCreateInfo()
+                                 .setViewType(vk::ImageViewType::e2D)
+                                 .setFormat(vk::Format::eR8G8B8A8Unorm)
+                                 .setSubresourceRange(vk::ImageSubresourceRange()
+                                                          .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                          .setBaseArrayLayer(0)
+                                                          .setLayerCount(1)
+                                                          .setBaseMipLevel(0)
+                                                          .setLevelCount(1)))
+                .setSamplerInfo(vk::SamplerCreateInfo()
+                                    .setAnisotropyEnable(true)
+                                    .setMaxAnisotropy(star::StarTexture::SelectAnisotropyLevel(
+                                        device.getPhysicalDevice().getProperties()))
+                                    .setMagFilter(star::StarTexture::SelectTextureFiltering(
+                                        device.getPhysicalDevice().getProperties()))
+                                    .setMinFilter(star::StarTexture::SelectTextureFiltering(
+                                        device.getPhysicalDevice().getProperties()))
+                                    .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+                                    .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+                                    .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
+                                    .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                                    .setUnnormalizedCoordinates(VK_FALSE)
+                                    .setCompareEnable(VK_FALSE)
+                                    .setCompareOp(vk::CompareOp::eAlways)
+                                    .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                                    .setMipLodBias(0.0f)
+                                    .setMinLod(0.0f)
+                                    .setMaxLod(0.0f));
 
         for (int i = 0; i < numFramesInFlight; i++)
         {
@@ -219,12 +209,12 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
             barrier.subresourceRange.baseArrayLayer = 0;
             barrier.subresourceRange.layerCount = 1;
 
-            oneTime.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,         // which pipeline stages should
-                                                                                        // occurr before barrier
-                                        vk::PipelineStageFlagBits::eComputeShader, // pipeline stage in
-                                                                                        // which operations will
-                                                                                        // wait on the barrier
-                                        {}, {}, nullptr, barrier);
+            oneTime.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,     // which pipeline stages should
+                                                                               // occurr before barrier
+                                    vk::PipelineStageFlagBits::eComputeShader, // pipeline stage in
+                                                                               // which operations will
+                                                                               // wait on the barrier
+                                    {}, {}, nullptr, barrier);
 
             device.endSingleTimeCommands(oneTime);
         }
@@ -260,7 +250,8 @@ std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescrip
     return std::vector<std::pair<vk::DescriptorType, const int>>{
         std::make_pair(vk::DescriptorType::eStorageImage, (3 * numFramesInFlight)),
         std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + (4 * numFramesInFlight)),
-        std::make_pair(vk::DescriptorType::eStorageBuffer, 1), std::make_pair(vk::DescriptorType::eSampledImage, 1)};
+        std::make_pair(vk::DescriptorType::eStorageBuffer, 1), 
+        std::make_pair(vk::DescriptorType::eCombinedImageSampler, 1)};
 }
 
 void VolumeRenderer::createDescriptors(star::StarDevice &device, const int &numFramesInFlight)
@@ -269,7 +260,7 @@ void VolumeRenderer::createDescriptors(star::StarDevice &device, const int &numF
     shaderInfoBuilder
         .addSetLayout(star::StarDescriptorSetLayout::Builder(device)
                           .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                          .addBinding(1, vk::DescriptorType::eSampledImage, vk::ShaderStageFlagBits::eCompute)
+                          .addBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
                           .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
                           .addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                           .addBinding(4, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
@@ -299,7 +290,7 @@ void VolumeRenderer::createDescriptors(star::StarDevice &device, const int &numF
             .add(this->instanceModelInfo.at(i), false)
             .startSet()
             .add(this->fogControlShaderInfo.at(i), false);
-    } 
+    }
 
     this->compShaderInfo = shaderInfoBuilder.build();
 
