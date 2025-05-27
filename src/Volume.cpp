@@ -10,7 +10,8 @@ Volume::Volume(star::StarCamera &camera, const size_t screenWidth, const size_t 
                std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColorImages,
                std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepthImages,
                std::vector<star::Handle> &globalInfos, std::vector<star::Handle> &lightInfos)
-    : camera(camera), screenDimensions(screenWidth, screenHeight), lightList(lightList), StarObject()
+    : camera(camera), screenDimensions(screenWidth, screenHeight), lightList(lightList), offscreenRenderToColorImages(offscreenRenderToColorImages), 
+    offscreenRenderToDepthImages(offscreenRenderToDepthImages), StarObject()
 {
     openvdb::initialize();
     loadModel();
@@ -308,6 +309,8 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
 void Volume::recordRenderPassCommands(vk::CommandBuffer &commandBuffer, vk::PipelineLayout &pipelineLayout,
                                       int frameInFlightIndex)
 {
+
+
     this->StarObject::recordRenderPassCommands(commandBuffer, pipelineLayout, frameInFlightIndex);
 }
 

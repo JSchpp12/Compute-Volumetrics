@@ -82,6 +82,7 @@ class VolumeRenderer : public star::CommandBufferModifier,
     std::vector<star::Handle> aabbInfoBuffers;
     std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColors = nullptr;
     std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepths = nullptr;
+    std::unique_ptr<uint32_t> graphicsQueueFamilyIndex, computeQueueFamilyIndex; 
 
     std::unique_ptr<vk::Extent2D> displaySize = std::unique_ptr<vk::Extent2D>();
     std::vector<std::unique_ptr<star::StarTexture>> computeWriteToImages =

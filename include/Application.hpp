@@ -33,7 +33,7 @@ class Application : public star::StarApplication
   public:
     Application(star::StarScene &scene);
 
-    void Load();
+    void load();
 
     void onKeyPress(int key, int scancode, int mods) override;
 

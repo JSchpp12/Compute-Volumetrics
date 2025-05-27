@@ -49,3 +49,8 @@ double MathHelpers::metersToFeet(const double &meters)
 {
     return meters / 0.3048;
 }
+
+double MathHelpers::MilesToMeters(const double &miles){
+    const double MILES_TO_METERS = 1609.35;
+    return miles * MILES_TO_METERS; 
+}

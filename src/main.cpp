@@ -5,8 +5,8 @@ int main()
 {
     auto engine = star::StarEngine();
     auto application = Application(engine.getScene());
-    application.Load();
+    application.load();
     engine.init(application);
 
-    engine.Run();
+    engine.run();
 }

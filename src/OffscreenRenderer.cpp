@@ -8,6 +8,51 @@ OffscreenRenderer::OffscreenRenderer(star::StarScene &scene) : star::SceneRender
 
 void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
 {
+
+    // need to transition the image from general to color attachment
+    // also get ownership back
+    if (!this->isFirstPass)
+    {
+        std::array<const vk::ImageMemoryBarrier2, 2> backFromCompute{
+            vk::ImageMemoryBarrier2()
+                .setOldLayout(vk::ImageLayout::eGeneral)
+                .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
+                .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
+                .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
+                .setImage(this->renderToImages.at(frameInFlightIndex)->getVulkanImage())
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+                .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+                .setDstAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
+                .setSubresourceRange(vk::ImageSubresourceRange()
+                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                         .setBaseMipLevel(0)
+                                         .setBaseArrayLayer(0)
+                                         .setLevelCount(1)
+                                         .setLayerCount(1)),
+            vk::ImageMemoryBarrier2()
+                .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+                .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
+                .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
+                .setImage(this->renderToDepthImages.at(frameInFlightIndex)->getVulkanImage())
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+                .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests)
+                .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
+                .setSubresourceRange(vk::ImageSubresourceRange()
+                                         .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                         .setBaseMipLevel(0)
+                                         .setBaseArrayLayer(0)
+                                         .setLevelCount(1)
+                                         .setLayerCount(1))};
+
+        const auto deps =
+            vk::DependencyInfo().setPImageMemoryBarriers(&backFromCompute.front()).setImageMemoryBarrierCount(1);
+
+        commandBuffer.pipelineBarrier2(deps);
+    }
+
     vk::Viewport viewport = this->prepareRenderingViewport();
     commandBuffer.setViewport(0, viewport);
 
@@ -33,6 +78,78 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
     this->recordRenderingCalls(commandBuffer, frameInFlightIndex);
 
     commandBuffer.endRendering();
+
+    // pass images back to compute queue family
+
+    {
+        std::array<const vk::ImageMemoryBarrier2, 2> toCompute{
+            vk::ImageMemoryBarrier2()
+                .setImage(this->renderToImages.at(frameInFlightIndex)->getVulkanImage())
+                .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
+                .setNewLayout(vk::ImageLayout::eGeneral)
+                .setSrcQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
+                .setDstQueueFamilyIndex(*this->computeQueueFamilyIndex)
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
+                .setSrcAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
+                .setDstAccessMask(vk::AccessFlagBits2::eNone)
+                .setSubresourceRange(vk::ImageSubresourceRange()
+                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                         .setBaseMipLevel(0)
+                                         .setLevelCount(1)
+                                         .setBaseArrayLayer(0)
+                                         .setLayerCount(1)),
+            vk::ImageMemoryBarrier2()
+                .setImage(this->renderToDepthImages.at(frameInFlightIndex)->getVulkanImage())
+                .setOldLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setSrcQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
+                .setDstQueueFamilyIndex(*this->computeQueueFamilyIndex)
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests)
+                .setSrcAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
+                .setDstAccessMask(vk::AccessFlagBits2::eNone)
+                .setSubresourceRange(vk::ImageSubresourceRange()
+                                         .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                         .setBaseMipLevel(0)
+                                         .setLevelCount(1)
+                                         .setBaseArrayLayer(0)
+                                         .setLayerCount(1))};
+
+        const auto depInfo =
+            vk::DependencyInfo().setPImageMemoryBarriers(&toCompute.front()).setImageMemoryBarrierCount(2);
+
+        commandBuffer.pipelineBarrier2(depInfo);
+    }
+
+    if (this->isFirstPass)
+    {
+        this->firstFramePassCounter--;
+
+        if (this->firstFramePassCounter == 0)
+        {
+            this->isFirstPass = false;
+        }
+    }
+}
+
+void OffscreenRenderer::initResources(star::StarDevice &device, const int &numFramesInFlight,
+                                      const vk::Extent2D &screenSize)
+{
+    {
+        this->graphicsQueueFamilyIndex =
+            std::make_unique<uint32_t>(device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex());
+        const uint32_t computeQueueIndex = device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex();
+
+        if (*this->graphicsQueueFamilyIndex != computeQueueIndex)
+        {
+            this->computeQueueFamilyIndex = std::make_unique<uint32_t>(uint32_t(computeQueueIndex));
+        }
+    }
+
+    this->firstFramePassCounter = uint32_t(numFramesInFlight);
+
+    star::SceneRenderer::initResources(device, numFramesInFlight, screenSize);
 }
 
 std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderToImages(star::StarDevice &device,
@@ -41,37 +158,27 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
     std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTexture>>();
 
-    std::vector<uint32_t> indices = std::vector<uint32_t>();
-    indices.push_back(device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex());
-    if (device.getQueueFamily(star::Queue_Type::Tpresent).getQueueFamilyIndex() != indices.back())
-    {
-        indices.push_back(device.getQueueFamily(star::Queue_Type::Tpresent).getQueueFamilyIndex());
-    }
-
     auto builder =
         star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
-            .setCreateInfo(
-                star::Allocator::AllocationBuilder()
-                    .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
-                    .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
-                    .build(),
-                vk::ImageCreateInfo()
-                    .setExtent(vk::Extent3D()
-                                   .setWidth(static_cast<int>(this->swapChainExtent->width))
-                                   .setHeight(static_cast<int>(this->swapChainExtent->height))
-                                   .setDepth(1))
-                    .setFlags(vk::ImageCreateFlagBits::eMutableFormat)
-                    .setSharingMode(indices.size() == 1 ? vk::SharingMode::eExclusive : vk::SharingMode::eConcurrent)
-                    .setQueueFamilyIndexCount(indices.size())
-                    .setPQueueFamilyIndices(indices.data())
-                    .setArrayLayers(1)
-                    .setUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage)
-                    .setImageType(vk::ImageType::e2D)
-                    .setMipLevels(1)
-                    .setTiling(vk::ImageTiling::eOptimal)
-                    .setInitialLayout(vk::ImageLayout::eUndefined)
-                    .setSamples(vk::SampleCountFlagBits::e1),
-                "OffscreenRenderToImages")
+            .setCreateInfo(star::Allocator::AllocationBuilder()
+                               .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                               .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
+                               .build(),
+                           vk::ImageCreateInfo()
+                               .setExtent(vk::Extent3D()
+                                              .setWidth(static_cast<int>(this->swapChainExtent->width))
+                                              .setHeight(static_cast<int>(this->swapChainExtent->height))
+                                              .setDepth(1))
+                               .setFlags(vk::ImageCreateFlagBits::eMutableFormat)
+                               .setSharingMode(vk::SharingMode::eExclusive)
+                               .setArrayLayers(1)
+                               .setUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage)
+                               .setImageType(vk::ImageType::e2D)
+                               .setMipLevels(1)
+                               .setTiling(vk::ImageTiling::eOptimal)
+                               .setInitialLayout(vk::ImageLayout::eUndefined)
+                               .setSamples(vk::SampleCountFlagBits::e1),
+                           "OffscreenRenderToImages")
             .setBaseFormat(this->getCurrentRenderToImageFormat())
             .addViewInfo(vk::ImageViewCreateInfo()
                              .setViewType(vk::ImageViewType::e2D)
@@ -145,12 +252,7 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
     std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTexture>>();
 
-    std::vector<uint32_t> indices = std::vector<uint32_t>();
-    indices.push_back(device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex());
-    if (device.getQueueFamily(star::Queue_Type::Tpresent).getQueueFamilyIndex() != indices.back())
-    {
-        indices.push_back(device.getQueueFamily(star::Queue_Type::Tpresent).getQueueFamilyIndex());
-    }
+    const vk::Format depthFormat = this->findDepthFormat(device);
 
     auto builder =
         star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
@@ -165,9 +267,7 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
                                    .setHeight(static_cast<int>(this->swapChainExtent->height))
                                    .setDepth(1))
                     .setArrayLayers(1)
-                    .setPQueueFamilyIndices(indices.data())
-                    .setQueueFamilyIndexCount(indices.size())
-                    .setSharingMode(indices.size() == 1 ? vk::SharingMode::eExclusive : vk::SharingMode::eConcurrent)
+                    .setSharingMode(vk::SharingMode::eExclusive)
                     .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled)
                     .setImageType(vk::ImageType::e2D)
                     .setMipLevels(1)
@@ -175,10 +275,10 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
                     .setInitialLayout(vk::ImageLayout::eUndefined)
                     .setSamples(vk::SampleCountFlagBits::e1),
                 "OffscreenRenderToImagesDepth")
-            .setBaseFormat(this->findDepthFormat(device))
+            .setBaseFormat(depthFormat)
             .addViewInfo(vk::ImageViewCreateInfo()
                              .setViewType(vk::ImageViewType::e2D)
-                             .setFormat(this->findDepthFormat(device))
+                             .setFormat(depthFormat)
                              .setSubresourceRange(vk::ImageSubresourceRange()
                                                       .setAspectMask(vk::ImageAspectFlagBits::eDepth)
                                                       .setBaseArrayLayer(0)
@@ -227,11 +327,11 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = 1;
 
-        oneTimeSetup.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,         // which pipeline stages should
-                                                                                    // occurr before barrier
-                                     vk::PipelineStageFlagBits::eLateFragmentTests, // pipeline stage in
-                                                                                    // which operations will
-                                                                                    // wait on the barrier
+        oneTimeSetup.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,          // which pipeline stages should
+                                                                                     // occurr before barrier
+                                     vk::PipelineStageFlagBits::eEarlyFragmentTests, // pipeline stage in
+                                                                                     // which operations will
+                                                                                     // wait on the barrier
                                      {}, {}, nullptr, barrier);
 
         device.endSingleTimeCommands(oneTimeSetup);
@@ -243,6 +343,18 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
 std::vector<std::shared_ptr<star::StarBuffer>> OffscreenRenderer::createDepthBufferContainers(star::StarDevice &device)
 {
     return std::vector<std::shared_ptr<star::StarBuffer>>();
+}
+
+vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(const int &frameInFlightIndex)
+{
+    vk::RenderingAttachmentInfoKHR depthAttachmentInfo{};
+    depthAttachmentInfo.imageView = this->renderToDepthImages[frameInFlightIndex]->getImageView();
+    depthAttachmentInfo.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+    depthAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
+    depthAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
+    depthAttachmentInfo.clearValue = vk::ClearValue{vk::ClearDepthStencilValue{1.0f}};
+
+    return depthAttachmentInfo;
 }
 
 star::Command_Buffer_Order_Index OffscreenRenderer::getCommandBufferOrderIndex()
@@ -259,7 +371,7 @@ vk::PipelineStageFlags OffscreenRenderer::getWaitStages()
 {
     // should be able to wait until the fragment shader where the image produced
     // from the compute shader will be used
-    return vk::PipelineStageFlagBits::eFragmentShader;
+    return vk::PipelineStageFlagBits::eEarlyFragmentTests;
 }
 
 bool OffscreenRenderer::getWillBeSubmittedEachFrame()

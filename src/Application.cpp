@@ -6,7 +6,7 @@ Application::Application(star::StarScene &scene) : StarApplication(scene)
 {
 }
 
-void Application::Load()
+void Application::load()
 {
     // this->camera.setPosition(glm::vec3{ 3.0, 0.0f, 2.0f });
     this->scene.getCamera()->setPosition(glm::vec3{4.0f, 0.0f, 0.0f});
@@ -64,9 +64,8 @@ void Application::Load()
         this->offscreenScene->add(std::move(terrain));
     }
 
-        this->scene.add(
+    this->scene.add(
         std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{0, 10, 0}, glm::vec3{-1.0, 0.0, 0.0}));
-
 
     std::cout << "Application Controls" << std::endl;
     std::cout << "H - trigger volume render" << std::endl;
@@ -104,24 +103,24 @@ void Application::onKeyRelease(int key, int scancode, int mods)
 {
     const float MILES_TO_METERS = 1609.35;
 
-    if (key == star::KEY::P)
-    {
-        auto time = std::time(nullptr);
-        auto tm = *std::localtime(&time);
-        std::ostringstream oss;
-        oss << std::put_time(&tm, "%Y-%m-%d-%H-%M-%S") << ".png";
-        auto stringName = oss.str();
-        star::StarEngine::takeScreenshot(stringName);
-    }
+    // if (key == star::KEY::P)
+    // {
+    //     auto time = std::time(nullptr);
+    //     auto tm = *std::localtime(&time);
+    //     std::ostringstream oss;
+    //     oss << std::put_time(&tm, "%Y-%m-%d-%H-%M-%S") << ".png";
+    //     auto stringName = oss.str();
+    //     star::StarEngine::takeScreenshot(stringName);
+    // }
 
     if (key == star::KEY::SPACE)
     {
         auto camPosition = this->scene.getCamera()->getPosition();
         auto camLookDirection = this->scene.getCamera()->getForwardVector();
 
-        this->testObject->setPosition(glm::vec3{camPosition.x + (camLookDirection.x * MILES_TO_METERS),
-                                                camPosition.y + (camLookDirection.y * MILES_TO_METERS),
-                                                camPosition.z + (camLookDirection.z * MILES_TO_METERS)});
+        this->testObject->setPosition(glm::vec3{camPosition.x + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.x))),
+                                                camPosition.y + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.y))),
+                                                camPosition.z + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.z * MILES_TO_METERS)))});
     }
 
     if (key == star::KEY::L)

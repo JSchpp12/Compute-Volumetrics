@@ -147,7 +147,7 @@ float linearizeDepth(const float depth, const float camNearClipDist, const float
    return (2.0 * camNearClipDist * camFarClipDist) / (camFarClipDist + camNearClipDist - z * (camFarClipDist - camNearClipDist));
 }
 
-float calcFogAmt(const float depth, const float fogFarDist, const float fogNearDist){
+float calcFogAmt(const float depth, const float fogNearDist, const float fogFarDist){
    //check if within bounds of set fog distances
    if (depth >= fogFarDist)
       return 1.0;
@@ -155,16 +155,14 @@ float calcFogAmt(const float depth, const float fogFarDist, const float fogNearD
       return 0.0;
 
    //calc distance from far fog dist and interpolate
-   float fogAmt = (1 - (fogFarDist - depth) / (fogFarDist - fogNearDist)); 
-   return fogAmt; 
+   return (1 - (fogFarDist - depth) / (fogFarDist - fogNearDist));  
 }
 
 void main(){
     const ivec2 targetPixel = getTargetPixelCoords(); 
 
 	const Ray camRay = getRayForPixel(targetPixel); 
-    // float targetPixelInputDepth = imageLoad(inputSceneDepth, targetPixel).r;
-	float targetPixelInputDepth = 0; 
+    float targetPixelInputDepth = texture(inputSceneDepth, targetPixel).r;
     targetPixelInputDepth = linearizeDepth(targetPixelInputDepth, addCamInfo.nearClipDist, addCamInfo.farClipDist); 
 
 	const vec4 targetPixelInputColor = vec4(imageLoad(inputSceneColor, targetPixel));

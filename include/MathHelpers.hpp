@@ -12,4 +12,6 @@ class MathHelpers
     static double feetToMeters(const double &feet);
 
     static double metersToFeet(const double &meters);
+
+    static double MilesToMeters(const double &miles); 
 };

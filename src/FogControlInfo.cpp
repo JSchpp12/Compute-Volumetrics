@@ -23,13 +23,13 @@ std::unique_ptr<star::StarBuffer> FogControlInfoTransfer::createStagingBuffer(vk
 				.build(),
 			vk::BufferCreateInfo()
 				.setSharingMode(vk::SharingMode::eExclusive)
-				.setSize(alignmentSize * 2)
+				.setSize(sizeof(float) * 2)
 				.setUsage(vk::BufferUsageFlagBits::eTransferSrc),
 			"FogControlInfo_Src"
 		)
 		.setInstanceCount(2)
 		.setInstanceSize(sizeof(float))
-		.setMinOffsetAlignment(this->minUniformBufferOffsetAlignment)
+		// .setMinOffsetAlignment(this->minUniformBufferOffsetAlignment)
         .build();
 }
 
@@ -58,13 +58,13 @@ std::unique_ptr<star::StarBuffer> FogControlInfoTransfer::createFinal(vk::Device
 				.setSharingMode(vk::SharingMode::eConcurrent)
 				.setQueueFamilyIndexCount(2)
 				.setQueueFamilyIndices(indices)
-				.setSize(alignmentSize * 2)
+				.setSize(sizeof(float) * 2)
 				.setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer),
 			"FogControlInfo"
 		)
 		.setInstanceCount(2)
 		.setInstanceSize(sizeof(float))
-		.setMinOffsetAlignment(this->minUniformBufferOffsetAlignment)
+		// .setMinOffsetAlignment(this->minUniformBufferOffsetAlignment)
         .build();
 }
 

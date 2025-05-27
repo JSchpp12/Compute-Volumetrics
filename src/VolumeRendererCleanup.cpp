@@ -31,8 +31,8 @@ void VolumeRendererCleanup::recordCommandBuffer(vk::CommandBuffer &commandBuffer
     {
         vk::ImageMemoryBarrier barrier{};
         barrier.sType = vk::StructureType::eImageMemoryBarrier;
-        barrier.oldLayout = vk::ImageLayout::eGeneral;
-        barrier.newLayout = vk::ImageLayout::eDepthAttachmentOptimal;
+        barrier.oldLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        barrier.newLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
         barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
         barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
 
@@ -45,29 +45,41 @@ void VolumeRendererCleanup::recordCommandBuffer(vk::CommandBuffer &commandBuffer
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = 1;
 
-        commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eTopOfPipe,
-                                      {}, {}, nullptr, barrier);
+        commandBuffer.pipelineBarrier(
+            vk::PipelineStageFlagBits::eFragmentShader, 
+            vk::PipelineStageFlagBits::eEarlyFragmentTests,
+            {}, 
+            {}, 
+            nullptr, 
+            barrier
+        );
     }
 
     {
-        vk::ImageMemoryBarrier barrier{};
-        barrier.sType = vk::StructureType::eImageMemoryBarrier;
-        barrier.oldLayout = vk::ImageLayout::eGeneral;
-        barrier.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
-        barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
-        barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
+        // vk::ImageMemoryBarrier barrier{};
+        // barrier.sType = vk::StructureType::eImageMemoryBarrier;
+        // barrier.oldLayout = vk::ImageLayout::eGeneral;
+        // barrier.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        // barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
+        // barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
 
-        barrier.image = this->offscreenRenderTextures->at(frameInFlightIndex)->getVulkanImage();
-        barrier.srcAccessMask = vk::AccessFlagBits::eNone;
-        barrier.dstAccessMask = vk::AccessFlagBits::eNone;
-        barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
+        // barrier.image = this->offscreenRenderTextures->at(frameInFlightIndex)->getVulkanImage();
+        // barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+        // barrier.dstAccessMask = vk::AccessFlagBits::eNone;
+        // barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        // barrier.subresourceRange.baseMipLevel = 0;
+        // barrier.subresourceRange.levelCount = 1;
+        // barrier.subresourceRange.baseArrayLayer = 0;
+        // barrier.subresourceRange.layerCount = 1;
 
-        commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eTopOfPipe,
-                                      {}, {}, nullptr, barrier);
+        // commandBuffer.pipelineBarrier(
+        //     vk::PipelineStageFlagBits::eBottomOfPipe, 
+        //     vk::PipelineStageFlagBits::eTopOfPipe,
+        //     {}, 
+        //     {}, 
+        //     nullptr, 
+        //     barrier
+        // );
     }
 }
 

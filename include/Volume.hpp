@@ -129,6 +129,8 @@ class Volume : public star::StarObject
     std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr;
     std::unique_ptr<VolumeRendererCleanup> volumeRendererCleanup = nullptr;
     std::array<glm::vec4, 2> aabbBounds;
+    std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColorImages = nullptr; 
+    std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepthImages = nullptr; 
 
     std::vector<std::unique_ptr<star::Light>> &lightList;
     float stepSize = 0.05f, stepSize_light = 0.4f;
