@@ -2,7 +2,7 @@
 
 #include "CastHelpers.hpp"
 
-std::unique_ptr<star::StarBuffer> SampledVolumeRequest::createStagingBuffer(vk::Device &device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const{
+std::unique_ptr<star::StarBuffer> SampledVolumeRequest::createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const{
     int width = this->sampledData->size(); 
     int height = this->sampledData->at(0).size(); 
     int depth = 0; 
@@ -19,12 +19,11 @@ std::unique_ptr<star::StarBuffer> SampledVolumeRequest::createStagingBuffer(vk::
     );
 }
 
-std::unique_ptr<star::StarTexture> SampledVolumeRequest::createFinal(vk::Device &device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const
+std::unique_ptr<star::StarTexture> SampledVolumeRequest::createFinal(vk::Device &device, VmaAllocator &allocator, const std::vector<uint32_t>& transferQueueFamilyIndex) const
 {
-    uint32_t indices[] = {
-        this->computeQueueFamilyIndex,
-        transferQueueFamilyIndex
-    };
+    std::vector<uint32_t> indices = {this->computeQueueFamilyIndex};
+    for (const auto &index : transferQueueFamilyIndex)
+        indices.push_back(index); 
 
     return star::StarTexture::Builder(device, allocator)
         .setCreateInfo(
@@ -40,8 +39,8 @@ std::unique_ptr<star::StarTexture> SampledVolumeRequest::createFinal(vk::Device 
                         .setHeight(this->sampledData->at(0).size())
                         .setDepth(1)
                 )
-                .setPQueueFamilyIndices(&indices[0])
-                .setQueueFamilyIndexCount(2)
+                .setPQueueFamilyIndices(indices.data())
+                .setQueueFamilyIndexCount(indices.size())
                 .setUsage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
                 .setImageType(vk::ImageType::e2D)
                 .setArrayLayers(1)

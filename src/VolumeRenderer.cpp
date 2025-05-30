@@ -274,14 +274,14 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
             barrier.subresourceRange.baseArrayLayer = 0;
             barrier.subresourceRange.layerCount = 1;
 
-            oneTime.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,     // which pipeline stages should
+            oneTime->buffer().pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,     // which pipeline stages should
                                                                                // occurr before barrier
                                     vk::PipelineStageFlagBits::eComputeShader, // pipeline stage in
                                                                                // which operations will
                                                                                // wait on the barrier
                                     {}, {}, nullptr, barrier);
 
-            device.endSingleTimeCommands(oneTime);
+            device.endSingleTimeCommands(std::move(oneTime));
         }
     }
 

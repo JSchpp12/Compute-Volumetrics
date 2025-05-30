@@ -10,21 +10,26 @@
 class SampledVolumeRequest : public star::TransferRequest::Texture
 {
   public:
-    SampledVolumeRequest(const uint32_t& computeQueueFamilyIndex, std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData)
+    SampledVolumeRequest(const uint32_t &computeQueueFamilyIndex,
+                         std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData)
         : sampledData(std::move(sampledData)), computeQueueFamilyIndex(computeQueueFamilyIndex)
     {
     }
 
-    virtual std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device& device, VmaAllocator& allocator, const uint32_t& transferQueueFamilyIndex) const override; 
+    virtual std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device &device,
+                                                                  VmaAllocator &allocator) const override;
 
-    virtual std::unique_ptr<star::StarTexture> createFinal(vk::Device& device, VmaAllocator& allocator, const uint32_t& transferQueueFamilyIndex) const override; 
+    virtual std::unique_ptr<star::StarTexture> createFinal(
+        vk::Device &device, VmaAllocator &allocator,
+        const std::vector<uint32_t> &transferQueueFamilyIndex) const override;
 
-    virtual void copyFromTransferSRCToDST(star::StarBuffer &srcBuffer, star::StarTexture &dst, vk::CommandBuffer &commandBuffer) const override;
+    virtual void copyFromTransferSRCToDST(star::StarBuffer &srcBuffer, star::StarTexture &dst,
+                                          vk::CommandBuffer &commandBuffer) const override;
 
-    virtual void writeDataToStageBuffer(star::StarBuffer &stagingBuffer) const override; 
+    virtual void writeDataToStageBuffer(star::StarBuffer &stagingBuffer) const override;
 
   private:
-    const uint32_t computeQueueFamilyIndex; 
+    const uint32_t computeQueueFamilyIndex;
     std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData;
 };
 
@@ -36,8 +41,7 @@ class SampledVolumeController : public star::ManagerController::RenderResource::
     {
     }
 
-    std::unique_ptr<star::TransferRequest::Texture> createTransferRequest(
-        star::StarDevice &device) override;
+    std::unique_ptr<star::TransferRequest::Texture> createTransferRequest(star::StarDevice &device) override;
 
   protected:
     std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData;

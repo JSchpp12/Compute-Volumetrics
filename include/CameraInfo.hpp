@@ -29,19 +29,22 @@ class CameraInfo : public star::TransferRequest::Buffer
         }
     };
 
-    CameraInfo(const star::StarCamera &camera, const uint32_t &computeQueueFamilyIndex, const vk::DeviceSize &minUniformBufferOffsetAlignment) 
-    : camera(camera), computeQueueFamilyIndex(computeQueueFamilyIndex), minUniformBufferOffsetAlignment(minUniformBufferOffsetAlignment)
+    CameraInfo(const star::StarCamera &camera, const uint32_t &computeQueueFamilyIndex,
+               const vk::DeviceSize &minUniformBufferOffsetAlignment)
+        : camera(camera), computeQueueFamilyIndex(computeQueueFamilyIndex),
+          minUniformBufferOffsetAlignment(minUniformBufferOffsetAlignment)
     {
     }
-    
-    std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device& device, VmaAllocator& allocator, const uint32_t& transferQueueFamilyIndex) const override; 
 
-    std::unique_ptr<star::StarBuffer> createFinal(vk::Device &device, VmaAllocator &allocator, const uint32_t& transferQueueFamilyIndex) const override; 
-    
-    void writeDataToStageBuffer(star::StarBuffer& buffer) const override; 
+    std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const override;
+
+    std::unique_ptr<star::StarBuffer> createFinal(vk::Device &device, VmaAllocator &allocator,
+                                                  const std::vector<uint32_t> &transferQueueFamilyIndex) const override;
+
+    void writeDataToStageBuffer(star::StarBuffer &buffer) const override;
 
   protected:
-    const uint32_t computeQueueFamilyIndex; 
+    const uint32_t computeQueueFamilyIndex;
     const vk::DeviceSize minUniformBufferOffsetAlignment;
     const star::StarCamera camera;
 
@@ -56,6 +59,5 @@ class CameraInfoController : public star::ManagerController::RenderResource::Buf
   protected:
     const star::StarCamera &camera;
 
-    std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(
-        star::StarDevice &device) override;
+    std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::StarDevice &device) override;
 };
