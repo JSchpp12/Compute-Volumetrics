@@ -4,10 +4,23 @@
 
 ./extern/vcpkg/vcpkg integrate install
 
+if [ "./extern/StarlightAppBuilder/init.sh"]; then
+    echo "StarlightAppBuilder Already Initialized"
+else
+    git submodule init
+    git submodule update --recursive
+fi
+
+cd ./extern/StarlightAppBuilder
+/bin/bash ./init.sh
+
+cd ../../
+
 mkdir build
+mkdir build/Release
 
-cd build
+cd build/Release
 
-cmake -DCMAKE_TOOLCHAIN_FILE="../extern/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_TOOLCHAIN_FILE="../../extern/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release ../..
 
-cmake --build . -j 6
+cmake --build . -j6
