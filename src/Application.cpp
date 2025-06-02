@@ -1,5 +1,14 @@
 #include "Application.hpp"
 
+#include <sstream>
+#include <string>
+
+#include "ConfigFile.hpp"
+#include "DebugHelpers.hpp"
+#include "KeyStates.hpp"
+#include "Terrain.hpp"
+#include "Time.hpp"
+
 using namespace star;
 
 Application::Application(star::StarScene &scene) : StarApplication(scene)
@@ -118,9 +127,56 @@ void Application::onKeyRelease(int key, int scancode, int mods)
         auto camPosition = this->scene.getCamera()->getPosition();
         auto camLookDirection = this->scene.getCamera()->getForwardVector();
 
-        this->testObject->setPosition(glm::vec3{camPosition.x + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.x))),
-                                                camPosition.y + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.y))),
-                                                camPosition.z + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.z * MILES_TO_METERS)))});
+        this->testObject->setPosition(glm::vec3{
+            camPosition.x + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.x))),
+            camPosition.y + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.y))),
+            camPosition.z + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.z * MILES_TO_METERS)))});
+    }
+
+    if (key == star::KEY::B)
+    {
+        std::cout << "Select fog property to change" << std::endl;
+        std::cout << "1 - Fog Near Distance" << std::endl;
+        std::cout << "2 - Fog Far Distance" << std::endl;
+
+        int selectedMode;
+
+        {
+            std::string inputOption = std::string();
+            std::getline(std::cin, inputOption);
+            selectedMode = std::stoi(inputOption);
+        }
+
+        float selectedDistance;
+
+        std::string inputDistance;
+        std::cout << "Select Distance" << std::endl;
+
+        {
+            std::string inputOption;
+            std::getline(std::cin, inputOption);
+            selectedDistance = std::stoi(inputOption);
+        }
+
+        if (selectedDistance < 0.0f)
+        {
+            std::cout << "Negative values are not allowed. Setting to 0.0";
+            selectedDistance = 0.0f;
+        }
+
+        switch (selectedMode)
+        {
+        case (1):
+            std::cout << "Setting fog near distance to: " << selectedDistance << std::endl;
+            this->vol->setFogNearDistance(selectedDistance);
+            break;
+        case (2):
+            std::cout << "Setting fog far distance to: " << selectedDistance << std::endl; 
+            this->vol->setFogFarDistance(selectedDistance);
+            break;
+        default:
+            std::cout << "Unknown option" << std::endl;
+        }
     }
 
     if (key == star::KEY::L)

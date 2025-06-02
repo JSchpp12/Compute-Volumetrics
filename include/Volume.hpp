@@ -120,6 +120,11 @@ class Volume : public star::StarObject
 
     void setFogFarDistance(const float &newFogFarDist)
     {
+        this->volumeRenderer->setFogFarDistance(newFogFarDist); 
+    }
+
+    void setFogNearDistance(const float &newFogNearDist){
+        this->volumeRenderer->setFogNearDistance(newFogNearDist); 
     }
 
   protected:

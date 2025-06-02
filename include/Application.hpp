@@ -10,23 +10,15 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 #include <memory>
-#include <sstream>
-#include <string>
 
 #include "BasicObject.hpp"
-#include "ConfigFile.hpp"
-#include "DebugHelpers.hpp"
+
 #include "Interactivity.hpp"
-#include "KeyStates.hpp"
-#include "LightManager.hpp"
 #include "OffscreenRenderer.hpp"
 #include "ShaderManager.hpp"
-#include "Square.hpp"
 #include "StarApplication.hpp"
-#include "StarEngine.hpp"
-#include "Terrain.hpp"
-#include "Time.hpp"
 #include "Volume.hpp"
+
 
 class Application : public star::StarApplication
 {
