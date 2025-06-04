@@ -1,10 +1,10 @@
 #include "FogControlInfo.hpp"
 
-FogControlInfoTransfer::FogControlInfoTransfer(const float &fogNearDist, const float &fogFarDist,
-                                               const uint32_t &computeQueueFamilyIndex,
+FogControlInfoTransfer::FogControlInfoTransfer(const float &linearFog_nearDist, const float &linearFog_farDist,
+                                               const float &expFog_density, const uint32_t &computeQueueFamilyIndex,
                                                const vk::DeviceSize &minUniformBufferOffsetAlignment)
-    : fogNearDist(fogNearDist), fogFarDist(fogFarDist), computeQueueFamilyIndex(computeQueueFamilyIndex),
-      minUniformBufferOffsetAlignment(minUniformBufferOffsetAlignment)
+    : linearFog_nearDist(linearFog_nearDist), linearFog_farDist(linearFog_farDist), expFog_density(expFog_density),
+      computeQueueFamilyIndex(computeQueueFamilyIndex), minUniformBufferOffsetAlignment(minUniformBufferOffsetAlignment)
 {
 }
 
@@ -19,10 +19,10 @@ std::unique_ptr<star::StarBuffer> FogControlInfoTransfer::createStagingBuffer(vk
                 .build(),
             vk::BufferCreateInfo()
                 .setSharingMode(vk::SharingMode::eExclusive)
-                .setSize(sizeof(float) * 2)
+                .setSize(sizeof(float) * 3)
                 .setUsage(vk::BufferUsageFlagBits::eTransferSrc),
             "FogControlInfo_Src")
-        .setInstanceCount(2)
+        .setInstanceCount(3)
         .setInstanceSize(sizeof(float))
         .build();
 }
@@ -44,10 +44,10 @@ std::unique_ptr<star::StarBuffer> FogControlInfoTransfer::createFinal(
                 .setSharingMode(vk::SharingMode::eConcurrent)
                 .setQueueFamilyIndexCount(indices.size())
                 .setPQueueFamilyIndices(indices.data())
-                .setSize(sizeof(float) * 2)
+                .setSize(sizeof(float) * 3)
                 .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer),
             "FogControlInfo")
-        .setInstanceCount(2)
+        .setInstanceCount(3)
         .setInstanceSize(sizeof(float))
         .build();
 }
@@ -57,19 +57,23 @@ void FogControlInfoTransfer::writeDataToStageBuffer(star::StarBuffer &buffer) co
     buffer.map();
 
     {
-        float copier = float(this->fogNearDist);
+        float copier = float(this->linearFog_nearDist);
         buffer.writeToIndex(&copier, 0);
-        copier = float(this->fogFarDist);
+        copier = float(this->linearFog_farDist);
         buffer.writeToIndex(&copier, 1);
+        copier = float(this->expFog_density);
+        buffer.writeToIndex(&copier, 2);
     }
 
     buffer.unmap();
 }
 
 FogControlInfoController::FogControlInfoController(const uint8_t &frameInFlightIndexToUpdateOn,
-                                                   const float &currentFogNearDist, const float &currentFogFarDist)
+                                                   const float &currentFogNearDist, const float &currentFogFarDist,
+                                                   const float &expFog_density)
     : star::ManagerController::RenderResource::Buffer(frameInFlightIndexToUpdateOn),
-      currentFogFarDist(currentFogFarDist), currentFogNearDist(currentFogNearDist)
+      currentFogFarDist(currentFogFarDist), currentFogNearDist(currentFogNearDist),
+      currentExpFog_density(expFog_density)
 {
 }
 
@@ -77,9 +81,10 @@ std::unique_ptr<star::TransferRequest::Buffer> FogControlInfoController::createT
 {
     this->lastFogFarDist = this->currentFogFarDist;
     this->lastFogNearDist = this->currentFogNearDist;
+    this->lastExpFog_density = this->currentExpFog_density;
 
     return std::make_unique<FogControlInfoTransfer>(
-        this->currentFogNearDist, this->currentFogFarDist,
+        this->currentFogNearDist, this->currentFogFarDist, this->currentExpFog_density,
         device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(),
         device.getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment);
 }
@@ -87,7 +92,8 @@ std::unique_ptr<star::TransferRequest::Buffer> FogControlInfoController::createT
 bool FogControlInfoController::isValid(const uint8_t &currentFrameInFlightIndex) const
 {
     if (!this->star::ManagerController::RenderResource::Buffer::isValid(currentFrameInFlightIndex) &&
-        (this->lastFogNearDist != this->currentFogNearDist || this->lastFogFarDist != this->currentFogFarDist))
+        (this->lastFogNearDist != this->currentFogNearDist || this->lastFogFarDist != this->currentFogFarDist ||
+         this->lastExpFog_density != this->currentExpFog_density))
     {
         return false;
     }

@@ -22,8 +22,8 @@ std::unique_ptr<star::StarBuffer> CameraInfo::createFinal(vk::Device &device, Vm
                                                           const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
     std::vector<uint32_t> indices = {this->computeQueueFamilyIndex};
-	for (const auto &index : transferQueueFamilyIndex)
-		indices.push_back(index);
+    for (const auto &index : transferQueueFamilyIndex)
+        indices.push_back(index);
 
     return star::StarBuffer::Builder(allocator)
         .setAllocationCreateInfo(
@@ -47,12 +47,12 @@ void CameraInfo::writeDataToStageBuffer(star::StarBuffer &buffer) const
 {
     buffer.map();
 
-    auto data = CameraData{glm::inverse(camera.getProjectionMatrix()),
-                           glm::vec2(camera.getResolution()),
-                           camera.getResolution().x / camera.getResolution().y,
-                           camera.getFarClippingDistance(),
-                           camera.getNearClippingDistance(),
-                           tan(camera.getVerticalFieldOfView(true))};
+    auto data = CameraData{glm::inverse(camera->getProjectionMatrix()),
+                           glm::vec2(camera->getResolution()),
+                           (float)camera->getResolution().x / (float)camera->getResolution().y,
+                           camera->getFarClippingDistance(),
+                           camera->getNearClippingDistance(),
+                           tan(camera->getVerticalFieldOfView(true))};
 
     buffer.writeToIndex(&data, 0);
 

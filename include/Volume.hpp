@@ -9,13 +9,14 @@
 #include <stdio.h>
 #include <tbb/tbb.h>
 
-#define GLM_ENABLE_EXPERIMENTAL 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/ext.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <random>
 #include <string>
 #include <thread>
 
+#include "Color.hpp"
 #include "ConfigFile.hpp"
 #include "FileHelpers.hpp"
 #include "GeometryHelpers.hpp"
@@ -32,7 +33,7 @@
 #include "VolumeRenderer.hpp"
 #include "VolumeRendererCleanup.hpp"
 #include "virtual/ModulePlug/RenderResourceModifier.hpp"
-#include "Color.hpp"
+
 
 constexpr auto NUM_THREADS = 20;
 
@@ -82,7 +83,7 @@ class Volume : public star::StarObject
     bool rayMarchToAABB = false;
 
     ~Volume() = default;
-    Volume(star::StarCamera &camera, const size_t screenWidth, const size_t screenHeight,
+    Volume(std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
            std::vector<std::unique_ptr<star::Light>> &lightList,
            std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColorImages,
            std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepthImages,
@@ -120,30 +121,34 @@ class Volume : public star::StarObject
 
     void setFogFarDistance(const float &newFogFarDist)
     {
-        this->volumeRenderer->setFogFarDistance(newFogFarDist); 
+        this->volumeRenderer->setFogFarDistance(newFogFarDist);
     }
 
-    void setFogNearDistance(const float &newFogNearDist){
-        this->volumeRenderer->setFogNearDistance(newFogNearDist); 
+    void setFogNearDistance(const float &newFogNearDist)
+    {
+        this->volumeRenderer->setFogNearDistance(newFogNearDist);
+    }
+
+    void setFogDensity(const float &newFogDensity){
+        this->volumeRenderer->setFogDensity(newFogDensity); 
     }
 
   protected:
-    star::StarCamera &camera;
+    std::shared_ptr<star::StarCamera> camera = nullptr;
     star::Handle cameraShaderInfo = star::Handle();
     star::Handle sampledTexture = star::Handle();
     std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr;
     std::unique_ptr<VolumeRendererCleanup> volumeRendererCleanup = nullptr;
     std::array<glm::vec4, 2> aabbBounds;
-    std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColorImages = nullptr; 
-    std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepthImages = nullptr; 
+    std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColorImages = nullptr;
+    std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepthImages = nullptr;
 
     std::vector<std::unique_ptr<star::Light>> &lightList;
     float stepSize = 0.05f, stepSize_light = 0.4f;
     float sigma_absorbtion = 0.001f, sigma_scattering = 0.001f, lightPropertyDir_g = 0.2f;
     float volDensity = 1.0f;
     int russianRouletteCutoff = 4;
-    // std::shared_ptr<star::RuntimeUpdateTexture> screenTexture;
-    glm::u64vec2 screenDimensions{};
+    glm::vec2 screenDimensions{};
     openvdb::FloatGrid::Ptr grid{};
 
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;

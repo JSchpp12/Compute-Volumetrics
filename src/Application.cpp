@@ -3,24 +3,37 @@
 #include <sstream>
 #include <string>
 
+#include "BasicCamera.hpp"
+#include "BasicObject.hpp"
 #include "ConfigFile.hpp"
 #include "DebugHelpers.hpp"
 #include "KeyStates.hpp"
 #include "Terrain.hpp"
 #include "Time.hpp"
 
+
 using namespace star;
 
-Application::Application(star::StarScene &scene) : StarApplication(scene)
+Application::Application()
 {
 }
 
-void Application::load()
+std::shared_ptr<StarScene> Application::createInitialScene(StarDevice &device, const StarWindow &window,
+                                                           const uint8_t &numFramesInFlight)
 {
-    // this->camera.setPosition(glm::vec3{ 3.0, 0.0f, 2.0f });
-    this->scene.getCamera()->setPosition(glm::vec3{4.0f, 0.0f, 0.0f});
-    this->scene.getCamera()->setForwardVector(glm::vec3{0.0, 0.0, 0.0} - this->scene.getCamera()->getPosition());
+    std::shared_ptr<star::BasicCamera> camera =
+        std::make_shared<star::BasicCamera>(window.getExtent().width, window.getExtent().height, 500.0f, 0.1f);
 
+    camera->setPosition(glm::vec3{4.0f, 0.0f, 0.0f});
+    camera->setForwardVector(glm::vec3{0.0, 0.0, 0.0} - camera->getPosition());
+
+    std::shared_ptr<StarScene> newScene = std::make_shared<star::StarScene>(numFramesInFlight, camera);
+
+    return newScene;
+}
+
+void Application::startup(star::StarDevice &device, const star::StarWindow &window, const uint8_t &numFramesInFlight)
+{
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
     auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
 
@@ -31,28 +44,27 @@ void Application::load()
 
         for (int i = 0; i < framesInFLight; i++)
         {
-            globalInfos.at(i) = this->scene.getGlobalInfoBuffer(i);
-            lightInfos.at(i) = this->scene.getLightInfoBuffer(i);
+            globalInfos.at(i) = this->scene->getGlobalInfoBuffer(i);
+            lightInfos.at(i) = this->scene->getLightInfoBuffer(i);
         }
 
         this->offscreenScene =
-            std::make_unique<star::StarScene>(framesInFLight, this->scene.getCamera(), globalInfos, lightInfos);
-        this->offscreenSceneRenderer = std::make_unique<OffscreenRenderer>(*this->offscreenScene);
+            std::make_shared<star::StarScene>(framesInFLight, this->scene->getCamera(), globalInfos, lightInfos);
+        this->offscreenSceneRenderer = std::make_unique<OffscreenRenderer>(this->offscreenScene);
 
-        star::StarCamera *camera = this->scene.getCamera();
-        assert(camera != nullptr);
-
+        const uint32_t width = window.getExtent().width; 
+        const uint32_t height = window.getExtent().height; 
         auto screen = std::make_unique<Volume>(
-            *camera, std::stoi(star::ConfigFile::getSetting(star::Config_Settings::resolution_x)),
-            std::stoi(star::ConfigFile::getSetting(star::Config_Settings::resolution_x)), this->scene.getLights(),
+            this->scene->getCamera(), width,
+            height, this->scene->getLights(),
             this->offscreenSceneRenderer->getRenderToColorImages(),
             this->offscreenSceneRenderer->getRenderToDepthImages(), globalInfos, lightInfos);
 
         screen->drawBoundingBox = true;
         auto &s_i = screen->createInstance();
         s_i.setScale(glm::vec3{0.005, 0.005, 0.005});
-        auto handle = this->scene.add(std::move(screen));
-        StarObject *obj = &this->scene.getObject(handle);
+        auto handle = this->scene->add(std::move(screen));
+        StarObject *obj = &this->scene->getObject(handle);
         this->vol = static_cast<Volume *>(obj);
     }
 
@@ -73,15 +85,14 @@ void Application::load()
         this->offscreenScene->add(std::move(terrain));
     }
 
-    this->scene.add(
+    this->scene->add(
         std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{0, 10, 0}, glm::vec3{-1.0, 0.0, 0.0}));
 
     std::cout << "Application Controls" << std::endl;
-    std::cout << "H - trigger volume render" << std::endl;
-    std::cout << "M - trigger normal path traced volume render" << std::endl;
-    std::cout << "V - trigger volume visibility" << std::endl;
-    std::cout << "J - set ray marching to volume active boundry" << std::endl;
-    std::cout << "K - set ray marching to AABB" << std::endl;
+    std::cout << "B - Modify fog properties" << std::endl;
+    std::cout << "L - Set to linear fog rendering" << std::endl;
+    std::cout << "K - Set to marched fog rendering" << std::endl;
+    std::cout << "J - Set to exp fog rendering" << std::endl; 
     std::cout << std::endl;
 }
 
@@ -124,8 +135,8 @@ void Application::onKeyRelease(int key, int scancode, int mods)
 
     if (key == star::KEY::SPACE)
     {
-        auto camPosition = this->scene.getCamera()->getPosition();
-        auto camLookDirection = this->scene.getCamera()->getForwardVector();
+        auto camPosition = this->scene->getCamera()->getPosition();
+        auto camLookDirection = this->scene->getCamera()->getForwardVector();
 
         this->testObject->setPosition(glm::vec3{
             camPosition.x + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.x))),
@@ -138,6 +149,7 @@ void Application::onKeyRelease(int key, int scancode, int mods)
         std::cout << "Select fog property to change" << std::endl;
         std::cout << "1 - Fog Near Distance" << std::endl;
         std::cout << "2 - Fog Far Distance" << std::endl;
+        std::cout << "3 - Fog Density" << std::endl;
 
         int selectedMode;
 
@@ -147,32 +159,16 @@ void Application::onKeyRelease(int key, int scancode, int mods)
             selectedMode = std::stoi(inputOption);
         }
 
-        float selectedDistance;
-
-        std::string inputDistance;
-        std::cout << "Select Distance" << std::endl;
-
-        {
-            std::string inputOption;
-            std::getline(std::cin, inputOption);
-            selectedDistance = std::stoi(inputOption);
-        }
-
-        if (selectedDistance < 0.0f)
-        {
-            std::cout << "Negative values are not allowed. Setting to 0.0";
-            selectedDistance = 0.0f;
-        }
-
         switch (selectedMode)
         {
         case (1):
-            std::cout << "Setting fog near distance to: " << selectedDistance << std::endl;
-            this->vol->setFogNearDistance(selectedDistance);
+            this->vol->setFogNearDistance(PromptForVisibilityDistance());
             break;
         case (2):
-            std::cout << "Setting fog far distance to: " << selectedDistance << std::endl; 
-            this->vol->setFogFarDistance(selectedDistance);
+            this->vol->setFogFarDistance(PromptForVisibilityDistance());
+            break;
+        case (3):
+            this->vol->setFogDensity(PromptForDensity()); 
             break;
         default:
             std::cout << "Unknown option" << std::endl;
@@ -181,12 +177,19 @@ void Application::onKeyRelease(int key, int scancode, int mods)
 
     if (key == star::KEY::L)
     {
+        std::cout << "Setting fog type to: Linear" << std::endl;
         this->vol->setFogType(VolumeRenderer::FogType::linear);
     }
 
     if (key == star::KEY::K)
     {
+        std::cout << "Setting fog type to: Ray Marched" << std::endl;
         this->vol->setFogType(VolumeRenderer::FogType::marched);
+    }
+
+    if (key == star::KEY::J){
+        std::cout << "Setting fog type to: Exponential" << std::endl; 
+        this->vol->setFogType(VolumeRenderer::FogType::exp); 
     }
 }
 
@@ -208,4 +211,32 @@ void Application::onWorldUpdate(const uint32_t &frameInFlightIndex)
     // this->scene.getCamera()->getPosition(),
     // glm::inverse(this->scene.getCamera()->getViewMatrix()),
     // this->scene.getCamera()->getProjectionMatrix());
+}
+
+float Application::PromptForVisibilityDistance(){
+    std::cout << "Select Distance" << std::endl;
+    return ProcessFloatInput();
+}
+
+float Application::PromptForDensity(){
+    std::cout << "Select Density" << std::endl;
+    return ProcessFloatInput();
+}
+
+float Application::ProcessFloatInput(){
+    float selectedDistance;
+
+    std::string inputDistance;
+    {
+        std::string inputOption;
+        std::getline(std::cin, inputOption);
+        selectedDistance = std::stoi(inputOption);
+    }
+
+    if (selectedDistance < 0.0){
+        std::cout << "Invalid value provided. Defaulting to 0.0" << std::endl; 
+        selectedDistance = 0.0f; 
+    }
+
+    return selectedDistance; 
 }

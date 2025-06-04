@@ -1,6 +1,6 @@
 #version 450
 
-layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in; 
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in; 
 
 struct Light_Type{
 	uint point; 
@@ -50,6 +50,12 @@ layout(set = 1, binding = 1) uniform instanceModelMatrix{
 	mat4 modelMatrix[1024]; 
 };
 
+layout(set = 2, binding = 0) uniform FogControlerInfo{
+    float linearFog_nearDistance;
+    float linearFog_farDistance;
+	float expFog_density;
+} fogInfo; 
+
 struct Ray {
 	vec4 origin; 
 	vec4 direction; 
@@ -75,10 +81,10 @@ Ray createRay(vec4 origin, vec4 direction){
 	);
 }
 
-Ray getRayForPixel(const uint x, const uint y){
+Ray getRayForPixel(const ivec2 pixelCoords){
 	vec3 pixelLocCamera = vec3(
-		(2 * ((float(x) + 0.5) / addCamInfo.cameraDimensions.x) - 1) * addCamInfo.aspectRatio * addCamInfo.scale,
-		(1 - 2 * ((float(y) + 0.5) / addCamInfo.cameraDimensions.y)) * addCamInfo.scale,
+		(2 * ((float(pixelCoords.x) + 0.5) / addCamInfo.cameraDimensions.x) - 1) * addCamInfo.aspectRatio * addCamInfo.scale,
+		(1 - 2 * ((float(pixelCoords.y) + 0.5) / addCamInfo.cameraDimensions.y)) * addCamInfo.scale,
 		float(-1.0)
 	);
 
@@ -124,9 +130,28 @@ bool rayBoxIntersect(Ray ray, inout float t0, inout float t1){
 	return tmax >= max(0.0, tmin);  
 }
 
+ivec2 getTargetPixelCoords(){
+    return ivec2(
+        (gl_LocalInvocationID.x) + ((gl_WorkGroupID.x) * 8),
+        (gl_LocalInvocationID.y) + ((gl_WorkGroupID.y) * 8)
+    );
+}
+
+bool checkForThreadOutsideOfTarget(){
+	ivec2 imageSize = imageSize(inputSceneColor);
+	uvec2 coords = gl_GlobalInvocationID.xy; 
+	if (coords.x > imageSize.x || coords.y > imageSize.y ){
+		return false;
+	}
+
+	return true; 
+}
+
 void main(){
-    uint target_x = (gl_LocalInvocationID.x) + ((gl_WorkGroupID.x) * 16); 
-    uint target_y = (gl_LocalInvocationID.y) + ((gl_WorkGroupID.y) * 16); 
+	if (!checkForThreadOutsideOfTarget())
+		return; 
+
+	const ivec2 targetPixel = getTargetPixelCoords();
 
 	float t0 = 0; 
 	float t1 = 0; 
@@ -135,7 +160,7 @@ void main(){
 	// double depthValue = imageLoad(inputSceneDepth, screenCoords).r; 
 	// float depthDistane = distanceFromDepth(screenCoords, depthValue); 
 
-	Ray camRay = getRayForPixel(target_x, target_y); 
+	Ray camRay = getRayForPixel(targetPixel); 
 	vec4 imgColor = vec4(imageLoad(inputSceneColor, ivec2(target_x, target_y)));
 
 	if (rayBoxIntersect(camRay, t0, t1))

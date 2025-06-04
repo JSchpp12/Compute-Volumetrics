@@ -5,7 +5,7 @@
 #include "FogControlInfo.hpp"
 #include "ManagerRenderResource.hpp"
 
-VolumeRenderer::VolumeRenderer(star::StarCamera &camera, const std::vector<star::Handle> &instanceModelInfo,
+VolumeRenderer::VolumeRenderer(const std::shared_ptr<star::StarCamera> camera, const std::vector<star::Handle> &instanceModelInfo,
                                std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColors,
                                std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepths,
                                const std::vector<star::Handle> &globalInfoBuffers,
@@ -94,6 +94,9 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     case (FogType::linear):
         this->linearPipeline->bind(commandBuffer);
         break;
+    case (FogType::exp):
+        this->expPipeline->bind(commandBuffer); 
+        break;
     default:
         throw std::runtime_error("Unsupported type");
     }
@@ -102,7 +105,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0,
                                      static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
 
-    commandBuffer.dispatch(80, 45, 1);
+    commandBuffer.dispatch(this->workgroupSize.x, this->workgroupSize.y, 1);
 
     // give render to image back to graphics queue
 
@@ -182,6 +185,8 @@ bool VolumeRenderer::getWillBeRecordedOnce()
 void VolumeRenderer::initResources(star::StarDevice &device, const int &numFramesInFlight,
                                    const vk::Extent2D &screensize)
 {
+    this->workgroupSize = CalculateWorkGroupSize(screensize); 
+
     {
         const uint32_t computeIndex = device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex();
 
@@ -291,7 +296,7 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
             star::ManagerRenderResource::addRequest(std::make_unique<AABBController>(this->aabbBounds)));
 
         this->fogControlShaderInfo.emplace_back(star::ManagerRenderResource::addRequest(
-            std::make_unique<FogControlInfoController>(i, this->fogNearDist, this->fogFarDist)));
+            std::make_unique<FogControlInfoController>(i, this->fogNearDist, this->fogFarDist, this->expFog_density)));
     }
 }
 
@@ -306,6 +311,7 @@ void VolumeRenderer::destroyResources(star::StarDevice &device)
 
     this->marchedPipeline.reset();
     this->linearPipeline.reset();
+    this->expPipeline.reset();
     device.getDevice().destroyPipelineLayout(*this->computePipelineLayout);
 }
 
@@ -386,4 +392,19 @@ void VolumeRenderer::createDescriptors(star::StarDevice &device, const int &numF
     this->linearPipeline =
         std::make_unique<star::StarComputePipeline>(device, *this->computePipelineLayout, linearCompShader);
     this->linearPipeline->init();
+
+    const std::string expFogPath = 
+        star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/expFog.comp"; 
+    auto expCompShader = star::StarShader(expFogPath, star::Shader_Stage::compute); 
+    this->expPipeline = std::make_unique<star::StarComputePipeline>(device, *this->computePipelineLayout, expCompShader); 
+    this->expPipeline->init(); 
+}
+
+glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize){
+    const int threadsPerWorkgroup = 8;
+
+    return glm::uvec2{
+        std::ceil(screenSize.width / 8),
+        std::ceil(screenSize.height / 8)
+    }; 
 }

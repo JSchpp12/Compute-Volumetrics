@@ -2,7 +2,7 @@
 
 #include "Allocator.hpp"
 
-OffscreenRenderer::OffscreenRenderer(star::StarScene &scene) : star::SceneRenderer(scene)
+OffscreenRenderer::OffscreenRenderer(std::shared_ptr<star::StarScene> scene) : star::SceneRenderer(scene)
 {
 }
 

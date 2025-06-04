@@ -96,8 +96,11 @@ void SampledVolumeRequest::copyFromTransferSRCToDST(star::StarBuffer &srcBuffer,
 {
     star::StarTexture::TransitionImageLayout(dstTexture, commandBuffer, dstTexture.getBaseFormat(), vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
 
-    uint32_t width = star::CastHelpers::int_to_unsigned_int(this->sampledData->size());
-    uint32_t height = star::CastHelpers::int_to_unsigned_int(this->sampledData->at(0).size());
+    uint32_t width = 0, height = 0; 
+
+    if (!star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->size(), width) || !star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->at(0).size(), height)){
+
+    }
 
     vk::BufferImageCopy region{};
     region.bufferOffset = 0;

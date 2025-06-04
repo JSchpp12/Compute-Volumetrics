@@ -29,7 +29,7 @@ class CameraInfo : public star::TransferRequest::Buffer
         }
     };
 
-    CameraInfo(const star::StarCamera &camera, const uint32_t &computeQueueFamilyIndex,
+    CameraInfo(const std::shared_ptr<star::StarCamera> camera, const uint32_t &computeQueueFamilyIndex,
                const vk::DeviceSize &minUniformBufferOffsetAlignment)
         : camera(camera), computeQueueFamilyIndex(computeQueueFamilyIndex),
           minUniformBufferOffsetAlignment(minUniformBufferOffsetAlignment)
@@ -46,7 +46,7 @@ class CameraInfo : public star::TransferRequest::Buffer
   protected:
     const uint32_t computeQueueFamilyIndex;
     const vk::DeviceSize minUniformBufferOffsetAlignment;
-    const star::StarCamera camera;
+    const std::shared_ptr<star::StarCamera> camera = nullptr;
 
     // void writeData(star::StarBuffer &buffer) const override;
 };
@@ -54,10 +54,10 @@ class CameraInfo : public star::TransferRequest::Buffer
 class CameraInfoController : public star::ManagerController::RenderResource::Buffer
 {
   public:
-    CameraInfoController(const star::StarCamera &camera) : camera(camera) {};
+    CameraInfoController(const std::shared_ptr<star::StarCamera> camera) : camera(camera) {};
 
   protected:
-    const star::StarCamera &camera;
+    const std::shared_ptr<star::StarCamera> camera = nullptr;
 
     std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::StarDevice &device) override;
 };

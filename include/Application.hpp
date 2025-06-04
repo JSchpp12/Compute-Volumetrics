@@ -11,27 +11,28 @@
 #include <glm/gtx/transform.hpp>
 #include <memory>
 
-#include "BasicObject.hpp"
-
 #include "Interactivity.hpp"
 #include "OffscreenRenderer.hpp"
 #include "ShaderManager.hpp"
 #include "StarApplication.hpp"
 #include "Volume.hpp"
 
-
 class Application : public star::StarApplication
 {
   public:
-    Application(star::StarScene &scene);
-
-    void load();
+    Application();
 
     void onKeyPress(int key, int scancode, int mods) override;
 
   protected:
+    std::shared_ptr<star::StarScene> createInitialScene(star::StarDevice &device, const star::StarWindow &window,
+                                                        const uint8_t &numFramesInFlight) override;
+
+    virtual void startup(star::StarDevice &device, const star::StarWindow &window,
+                           const uint8_t &numFramesInFlight) override;
+
   private:
-    std::unique_ptr<star::StarScene> offscreenScene = std::unique_ptr<star::StarScene>();
+    std::shared_ptr<star::StarScene> offscreenScene = std::shared_ptr<star::StarScene>();
     std::unique_ptr<OffscreenRenderer> offscreenSceneRenderer = std::unique_ptr<OffscreenRenderer>();
 
     star::StarObjectInstance *testObject = nullptr;
@@ -42,4 +43,10 @@ class Application : public star::StarApplication
     void onMouseButtonAction(int button, int action, int mods) override;
     void onScroll(double xoffset, double yoffset) override;
     void onWorldUpdate(const uint32_t &frameInFlightIndex) override;
+
+    static float PromptForVisibilityDistance(); 
+
+    static float PromptForDensity(); 
+
+    static float ProcessFloatInput();
 };

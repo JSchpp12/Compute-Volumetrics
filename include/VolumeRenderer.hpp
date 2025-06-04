@@ -30,7 +30,7 @@ class VolumeRenderer : public star::CommandBufferModifier,
         marched
     };
 
-    VolumeRenderer(star::StarCamera &camera, const std::vector<star::Handle> &instanceModelInfo,
+    VolumeRenderer(const std::shared_ptr<star::StarCamera> camera, const std::vector<star::Handle> &instanceModelInfo,
                    std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColors,
                    std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepths,
                    const std::vector<star::Handle> &globalInfoBuffers,
@@ -64,6 +64,9 @@ class VolumeRenderer : public star::CommandBufferModifier,
     {
         this->fogNearDist = newFogNearDistance;
     }
+    void setFogDensity(const float &newFogDensity){
+        this->expFog_density = newFogDensity; 
+    }
     const float &getFogNearDistance()
     {
         return this->fogNearDist;
@@ -73,7 +76,8 @@ class VolumeRenderer : public star::CommandBufferModifier,
     const star::Handle volumeTexture;
     const std::vector<star::Handle> &instanceModelInfo;
     const std::array<glm::vec4, 2> &aabbBounds;
-    const star::StarCamera &camera;
+    const std::shared_ptr<star::StarCamera> camera = nullptr;
+    glm::uvec2 workgroupSize = glm::uvec2(); 
     star::Handle cameraShaderInfo;
     std::vector<star::Handle> fogControlShaderInfo;
     std::vector<star::Handle> sceneLightInfoBuffers = std::vector<star::Handle>();
@@ -88,13 +92,14 @@ class VolumeRenderer : public star::CommandBufferModifier,
     std::vector<std::unique_ptr<star::StarTexture>> computeWriteToImages =
         std::vector<std::unique_ptr<star::StarTexture>>();
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
-    std::unique_ptr<star::StarComputePipeline> marchedPipeline,
-        linearPipeline = std::unique_ptr<star::StarComputePipeline>();
+    std::unique_ptr<star::StarComputePipeline> marchedPipeline = std::unique_ptr<star::StarComputePipeline>(),
+        linearPipeline = std::unique_ptr<star::StarComputePipeline>(), 
+        expPipeline = std::unique_ptr<star::StarComputePipeline>(); 
     std::vector<std::unique_ptr<star::StarBuffer>> renderToDepthBuffers =
         std::vector<std::unique_ptr<star::StarBuffer>>();
 
     FogType currentFogType = FogType::marched;
-    float fogNearDist = 0.001f, fogFarDist = 100.0f;
+    float fogNearDist = 0.001f, fogFarDist = 100.0f, expFog_density = 10.0f; 
 
     // Inherited via CommandBufferModifier
     void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
@@ -119,4 +124,6 @@ class VolumeRenderer : public star::CommandBufferModifier,
     std::vector<std::pair<vk::DescriptorType, const int>> getDescriptorRequests(const int &numFramesInFlight) override;
 
     void createDescriptors(star::StarDevice &device, const int &numFramesInFlight) override;
+
+    static glm::uvec2 CalculateWorkGroupSize(const vk::Extent2D &screenSize);
 };

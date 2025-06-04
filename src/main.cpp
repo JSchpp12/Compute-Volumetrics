@@ -1,12 +1,13 @@
 #include "Application.hpp"
 #include "StarEngine.hpp"
 
+#include "ConfigFile.hpp"
+
 int main()
 {
-    auto engine = star::StarEngine();
-    auto application = Application(engine.getScene());
-    application.load();
-    engine.init(application);
+    star::ConfigFile::load("./StarEngine.cfg");
+
+    auto engine = star::StarEngine(std::make_unique<Application>());
 
     engine.run();
 }

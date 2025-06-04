@@ -5,32 +5,33 @@
 #include "ManagerRenderResource.hpp"
 #include "SampledVolumeTexture.hpp"
 
-Volume::Volume(star::StarCamera &camera, const size_t screenWidth, const size_t screenHeight,
+Volume::Volume(std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
                std::vector<std::unique_ptr<star::Light>> &lightList,
                std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColorImages,
                std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepthImages,
                std::vector<star::Handle> &globalInfos, std::vector<star::Handle> &lightInfos)
-    : camera(camera), screenDimensions(screenWidth, screenHeight), lightList(lightList), offscreenRenderToColorImages(offscreenRenderToColorImages), 
-    offscreenRenderToDepthImages(offscreenRenderToDepthImages), StarObject()
+    : camera(camera), screenDimensions(screenWidth, screenHeight), lightList(lightList),
+      offscreenRenderToColorImages(offscreenRenderToColorImages),
+      offscreenRenderToDepthImages(offscreenRenderToDepthImages), StarObject()
 {
     openvdb::initialize();
     loadModel();
 
     std::vector<std::vector<star::Color>> colors;
     colors.resize(this->screenDimensions.y);
-    for (int y = 0; y < (int)this->screenDimensions.y; y++)
+    for (int y = 0; y < this->screenDimensions.y; y++)
     {
         colors[y].resize(this->screenDimensions.x);
-        for (int x = 0; x < (int)this->screenDimensions.x; x++)
+        for (int x = 0; x < this->screenDimensions.x; x++)
         {
-            if (x == (int)this->screenDimensions.x / 2)
+            if (x == this->screenDimensions.x / 2)
                 colors[y][x] = star::Color(1.0f, 1.0f, 1.0f, 1.0f);
         }
     }
 
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
-        this->camera, this->instanceModelInfos, offscreenRenderToColorImages,
-        offscreenRenderToDepthImages, globalInfos, lightInfos, this->sampledTexture, this->aabbBounds);
+        this->camera, this->instanceModelInfos, offscreenRenderToColorImages, offscreenRenderToDepthImages, globalInfos,
+        lightInfos, this->sampledTexture, this->aabbBounds);
     this->volumeRendererCleanup = std::make_unique<VolumeRendererCleanup>(
         this->volumeRenderer->getRenderToImages(), offscreenRenderToColorImages, offscreenRenderToDepthImages);
 
@@ -43,8 +44,8 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
 
     std::string mediaPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    std::string vertPath = mediaPath + "shaders/screenWithTexture/screenWithTexture.vert";
-    std::string fragPath = mediaPath + "shaders/screenWithTexture/screenWithTexture.frag";
+    const std::string vertPath = mediaPath + "shaders/screenWithTexture/screenWithTexture.vert";
+    const std::string fragPath = mediaPath + "shaders/screenWithTexture/screenWithTexture.frag";
 
     shaders.insert(std::pair<star::Shader_Stage, star::StarShader>(
         star::Shader_Stage::vertex, star::StarShader(vertPath, star::Shader_Stage::vertex)));
@@ -61,15 +62,15 @@ void Volume::renderVolume(const double &fov_radians, const glm::vec3 &camPositio
 
     std::array<glm::vec3, 2> bbounds = this->meshes.front()->getBoundingBoxCoords();
     {
-        auto position = this->instances.front()->getPosition();
-        auto scale = this->instances.front()->getScale();
+        const auto position = this->instances.front()->getPosition();
+        const auto scale = this->instances.front()->getScale();
 
         bbounds[0] = bbounds[0] * scale + position;
         bbounds[1] = bbounds[1] * scale + position;
     }
 
     {
-        size_t curX = 0, curY = 0;
+        int curX = 0, curY = 0;
         std::array<std::unique_ptr<std::jthread>, NUM_THREADS> threads;
         int numPerThread = std::floor((this->screenDimensions.x * this->screenDimensions.y) / NUM_THREADS);
 
@@ -309,7 +310,6 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
 void Volume::recordRenderPassCommands(vk::CommandBuffer &commandBuffer, vk::PipelineLayout &pipelineLayout,
                                       int frameInFlightIndex)
 {
-
 
     this->StarObject::recordRenderPassCommands(commandBuffer, pipelineLayout, frameInFlightIndex);
 }
