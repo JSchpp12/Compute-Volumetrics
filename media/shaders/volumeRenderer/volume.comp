@@ -161,10 +161,10 @@ void main(){
 	// float depthDistane = distanceFromDepth(screenCoords, depthValue); 
 
 	Ray camRay = getRayForPixel(targetPixel); 
-	vec4 imgColor = vec4(imageLoad(inputSceneColor, ivec2(target_x, target_y)));
+	vec4 imgColor = vec4(imageLoad(inputSceneColor, targetPixel));
 
 	if (rayBoxIntersect(camRay, t0, t1))
 		imgColor = vec4(0.0, 1.0, 0.0, 1.0); 
 
-    imageStore(outputImage, ivec2(target_x, target_y), imgColor); 
+    imageStore(outputImage, targetPixel, imgColor); 
 }
