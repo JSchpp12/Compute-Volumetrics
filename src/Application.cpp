@@ -60,9 +60,8 @@ void Application::startup(star::StarDevice &device, const star::StarWindow &wind
             this->offscreenSceneRenderer->getRenderToColorImages(),
             this->offscreenSceneRenderer->getRenderToDepthImages(), globalInfos, lightInfos);
 
-        screen->drawBoundingBox = true;
         auto &s_i = screen->createInstance();
-        s_i.setScale(glm::vec3{0.005, 0.005, 0.005});
+        s_i.setScale(glm::vec3{2.0, 2.0, 2.0});
         auto handle = this->scene->add(std::move(screen));
         StarObject *obj = &this->scene->getObject(handle);
         this->vol = static_cast<Volume *>(obj);
@@ -230,7 +229,7 @@ float Application::ProcessFloatInput(){
     {
         std::string inputOption;
         std::getline(std::cin, inputOption);
-        selectedDistance = std::stoi(inputOption);
+        selectedDistance = std::stof(inputOption);
     }
 
     if (selectedDistance < 0.0){
