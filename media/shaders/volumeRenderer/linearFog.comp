@@ -33,7 +33,7 @@ layout(set = 0, binding = 3) uniform additionalCamerainfo{
 	float aspectRatio;
     float farClipDist;
     float nearClipDist;
-	double scale;
+	float scale;
 } addCamInfo; 
 layout(set = 0, binding = 4) uniform aabbInfo{
     vec4 bounds[2];

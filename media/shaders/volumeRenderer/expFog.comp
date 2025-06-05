@@ -33,7 +33,7 @@ layout(set = 0, binding = 3) uniform additionalCamerainfo{
 	float aspectRatio;
     float farClipDist;
     float nearClipDist;
-	double scale;
+	float scale;
 } addCamInfo; 
 layout(set = 0, binding = 4) uniform aabbInfo{
     vec4 bounds[2];
@@ -157,7 +157,7 @@ float linearizeDepth(const float depth, const float camNearClipDist, const float
 }
 
 float calcExpFogAmt(const float depth, const float density){
-   return clamp(1.0 - exp(-(density * depth)), 0.0, 1.0);
+   return 1.0 - clamp(exp(-density * depth), 0.0, 1.0);
 }
 
 bool checkForThreadOutsideOfTarget(){
