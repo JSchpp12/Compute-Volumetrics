@@ -22,7 +22,7 @@ std::shared_ptr<StarScene> Application::createInitialScene(StarDevice &device, c
                                                            const uint8_t &numFramesInFlight)
 {
     std::shared_ptr<star::BasicCamera> camera =
-        std::make_shared<star::BasicCamera>(window.getExtent().width, window.getExtent().height, 500.0f, 0.1f);
+        std::make_shared<star::BasicCamera>(window.getExtent().width, window.getExtent().height, 90.0f, 0.1f, 20000.0f, 500.0f, 0.1f);
 
     camera->setPosition(glm::vec3{4.0f, 0.0f, 0.0f});
     camera->setForwardVector(glm::vec3{0.0, 0.0, 0.0} - camera->getPosition());
