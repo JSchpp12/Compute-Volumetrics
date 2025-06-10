@@ -161,13 +161,13 @@ void Application::onKeyRelease(int key, int scancode, int mods)
         switch (selectedMode)
         {
         case (1):
-            this->vol->setFogNearDistance(PromptForVisibilityDistance());
+            this->vol->getFogControlInfo().linearInfo.nearDist = PromptForVisibilityDistance();
             break;
         case (2):
-            this->vol->setFogFarDistance(PromptForVisibilityDistance());
+            this->vol->getFogControlInfo().linearInfo.farDist = PromptForVisibilityDistance();
             break;
         case (3):
-            this->vol->setFogDensity(PromptForDensity()); 
+            this->vol->getFogControlInfo().expFogInfo.density = PromptForDensity(); 
             break;
         default:
             std::cout << "Unknown option" << std::endl;

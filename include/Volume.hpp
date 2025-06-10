@@ -32,7 +32,8 @@
 #include "Vertex.hpp"
 #include "VolumeRenderer.hpp"
 #include "VolumeRendererCleanup.hpp"
-#include "virtual/ModulePlug/RenderResourceModifier.hpp"
+#include "FogInfo.hpp"
+#include "RenderResourceModifier.hpp"
 
 
 constexpr auto NUM_THREADS = 20;
@@ -113,26 +114,10 @@ class Volume : public star::StarObject
         this->volumeRenderer->setFogType(fogType);
     }
 
-    void setAbsorbCoef(const float &newCoef)
-    {
-        assert(newCoef > 0 && "Coeff must be greater than 0");
-        this->sigma_absorbtion = newCoef;
+    FogInfo &getFogControlInfo(){
+        return this->volumeRenderer->getFogControlInfo(); 
     }
-
-    void setFogFarDistance(const float &newFogFarDist)
-    {
-        this->volumeRenderer->setFogFarDistance(newFogFarDist);
-    }
-
-    void setFogNearDistance(const float &newFogNearDist)
-    {
-        this->volumeRenderer->setFogNearDistance(newFogNearDist);
-    }
-
-    void setFogDensity(const float &newFogDensity){
-        this->volumeRenderer->setFogDensity(newFogDensity); 
-    }
-
+    
   protected:
     std::shared_ptr<star::StarCamera> camera = nullptr;
     star::Handle cameraShaderInfo = star::Handle();

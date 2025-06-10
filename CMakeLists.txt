@@ -42,6 +42,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/TerrainGrid.cpp"
 	"src/FogControlInfo.cpp"
 	"src/CopyDepthTextureToBuffer.cpp"
+	"src/FogInfo.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -64,6 +65,11 @@ set(${PROJECT_NAME}_HEADERS
 	"include/TerrainGrid.hpp"
 	"include/FogControlInfo.hpp"
 	"include/CopyDepthTextureToBuffer.hpp"
+	"include/FogInfo.hpp"
+)
+
+set(${PROJECT_NAME}_INCLUDE_DIRS
+	"include"
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCES};${${PROJECT_NAME}_HEADERS}")
@@ -133,22 +139,27 @@ endif()
 find_program(CPPCHECK_EXECUTABLE cppcheck)
 if (CPPCHECK_EXECUTABLE)
 	set(CPPCHECK_FILES "")
+    set(CPPCHECK_INCLUDES "")
 
-	foreach(FILE "${${PROJECT_NAME}_SOURCE}" "${PROJECT_NAME}_HEADERS")
+	foreach(FILE "${${PROJECT_NAME}_SOURCE}" "${PROJECT_NAME}_HEADERS" ${starlight_SOURCE} ${starlight_HEADERS})
 		file(TO_CMAKE_PATH "${FILE}" UNIX_PATH)
 		list(APPEND CPPCHECK_FILES "${UNIX_PATH}")
+	endforeach()
+
+	foreach(DIR ${${PROJECT_NAME}_INCLUDE_DIRS} ${starlight_INCLUDE_DIRS})
+		list(APPEND CPPCHECK_INCLUDES "-I" "${CMAKE_CURRENT_SOURCE_DIR}/${DIR}")
 	endforeach()
 
 	add_custom_target("${PROJECT_NAME}_cppcheck"
 		COMMAND ${CPPCHECK_EXECUTABLE} 
 			--enable=all 
+            --suppress=missingIncludeSystem
 			-q
 			--inline-suppr
-			--suppress=missingIncludeSystem
 			--language=c++
 			--std=c++20
 			--template=gcc
-			-I "include"
+			${CPPCHECK_INCLUDES}
 			${CPPCHECK_FILES}
 		WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 		COMMENT "Running Cppcheck"

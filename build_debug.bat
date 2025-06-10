@@ -1,5 +1,8 @@
 SETLOCAL
 
+git submodule init 
+git submodule update
+
 REM Get script path
 SET mypath=%~dp0
 SET wpath=%mypath:~0,-1%
@@ -22,7 +25,7 @@ REM Check if AppBuilder is initialized
 if exist "%appBuilderDir%" (
     echo StarlightAppBuilder Already Initialized
 ) else (
-    echo Initializing StarlightAppBuilder Project && git submodule init && git submodule update --recursive && cd /d "%appBuilderDir%" && git submodule init && git submodule update && call "%appBuilderDir%\init.bat"
+    echo Initializing StarlightAppBuilder Project && cd /d "%appBuilderDir%" && call "%appBuilderDir%\init.bat"
 )
 
 REM Configure and build

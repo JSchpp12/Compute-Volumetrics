@@ -1,12 +1,13 @@
 #pragma once
 
+#include "FogInfo.hpp"
 #include "ManagerController_RenderResource_Buffer.hpp"
 #include "TransferRequest_Buffer.hpp"
 
 class FogControlInfoTransfer : public star::TransferRequest::Buffer
 {
   public:
-    FogControlInfoTransfer(const float &linearFog_nearDist, const float &linearFog_farDist, const float &expFog_density, const uint32_t &computeQueueFamilyIndex,
+    FogControlInfoTransfer(const FogInfo::FinalizedInfo &fogInfo, const uint32_t &computeQueueFamilyIndex,
                            const vk::DeviceSize &minUniformBufferOffsetAlignment);
     ~FogControlInfoTransfer() = default;
 
@@ -20,20 +21,20 @@ class FogControlInfoTransfer : public star::TransferRequest::Buffer
   private:
     const uint32_t computeQueueFamilyIndex;
     const vk::DeviceSize minUniformBufferOffsetAlignment;
-    float linearFog_nearDist, linearFog_farDist, expFog_density; 
+    const FogInfo::FinalizedInfo fogInfo;
 };
 
 class FogControlInfoController : public star::ManagerController::RenderResource::Buffer
 {
   public:
-    FogControlInfoController(const uint8_t &frameInFlightIndexToUpdateOn, const float &fogNearDist,
-                             const float &fogFarDist, const float &expFog_density);
+    FogControlInfoController(const uint8_t &frameInFlightIndexToUpdateOn,
+                             const std::shared_ptr<FogInfo> currentFogInfo);
 
     std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::StarDevice &device) override;
 
     bool isValid(const uint8_t &currentFrameInFlightIndex) const override;
 
   private:
-    const float &currentFogNearDist, &currentFogFarDist, &currentExpFog_density;
-    float lastFogNearDist, lastFogFarDist, lastExpFog_density;
+    const std::shared_ptr<FogInfo> currentFogInfo = std::shared_ptr<FogInfo>();
+    FogInfo lastFogInfo = FogInfo();
 };

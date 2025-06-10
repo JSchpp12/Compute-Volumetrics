@@ -5,7 +5,8 @@
 #include "FogControlInfo.hpp"
 #include "ManagerRenderResource.hpp"
 
-VolumeRenderer::VolumeRenderer(const std::shared_ptr<star::StarCamera> camera, const std::vector<star::Handle> &instanceModelInfo,
+VolumeRenderer::VolumeRenderer(const std::shared_ptr<star::StarCamera> camera,
+                               const std::vector<star::Handle> &instanceModelInfo,
                                std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColors,
                                std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepths,
                                const std::vector<star::Handle> &globalInfoBuffers,
@@ -78,10 +79,9 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
                                          .setLevelCount(1)
                                          .setBaseArrayLayer(0)
                                          .setLayerCount(1))};
-        
-        const auto depInfo = vk::DependencyInfo()
-                    .setImageMemoryBarrierCount(3)
-                    .setPImageMemoryBarriers(&prepForComputeDispatch.front());
+
+        const auto depInfo =
+            vk::DependencyInfo().setImageMemoryBarrierCount(3).setPImageMemoryBarriers(&prepForComputeDispatch.front());
 
         commandBuffer.pipelineBarrier2(depInfo);
     }
@@ -95,7 +95,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
         this->linearPipeline->bind(commandBuffer);
         break;
     case (FogType::exp):
-        this->expPipeline->bind(commandBuffer); 
+        this->expPipeline->bind(commandBuffer);
         break;
     default:
         throw std::runtime_error("Unsupported type");
@@ -121,11 +121,11 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
             .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
             .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
             .setSubresourceRange(vk::ImageSubresourceRange()
-                                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                        .setBaseMipLevel(0)
-                                        .setLevelCount(1)
-                                        .setBaseArrayLayer(0)
-                                        .setLayerCount(1)), 
+                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                     .setBaseMipLevel(0)
+                                     .setLevelCount(1)
+                                     .setBaseArrayLayer(0)
+                                     .setLayerCount(1)),
         vk::ImageMemoryBarrier2()
             .setImage(this->offscreenRenderToDepths->at(frameInFlightIndex)->getVulkanImage())
             .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
@@ -137,19 +137,15 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
             .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
             .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
             .setSubresourceRange(vk::ImageSubresourceRange()
-                                    .setAspectMask(vk::ImageAspectFlagBits::eDepth)
-                                    .setBaseMipLevel(0)
-                                    .setLevelCount(1)
-                                    .setBaseArrayLayer(0)
-                                    .setLayerCount(1))
-    };
+                                     .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                     .setBaseMipLevel(0)
+                                     .setLevelCount(1)
+                                     .setBaseArrayLayer(0)
+                                     .setLayerCount(1))};
 
-    auto deps = vk::DependencyInfo()
-        .setImageMemoryBarrierCount(2)
-        .setPImageMemoryBarriers(&backToGraphics.front());
-    
-    commandBuffer.pipelineBarrier2(deps); 
+    auto deps = vk::DependencyInfo().setImageMemoryBarrierCount(2).setPImageMemoryBarriers(&backToGraphics.front());
 
+    commandBuffer.pipelineBarrier2(deps);
 }
 
 star::Command_Buffer_Order_Index VolumeRenderer::getCommandBufferOrderIndex()
@@ -185,7 +181,7 @@ bool VolumeRenderer::getWillBeRecordedOnce()
 void VolumeRenderer::initResources(star::StarDevice &device, const int &numFramesInFlight,
                                    const vk::Extent2D &screensize)
 {
-    this->workgroupSize = CalculateWorkGroupSize(screensize); 
+    this->workgroupSize = CalculateWorkGroupSize(screensize);
 
     {
         const uint32_t computeIndex = device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex();
@@ -280,11 +276,11 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
             barrier.subresourceRange.layerCount = 1;
 
             oneTime->buffer().pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,     // which pipeline stages should
-                                                                               // occurr before barrier
-                                    vk::PipelineStageFlagBits::eComputeShader, // pipeline stage in
-                                                                               // which operations will
-                                                                               // wait on the barrier
-                                    {}, {}, nullptr, barrier);
+                                                                                         // occurr before barrier
+                                              vk::PipelineStageFlagBits::eComputeShader, // pipeline stage in
+                                                                                         // which operations will
+                                                                                         // wait on the barrier
+                                              {}, {}, nullptr, barrier);
 
             device.endSingleTimeCommands(std::move(oneTime));
         }
@@ -296,7 +292,7 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
             star::ManagerRenderResource::addRequest(std::make_unique<AABBController>(this->aabbBounds)));
 
         this->fogControlShaderInfo.emplace_back(star::ManagerRenderResource::addRequest(
-            std::make_unique<FogControlInfoController>(i, this->fogNearDist, this->fogFarDist, this->expFog_density)));
+            std::make_unique<FogControlInfoController>(i, this->fogControlInfo)));
     }
 }
 
@@ -348,19 +344,30 @@ void VolumeRenderer::createDescriptors(star::StarDevice &device, const int &numF
     for (int i = 0; i < numFramesInFlight; i++)
     {
         // instance model info isnt setup
-        shaderInfoBuilder.startOnFrameIndex(i)
-            .startSet()
-            .add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
-            .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal, false)
-            .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
-            .add(this->cameraShaderInfo, false)
-            .add(this->aabbInfoBuffers.at(i), false)
-            .add(this->volumeTexture, vk::ImageLayout::eGeneral, true)
-            .startSet()
-            .add(this->globalInfoBuffers.at(i), false)
-            .add(this->instanceModelInfo.at(i), false)
-            .startSet()
-            .add(this->fogControlShaderInfo.at(i), false);
+        // shaderInfoBuilder.startOnFrameIndex(i)
+        //     .startSet()
+        //     .add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
+        //     .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal, false)
+        //     .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
+        //     .add(this->cameraShaderInfo, false)
+        //     .add(this->aabbInfoBuffers.at(i), false)
+        //     .add(this->volumeTexture, vk::ImageLayout::eGeneral, true)
+        //     .startSet()
+        //     .add(this->globalInfoBuffers.at(i), false)
+        //     .add(this->instanceModelInfo.at(i), false)
+        //     .startSet()
+        //     .add(this->fogControlShaderInfo.at(i), false);
+
+        //shaderInfoBuilder.startOnFrameIndex(i)
+        //    .startSet()
+        //    .add(this->globalInfoBuffers.at(i), false)
+        //    .add(this->sceneLightInfoBuffers.at(i), false)
+        //    .startSet()
+        //    .add(this->volumeTexture, vk::ImageLayout::eGeneral, true)
+        //    .add(this->cameraShaderInfo, false)
+        //    .add( )
+        //    .build();
+
     }
 
     this->compShaderInfo = shaderInfoBuilder.build();
@@ -393,18 +400,17 @@ void VolumeRenderer::createDescriptors(star::StarDevice &device, const int &numF
         std::make_unique<star::StarComputePipeline>(device, *this->computePipelineLayout, linearCompShader);
     this->linearPipeline->init();
 
-    const std::string expFogPath = 
-        star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/expFog.comp"; 
-    auto expCompShader = star::StarShader(expFogPath, star::Shader_Stage::compute); 
-    this->expPipeline = std::make_unique<star::StarComputePipeline>(device, *this->computePipelineLayout, expCompShader); 
-    this->expPipeline->init(); 
+    const std::string expFogPath =
+        star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/expFog.comp";
+    auto expCompShader = star::StarShader(expFogPath, star::Shader_Stage::compute);
+    this->expPipeline =
+        std::make_unique<star::StarComputePipeline>(device, *this->computePipelineLayout, expCompShader);
+    this->expPipeline->init();
 }
 
-glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize){
+glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize)
+{
     const int threadsPerWorkgroup = 8;
 
-    return glm::uvec2{
-        std::ceil(screenSize.width / 8),
-        std::ceil(screenSize.height / 8)
-    }; 
+    return glm::uvec2{std::ceil(screenSize.width / 8), std::ceil(screenSize.height / 8)};
 }
