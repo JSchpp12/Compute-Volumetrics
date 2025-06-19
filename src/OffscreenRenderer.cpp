@@ -158,6 +158,8 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
     std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTexture>>();
 
+    vk::Format colorFormat = findColorAttachmentFormat(device); 
+
     auto builder =
         star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
             .setCreateInfo(star::Allocator::AllocationBuilder()
@@ -179,19 +181,10 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
                                .setInitialLayout(vk::ImageLayout::eUndefined)
                                .setSamples(vk::SampleCountFlagBits::e1),
                            "OffscreenRenderToImages")
-            .setBaseFormat(this->getCurrentRenderToImageFormat())
+            .setBaseFormat(colorFormat)
             .addViewInfo(vk::ImageViewCreateInfo()
                              .setViewType(vk::ImageViewType::e2D)
-                             .setFormat(this->getCurrentRenderToImageFormat())
-                             .setSubresourceRange(vk::ImageSubresourceRange()
-                                                      .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                                      .setBaseArrayLayer(0)
-                                                      .setLayerCount(1)
-                                                      .setBaseMipLevel(0)
-                                                      .setLevelCount(1)))
-            .addViewInfo(vk::ImageViewCreateInfo()
-                             .setViewType(vk::ImageViewType::e2D)
-                             .setFormat(vk::Format::eR8G8B8A8Unorm)
+                             .setFormat(colorFormat)
                              .setSubresourceRange(vk::ImageSubresourceRange()
                                                       .setAspectMask(vk::ImageAspectFlagBits::eColor)
                                                       .setBaseArrayLayer(0)
@@ -199,20 +192,23 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
                                                       .setBaseMipLevel(0)
                                                       .setLevelCount(1)));
 
+        // if (colorFormat != vk::Format::eR8G8B8A8Unorm){
+        //     builder.addViewInfo(
+        //         vk::ImageViewCreateInfo()
+        //             .setViewType(vk::ImageViewType::e2D)
+        //             .setFormat(vk::Format::eR8G8B8A8Unorm)
+        //             .setSubresourceRange(vk::ImageSubresourceRange()
+        //                 .setAspectMask(vk::ImageAspectFlagBits::eColor)
+        //                 .setBaseArrayLayer(0)
+        //                 .setLayerCount(1)
+        //                 .setBaseMipLevel(0)
+        //                 .setLevelCount(1))
+        //     );
+        // }
+
     for (int i = 0; i < numFramesInFlight; i++)
     {
         newRenderToImages.emplace_back(builder.build());
-
-        // auto oneTimeSetup = device.beginSingleTimeCommands();
-
-        // star::StarTexture::TransitionImageLayout(*newRenderToImages.back(), oneTimeSetup,
-        // vk::ImageLayout::eColorAttachmentOptimal,
-        //                                            vk::AccessFlagBits::eNone,
-        //                                            vk::AccessFlagBits::eColorAttachmentWrite,
-        //                                            vk::PipelineStageFlagBits::eTopOfPipe,
-        //                                            vk::PipelineStageFlagBits::eColorAttachmentOutput);
-
-        // device.endSingleTimeCommands(oneTimeSetup);
 
         auto oneTimeSetup = device.beginSingleTimeCommands();
 
@@ -252,7 +248,7 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
     std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTexture>>();
 
-    const vk::Format depthFormat = this->findDepthFormat(device);
+    const vk::Format depthFormat = this->findDepthAttachmentFormat(device);
 
     auto builder =
         star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
@@ -382,11 +378,6 @@ bool OffscreenRenderer::getWillBeSubmittedEachFrame()
 bool OffscreenRenderer::getWillBeRecordedOnce()
 {
     return false;
-}
-
-vk::Format OffscreenRenderer::getCurrentRenderToImageFormat()
-{
-    return vk::Format::eR8G8B8A8Snorm;
 }
 
 vk::ImageMemoryBarrier2 OffscreenRenderer::createMemoryBarrierPrepForDepthCopy(const vk::Image &depthImage)

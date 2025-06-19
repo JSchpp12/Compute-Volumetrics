@@ -22,7 +22,7 @@ class OffscreenRenderer : public star::SceneRenderer
     std::vector<std::unique_ptr<star::StarTexture>> createRenderToImages(star::StarDevice &device,
                                                                          const int &numFramesInFlight) override;
 
-  std::vector<std::unique_ptr<star::StarTexture>> createRenderToDepthImages(star::StarDevice &device,
+    std::vector<std::unique_ptr<star::StarTexture>> createRenderToDepthImages(star::StarDevice &device,
                                                                               const int &numFramesInFlight) override;
 
     std::vector<std::shared_ptr<star::StarBuffer>> createDepthBufferContainers(star::StarDevice &device);
@@ -40,8 +40,6 @@ class OffscreenRenderer : public star::SceneRenderer
     bool getWillBeSubmittedEachFrame() override;
 
     bool getWillBeRecordedOnce() override;
-
-    vk::Format getCurrentRenderToImageFormat() override;
 
     static vk::ImageMemoryBarrier2 createMemoryBarrierPrepForDepthCopy(const vk::Image &depthImage);
 };

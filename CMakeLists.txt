@@ -1,18 +1,19 @@
 cmake_minimum_required(VERSION 3.27)
 
+project("starlightapp")
+
 cmake_policy(SET CMP0071 NEW)
 cmake_policy(SET CMP0076 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0079 NEW)
 
-if (WIN32)
-	set(CMAKE_CXX_STANDARD 20) 
-	set(CMAKE_CXX_STANDARD_REQUIRED ON)
-elseif(APPLE)
+set(CMAKE_CXX_STANDARD 20) 
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if (APPLE)
 	set(CMAKE_MACOSX_RPATH 1)
 endif()
 
-project("starlightapp")
 enable_language(CXX)
 
 find_package(OpenVDB CONFIG REQUIRED)
@@ -141,7 +142,7 @@ if (CPPCHECK_EXECUTABLE)
 	set(CPPCHECK_FILES "")
     set(CPPCHECK_INCLUDES "")
 
-	foreach(FILE "${${PROJECT_NAME}_SOURCE}" "${PROJECT_NAME}_HEADERS" ${starlight_SOURCE} ${starlight_HEADERS})
+	foreach(FILE "${${PROJECT_NAME}_SOURCE}" "${${PROJECT_NAME}_HEADERS}" ${starlight_TARGET_SOURCE} ${starlight_TARGET_HEADERS})
 		file(TO_CMAKE_PATH "${FILE}" UNIX_PATH)
 		list(APPEND CPPCHECK_FILES "${UNIX_PATH}")
 	endforeach()

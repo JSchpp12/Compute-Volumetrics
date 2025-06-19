@@ -66,9 +66,6 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
                 .setNewLayout(vk::ImageLayout::eGeneral)
                 .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
                 .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                // .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ? *this->graphicsQueueFamilyIndex :
-                // vk::QueueFamilyIgnored) .setDstQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ?
-                // *this->computeQueueFamilyIndex : vk::QueueFamilyIgnored)
                 .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
                 .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
                 .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
@@ -323,51 +320,44 @@ std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescrip
 
 void VolumeRenderer::createDescriptors(star::StarDevice &device, const int &numFramesInFlight)
 {
-    star::StarShaderInfo::Builder shaderInfoBuilder = star::StarShaderInfo::Builder(device, numFramesInFlight);
-    shaderInfoBuilder
-        .addSetLayout(star::StarDescriptorSetLayout::Builder(device)
-                          .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                          .addBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
-                          .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                          .addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                          .addBinding(4, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                          .addBinding(5, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                          .build())
-        .addSetLayout(star::StarDescriptorSetLayout::Builder(device)
-                          .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                          .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                          .build())
-        .addSetLayout(star::StarDescriptorSetLayout::Builder(device)
-                          .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                          .build());
+    auto shaderInfoBuilder =
+        star::StarShaderInfo::Builder(device, numFramesInFlight)
+            .addSetLayout(star::StarDescriptorSetLayout::Builder(device)
+                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .build())
+            .addSetLayout(star::StarDescriptorSetLayout::Builder(device)
+                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                              .build())
+            .addSetLayout(star::StarDescriptorSetLayout::Builder(device)
+                              .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                              .build())
+            .addSetLayout(star::StarDescriptorSetLayout::Builder(device)
+                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .build());
 
     for (int i = 0; i < numFramesInFlight; i++)
     {
-        // instance model info isnt setup
-        // shaderInfoBuilder.startOnFrameIndex(i)
-        //     .startSet()
-        //     .add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
-        //     .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal, false)
-        //     .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
-        //     .add(this->cameraShaderInfo, false)
-        //     .add(this->aabbInfoBuffers.at(i), false)
-        //     .add(this->volumeTexture, vk::ImageLayout::eGeneral, true)
-        //     .startSet()
-        //     .add(this->globalInfoBuffers.at(i), false)
-        //     .add(this->instanceModelInfo.at(i), false)
-        //     .startSet()
-        //     .add(this->fogControlShaderInfo.at(i), false);
-
-        //shaderInfoBuilder.startOnFrameIndex(i)
-        //    .startSet()
-        //    .add(this->globalInfoBuffers.at(i), false)
-        //    .add(this->sceneLightInfoBuffers.at(i), false)
-        //    .startSet()
-        //    .add(this->volumeTexture, vk::ImageLayout::eGeneral, true)
-        //    .add(this->cameraShaderInfo, false)
-        //    .add( )
-        //    .build();
-
+        shaderInfoBuilder.startOnFrameIndex(i)
+            .startSet()
+            .add(this->globalInfoBuffers.at(i), false)
+            .add(this->sceneLightInfoBuffers.at(i), false)
+            .startSet()
+            .add(this->cameraShaderInfo, false)
+            .add(this->volumeTexture, vk::ImageLayout::eGeneral, true)
+            .startSet()
+            .add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
+            .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal, false)
+            .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
+            .startSet()
+            .add(this->instanceModelInfo.at(i), false)
+            .add(this->aabbInfoBuffers.at(i), false)
+            .add(this->fogControlShaderInfo.at(i), false);
     }
 
     this->compShaderInfo = shaderInfoBuilder.build();

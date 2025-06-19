@@ -19,7 +19,7 @@
 TerrainChunk::TerrainChunk(const std::string &fullHeightFile, const std::string &nTextureFile,
                            const glm::dvec2 &northEast, const glm::dvec2 &southEast, const glm::dvec2 &southWest,
                            const glm::dvec2 &northWest, const glm::dvec2 &center, const glm::dvec3 &offset)
-    : textureFile(textureFile), fullHeightFile(fullHeightFile), northEast(northEast), southEast(southEast),
+    : fullHeightFile(fullHeightFile), northEast(northEast), southEast(southEast),
       southWest(southWest), northWest(northWest), offset(offset), center(center)
 {
     std::string terrainDir = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "/terrains";
