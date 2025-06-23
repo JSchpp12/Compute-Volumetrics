@@ -32,8 +32,6 @@ Volume::Volume(std::shared_ptr<star::StarCamera> camera, const uint32_t &screenW
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
         this->camera, this->instanceModelInfos, offscreenRenderToColorImages, offscreenRenderToDepthImages, globalInfos,
         lightInfos, this->sampledTexture, this->aabbBounds);
-    this->volumeRendererCleanup = std::make_unique<VolumeRendererCleanup>(
-        this->volumeRenderer->getRenderToImages(), offscreenRenderToColorImages, offscreenRenderToDepthImages);
 
     loadGeometry();
 }
@@ -307,17 +305,56 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
     grid->setGridClass(openvdb::GridClass::GRID_FOG_VOLUME);
 }
 
-void Volume::recordRenderPassCommands(vk::CommandBuffer &commandBuffer, vk::PipelineLayout &pipelineLayout,
-                                      int frameInFlightIndex)
+void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
 {
+    commandBuffer.pipelineBarrier2(
+        vk::DependencyInfo().setImageMemoryBarriers(vk::ArrayProxyNoTemporaries<const vk::ImageMemoryBarrier2>{
+            vk::ImageMemoryBarrier2()
+                .setImage(this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage())
+                .setOldLayout(vk::ImageLayout::eGeneral)
+                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+                .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
+                .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
+                .setSrcQueueFamilyIndex(this->computeQueueFamily)
+                .setDstQueueFamilyIndex(this->graphicsQueueFamily)
+                .setSubresourceRange(vk::ImageSubresourceRange()
+                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                         .setBaseMipLevel(0)
+                                         .setLevelCount(1)
+                                         .setBaseArrayLayer(0)
+                                         .setLayerCount(1))}));
+}
 
-    this->StarObject::recordRenderPassCommands(commandBuffer, pipelineLayout, frameInFlightIndex);
+void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
+{
+    commandBuffer.pipelineBarrier2(
+        vk::DependencyInfo().setImageMemoryBarriers(vk::ArrayProxyNoTemporaries<const vk::ImageMemoryBarrier2>{
+            vk::ImageMemoryBarrier2()
+                .setImage(this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage())
+                .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
+                .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
+                .setDstAccessMask(vk::AccessFlagBits2::eNone)
+                .setSrcQueueFamilyIndex(this->graphicsQueueFamily)
+                .setDstQueueFamilyIndex(this->computeQueueFamily)
+                .setSubresourceRange(vk::ImageSubresourceRange()
+                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                         .setBaseMipLevel(0)
+                                         .setLevelCount(1)
+                                         .setBaseArrayLayer(0)
+                                         .setLayerCount(1))}));
 }
 
 void Volume::prepRender(star::StarDevice &device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout,
                         star::RenderingTargetInfo renderingInfo, int numSwapChainImages,
                         star::StarShaderInfo::Builder fullEngineBuilder)
 {
+    RecordQueueFamilyInfo(device, this->computeQueueFamily, this->graphicsQueueFamily);
+
     this->star::StarObject::prepRender(device, swapChainExtent, pipelineLayout, renderingInfo, numSwapChainImages,
                                        fullEngineBuilder);
 }
@@ -325,6 +362,8 @@ void Volume::prepRender(star::StarDevice &device, vk::Extent2D swapChainExtent, 
 void Volume::prepRender(star::StarDevice &device, int numSwapChainImages, star::StarPipeline &sharedPipeline,
                         star::StarShaderInfo::Builder fullEngineBuilder)
 {
+    RecordQueueFamilyInfo(device, this->computeQueueFamily, this->graphicsQueueFamily);
+
     this->star::StarObject::prepRender(device, numSwapChainImages, sharedPipeline, fullEngineBuilder);
 }
 
@@ -542,4 +581,11 @@ openvdb::Mat4R Volume::getTransform(const glm::mat4 &objectDisplayMat)
     }
 
     return openvdb::Mat4R(rawData.get());
+}
+
+void Volume::RecordQueueFamilyInfo(star::StarDevice &device, uint32_t &computeQueueFamilyIndex,
+                                   uint32_t &graphicsQueueFamilyIndex)
+{
+    computeQueueFamilyIndex = device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex();
+    graphicsQueueFamilyIndex = device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex();
 }

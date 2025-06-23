@@ -11,7 +11,7 @@ The following are required in order to build this project:
 - Python 3.12 or newer
 - CMake
 - Compiler with c++ 20 support 
-- Vulkan SDK Version: 1.4.313
+- Vulkan SDK Version: 1.4.313.0
 - Dedicated GPU (NVIDIA Recommended)
 
 Python Libraries

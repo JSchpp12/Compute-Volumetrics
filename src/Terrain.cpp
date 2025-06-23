@@ -26,8 +26,6 @@ void Terrain::loadGeometry()
 
     TerrainGrid grid = TerrainGrid();
 
-    std::set<std::string> targets = {"s2045440", "s2050445", "s2040435"};
-
     std::vector<TerrainChunk> chunks;
     // make sure gdal init is setup before multi-thread init
     GDALAllRegister();
@@ -53,8 +51,6 @@ void Terrain::loadGeometry()
                             fileInfo.infos()[i].cornerSE, fileInfo.infos()[i].cornerSW, fileInfo.infos()[i].cornerNW,
                             fileInfo.infos()[i].center, worldCenter);
 
-        if (i > 5)
-            break;
     }
 
     // parallel load meshes

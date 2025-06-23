@@ -31,7 +31,6 @@
 #include "VertColorMaterial.hpp"
 #include "Vertex.hpp"
 #include "VolumeRenderer.hpp"
-#include "VolumeRendererCleanup.hpp"
 #include "FogInfo.hpp"
 #include "RenderResourceModifier.hpp"
 
@@ -109,6 +108,10 @@ class Volume : public star::StarObject
     virtual void prepRender(star::StarDevice &device, int numSwapChainImages, star::StarPipeline &sharedPipeline,
                             star::StarShaderInfo::Builder fullEngineBuilder) override;
 
+    virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override; 
+
+    virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override; 
+
     void setFogType(const VolumeRenderer::FogType &fogType)
     {
         this->volumeRenderer->setFogType(fogType);
@@ -123,7 +126,6 @@ class Volume : public star::StarObject
     star::Handle cameraShaderInfo = star::Handle();
     star::Handle sampledTexture = star::Handle();
     std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr;
-    std::unique_ptr<VolumeRendererCleanup> volumeRendererCleanup = nullptr;
     std::array<glm::vec4, 2> aabbBounds;
     std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColorImages = nullptr;
     std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepthImages = nullptr;
@@ -136,6 +138,9 @@ class Volume : public star::StarObject
     glm::vec2 screenDimensions{};
     openvdb::FloatGrid::Ptr grid{};
 
+    uint32_t computeQueueFamily = 0; 
+    uint32_t graphicsQueueFamily = 0; 
+    
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
     void loadModel();
@@ -144,8 +149,8 @@ class Volume : public star::StarObject
 
     void convertToFog(openvdb::FloatGrid::Ptr &grid);
 
-    virtual void recordRenderPassCommands(vk::CommandBuffer &commandBuffer, vk::PipelineLayout &pipelineLayout,
-                                          int swapChainIndexNum) override;
+    // virtual void recordRenderPassCommands(vk::CommandBuffer &commandBuffer, vk::PipelineLayout &pipelineLayout,
+    //                                       int swapChainIndexNum) override;
 
   private:
     struct RayCamera
@@ -208,4 +213,6 @@ class Volume : public star::StarObject
                                                          const float &t1);
 
     static openvdb::Mat4R getTransform(const glm::mat4 &objectDisplayMat);
+
+    static void RecordQueueFamilyInfo(star::StarDevice &device, uint32_t &computeQueueFamilyIndex, uint32_t &graphicsQueueFamilyIndex); 
 };

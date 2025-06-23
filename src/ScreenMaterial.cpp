@@ -14,7 +14,7 @@ void ScreenMaterial::buildDescriptorSet(star::StarDevice &device, star::StarShad
                                         const int &imageInFlightIndex)
 {
     builder.startSet();
-    builder.add(*computeOutputImages->at(imageInFlightIndex), vk::ImageLayout::eShaderReadOnlyOptimal, true);
+    builder.add(*computeOutputImages.at(imageInFlightIndex), vk::ImageLayout::eShaderReadOnlyOptimal, true);
 }
 
 void ScreenMaterial::cleanup(star::StarDevice &device)
@@ -25,5 +25,5 @@ std::vector<std::pair<vk::DescriptorType, const int>> ScreenMaterial::getDescrip
     const int &numFramesInFlight)
 {
     return std::vector<std::pair<vk::DescriptorType, const int>>{std::make_pair<vk::DescriptorType, const int>(
-        vk::DescriptorType::eCombinedImageSampler, this->computeOutputImages->size())};
+        vk::DescriptorType::eCombinedImageSampler, this->computeOutputImages.size())};
 }

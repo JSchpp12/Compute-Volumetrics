@@ -41,9 +41,9 @@ class VolumeRenderer : public star::CommandBufferModifier,
 
     ~VolumeRenderer() = default;
 
-    std::vector<std::unique_ptr<star::StarTexture>> *getRenderToImages()
+    std::vector<std::unique_ptr<star::StarTexture>> &getRenderToImages()
     {
-        return &this->computeWriteToImages;
+        return this->computeWriteToImages;
     }
 
     void setFogType(const FogType &type)
@@ -60,6 +60,8 @@ class VolumeRenderer : public star::CommandBufferModifier,
     }
 
   private:
+    bool isFirstPass = true;
+    uint32_t firstFramePassCounter = 0;
     const star::Handle volumeTexture;
     const std::vector<star::Handle> &instanceModelInfo;
     const std::array<glm::vec4, 2> &aabbBounds;

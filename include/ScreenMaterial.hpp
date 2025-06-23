@@ -12,11 +12,11 @@
 class ScreenMaterial : public star::StarMaterial
 {
   public:
-    ScreenMaterial(std::vector<std::unique_ptr<star::StarTexture>> *computeOutputImages)
+    ScreenMaterial(std::vector<std::unique_ptr<star::StarTexture>> &computeOutputImages)
         : computeOutputImages(computeOutputImages) {};
 
   protected:
-    std::vector<std::unique_ptr<star::StarTexture>> *computeOutputImages = nullptr;
+    std::vector<std::unique_ptr<star::StarTexture>> &computeOutputImages;
 
     void applyDescriptorSetLayouts(star::StarDescriptorSetLayout::Builder &constBuilder) override;
     std::vector<std::pair<vk::DescriptorType, const int>> getDescriptorRequests(const int &numFramesInFlight) override;

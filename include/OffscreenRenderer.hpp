@@ -12,6 +12,10 @@ class OffscreenRenderer : public star::SceneRenderer
     virtual void initResources(star::StarDevice &device, const int &numFramesInFlight,
                                const vk::Extent2D &screensize) override;
 
+    virtual vk::Format getColorAttachmentFormat(star::StarDevice &device) const override; 
+
+    virtual vk::Format getDepthAttachmentFormat(star::StarDevice &device) const override; 
+
   private:
     std::unique_ptr<uint32_t> graphicsQueueFamilyIndex, computeQueueFamilyIndex;
     bool isFirstPass = true;
