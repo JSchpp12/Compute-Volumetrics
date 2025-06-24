@@ -98,11 +98,6 @@ else()
 			nlohmann_json::nlohmann_json
 			blosc_static
 	)
-
-	set_target_properties(${PROJECT_NAME} PROPERTIES 
-		CXX_STANDARD 20
-		CXX_STANDARD_REQUIRED ON
-	)
 endif()
 
 set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/StarlightAppBuilder/")
@@ -140,13 +135,23 @@ if (CPPCHECK_EXECUTABLE)
 	set(CPPCHECK_FILES "")
     set(CPPCHECK_INCLUDES "")
 
-	foreach(FILE "${${PROJECT_NAME}_SOURCE}" "${${PROJECT_NAME}_HEADERS}" ${starlight_TARGET_SOURCE} ${starlight_TARGET_HEADERS})
+	foreach(FILE "${${PROJECT_NAME}_SOURCE}" "${${PROJECT_NAME}_HEADERS}")
 		file(TO_CMAKE_PATH "${FILE}" UNIX_PATH)
 		list(APPEND CPPCHECK_FILES "${UNIX_PATH}")
 	endforeach()
 
-	foreach(DIR ${${PROJECT_NAME}_INCLUDE_DIRS} ${starlight_INCLUDE_DIRS})
+	foreach(FILE ${starlight_TARGET_INCLUDE_DIRS} ${starlight_TARGET_HEADERS})
+		file(TO_CMAKE_PATH "extern/starlight/${FILE}" UNIX_PATH)
+		list(APPEND CPPCHECK_FILES "${UNIX_PATH}")
+	endforeach()
+
+	foreach(DIR ${${PROJECT_NAME}_INCLUDE_DIRS})
 		list(APPEND CPPCHECK_INCLUDES "-I" "${CMAKE_CURRENT_SOURCE_DIR}/${DIR}")
+	endforeach()
+
+	foreach(DIR ${starlight_TARGET_INCLUDE_DIRS})
+		list(APPEND CPPCHECK_INCLUDES "-I" "${CMAKE_CURRENT_SOURCE_DIR}/extern/starlight/${DIR}")
+		message(${DIR})
 	endforeach()
 
 	add_custom_target("${PROJECT_NAME}_cppcheck"
