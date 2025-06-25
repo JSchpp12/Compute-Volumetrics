@@ -73,7 +73,7 @@ void Application::startup(star::StarDevice &device, const star::StarWindow &wind
     this->testObject = &h_i;
     this->offscreenScene->add(std::move(horse));
     this->offscreenScene->add(
-        std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{0, 10, 0}, glm::vec3{-1.0, 0.0, 0.0}));
+        std::make_unique<star::Light>(glm::vec3{0, 10, 0}, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0}));
 
     {
         auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
@@ -84,7 +84,7 @@ void Application::startup(star::StarDevice &device, const star::StarWindow &wind
     }
 
     this->scene->add(
-        std::make_unique<star::Light>(star::Type::Light::directional, glm::vec3{0, 10, 0}, glm::vec3{-1.0, 0.0, 0.0}));
+        std::make_unique<star::Light>(glm::vec3{0, 10, 0}, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0}));
 
     std::cout << "Application Controls" << std::endl;
     std::cout << "B - Modify fog properties" << std::endl;

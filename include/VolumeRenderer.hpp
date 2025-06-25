@@ -39,7 +39,7 @@ class VolumeRenderer : public star::CommandBufferModifier,
                    const std::vector<star::Handle> &sceneLightInfoBuffers, const star::Handle &volumeTexture,
                    const std::array<glm::vec4, 2> &aabbBounds);
 
-    ~VolumeRenderer() = default;
+    virtual ~VolumeRenderer() = default;
 
     std::vector<std::unique_ptr<star::StarTexture>> &getRenderToImages()
     {
@@ -61,7 +61,6 @@ class VolumeRenderer : public star::CommandBufferModifier,
 
   private:
     bool isFirstPass = true;
-    uint32_t firstFramePassCounter = 0;
     const star::Handle volumeTexture;
     const std::vector<star::Handle> &instanceModelInfo;
     const std::array<glm::vec4, 2> &aabbBounds;

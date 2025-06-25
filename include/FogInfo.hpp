@@ -66,13 +66,6 @@ class FogInfo
         {
         }
 
-        ExpFogInfo &operator=(const ExpFogInfo &other)
-        {
-            this->density = other.density;
-
-            return *this;
-        }
-
         bool operator==(const ExpFogInfo &other) const
         {
             return this->density == other.density;

@@ -49,7 +49,10 @@ void Terrain::loadGeometry()
         chunks.emplace_back(terrainPath + "/" + fileInfo.getFullHeightFilePath(),
                             terrainPath + "/" + fileInfo.infos()[i].textureFile, fileInfo.infos()[i].cornerNE,
                             fileInfo.infos()[i].cornerSE, fileInfo.infos()[i].cornerSW, fileInfo.infos()[i].cornerNW,
-                            fileInfo.infos()[i].center, worldCenter);
+                            worldCenter, fileInfo.infos()[i].center);
+
+        if (i == 5)
+            break;
 
     }
 

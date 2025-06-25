@@ -18,7 +18,7 @@
 
 TerrainChunk::TerrainChunk(const std::string &fullHeightFile, const std::string &nTextureFile,
                            const glm::dvec2 &northEast, const glm::dvec2 &southEast, const glm::dvec2 &southWest,
-                           const glm::dvec2 &northWest, const glm::dvec2 &center, const glm::dvec3 &offset)
+                           const glm::dvec2 &northWest, const glm::dvec3 &offset, const glm::dvec2 &center)
     : fullHeightFile(fullHeightFile), northEast(northEast), southEast(southEast),
       southWest(southWest), northWest(northWest), offset(offset), center(center)
 {
@@ -271,7 +271,7 @@ void TerrainChunk::loadGeomInfo(TerrainDataset &dataset, std::vector<star::Verte
 
     centerAroundTerrainOrigin(rawVertPositionCoords, dataset.getOffset());
 
-    for (int i = 0; i < rawVertPositionCoords.size(); i++)
+    for (size_t i = 0; i < rawVertPositionCoords.size(); i++)
     {
         verts.push_back(star::Vertex(rawVertPositionCoords.at(i), {}, {}, vertTextureCoords.at(i)));
     }
@@ -303,7 +303,7 @@ TerrainChunk::TerrainDataset::~TerrainDataset()
             this->gdalBuffer = nullptr;
         }
     }
-    catch (std::exception ex)
+    catch (const std::exception &ex)
     {
         std::cerr << "Memory leak found" << std::endl;
     }

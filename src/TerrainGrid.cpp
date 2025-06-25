@@ -18,16 +18,7 @@ std::vector<TerrainChunk> TerrainGrid::getFinalizedChunks()
 
     auto grid = createGrid(xBins, yBins, this->chunkInfos);
 
-    // need to get the size of one chunk
-    float width =
-        std::abs(grid[0][0].chunkInfo.value().lowerRight.x) - std::abs(grid[0][0].chunkInfo.value().upperLeft.x);
-    float height =
-        std::abs(grid[0][0].chunkInfo.value().upperLeft.y) - std::abs(grid[0][0].chunkInfo.value().lowerRight.y);
-
-    auto centerIndex = std::floor(grid.size() / 2);
     auto &centerOfGrid = grid[std::floor(grid.size() / 2)][std::floor(grid[0].size() / 2)].chunkInfo.value();
-    // float centerHeight =
-    // TerrainChunk::getCenterHeightFromGDAL(centerOfGrid.heightFile);
     float centerHeight = 0.0f;
     const glm::dvec3 centerOfTerrainGrid =
         glm::dvec3{centerOfGrid.getCenter().x, centerOfGrid.getCenter().y, centerHeight};
@@ -40,18 +31,10 @@ std::vector<TerrainChunk> TerrainGrid::getFinalizedChunks()
             if (grid[i][j].chunkInfo.has_value())
             {
                 auto info = grid[i][j].chunkInfo.value();
-
-                // chunks.push_back(TerrainChunk(
-                //     info.heightFile,
-                //     info.textureFile,
-                //     info.upperLeft,
-                //     info.lowerRight,
-                //     centerOfTerrainGrid));
             }
         }
     }
 
-    // focus at grid[2][2]
     return chunks;
 }
 

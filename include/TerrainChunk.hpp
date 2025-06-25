@@ -17,7 +17,7 @@ class TerrainChunk
   public:
     TerrainChunk(const std::string &fullHeightFile, const std::string &nTextureFile, const glm::dvec2 &northEast,
                  const glm::dvec2 &southEast, const glm::dvec2 &southWest, const glm::dvec2 &northWest,
-                 const glm::dvec2 &center, const glm::dvec3 &offset);
+                 const glm::dvec3 &offset, const glm::dvec2 &center);
 
     /// @brief Load meshes from the provided files
     void load();
@@ -67,7 +67,12 @@ class TerrainChunk
         TerrainDataset(const std::string &path, const glm::dvec2 &northEast, const glm::dvec2 &southEast,
                        const glm::dvec2 &southWest, const glm::dvec2 &northWest, const glm::dvec2 &center,
                        const glm::dvec3 &offset);
+        
+        TerrainDataset(const TerrainDataset &) = delete;
+        TerrainDataset &operator=(const TerrainDataset &) = delete;
 
+        TerrainDataset(TerrainDataset &&) noexcept = default;
+        TerrainDataset &operator=(TerrainDataset &&) noexcept = default;
         ~TerrainDataset();
 
         float getElevationAtTexCoords(const glm::ivec2 &texCoords) const;
@@ -113,7 +118,6 @@ class TerrainChunk
 
         float *gdalBuffer = nullptr;
         glm::ivec2 fullPixSize, maxPixBounds, pixOffset, pixSize;
-        OGRCoordinateTransformation *coordinateTransform = nullptr;
         double geoTransforms[6];
 
         void initTransforms(GDALDataset *dataset);

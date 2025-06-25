@@ -373,7 +373,6 @@ void Volume::updateGridTransforms()
     newGrid->setTransform(this->grid->transformPtr());
     openvdb::Mat4R transform = getTransform(this->instances.front()->getDisplayMatrix());
 
-    auto test = this->instances.front()->getScale();
     openvdb::tools::GridTransformer transformer(transform);
 
     transformer.transformGrid<openvdb::tools::BoxSampler, openvdb::FloatGrid>(*this->grid, *newGrid);
@@ -509,17 +508,17 @@ star::Color Volume::forwardMarch(const std::vector<std::unique_ptr<star::Light>>
                 float phaseResult = lightAtten * henyeyGreensteinPhase(position, lightRay.dir, lightPropertyDir_g) *
                                     volDensity * fittedLightStepSize;
 
-                resultingColor.setR(resultingColor.r() + (light->getAmbient().r * phaseResult));
-                resultingColor.setG(resultingColor.g() + (light->getAmbient().g * phaseResult));
-                resultingColor.setB(resultingColor.b() + (light->getAmbient().b * phaseResult));
-                resultingColor.setA(resultingColor.a() + (light->getAmbient().a * phaseResult));
+                resultingColor.setR(resultingColor.getR() + (light->getAmbient().r * phaseResult));
+                resultingColor.setG(resultingColor.getG() + (light->getAmbient().g * phaseResult));
+                resultingColor.setB(resultingColor.getB() + (light->getAmbient().b * phaseResult));
+                resultingColor.setA(resultingColor.getA() + (light->getAmbient().a * phaseResult));
             }
         }
 
-        resultingColor.setR(resultingColor.r() * transparency);
-        resultingColor.setG(resultingColor.g() * transparency);
-        resultingColor.setB(resultingColor.b() * transparency);
-        resultingColor.setA(resultingColor.a() * transparency);
+        resultingColor.setR(resultingColor.getR() * transparency);
+        resultingColor.setG(resultingColor.getG() * transparency);
+        resultingColor.setB(resultingColor.getB() * transparency);
+        resultingColor.setA(resultingColor.getA() * transparency);
 
         // russian roulette cutoff
         if ((transparency < 1e-3) && (randJitter > 1.0f / russianRouletteCutoff))
@@ -528,10 +527,10 @@ star::Color Volume::forwardMarch(const std::vector<std::unique_ptr<star::Light>>
             transparency *= russianRouletteCutoff;
     }
 
-    resultingColor.setR(backColor.r() * transparency + resultingColor.r());
-    resultingColor.setG(backColor.g() * transparency + resultingColor.g());
-    resultingColor.setB(backColor.b() * transparency + resultingColor.b());
-    resultingColor.setA(backColor.a() * transparency + resultingColor.a());
+    resultingColor.setR(backColor.getR() * transparency + resultingColor.getR());
+    resultingColor.setG(backColor.getG() * transparency + resultingColor.getG());
+    resultingColor.setB(backColor.getB() * transparency + resultingColor.getB());
+    resultingColor.setA(backColor.getA() * transparency + resultingColor.getA());
     return resultingColor;
 }
 
@@ -541,8 +540,6 @@ star::Color Volume::forwardMarchToVolumeActiveBoundry(const float &stepSize, con
 {
     int numSteps = static_cast<int>(std::ceil((t1 - t0) / stepSize));
     float fittedStepSize = (t1 - t0) / numSteps;
-    float transparency = 1.0f;
-    star::Color backColor{};
     star::Color resultingColor{};
 
     auto gridAccessor = grid->getConstAccessor();
@@ -551,7 +548,6 @@ star::Color Volume::forwardMarchToVolumeActiveBoundry(const float &stepSize, con
 
     for (int i = 0; i < numSteps; ++i)
     {
-        float randJitter = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
         float t = t0 + fittedStepSize * (i + 0.5f);
         glm::vec3 position = ray.org + (t / ray.invDir);
         openvdb::Vec3R oPosition(position.x, position.y, position.z);

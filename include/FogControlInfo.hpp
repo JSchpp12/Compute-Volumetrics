@@ -7,8 +7,7 @@
 class FogControlInfoTransfer : public star::TransferRequest::Buffer
 {
   public:
-    FogControlInfoTransfer(const FogInfo::FinalizedInfo &fogInfo, const uint32_t &computeQueueFamilyIndex,
-                           const vk::DeviceSize &minUniformBufferOffsetAlignment);
+    FogControlInfoTransfer(const FogInfo::FinalizedInfo &fogInfo, const uint32_t &computeQueueFamilyIndex);
     ~FogControlInfoTransfer() = default;
 
     std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const override;
@@ -20,7 +19,6 @@ class FogControlInfoTransfer : public star::TransferRequest::Buffer
 
   private:
     const uint32_t computeQueueFamilyIndex;
-    const vk::DeviceSize minUniformBufferOffsetAlignment;
     const FogInfo::FinalizedInfo fogInfo;
 };
 

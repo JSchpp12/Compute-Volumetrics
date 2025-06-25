@@ -436,7 +436,5 @@ void VolumeRenderer::createDescriptors(star::StarDevice &device, const int &numF
 
 glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize)
 {
-    const int threadsPerWorkgroup = 8;
-
     return glm::uvec2{std::ceil(screenSize.width / 8), std::ceil(screenSize.height / 8)};
 }

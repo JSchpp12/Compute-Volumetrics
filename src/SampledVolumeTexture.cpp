@@ -2,69 +2,74 @@
 
 #include "CastHelpers.hpp"
 
-std::unique_ptr<star::StarBuffer> SampledVolumeRequest::createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const{
-    int width = this->sampledData->size(); 
-    int height = this->sampledData->at(0).size(); 
-    int depth = 0; 
+std::unique_ptr<star::StarBuffer> SampledVolumeRequest::createStagingBuffer(vk::Device &device,
+                                                                            VmaAllocator &allocator) const
+{
+    uint32_t width = 0;
+    star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->size(), width);
+    uint32_t height = 0;
+    star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->at(0).size(), height);
 
-    return std::make_unique<star::StarBuffer>(
-        allocator, 
-        (width * height * 1 * 4),
-        1,
-        VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        VMA_MEMORY_USAGE_AUTO,
-        vk::BufferUsageFlagBits::eTransferSrc,
-        vk::SharingMode::eConcurrent,
-        "SampledVolumeTexture_SRC"
-    );
+    const vk::DeviceSize size = width * height * 1 * 4;
+
+    return star::StarBuffer::Builder(allocator)
+        .setAllocationCreateInfo(
+            star::Allocator::AllocationBuilder()
+                .setFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT)
+                .setUsage(VMA_MEMORY_USAGE_AUTO)
+                .build(),
+            vk::BufferCreateInfo()
+                .setSharingMode(vk::SharingMode::eExclusive)
+                .setSize(size)
+                .setUsage(vk::BufferUsageFlagBits::eTransferSrc),
+            "SampledVolume_SRC")
+        .setInstanceCount(1)
+        .setInstanceSize(size)
+        .build();
 }
 
-std::unique_ptr<star::StarTexture> SampledVolumeRequest::createFinal(vk::Device &device, VmaAllocator &allocator, const std::vector<uint32_t>& transferQueueFamilyIndex) const
+std::unique_ptr<star::StarTexture> SampledVolumeRequest::createFinal(
+    vk::Device &device, VmaAllocator &allocator, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
+    uint32_t width = 0;
+    star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->size(), width);
+    uint32_t height = 0;
+    star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->at(0).size(), height);
+
     std::vector<uint32_t> indices = {this->computeQueueFamilyIndex};
     for (const auto &index : transferQueueFamilyIndex)
-        indices.push_back(index); 
+        indices.push_back(index);
 
     return star::StarTexture::Builder(device, allocator)
-        .setCreateInfo(
-            star::Allocator::AllocationBuilder()
-                .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
-                .setUsage(VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO)
-                .setPriority(1.0f)
-                .build(),
-            vk::ImageCreateInfo()
-                .setExtent(
-                    vk::Extent3D()
-                        .setWidth(this->sampledData->size())
-                        .setHeight(this->sampledData->at(0).size())
-                        .setDepth(1)
-                )
-                .setPQueueFamilyIndices(indices.data())
-                .setQueueFamilyIndexCount(indices.size())
-                .setUsage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
-                .setImageType(vk::ImageType::e2D)
-                .setArrayLayers(1)
-                .setMipLevels(1)
-                .setTiling(vk::ImageTiling::eOptimal)
-                .setInitialLayout(vk::ImageLayout::eUndefined)
-                .setSamples(vk::SampleCountFlagBits::e1)
-                .setSharingMode(vk::SharingMode::eConcurrent),
-            "SampledVolumeTexture"
-        )
+        .setCreateInfo(star::Allocator::AllocationBuilder()
+                           .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                           .setUsage(VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO)
+                           .setPriority(1.0f)
+                           .build(),
+                       vk::ImageCreateInfo()
+                           .setExtent(vk::Extent3D().setWidth(width).setHeight(height).setDepth(1))
+                           .setPQueueFamilyIndices(indices.data())
+                           .setQueueFamilyIndexCount(indices.size())
+                           .setUsage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst |
+                                     vk::ImageUsageFlagBits::eSampled)
+                           .setImageType(vk::ImageType::e2D)
+                           .setArrayLayers(1)
+                           .setMipLevels(1)
+                           .setTiling(vk::ImageTiling::eOptimal)
+                           .setInitialLayout(vk::ImageLayout::eUndefined)
+                           .setSamples(vk::SampleCountFlagBits::e1)
+                           .setSharingMode(vk::SharingMode::eConcurrent),
+                       "SampledVolumeTexture")
         .setBaseFormat(vk::Format::eR32Sfloat)
-        .addViewInfo(
-            vk::ImageViewCreateInfo()
-                .setViewType(vk::ImageViewType::e2D)
-                .setFormat(vk::Format::eR32Sfloat)
-                .setSubresourceRange(
-                    vk::ImageSubresourceRange()
-                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                        .setBaseArrayLayer(0)
-                        .setLayerCount(1)
-                        .setBaseMipLevel(0)
-                        .setLevelCount(1)
-                )
-        )
+        .addViewInfo(vk::ImageViewCreateInfo()
+                         .setViewType(vk::ImageViewType::e2D)
+                         .setFormat(vk::Format::eR32Sfloat)
+                         .setSubresourceRange(vk::ImageSubresourceRange()
+                                                  .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                  .setBaseArrayLayer(0)
+                                                  .setLayerCount(1)
+                                                  .setBaseMipLevel(0)
+                                                  .setLevelCount(1)))
         .build();
 }
 
@@ -72,11 +77,11 @@ void SampledVolumeRequest::writeDataToStageBuffer(star::StarBuffer &buffer) cons
 {
     std::vector<float> flattenedData;
     int floatCounter = 0;
-    for (int i = 0; i < this->sampledData->size(); i++)
+    for (size_t i = 0; i < this->sampledData->size(); i++)
     {
-        for (int j = 0; j < this->sampledData->at(i).size(); j++)
+        for (size_t j = 0; j < this->sampledData->at(i).size(); j++)
         {
-            for (int k = 0; k < this->sampledData->at(i).at(j).size(); k++)
+            for (size_t k = 0; k < this->sampledData->at(i).at(j).size(); k++)
             {
                 flattenedData.push_back(this->sampledData->at(i).at(j).at(k));
                 floatCounter++;
@@ -94,12 +99,14 @@ void SampledVolumeRequest::writeDataToStageBuffer(star::StarBuffer &buffer) cons
 void SampledVolumeRequest::copyFromTransferSRCToDST(star::StarBuffer &srcBuffer, star::StarTexture &dstTexture,
                                                     vk::CommandBuffer &commandBuffer) const
 {
-    star::StarTexture::TransitionImageLayout(dstTexture, commandBuffer, dstTexture.getBaseFormat(), vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+    star::StarTexture::TransitionImageLayout(dstTexture, commandBuffer, dstTexture.getBaseFormat(),
+                                             vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
 
-    uint32_t width = 0, height = 0; 
+    uint32_t width = 0, height = 0;
 
-    if (!star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->size(), width) || !star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->at(0).size(), height)){
-
+    if (!star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->size(), width) ||
+        !star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->at(0).size(), height))
+    {
     }
 
     vk::BufferImageCopy region{};
@@ -117,11 +124,13 @@ void SampledVolumeRequest::copyFromTransferSRCToDST(star::StarBuffer &srcBuffer,
     commandBuffer.copyBufferToImage(srcBuffer.getVulkanBuffer(), dstTexture.getVulkanImage(),
                                     vk::ImageLayout::eTransferDstOptimal, region);
 
-    star::StarTexture::TransitionImageLayout(dstTexture, commandBuffer, dstTexture.getBaseFormat(), vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+    star::StarTexture::TransitionImageLayout(dstTexture, commandBuffer, dstTexture.getBaseFormat(),
+                                             vk::ImageLayout::eTransferDstOptimal,
+                                             vk::ImageLayout::eShaderReadOnlyOptimal);
 }
 
-std::unique_ptr<star::TransferRequest::Texture> SampledVolumeController::createTransferRequest(
-    star::StarDevice &device)
+std::unique_ptr<star::TransferRequest::Texture> SampledVolumeController::createTransferRequest(star::StarDevice &device)
 {
-    return std::make_unique<SampledVolumeRequest>(device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(), std::move(this->sampledData));
+    return std::make_unique<SampledVolumeRequest>(
+        device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(), std::move(this->sampledData));
 }

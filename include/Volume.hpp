@@ -48,7 +48,6 @@ class Volume : public star::StarObject
     class ProcessVolume
     {
         std::vector<std::vector<std::vector<float>>> &sampledGridData;
-        openvdb::FloatGrid *volume = nullptr;
         openvdb::FloatGrid::ConstAccessor myAccessor;
         const size_t &myStepSize = 0;
         const size_t &halfTotalSteps = 0;
@@ -167,7 +166,6 @@ class Volume : public star::StarObject
 
         star::Ray getRayForPixel(const size_t &x, const size_t &y) const
         {
-            assert(x >= 0 && y >= 0 && "Coordinates must be positive");
             assert(x < this->dimensions.x && y < this->dimensions.y &&
                    "Coordinates must be within dimensions of screen");
 
@@ -177,7 +175,6 @@ class Volume : public star::StarObject
                                      (1 - 2 * ((y + 0.5) / this->dimensions.y)) * scale, -1.0f};
 
             glm::vec3 origin = this->camDisplayMat * glm::vec4{0, 0, 0, 1};
-            auto normPix = glm::normalize(pixelLocCamera);
             glm::vec3 point = this->camDisplayMat * glm::vec4(glm::normalize(pixelLocCamera), 1.0f);
             glm::vec3 direction = point - origin;
             auto normDir = glm::normalize(direction);

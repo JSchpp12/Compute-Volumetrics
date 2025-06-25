@@ -1,9 +1,8 @@
 #include "FogControlInfo.hpp"
 
 FogControlInfoTransfer::FogControlInfoTransfer(const FogInfo::FinalizedInfo &fogInfo,
-                                               const uint32_t &computeQueueFamilyIndex,
-                                               const vk::DeviceSize &minUniformBufferOffsetAlignment)
-    : fogInfo(fogInfo), computeQueueFamilyIndex(computeQueueFamilyIndex), minUniformBufferOffsetAlignment(minUniformBufferOffsetAlignment)
+                                               const uint32_t &computeQueueFamilyIndex)
+    : fogInfo(fogInfo), computeQueueFamilyIndex(computeQueueFamilyIndex)
 {
 }
 
@@ -74,8 +73,7 @@ std::unique_ptr<star::TransferRequest::Buffer> FogControlInfoController::createT
     this->lastFogInfo = *this->currentFogInfo;
 
     return std::make_unique<FogControlInfoTransfer>(
-        this->currentFogInfo->getInfo(), device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(),
-        device.getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment);
+        this->currentFogInfo->getInfo(), device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex());
 }
 
 bool FogControlInfoController::isValid(const uint8_t &currentFrameInFlightIndex) const

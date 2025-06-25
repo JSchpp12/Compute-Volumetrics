@@ -151,7 +151,6 @@ if (CPPCHECK_EXECUTABLE)
 
 	foreach(DIR ${starlight_TARGET_INCLUDE_DIRS})
 		list(APPEND CPPCHECK_INCLUDES "-I" "${CMAKE_CURRENT_SOURCE_DIR}/extern/starlight/${DIR}")
-		message(${DIR})
 	endforeach()
 
 	add_custom_target("${PROJECT_NAME}_cppcheck"
