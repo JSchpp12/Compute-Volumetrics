@@ -79,7 +79,7 @@ void Application::startup(star::StarDevice &device, const star::StarWindow &wind
         auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
 
         auto terrain = std::make_unique<Terrain>(terrainInfoPath);
-        auto &t_i = terrain->createInstance();
+        terrain->createInstance();
         this->offscreenScene->add(std::move(terrain));
     }
 

@@ -19,9 +19,11 @@
 #include "Color.hpp"
 #include "ConfigFile.hpp"
 #include "FileHelpers.hpp"
+#include "FogInfo.hpp"
 #include "GeometryHelpers.hpp"
 #include "Light.hpp"
 #include "Ray.hpp"
+#include "RenderResourceModifier.hpp"
 #include "RenderingTargetInfo.hpp"
 #include "RuntimeUpdateTexture.hpp"
 #include "ScreenMaterial.hpp"
@@ -31,9 +33,6 @@
 #include "VertColorMaterial.hpp"
 #include "Vertex.hpp"
 #include "VolumeRenderer.hpp"
-#include "FogInfo.hpp"
-#include "RenderResourceModifier.hpp"
-
 
 constexpr auto NUM_THREADS = 20;
 
@@ -93,7 +92,7 @@ class Volume : public star::StarObject
 
     std::unique_ptr<star::StarPipeline> buildPipeline(star::StarDevice &device, vk::Extent2D swapChainExtent,
                                                       vk::PipelineLayout pipelineLayout,
-                                                      star::RenderingTargetInfo renderInfo);
+                                                      star::RenderingTargetInfo renderInfo) override;
 
     /// <summary>
     /// Expensive, only call when necessary.
@@ -107,19 +106,20 @@ class Volume : public star::StarObject
     virtual void prepRender(star::StarDevice &device, int numSwapChainImages, star::StarPipeline &sharedPipeline,
                             star::StarShaderInfo::Builder fullEngineBuilder) override;
 
-    virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override; 
+    virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
 
-    virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override; 
+    virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
 
     void setFogType(const VolumeRenderer::FogType &fogType)
     {
         this->volumeRenderer->setFogType(fogType);
     }
 
-    FogInfo &getFogControlInfo(){
-        return this->volumeRenderer->getFogControlInfo(); 
+    FogInfo &getFogControlInfo()
+    {
+        return this->volumeRenderer->getFogControlInfo();
     }
-    
+
   protected:
     std::shared_ptr<star::StarCamera> camera = nullptr;
     star::Handle cameraShaderInfo = star::Handle();
@@ -137,9 +137,9 @@ class Volume : public star::StarObject
     glm::vec2 screenDimensions{};
     openvdb::FloatGrid::Ptr grid{};
 
-    uint32_t computeQueueFamily = 0; 
-    uint32_t graphicsQueueFamily = 0; 
-    
+    uint32_t computeQueueFamily = 0;
+    uint32_t graphicsQueueFamily = 0;
+
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
     void loadModel();
@@ -211,5 +211,6 @@ class Volume : public star::StarObject
 
     static openvdb::Mat4R getTransform(const glm::mat4 &objectDisplayMat);
 
-    static void RecordQueueFamilyInfo(star::StarDevice &device, uint32_t &computeQueueFamilyIndex, uint32_t &graphicsQueueFamilyIndex); 
+    static void RecordQueueFamilyInfo(star::StarDevice &device, uint32_t &computeQueueFamilyIndex,
+                                      uint32_t &graphicsQueueFamilyIndex);
 };
