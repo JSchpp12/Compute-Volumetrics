@@ -67,12 +67,15 @@ class TerrainChunk
         TerrainDataset(const std::string &path, const glm::dvec2 &northEast, const glm::dvec2 &southEast,
                        const glm::dvec2 &southWest, const glm::dvec2 &northWest, const glm::dvec2 &center,
                        const glm::dvec3 &offset);
-        
+
+        // no copy
         TerrainDataset(const TerrainDataset &) = delete;
         TerrainDataset &operator=(const TerrainDataset &) = delete;
 
         TerrainDataset(TerrainDataset &&) noexcept = default;
-        TerrainDataset &operator=(TerrainDataset &&) noexcept = default;
+        // no move
+        TerrainDataset &operator=(TerrainDataset &&) noexcept = delete;
+
         ~TerrainDataset();
 
         float getElevationAtTexCoords(const glm::ivec2 &texCoords) const;
@@ -164,8 +167,7 @@ class TerrainChunk
 
     static glm::dvec2 calcStep(const glm::dvec2 &startPoint, const glm::dvec2 &horizontalDirection,
                                const double &horizontalStepSize, const glm::dvec2 &verticalDirection,
-                               const double &verticalStepSize,
-                               const int &stepsX, const int &stepsY);
+                               const double &verticalStepSize, const int &stepsX, const int &stepsY);
 
     static glm::dvec2 calcIntersection(const Line &lineA, const Line &lineB);
 };
