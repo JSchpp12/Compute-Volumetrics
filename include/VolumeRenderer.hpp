@@ -89,7 +89,7 @@ class VolumeRenderer : public star::CommandBufferModifier,
     FogType currentFogType = FogType::marched;
     std::shared_ptr<FogInfo> fogControlInfo =
         std::shared_ptr<FogInfo>(new FogInfo(FogInfo::LinearFogInfo(0.001f, 100.0f), FogInfo::ExpFogInfo(0.5f),
-                                             FogInfo::MarchedFogInfo(0.1f, 0.5f, 0.5f, 10)));
+                                             FogInfo::MarchedFogInfo(0.01f, 0.001f, 0.001f, 0.2f, 10)));
 
     // Inherited via CommandBufferModifier
     void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;

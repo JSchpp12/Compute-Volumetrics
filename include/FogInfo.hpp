@@ -8,15 +8,16 @@ class FogInfo
     struct FinalizedInfo
     {
         float linearFog_nearDist = 0.0f, linearFog_farDist = 0.0f, expFog_density = 0.0f,
-              marchedFog_defaultDensity = 0.0f, marchedFog_sigmaAbsorption = 0.0f, marchedFog_lightPropertyDirG = 0.0f;
+              marchedFog_defaultDensity = 0.0f, marchedFog_sigmaAbsorption = 0.0f, marchedFog_sigmaScattering = 0.0f, marchedFog_lightPropertyDirG = 0.0f;
         int marchedFog_numMainSteps = 0;
 
         FinalizedInfo(const float &linearFog_nearDist, const float &linearFog_farDist, const float &expFog_density,
-                      const float &marchedFog_defaultDensity, const float &marchedFog_sigmaAbsorption,
+                      const float &marchedFog_defaultDensity, const float &marchedFog_sigmaAbsorption, const float &marchedFog_sigmaScattering,
                       const float &marchedFog_lightPropertyDirG, const int &marchedFog_numMainSteps)
             : linearFog_nearDist(linearFog_nearDist), linearFog_farDist(linearFog_farDist),
               expFog_density(expFog_density), marchedFog_defaultDensity(marchedFog_defaultDensity),
               marchedFog_sigmaAbsorption(marchedFog_sigmaAbsorption),
+              marchedFog_sigmaScattering(marchedFog_sigmaScattering),
               marchedFog_lightPropertyDirG(marchedFog_lightPropertyDirG),
               marchedFog_numMainSteps(marchedFog_numMainSteps)
         {
@@ -79,14 +80,14 @@ class FogInfo
 
     struct MarchedFogInfo
     {
-        float defaultDensity = 0.0f, sigmaAbsorption = 0.0f, lightPropertyDirG = 0.0f;
+        float defaultDensity = 0.0f, sigmaAbsorption = 0.0f, sigmaScattering = 0.0f, lightPropertyDirG = 0.0f;
         int numMainSteps = 0;
 
         MarchedFogInfo() = default;
 
-        MarchedFogInfo(const float &defaultDensity, const float &sigmaAbsorption, const float &lightPropertyDirG,
+        MarchedFogInfo(const float &defaultDensity, const float &sigmaAbsorption, const float &sigmaScattering, const float &lightPropertyDirG,
                        const int &numMainSteps)
-            : defaultDensity(defaultDensity), sigmaAbsorption(sigmaAbsorption), lightPropertyDirG(lightPropertyDirG),
+            : defaultDensity(defaultDensity), sigmaAbsorption(sigmaAbsorption), sigmaScattering(sigmaScattering), lightPropertyDirG(lightPropertyDirG),
               numMainSteps(numMainSteps)
         {
         }
@@ -161,7 +162,7 @@ class FogInfo
     {
         return FinalizedInfo{this->linearInfo.nearDist,         this->linearInfo.farDist,
                              this->expFogInfo.density,          this->marchedInfo.defaultDensity,
-                             this->marchedInfo.sigmaAbsorption, this->marchedInfo.lightPropertyDirG,
+                             this->marchedInfo.sigmaAbsorption, this->marchedInfo.sigmaScattering, this->marchedInfo.lightPropertyDirG,
                              this->marchedInfo.numMainSteps};
     }
 
