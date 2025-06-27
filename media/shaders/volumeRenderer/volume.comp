@@ -37,7 +37,8 @@ globalUbo;
 
 layout(set = 0, binding = 1) readonly buffer GlobalLightBuffer{
     Light lights[];
-};
+}
+globalLights;
 
 layout(set = 1, binding = 0) uniform additionalCameraInfo
 {
@@ -187,29 +188,55 @@ bool rayBoxIntersect(Ray ray, inout float t0, inout float t1)
     return tmax >= max(0.0, tmin);
 }
 
-vec3 forwardMarch(const vec3 backgroundColor, const Ray ray, const float t0, const float t1, const int numSteps,
+float applyHenyeyGreensteinPhase(const vec3 viewDirection, const vec3 lightDirection, const float gValue){
+    const float cosTheta = dot(viewDirection, lightDirection); 
+    const float denom = pow(1 + gValue * gValue - 2 * gValue * cosTheta, 1.5);
+    return float(1) / (4 * radians(180)) * (1 - gValue * gValue) / denom; 
+}
+
+vec4 forwardMarch(const vec3 viewDirection, const vec3 backgroundColor, const Ray ray, const float t0, const float t1, const int numSteps,
                   const float sigmaAbsorption, const float sigmaScattering, const float lightPropertyDir_g,
                   const float density)
 {
-	// float transparency = 0.0;
-    // vec3 resultingColor = vec3(1.0, 1.0, 1.0);
+    vec4 resultingColor = vec4(backgroundColor, 1.0); 
+	float transparency = 1;
 
-    // const float fittedStepSize = (t1 - t0) / numSteps;
+    const float fittedStepSize = (t1 - t0) / numSteps;
 
-    // for (int i = 0; i < numSteps; i++){
-    //     // setting to middle
-    //     float t = t0 + fittedStepSize * (i + 0.5f);
-	// 	vec4 position = ray.origin + (t / ray.invDirection); 
-	// 	float beerExpTrans = exp(-fittedStepSize * density * (sigmaAbsorption + sigmaScattering)); 
+    for (int i = 0; i < numSteps; i++){
+        // setting to middle
+        float t = t0 + fittedStepSize * (i + 0.5f);
+		vec4 position = vec4(ray.origin.xyz + (t / ray.invDirection.xyz), 1); 
+		float beerExpTrans = exp(-fittedStepSize * density * (sigmaAbsorption + sigmaScattering)); 
 
-	// 	transparency *= beerExpTrans;
+		transparency *= beerExpTrans;
 
-	// 	for (int j = 0; j < globalUbo.numLights; j++){
-	// 		// Ray lightRay = Ray(position, normalize(globalUbo))
-	// 	}
-    // }
+		for (int j = 0; j < globalUbo.numLights; j++){
+			Ray rayToLight = createRay(position, vec4(normalize(globalLights.lights[j].position.xyz - position.xyz), 0));
 
-    return vec3(0.0, 1.0, 0.0);
+            float lt0 = 0;
+            float lt1 = 0; 
+            if (rayBoxIntersect(rayToLight, lt0, lt1)){ 
+                const float fittedStepSizeToLight = (lt1 - lt0) / float(numSteps);
+
+                float sumLightSampleDensities = 0; 
+                for (int k = 0; k < numSteps; k++){
+                    //cant remember why there is a 0.5 here.......
+                    float tLight = fittedStepSizeToLight * (k + 0.5); 
+
+                    const vec4 lightTracePosition = vec4(rayToLight.origin.xyz + (tLight / rayToLight.invDirection.xyz), 1); 
+                    sumLightSampleDensities += density;
+                }
+
+                const float lightAtten = exp(-sumLightSampleDensities * -lt1 * (sigmaAbsorption + sigmaScattering)); 
+                const float phaseResult = lightAtten * applyHenyeyGreensteinPhase(viewDirection, rayToLight.direction.xyz, lightPropertyDir_g) * density * fittedStepSizeToLight;
+
+                resultingColor = resultingColor + (globalLights.lights[j].ambient * phaseResult); 
+            }
+		}
+    }
+
+    return resultingColor * transparency; 
 }
 
 void main()
@@ -229,11 +256,14 @@ void main()
     float t0 = 0;
     float t1 = 0;
 
-    if (rayBoxIntersect(camRay, t0, t1) && t0 < targetPixelInputDepth)
-        resultingColor = vec4(forwardMarch(imgColor, camRay, t0, t1, fogInfo.marched_numMainSteps,
+    if (rayBoxIntersect(camRay, t0, t1) && t0 < targetPixelInputDepth){
+        const vec3 worldViewDirection = normalize(globalUbo.inverseView * vec4(0.0, 0.0, -1.0, 0.0)).xyz;
+        resultingColor = forwardMarch(
+            worldViewDirection, 
+            imgColor, camRay, t0, t1, fogInfo.marched_numMainSteps,
                                      fogInfo.marchedFog_sigmaAbsorption, fogInfo.marchedFog_sigmaScattering,
-                                     fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_defaultDensity),
-                        1.0);
+                                     fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_defaultDensity);
+    }
 
     imageStore(outputImage, targetPixel, resultingColor);
 }
