@@ -196,7 +196,7 @@ float applyHenyeyGreensteinPhase(const vec3 viewDirection, const vec3 lightDirec
 
 vec4 forwardMarch(const vec3 viewDirection, const vec3 backgroundColor, const Ray ray, const float t0, const float t1, const int numSteps,
                   const float sigmaAbsorption, const float sigmaScattering, const float lightPropertyDir_g,
-                  const float density)
+                  const float density, const float cutOffDistance)
 {
     vec4 resultingColor = vec4(backgroundColor, 1.0); 
 	float transparency = 1;
@@ -206,6 +206,7 @@ vec4 forwardMarch(const vec3 viewDirection, const vec3 backgroundColor, const Ra
     for (int i = 0; i < numSteps; i++){
         // setting to middle
         float t = t0 + fittedStepSize * (i + 0.5f);
+
 		vec4 position = vec4(ray.origin.xyz + (t / ray.invDirection.xyz), 1); 
 		float beerExpTrans = exp(-fittedStepSize * density * (sigmaAbsorption + sigmaScattering)); 
 
@@ -229,7 +230,7 @@ vec4 forwardMarch(const vec3 viewDirection, const vec3 backgroundColor, const Ra
                 }
 
                 const float lightAtten = exp(-sumLightSampleDensities * -lt1 * (sigmaAbsorption + sigmaScattering)); 
-                const float phaseResult = lightAtten * applyHenyeyGreensteinPhase(viewDirection, rayToLight.direction.xyz, lightPropertyDir_g) * density * fittedStepSizeToLight;
+                const float phaseResult = lightAtten * applyHenyeyGreensteinPhase(position.xyz, rayToLight.direction.xyz, lightPropertyDir_g) * density * fittedStepSizeToLight;
 
                 resultingColor = resultingColor + (globalLights.lights[j].ambient * phaseResult); 
             }
@@ -256,13 +257,18 @@ void main()
     float t0 = 0;
     float t1 = 0;
 
-    if (rayBoxIntersect(camRay, t0, t1) && t0 < targetPixelInputDepth){
+    if (rayBoxIntersect(camRay, t0, t1)){
+        //need to get world distance from depth buffer value 
+        //ray marching algorithm happens in world space...
+        const float worldCutoffPoint = camRay.origin + camRay.direction 
+        
         const vec3 worldViewDirection = normalize(globalUbo.inverseView * vec4(0.0, 0.0, -1.0, 0.0)).xyz;
         resultingColor = forwardMarch(
             worldViewDirection, 
             imgColor, camRay, t0, t1, fogInfo.marched_numMainSteps,
                                      fogInfo.marchedFog_sigmaAbsorption, fogInfo.marchedFog_sigmaScattering,
-                                     fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_defaultDensity);
+                                     fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_defaultDensity, 
+                                     targetPixelInputDepth);
     }
 
     imageStore(outputImage, targetPixel, resultingColor);

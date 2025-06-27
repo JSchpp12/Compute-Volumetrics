@@ -11,7 +11,6 @@
 #include "Terrain.hpp"
 #include "Time.hpp"
 
-
 using namespace star;
 
 Application::Application()
@@ -60,7 +59,7 @@ void Application::startup(star::StarDevice &device, const star::StarWindow &wind
                                      this->offscreenSceneRenderer->getRenderToDepthImages(), globalInfos, lightInfos);
 
         auto &s_i = screen->createInstance();
-        s_i.setScale(glm::vec3{2.0, 2.0, 2.0});
+        s_i.setScale(glm::vec3{10.0, 10.0, 10.0});
         auto handle = this->scene->add(std::move(screen));
         StarObject *obj = &this->scene->getObject(handle);
         this->vol = static_cast<Volume *>(obj);
@@ -145,9 +144,14 @@ void Application::onKeyRelease(int key, int scancode, int mods)
     if (key == star::KEY::B)
     {
         std::cout << "Select fog property to change" << std::endl;
-        std::cout << "1 - Fog Near Distance" << std::endl;
-        std::cout << "2 - Fog Far Distance" << std::endl;
-        std::cout << "3 - Fog Density" << std::endl;
+        std::cout << "1 - LinearFog: Fog Near Distance" << std::endl;
+        std::cout << "2 - LinearFog: Fog Far Distance" << std::endl;
+        std::cout << "3 - ExpFog: Fog Density" << std::endl;
+        std::cout << "4 - MarchedFog: Default Density" << std::endl;
+        std::cout << "5 - MarchedFog: Sigma Absorption" << std::endl;
+        std::cout << "6 - MarchedFog: Sigma Scattering" << std::endl;
+        std::cout << "7 - MarchedFog: Light PropertyDirG" << std::endl;
+        std::cout << "8 - MarchedFog: Num Steps" << std::endl;
 
         int selectedMode;
 
@@ -160,13 +164,28 @@ void Application::onKeyRelease(int key, int scancode, int mods)
         switch (selectedMode)
         {
         case (1):
-            this->vol->getFogControlInfo().linearInfo.nearDist = PromptForVisibilityDistance();
+            this->vol->getFogControlInfo().linearInfo.nearDist = PromptForFloat("Select vidibility");
             break;
         case (2):
-            this->vol->getFogControlInfo().linearInfo.farDist = PromptForVisibilityDistance();
+            this->vol->getFogControlInfo().linearInfo.farDist = PromptForFloat("Select distance"); 
             break;
         case (3):
-            this->vol->getFogControlInfo().expFogInfo.density = PromptForDensity();
+            this->vol->getFogControlInfo().expFogInfo.density = PromptForFloat("Select density"); 
+            break;
+        case (4):
+            this->vol->getFogControlInfo().marchedInfo.defaultDensity = PromptForFloat("Select density"); 
+            break;
+        case (5):
+            this->vol->getFogControlInfo().marchedInfo.sigmaAbsorption = PromptForFloat("Select sigma"); 
+            break;
+        case (6):
+            this->vol->getFogControlInfo().marchedInfo.sigmaScattering = PromptForFloat("Select sigma"); 
+            break;
+        case (7):
+            this->vol->getFogControlInfo().marchedInfo.lightPropertyDirG = PromptForFloat("Select light prop"); 
+            break;
+        case (8):
+            this->vol->getFogControlInfo().marchedInfo.numMainSteps = PromptForInt("Select steps"); 
             break;
         default:
             std::cout << "Unknown option" << std::endl;
@@ -212,23 +231,22 @@ void Application::onWorldUpdate(const uint32_t &frameInFlightIndex)
     // this->scene.getCamera()->getProjectionMatrix());
 }
 
-float Application::PromptForVisibilityDistance()
+float Application::PromptForFloat(const std::string &prompt)
 {
-    std::cout << "Select Distance" << std::endl;
-    return ProcessFloatInput();
+    std::cout << prompt.c_str() << std::endl; 
+    return ProcessFloatInput(); 
 }
 
-float Application::PromptForDensity()
+int Application::PromptForInt(const std::string &prompt)
 {
-    std::cout << "Select Density" << std::endl;
-    return ProcessFloatInput();
+    std::cout << prompt.c_str() << std::endl;
+    return ProcessIntInput(); 
 }
 
 float Application::ProcessFloatInput()
 {
-    float selectedDistance;
+    float selectedDistance = 0.0f;
 
-    std::string inputDistance;
     {
         std::string inputOption;
         std::getline(std::cin, inputOption);
@@ -242,4 +260,21 @@ float Application::ProcessFloatInput()
     }
 
     return selectedDistance;
+}
+
+int Application::ProcessIntInput(){
+    int selectedValue = 0; 
+
+    {
+        std::string inputOption = std::string(); 
+        std::getline(std::cin, inputOption); 
+        selectedValue = std::stoi(inputOption);
+    }
+
+    if (selectedValue < 0){
+        std::cout << "Invalid value provided. Defaulting to 0" << std::endl;
+        selectedValue = 0; 
+    }
+
+    return selectedValue;
 }

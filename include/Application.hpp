@@ -44,9 +44,11 @@ class Application : public star::StarApplication
     void onScroll(double xoffset, double yoffset) override;
     void onWorldUpdate(const uint32_t &frameInFlightIndex) override;
 
-    static float PromptForVisibilityDistance(); 
+    static float PromptForFloat(const std::string &prompt); 
 
-    static float PromptForDensity(); 
+    static int PromptForInt(const std::string &prompt); 
 
     static float ProcessFloatInput();
+
+    static int ProcessIntInput(); 
 };
