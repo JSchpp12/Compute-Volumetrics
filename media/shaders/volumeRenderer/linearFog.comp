@@ -166,16 +166,20 @@ ivec2 getTargetPixelCoords(){
     );
 }
 
-float linearizeDepth(const float depth, const float camNearClipDist, const float camFarClipDist){
+float linearizeDepth(const float depth, const float camNearClipDist, const float camFarClipDist)
+{
     /* convert depth value back to linear space -- based on proj matrix
     Source: http://www.songho.ca/opengl/gl_projectionmatrix.html
     Source2: https://learnopengl.com/Advanced-OpenGL/Depth-testing
     */
 
-   //openGL transorms depth from [0,1] to [-1, 1] -- inverse
-   const float z = depth * 2.0 - 1.0;
-   //inverse of applied depth function 
-   return (2.0 * camNearClipDist * camFarClipDist) / (camFarClipDist + camNearClipDist - z * (camFarClipDist - camNearClipDist));
+    // openGL transorms depth from [0,1] to [-1, 1] -- inverse
+    // const float z = depth * 2.0 - 1.0;
+    // // inverse of applied depth function
+    // return (2.0 * camNearClipDist * camFarClipDist) /
+    //        (camFarClipDist + camNearClipDist - z * (camFarClipDist - camNearClipDist));
+
+    return camNearClipDist * camFarClipDist / (camFarClipDist + depth * (camNearClipDist - camFarClipDist));
 }
 
 float calcFogAmt(const float depth, const float fogNearDist, const float fogFarDist){

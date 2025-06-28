@@ -138,10 +138,12 @@ float linearizeDepth(const float depth, const float camNearClipDist, const float
     */
 
     // openGL transorms depth from [0,1] to [-1, 1] -- inverse
-    const float z = depth * 2.0 - 1.0;
-    // inverse of applied depth function
-    return (2.0 * camNearClipDist * camFarClipDist) /
-           (camFarClipDist + camNearClipDist - z * (camFarClipDist - camNearClipDist));
+    // const float z = depth * 2.0 - 1.0;
+    // // inverse of applied depth function
+    // return (2.0 * camNearClipDist * camFarClipDist) /
+    //        (camFarClipDist + camNearClipDist - z * (camFarClipDist - camNearClipDist));
+
+    return camNearClipDist * camFarClipDist / (camFarClipDist + depth * (camNearClipDist - camFarClipDist));
 }
 
 bool checkForThreadOutsideOfTarget()
@@ -260,7 +262,7 @@ void main()
     if (rayBoxIntersect(camRay, t0, t1)){
         //need to get world distance from depth buffer value 
         //ray marching algorithm happens in world space...
-        const float worldCutoffPoint = camRay.origin + camRay.direction 
+        // const float worldCutoffPoint = camRay.origin + camRay.direction 
         
         const vec3 worldViewDirection = normalize(globalUbo.inverseView * vec4(0.0, 0.0, -1.0, 0.0)).xyz;
         resultingColor = forwardMarch(
