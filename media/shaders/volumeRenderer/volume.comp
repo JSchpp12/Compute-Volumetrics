@@ -88,15 +88,7 @@ struct Ray
     bool signed[3];
 };
 
-float distanceFromDepth(ivec2 coords, double depth)
-{
-    vec4 screenPos = vec4(coords * 2.0 - 1.0, depth, 1.0);
-    vec4 viewPos = addCamInfo.inverseProjMatrix * screenPos;
-    viewPos /= viewPos.w;
-    return length(viewPos.xyz);
-}
-
-Ray createRay(vec4 origin, vec4 direction)
+Ray createRay(const vec4 origin, const vec4 direction)
 {
     vec3 invDir = vec3(1.0 / direction.x, 1.0 / direction.y, 1.0 / direction.z);
 
@@ -104,24 +96,31 @@ Ray createRay(vec4 origin, vec4 direction)
                bool[3](bool(invDir.x < 0), bool(invDir.y < 0), bool(invDir.z < 0)));
 }
 
-Ray getRayForPixel(const ivec2 pixelCoords)
-{
+vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const float ndz){
     // 1) Build NDC coordinates in [−1, +1]
     float ndcX = ((float(pixelCoords.x) + 0.5) / addCamInfo.cameraDimensions.x) * 2.0 - 1.0;
-    float ndcY = 1.0 - ((float(pixelCoords.y) + 0.5) / addCamInfo.cameraDimensions.y) * 2.0;
+    float ndcY = ((float(pixelCoords.y) + 0.5) / addCamInfo.cameraDimensions.y) * 2.0 - 1.0;
+
+    // Vulkan's Y axis is flipped compared to OpenGL
+    ndcY = -ndcY; 
 
     // 2) Reconstruct clip-space with Z = −1 (the near plane), W = 1
-    vec4 clip = vec4(ndcX, ndcY, -1.0, 1.0);
+    return vec4(ndcX, ndcY, ndz, 1.0);
+}
 
+vec4 getWorldPositionFromClip(const vec4 clipCoords){
     // 3) Go back to view-space:
-    vec4 viewPos = addCamInfo.inverseProjMatrix * clip;
-    viewPos /= viewPos.w; // → actual (x, y, -nearDist, 1) in view‐space
+    vec4 viewPositionWorld = addCamInfo.inverseProjMatrix * clipCoords;
 
-    // 4) Rotate into world space (can ignore translation on the direction)
-    vec3 dir_world = normalize((globalUbo.inverseView * vec4(viewPos.xyz, 0.0)).xyz);
-    vec3 orig_world = (globalUbo.inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    return viewPositionWorld / viewPositionWorld.w; 
+}
 
-    return createRay(vec4(orig_world, 1.0), vec4(dir_world, 0.0));
+vec4 getWorldViewDirection(const vec4 viewPositionWorld){
+    return vec4(normalize((globalUbo.inverseView * vec4(viewPositionWorld.xyz, 0.0)).xyz), 0);
+}
+
+vec4 getWorldOrigin(){
+    return vec4((globalUbo.inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz, 1.0);
 }
 
 ivec2 getTargetPixelCoords()
@@ -136,14 +135,7 @@ float linearizeDepth(const float depth, const float camNearClipDist, const float
     Source: http://www.songho.ca/opengl/gl_projectionmatrix.html
     Source2: https://learnopengl.com/Advanced-OpenGL/Depth-testing
     */
-
-    // openGL transorms depth from [0,1] to [-1, 1] -- inverse
-    // const float z = depth * 2.0 - 1.0;
-    // // inverse of applied depth function
-    // return (2.0 * camNearClipDist * camFarClipDist) /
-    //        (camFarClipDist + camNearClipDist - z * (camFarClipDist - camNearClipDist));
-
-    return camNearClipDist * camFarClipDist / (camFarClipDist + depth * (camNearClipDist - camFarClipDist));
+    return (camNearClipDist * camFarClipDist) / (camFarClipDist - depth * (camFarClipDist - camNearClipDist));
 }
 
 bool checkForThreadOutsideOfTarget()
@@ -209,6 +201,11 @@ vec4 forwardMarch(const vec3 viewDirection, const vec3 backgroundColor, const Ra
         // setting to middle
         float t = t0 + fittedStepSize * (i + 0.5f);
 
+        //check if march is beyond where the cutoff point should be
+        if (t > cutOffDistance){
+            break;
+        }
+
 		vec4 position = vec4(ray.origin.xyz + (t / ray.invDirection.xyz), 1); 
 		float beerExpTrans = exp(-fittedStepSize * density * (sigmaAbsorption + sigmaScattering)); 
 
@@ -248,10 +245,14 @@ void main()
         return;
 
     const ivec2 targetPixel = getTargetPixelCoords();
-
-    const Ray camRay = getRayForPixel(targetPixel);
     float targetPixelInputDepth = texelFetch(inputSceneDepth, targetPixel, 0).r;
-    targetPixelInputDepth = linearizeDepth(targetPixelInputDepth, addCamInfo.nearClipDist, addCamInfo.farClipDist);
+
+    const vec4 clipSpace = getClipSpaceCoordsFromPixel(targetPixel, targetPixelInputDepth); 
+    const vec4 viewPositionWorld = getWorldPositionFromClip(clipSpace);
+    const vec4 orgWorld = getWorldOrigin(); 
+    const vec4 viewDirectionWorld = getWorldViewDirection(viewPositionWorld); 
+    const float worldDepthDistance = length(viewPositionWorld.xyz - viewDirectionWorld.xyz); 
+    Ray camRay = createRay(orgWorld, viewDirectionWorld);
 
     const vec3 imgColor = vec3(imageLoad(inputSceneColor, targetPixel).rgb);
     vec4 resultingColor = vec4(imgColor, 1.0);
@@ -259,18 +260,17 @@ void main()
     float t0 = 0;
     float t1 = 0;
 
-    if (rayBoxIntersect(camRay, t0, t1)){
+    if (rayBoxIntersect(camRay, t0, t1) && t0 < worldDepthDistance){
         //need to get world distance from depth buffer value 
         //ray marching algorithm happens in world space...
         // const float worldCutoffPoint = camRay.origin + camRay.direction 
         
-        const vec3 worldViewDirection = normalize(globalUbo.inverseView * vec4(0.0, 0.0, -1.0, 0.0)).xyz;
         resultingColor = forwardMarch(
-            worldViewDirection, 
+            viewDirectionWorld.xyz, 
             imgColor, camRay, t0, t1, fogInfo.marched_numMainSteps,
                                      fogInfo.marchedFog_sigmaAbsorption, fogInfo.marchedFog_sigmaScattering,
                                      fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_defaultDensity, 
-                                     targetPixelInputDepth);
+                                     worldDepthDistance);
     }
 
     imageStore(outputImage, targetPixel, resultingColor);
