@@ -1,6 +1,8 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.26)
 
 project("starlightapp")
+
+option(HEADLESS "Build without presentation support" OFF)
 
 cmake_policy(SET CMP0071 NEW)
 cmake_policy(SET CMP0076 NEW)
@@ -12,6 +14,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (APPLE)
 	set(CMAKE_MACOSX_RPATH 1)
+endif()
+
+if (not ${HEADLESS})
+    target_compile_options(${PROJECT_NAME} ENABLE_PRESENTATION)
 endif()
 
 enable_language(CXX)
