@@ -16,7 +16,7 @@ if (APPLE)
 	set(CMAKE_MACOSX_RPATH 1)
 endif()
 
-if (not ${HEADLESS})
+if (NOT ${HEADLESS})
     target_compile_options(${PROJECT_NAME} ENABLE_PRESENTATION)
 endif()
 

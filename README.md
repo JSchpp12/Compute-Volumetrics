@@ -15,7 +15,19 @@ The following are required in order to build this project:
 - Dedicated GPU (NVIDIA Recommended)
 
 Python Libraries
-- Pillow
+- pillow 
+- rasterio 
+- beautifulsoup4
+
+### Additional Linux Setup
+
+The following packages are required from the distribution package manager: 
+- pkg-config
+- autoconf
+- Linux Kernel Headers (linux-headers OR linux-libc-dev)
+- bison
+- flex
+- libtool
 
 ## Setup
 
