@@ -16,10 +16,6 @@ if (APPLE)
 	set(CMAKE_MACOSX_RPATH 1)
 endif()
 
-if (NOT ${HEADLESS})
-    target_compile_options(${PROJECT_NAME} ENABLE_PRESENTATION)
-endif()
-
 enable_language(CXX)
 
 find_package(OpenVDB CONFIG REQUIRED)
@@ -193,3 +189,7 @@ add_custom_target(
 add_custom_target(format_cpp_files
     DEPENDS ${FORMAT_STAMP}
 )
+
+if (NOT ${HEADLESS})
+    target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_PRESENTATION)
+endif()
