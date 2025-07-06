@@ -9,4 +9,4 @@ RUN yum update -y && yum clean all \
     && dnf config-manager --enable appstream \
     && dnf update -y \ 
     && dnf install -y perl \
-    && python -m pip install pillow rasterio beautifulsoup4
+    && python -m pip install pillow rasterio beautifulsoup4 shapely rtree pyproj
