@@ -73,7 +73,8 @@ layout(set = 3, binding = 2) uniform FogControllerInfo
     float marchedFog_sigmaAbsorption;
     float marchedFog_sigmaScattering;
     float marchedFog_lightPropertyDirG;
-    int marched_numMainSteps;
+    float marchedFog_stepSizeDist;
+    float marchedFog_stepSizeDist_light;
 }
 fogInfo;
 

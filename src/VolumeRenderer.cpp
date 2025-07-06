@@ -217,10 +217,10 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
     {
-        const uint32_t computeIndex = device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex();
+        const uint32_t computeIndex = device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
 
         this->graphicsQueueFamilyIndex =
-            std::make_unique<uint32_t>(device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex());
+            std::make_unique<uint32_t>(device.getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
         if (*this->graphicsQueueFamilyIndex != computeIndex)
         {
             this->computeQueueFamilyIndex = std::make_unique<uint32_t>(uint32_t(computeIndex));
@@ -229,8 +229,8 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
 
     this->displaySize = std::make_unique<vk::Extent2D>(screensize);
     {
-        uint32_t indices[] = {device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(),
-                              device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex()};
+        uint32_t indices[] = {device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
+                              device.getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex()};
 
         auto builder =
             star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())

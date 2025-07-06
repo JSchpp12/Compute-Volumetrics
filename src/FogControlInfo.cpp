@@ -73,7 +73,7 @@ std::unique_ptr<star::TransferRequest::Buffer> FogControlInfoController::createT
     this->lastFogInfo = *this->currentFogInfo;
 
     return std::make_unique<FogControlInfoTransfer>(
-        this->currentFogInfo->getInfo(), device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex());
+        this->currentFogInfo->getInfo(), device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex());
 }
 
 bool FogControlInfoController::isValid(const uint8_t &currentFrameInFlightIndex) const

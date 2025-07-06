@@ -151,14 +151,21 @@ void Application::onKeyRelease(int key, int scancode, int mods)
         std::cout << "5 - MarchedFog: Sigma Absorption" << std::endl;
         std::cout << "6 - MarchedFog: Sigma Scattering" << std::endl;
         std::cout << "7 - MarchedFog: Light PropertyDirG" << std::endl;
-        std::cout << "8 - MarchedFog: Num Steps" << std::endl;
+        std::cout << "8 - MarchedFog: Step Size" << std::endl;
+        std::cout << "9 - MarchedFog: Step Size Light" << std::endl;
 
         int selectedMode;
 
         {
             std::string inputOption = std::string();
             std::getline(std::cin, inputOption);
-            selectedMode = std::stoi(inputOption);
+            try{
+                selectedMode = std::stoi(inputOption);
+            }catch (const std::exception &ex){
+                std::cout << "Invalid option" << std::endl;
+                return;
+            }
+
         }
 
         switch (selectedMode)
@@ -185,7 +192,10 @@ void Application::onKeyRelease(int key, int scancode, int mods)
             this->vol->getFogControlInfo().marchedInfo.lightPropertyDirG = PromptForFloat("Select light prop"); 
             break;
         case (8):
-            this->vol->getFogControlInfo().marchedInfo.numMainSteps = PromptForInt("Select steps"); 
+            this->vol->getFogControlInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size"); 
+            break;
+        case(9):
+            this->vol->getFogControlInfo().marchedInfo.stepSizeDist_light = PromptForFloat("Select step size light");
             break;
         default:
             std::cout << "Unknown option" << std::endl;

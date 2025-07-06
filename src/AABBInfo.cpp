@@ -63,6 +63,6 @@ void AABBTransfer::writeDataToStageBuffer(star::StarBuffer &buffer) const
 std::unique_ptr<star::TransferRequest::Buffer> AABBController::createTransferRequest(star::StarDevice &device)
 {
     return std::make_unique<AABBTransfer>(
-        this->aabbBounds, device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(),
+        this->aabbBounds, device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
         device.getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment);
 }

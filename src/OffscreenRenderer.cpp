@@ -137,8 +137,8 @@ void OffscreenRenderer::initResources(star::StarDevice &device, const int &numFr
 {
     {
         this->graphicsQueueFamilyIndex =
-            std::make_unique<uint32_t>(device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex());
-        const uint32_t computeQueueIndex = device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex();
+            std::make_unique<uint32_t>(device.getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
+        const uint32_t computeQueueIndex = device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
 
         if (*this->graphicsQueueFamilyIndex != computeQueueIndex)
         {

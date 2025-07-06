@@ -132,5 +132,5 @@ void SampledVolumeRequest::copyFromTransferSRCToDST(star::StarBuffer &srcBuffer,
 std::unique_ptr<star::TransferRequest::Texture> SampledVolumeController::createTransferRequest(star::StarDevice &device)
 {
     return std::make_unique<SampledVolumeRequest>(
-        device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(), std::move(this->sampledData));
+        device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(), std::move(this->sampledData));
 }

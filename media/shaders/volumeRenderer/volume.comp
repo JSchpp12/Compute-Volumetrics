@@ -76,7 +76,8 @@ layout(set = 3, binding = 2) uniform FogControllerInfo
     float marchedFog_sigmaAbsorption;
     float marchedFog_sigmaScattering;
     float marchedFog_lightPropertyDirG;
-    int marched_numMainSteps;
+    float marchedFog_stepSizeDist;
+    float marchedFog_stepSizeDist_light;
 }
 fogInfo;
 
@@ -188,16 +189,17 @@ float applyHenyeyGreensteinPhase(const vec3 viewDirection, const vec3 lightDirec
     return float(1) / (4 * radians(180)) * (1 - gValue * gValue) / denom; 
 }
 
-vec4 forwardMarch(const vec3 viewDirection, const vec3 backgroundColor, const Ray ray, const float t0, const float t1, const int numSteps,
+vec4 forwardMarch(const vec3 viewDirection, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
                   const float sigmaAbsorption, const float sigmaScattering, const float lightPropertyDir_g,
                   const float density, const float cutOffDistance)
 {
     vec4 resultingColor = vec4(backgroundColor, 1.0); 
 	float transparency = 1;
 
-    const float fittedStepSize = (t1 - t0) / numSteps;
+    const int fittedNumSteps = int(floor((t1 - t0) / fogInfo.marchedFog_stepSizeDist));
+    const float fittedStepSize = (t1 - t0) / fittedNumSteps; 
 
-    for (int i = 0; i < numSteps; i++){
+    for (int i = 0; i < fittedNumSteps; i++){
         // setting to middle
         float t = t0 + fittedStepSize * (i + 0.5f);
 
@@ -215,12 +217,13 @@ vec4 forwardMarch(const vec3 viewDirection, const vec3 backgroundColor, const Ra
 			Ray rayToLight = createRay(position, vec4(normalize(globalLights.lights[j].position.xyz - position.xyz), 0));
 
             float lt0 = 0;
-            float lt1 = 0; 
+            float lt1 = 0;  
             if (rayBoxIntersect(rayToLight, lt0, lt1)){ 
-                const float fittedStepSizeToLight = (lt1 - lt0) / float(numSteps);
+                const float fittedStepSizeToLight = (lt1 - lt0) / fogInfo.marchedFog_stepSizeDist_light;
+                const int fittedNumStepsLight = int(floor((lt1 - lt0) / fittedStepSizeToLight));
 
                 float sumLightSampleDensities = 0; 
-                for (int k = 0; k < numSteps; k++){
+                for (int k = 0; k < fittedNumStepsLight; k++){
                     //cant remember why there is a 0.5 here.......
                     float tLight = fittedStepSizeToLight * (k + 0.5); 
 
@@ -267,7 +270,7 @@ void main()
         
         resultingColor = forwardMarch(
             viewDirectionWorld.xyz, 
-            imgColor, camRay, t0, t1, fogInfo.marched_numMainSteps,
+            imgColor, camRay, t0, t1,
                                      fogInfo.marchedFog_sigmaAbsorption, fogInfo.marchedFog_sigmaScattering,
                                      fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_defaultDensity, 
                                      worldDepthDistance);

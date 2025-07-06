@@ -62,6 +62,6 @@ void CameraInfo::writeDataToStageBuffer(star::StarBuffer &buffer) const
 std::unique_ptr<star::TransferRequest::Buffer> CameraInfoController::createTransferRequest(star::StarDevice &device)
 {
     return std::make_unique<CameraInfo>(
-        this->camera, device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(),
+        this->camera, device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
         device.getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment);
 }

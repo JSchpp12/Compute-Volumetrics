@@ -51,9 +51,8 @@ void Terrain::loadGeometry()
                             fileInfo.infos()[i].cornerSE, fileInfo.infos()[i].cornerSW, fileInfo.infos()[i].cornerNW,
                             worldCenter, fileInfo.infos()[i].center);
 
-        if (i == 5)
+        if (i == 10)
             break;
-
     }
 
     // parallel load meshes

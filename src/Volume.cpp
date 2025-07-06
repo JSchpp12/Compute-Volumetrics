@@ -582,6 +582,6 @@ openvdb::Mat4R Volume::getTransform(const glm::mat4 &objectDisplayMat)
 void Volume::RecordQueueFamilyInfo(star::StarDevice &device, uint32_t &computeQueueFamilyIndex,
                                    uint32_t &graphicsQueueFamilyIndex)
 {
-    computeQueueFamilyIndex = device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex();
-    graphicsQueueFamilyIndex = device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex();
+    computeQueueFamilyIndex = device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
+    graphicsQueueFamilyIndex = device.getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex();
 }
