@@ -6,7 +6,6 @@
     "openvdb",
     "gdal",
     "glm",
-    "glfw3",
     "vulkan-memory-allocator",
     "tbb",
     "basisu",
