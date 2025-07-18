@@ -21,7 +21,7 @@ class OffscreenRenderer : public star::SceneRenderer
     bool isFirstPass = true;
     uint32_t firstFramePassCounter = 0;
 
-    std::vector<std::shared_ptr<star::StarBuffer>> depthInfoStorageBuffers;
+    std::vector<std::shared_ptr<star::StarBuffers::Buffer>> depthInfoStorageBuffers;
 
     std::vector<std::unique_ptr<star::StarTextures::Texture>> createRenderToImages(star::StarDevice &device,
                                                                          const int &numFramesInFlight) override;
@@ -29,7 +29,7 @@ class OffscreenRenderer : public star::SceneRenderer
     std::vector<std::unique_ptr<star::StarTextures::Texture>> createRenderToDepthImages(star::StarDevice &device,
                                                                               const int &numFramesInFlight) override;
 
-    std::vector<std::shared_ptr<star::StarBuffer>> createDepthBufferContainers(star::StarDevice &device);
+    std::vector<std::shared_ptr<star::StarBuffers::Buffer>> createDepthBufferContainers(star::StarDevice &device);
     // Inherited via SceneRenderer
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(

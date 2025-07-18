@@ -335,9 +335,9 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
     return newRenderToImages;
 }
 
-std::vector<std::shared_ptr<star::StarBuffer>> OffscreenRenderer::createDepthBufferContainers(star::StarDevice &device)
+std::vector<std::shared_ptr<star::StarBuffers::Buffer>> OffscreenRenderer::createDepthBufferContainers(star::StarDevice &device)
 {
-    return std::vector<std::shared_ptr<star::StarBuffer>>();
+    return std::vector<std::shared_ptr<star::StarBuffers::Buffer>>();
 }
 
 vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(const int &frameInFlightIndex)

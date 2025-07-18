@@ -13,7 +13,7 @@
 #include "FogInfo.hpp"
 #include "RenderResourceModifier.hpp"
 #include "SampledVolumeTexture.hpp"
-#include "StarBuffer.hpp"
+#include "StarBuffers/Buffer.hpp"
 #include "StarCamera.hpp"
 #include "StarComputePipeline.hpp"
 #include "StarObjectInstance.hpp"
@@ -83,8 +83,8 @@ class VolumeRenderer : public star::CommandBufferModifier,
     std::unique_ptr<star::StarComputePipeline> marchedPipeline = std::unique_ptr<star::StarComputePipeline>(),
                                                linearPipeline = std::unique_ptr<star::StarComputePipeline>(),
                                                expPipeline = std::unique_ptr<star::StarComputePipeline>();
-    std::vector<std::unique_ptr<star::StarBuffer>> renderToDepthBuffers =
-        std::vector<std::unique_ptr<star::StarBuffer>>();
+    std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
+        std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
 
     FogType currentFogType = FogType::marched;
     std::shared_ptr<FogInfo> fogControlInfo =

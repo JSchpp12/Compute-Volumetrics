@@ -2,7 +2,7 @@
 
 #include "CastHelpers.hpp"
 
-std::unique_ptr<star::StarBuffer> SampledVolumeRequest::createStagingBuffer(vk::Device &device,
+std::unique_ptr<star::StarBuffers::Buffer> SampledVolumeRequest::createStagingBuffer(vk::Device &device,
                                                                             VmaAllocator &allocator) const
 {
     uint32_t width = 0;
@@ -12,7 +12,7 @@ std::unique_ptr<star::StarBuffer> SampledVolumeRequest::createStagingBuffer(vk::
 
     const vk::DeviceSize size = width * height * 1 * 4;
 
-    return star::StarBuffer::Builder(allocator)
+    return star::StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT)
@@ -73,7 +73,7 @@ std::unique_ptr<star::StarTextures::Texture> SampledVolumeRequest::createFinal(
         .build();
 }
 
-void SampledVolumeRequest::writeDataToStageBuffer(star::StarBuffer &buffer) const
+void SampledVolumeRequest::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const
 {
     std::vector<float> flattenedData;
     int floatCounter = 0;
@@ -96,7 +96,7 @@ void SampledVolumeRequest::writeDataToStageBuffer(star::StarBuffer &buffer) cons
     buffer.unmap();
 }
 
-void SampledVolumeRequest::copyFromTransferSRCToDST(star::StarBuffer &srcBuffer, star::StarTextures::Texture &dstTexture,
+void SampledVolumeRequest::copyFromTransferSRCToDST(star::StarBuffers::Buffer &srcBuffer, star::StarTextures::Texture &dstTexture,
                                                     vk::CommandBuffer &commandBuffer) const
 {
     star::StarTextures::Texture::TransitionImageLayout(dstTexture, commandBuffer, dstTexture.getBaseFormat(),

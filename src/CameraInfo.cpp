@@ -1,8 +1,8 @@
 #include "CameraInfo.hpp"
 
-std::unique_ptr<star::StarBuffer> CameraInfo::createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const
+std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const
 {
-    return star::StarBuffer::Builder(allocator)
+    return star::StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)
@@ -18,14 +18,14 @@ std::unique_ptr<star::StarBuffer> CameraInfo::createStagingBuffer(vk::Device &de
         .build();
 }
 
-std::unique_ptr<star::StarBuffer> CameraInfo::createFinal(vk::Device &device, VmaAllocator &allocator,
+std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createFinal(vk::Device &device, VmaAllocator &allocator,
                                                           const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
     std::vector<uint32_t> indices = {this->computeQueueFamilyIndex};
     for (const auto &index : transferQueueFamilyIndex)
         indices.push_back(index);
 
-    return star::StarBuffer::Builder(allocator)
+    return star::StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
@@ -43,7 +43,7 @@ std::unique_ptr<star::StarBuffer> CameraInfo::createFinal(vk::Device &device, Vm
         .build();
 }
 
-void CameraInfo::writeDataToStageBuffer(star::StarBuffer &buffer) const
+void CameraInfo::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const
 {
     buffer.map();
 

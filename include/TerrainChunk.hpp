@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 
-#include "StarBuffer.hpp"
+#include "StarBuffers/Buffer.hpp"
 #include "StarDevice.hpp"
 #include "StarMesh.hpp"
 
@@ -26,14 +26,14 @@ class TerrainChunk
 
     std::string &getTextureFile();
 
-    star::StarBuffer &getIndexBuffer()
+    star::StarBuffers::Buffer &getIndexBuffer()
     {
         assert(this->indBuffer && "Index buffer has not been initialized. Make sure to call load() "
                                   "first.");
         return *this->indBuffer;
     }
 
-    star::StarBuffer &getVertexBuffer()
+    star::StarBuffers::Buffer &getVertexBuffer()
     {
         assert(this->vertBuffer && "Vertex buffer has not been initialized. Make sure to call load() "
                                    "first.");
@@ -134,7 +134,7 @@ class TerrainChunk
 
     std::unique_ptr<std::vector<star::Vertex>> verts;
     std::unique_ptr<std::vector<uint32_t>> inds;
-    std::unique_ptr<star::StarBuffer> indBuffer, vertBuffer;
+    std::unique_ptr<star::StarBuffers::Buffer> indBuffer, vertBuffer;
     std::unique_ptr<star::StarMesh> mesh;
     std::string textureFile, fullHeightFile;
     const glm::dvec2 northEast, southEast, southWest, northWest, center;
