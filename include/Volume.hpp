@@ -83,8 +83,8 @@ class Volume : public star::StarObject
     ~Volume() = default;
     Volume(std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
            std::vector<std::unique_ptr<star::Light>> &lightList,
-           std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColorImages,
-           std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepthImages,
+           std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
+           std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
            std::vector<star::Handle> &globalInfos, std::vector<star::Handle> &lightInfos);
 
     void renderVolume(const double &fov_radians, const glm::vec3 &camPosition, const glm::mat4 &camDispMatrix,
@@ -126,8 +126,8 @@ class Volume : public star::StarObject
     star::Handle sampledTexture = star::Handle();
     std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr;
     std::array<glm::vec4, 2> aabbBounds;
-    std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColorImages = nullptr;
-    std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepthImages = nullptr;
+    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages = nullptr;
+    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages = nullptr;
 
     std::vector<std::unique_ptr<star::Light>> &lightList;
     float stepSize = 0.05f, stepSize_light = 0.4f;

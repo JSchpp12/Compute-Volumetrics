@@ -28,7 +28,7 @@ std::unique_ptr<star::StarBuffer> SampledVolumeRequest::createStagingBuffer(vk::
         .build();
 }
 
-std::unique_ptr<star::StarTexture> SampledVolumeRequest::createFinal(
+std::unique_ptr<star::StarTextures::Texture> SampledVolumeRequest::createFinal(
     vk::Device &device, VmaAllocator &allocator, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
     uint32_t width = 0;
@@ -40,7 +40,7 @@ std::unique_ptr<star::StarTexture> SampledVolumeRequest::createFinal(
     for (const auto &index : transferQueueFamilyIndex)
         indices.push_back(index);
 
-    return star::StarTexture::Builder(device, allocator)
+    return star::StarTextures::Texture::Builder(device, allocator)
         .setCreateInfo(star::Allocator::AllocationBuilder()
                            .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
                            .setUsage(VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO)
@@ -96,10 +96,10 @@ void SampledVolumeRequest::writeDataToStageBuffer(star::StarBuffer &buffer) cons
     buffer.unmap();
 }
 
-void SampledVolumeRequest::copyFromTransferSRCToDST(star::StarBuffer &srcBuffer, star::StarTexture &dstTexture,
+void SampledVolumeRequest::copyFromTransferSRCToDST(star::StarBuffer &srcBuffer, star::StarTextures::Texture &dstTexture,
                                                     vk::CommandBuffer &commandBuffer) const
 {
-    star::StarTexture::TransitionImageLayout(dstTexture, commandBuffer, dstTexture.getBaseFormat(),
+    star::StarTextures::Texture::TransitionImageLayout(dstTexture, commandBuffer, dstTexture.getBaseFormat(),
                                              vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
 
     uint32_t width = 0, height = 0;
@@ -124,7 +124,7 @@ void SampledVolumeRequest::copyFromTransferSRCToDST(star::StarBuffer &srcBuffer,
     commandBuffer.copyBufferToImage(srcBuffer.getVulkanBuffer(), dstTexture.getVulkanImage(),
                                     vk::ImageLayout::eTransferDstOptimal, region);
 
-    star::StarTexture::TransitionImageLayout(dstTexture, commandBuffer, dstTexture.getBaseFormat(),
+    star::StarTextures::Texture::TransitionImageLayout(dstTexture, commandBuffer, dstTexture.getBaseFormat(),
                                              vk::ImageLayout::eTransferDstOptimal,
                                              vk::ImageLayout::eShaderReadOnlyOptimal);
 }

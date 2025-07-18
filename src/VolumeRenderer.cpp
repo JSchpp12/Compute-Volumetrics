@@ -7,8 +7,8 @@
 
 VolumeRenderer::VolumeRenderer(const std::shared_ptr<star::StarCamera> camera,
                                const std::vector<star::Handle> &instanceModelInfo,
-                               std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColors,
-                               std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepths,
+                               std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
+                               std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
                                const std::vector<star::Handle> &globalInfoBuffers,
                                const std::vector<star::Handle> &sceneLightInfoBuffers,
                                const star::Handle &volumeTexture, const std::array<glm::vec4, 2> &aabbBounds)
@@ -233,7 +233,7 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
                               device.getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex()};
 
         auto builder =
-            star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
+            star::StarTextures::Texture::Builder(device.getDevice(), device.getAllocator().get())
                 .setCreateInfo(star::Allocator::AllocationBuilder()
                                    .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
                                    .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
@@ -266,11 +266,11 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
                                                           .setLevelCount(1)))
                 .setSamplerInfo(vk::SamplerCreateInfo()
                                     .setAnisotropyEnable(true)
-                                    .setMaxAnisotropy(star::StarTexture::SelectAnisotropyLevel(
+                                    .setMaxAnisotropy(star::StarTextures::Texture::SelectAnisotropyLevel(
                                         device.getPhysicalDevice().getProperties()))
-                                    .setMagFilter(star::StarTexture::SelectTextureFiltering(
+                                    .setMagFilter(star::StarTextures::Texture::SelectTextureFiltering(
                                         device.getPhysicalDevice().getProperties()))
-                                    .setMinFilter(star::StarTexture::SelectTextureFiltering(
+                                    .setMinFilter(star::StarTextures::Texture::SelectTextureFiltering(
                                         device.getPhysicalDevice().getProperties()))
                                     .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
                                     .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)

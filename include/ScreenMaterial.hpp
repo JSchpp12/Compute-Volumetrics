@@ -7,16 +7,16 @@
 #include "StarDescriptorBuilders.hpp"
 #include "StarMaterial.hpp"
 #include "StarShaderInfo.hpp"
-#include "StarTexture.hpp"
+#include "StarTextures/Texture.hpp"
 
 class ScreenMaterial : public star::StarMaterial
 {
   public:
-    ScreenMaterial(std::vector<std::unique_ptr<star::StarTexture>> &computeOutputImages)
+    ScreenMaterial(std::vector<std::unique_ptr<star::StarTextures::Texture>> &computeOutputImages)
         : computeOutputImages(computeOutputImages) {};
 
   protected:
-    std::vector<std::unique_ptr<star::StarTexture>> &computeOutputImages;
+    std::vector<std::unique_ptr<star::StarTextures::Texture>> &computeOutputImages;
 
     void applyDescriptorSetLayouts(star::StarDescriptorSetLayout::Builder &constBuilder) override;
     std::vector<std::pair<vk::DescriptorType, const int>> getDescriptorRequests(const int &numFramesInFlight) override;

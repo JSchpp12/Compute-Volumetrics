@@ -7,8 +7,8 @@
 
 Volume::Volume(std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
                std::vector<std::unique_ptr<star::Light>> &lightList,
-               std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColorImages,
-               std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepthImages,
+               std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
+               std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
                std::vector<star::Handle> &globalInfos, std::vector<star::Handle> &lightInfos)
     : camera(camera), screenDimensions(screenWidth, screenHeight), lightList(lightList),
       offscreenRenderToColorImages(offscreenRenderToColorImages),
