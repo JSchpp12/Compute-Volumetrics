@@ -151,16 +151,16 @@ void OffscreenRenderer::initResources(star::StarDevice &device, const int &numFr
     star::SceneRenderer::initResources(device, numFramesInFlight, screenSize);
 }
 
-std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderToImages(star::StarDevice &device,
+std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToImages(star::StarDevice &device,
                                                                                         const int &numFramesInFlight)
 {
-    std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages =
-        std::vector<std::unique_ptr<star::StarTexture>>();
+    std::vector<std::unique_ptr<star::StarTextures::Texture>> newRenderToImages =
+        std::vector<std::unique_ptr<star::StarTextures::Texture>>();
 
     vk::Format colorFormat = getColorAttachmentFormat(device);
 
     auto builder =
-        star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
+        star::StarTextures::Texture::Builder(device.getDevice(), device.getAllocator().get())
             .setCreateInfo(star::Allocator::AllocationBuilder()
                                .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
                                .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
@@ -241,16 +241,16 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
     return newRenderToImages;
 }
 
-std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderToDepthImages(
+std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToDepthImages(
     star::StarDevice &device, const int &numFramesInFlight)
 {
-    std::vector<std::unique_ptr<star::StarTexture>> newRenderToImages =
-        std::vector<std::unique_ptr<star::StarTexture>>();
+    std::vector<std::unique_ptr<star::StarTextures::Texture>> newRenderToImages =
+        std::vector<std::unique_ptr<star::StarTextures::Texture>>();
 
     const vk::Format depthFormat = this->getDepthAttachmentFormat(device);
 
     auto builder =
-        star::StarTexture::Builder(device.getDevice(), device.getAllocator().get())
+        star::StarTextures::Texture::Builder(device.getDevice(), device.getAllocator().get())
             .setCreateInfo(
                 star::Allocator::AllocationBuilder()
                     .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
@@ -284,9 +284,9 @@ std::vector<std::unique_ptr<star::StarTexture>> OffscreenRenderer::createRenderT
                 vk::SamplerCreateInfo()
                     .setAnisotropyEnable(true)
                     .setMaxAnisotropy(
-                        star::StarTexture::SelectAnisotropyLevel(device.getPhysicalDevice().getProperties()))
-                    .setMagFilter(star::StarTexture::SelectTextureFiltering(device.getPhysicalDevice().getProperties()))
-                    .setMinFilter(star::StarTexture::SelectTextureFiltering(device.getPhysicalDevice().getProperties()))
+                        star::StarTextures::Texture::SelectAnisotropyLevel(device.getPhysicalDevice().getProperties()))
+                    .setMagFilter(star::StarTextures::Texture::SelectTextureFiltering(device.getPhysicalDevice().getProperties()))
+                    .setMinFilter(star::StarTextures::Texture::SelectTextureFiltering(device.getPhysicalDevice().getProperties()))
                     .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
                     .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                     .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)

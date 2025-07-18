@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "ManagerController_RenderResource_Texture.hpp"
-#include "StarTexture.hpp"
+#include "StarTextures/Texture.hpp"
 #include "TransferRequest_Texture.hpp"
 
 class SampledVolumeRequest : public star::TransferRequest::Texture
@@ -19,11 +19,11 @@ class SampledVolumeRequest : public star::TransferRequest::Texture
     virtual std::unique_ptr<star::StarBuffer> createStagingBuffer(vk::Device &device,
                                                                   VmaAllocator &allocator) const override;
 
-    virtual std::unique_ptr<star::StarTexture> createFinal(
+    virtual std::unique_ptr<star::StarTextures::Texture> createFinal(
         vk::Device &device, VmaAllocator &allocator,
         const std::vector<uint32_t> &transferQueueFamilyIndex) const override;
 
-    virtual void copyFromTransferSRCToDST(star::StarBuffer &srcBuffer, star::StarTexture &dst,
+    virtual void copyFromTransferSRCToDST(star::StarBuffer &srcBuffer, star::StarTextures::Texture &dst,
                                           vk::CommandBuffer &commandBuffer) const override;
 
     virtual void writeDataToStageBuffer(star::StarBuffer &stagingBuffer) const override;
