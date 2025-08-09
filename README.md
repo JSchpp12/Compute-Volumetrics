@@ -37,6 +37,10 @@ Clone this repository:
 git clone --recurse-submodules https://github.com/JSchpp12/Compute-Volumetrics
 ```
 
+Prepare terrains: 
+
+Navigate to the Terrain Stitcher submodule. Select a terrain from the releases category. Process the terrain following the directions in that project. Place the processed terrain files in the media/terrains directory. 
+
 ### Project Setup
 
 #### StarlightAppBuilder
