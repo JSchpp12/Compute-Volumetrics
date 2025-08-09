@@ -50,9 +50,6 @@ void Terrain::loadGeometry()
                             terrainPath + "/" + fileInfo.infos()[i].textureFile, fileInfo.infos()[i].cornerNE,
                             fileInfo.infos()[i].cornerSE, fileInfo.infos()[i].cornerSW, fileInfo.infos()[i].cornerNW,
                             worldCenter, fileInfo.infos()[i].center);
-
-        if (i == 10)
-            break;
     }
 
     // parallel load meshes

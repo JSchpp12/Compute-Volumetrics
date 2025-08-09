@@ -65,14 +65,16 @@ void Application::startup(star::StarDevice &device, const star::StarWindow &wind
         this->vol = static_cast<Volume *>(obj);
     }
 
-    auto horse = star::BasicObject::New(horsePath);
-    auto &h_i = horse->createInstance();
+
+
+    // auto horse = star::BasicObject::New(horsePath);
+    // auto &h_i = horse->createInstance();
     // horse->drawBoundingBox = true;
-    h_i.setPosition(glm::vec3{0.885, 5.0, 0.0});
-    this->testObject = &h_i;
-    this->offscreenScene->add(std::move(horse));
+    // h_i.setPosition(glm::vec3{0.885, 50.0, 50.0});
+    // this->testObject = &h_i;
+    // this->offscreenScene->add(std::move(horse));
     this->offscreenScene->add(
-        std::make_unique<star::Light>(glm::vec3{0, 10, 0}, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0}));
+        std::make_unique<star::Light>(glm::vec3{0.885, 50, 50}, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0}));
 
     {
         auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
@@ -81,9 +83,27 @@ void Application::startup(star::StarDevice &device, const star::StarWindow &wind
         terrain->createInstance();
         this->offscreenScene->add(std::move(terrain));
     }
+    
+    {
+        // auto handle = this->offscreenScene->add(star::BasicObject::New(mediaDirectoryPath + "models/icoSphere/low_poly_icoSphere.obj"));
+        // auto &cube = this->scene->getObject(handle); 
+        // auto c_i = cube.createInstance();
+        // c_i.setPosition(glm::vec3{0.885, 5.0, 0.0}); 
+        // c_i.setScale(glm::vec3{10, 10, 10});
+
+        // this->scene->getCamera()->setPosition(glm::vec3{0.885, 5.0, 0.0});
+    }
 
     this->scene->add(
         std::make_unique<star::Light>(glm::vec3{0, 10, 0}, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0}));
+
+    
+    this->scene->getCamera()->setPosition(glm::vec3{-305.11, 93.597, 161.739}); 
+    this->vol->getFogControlInfo().marchedInfo.defaultDensity = 0.0001;
+    this->vol->getFogControlInfo().marchedInfo.stepSizeDist = 0.1; 
+    this->vol->getFogControlInfo().marchedInfo.stepSizeDist_light = 1; 
+    this->vol->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.7;
+    this->vol->getFogControlInfo().marchedInfo.sigmaScattering = 0; 
 
     std::cout << "Application Controls" << std::endl;
     std::cout << "B - Modify fog properties" << std::endl;
@@ -135,10 +155,16 @@ void Application::onKeyRelease(int key, int scancode, int mods)
         auto camPosition = this->scene->getCamera()->getPosition();
         auto camLookDirection = this->scene->getCamera()->getForwardVector();
 
-        this->testObject->setPosition(glm::vec3{
-            camPosition.x + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.x))),
-            camPosition.y + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.y))),
-            camPosition.z + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.z * MILES_TO_METERS)))});
+        this->testObject->setPosition(glm::vec3{camPosition.x, camPosition.y, camPosition.z + 10});
+
+        // this->testObject->setPosition(glm::vec3{
+        //     camPosition.x + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.x))),
+        //     camPosition.y + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.y))),
+        //     camPosition.z + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.z)))});
+    }
+    
+    if (key == star::KEY::T){
+        std::cout << this->scene->getCamera()->getPosition().x << "," << this->scene->getCamera()->getPosition().y << "," << this->scene->getCamera()->getPosition().z << std::endl;
     }
 
     if (key == star::KEY::B)
@@ -165,7 +191,6 @@ void Application::onKeyRelease(int key, int scancode, int mods)
                 std::cout << "Invalid option" << std::endl;
                 return;
             }
-
         }
 
         switch (selectedMode)
@@ -189,7 +214,7 @@ void Application::onKeyRelease(int key, int scancode, int mods)
             this->vol->getFogControlInfo().marchedInfo.sigmaScattering = PromptForFloat("Select sigma"); 
             break;
         case (7):
-            this->vol->getFogControlInfo().marchedInfo.lightPropertyDirG = PromptForFloat("Select light prop"); 
+            this->vol->getFogControlInfo().marchedInfo.lightPropertyDirG = PromptForFloat("Select light prop", true); 
             break;
         case (8):
             this->vol->getFogControlInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size"); 
@@ -241,10 +266,10 @@ void Application::onWorldUpdate(const uint32_t &frameInFlightIndex)
     // this->scene.getCamera()->getProjectionMatrix());
 }
 
-float Application::PromptForFloat(const std::string &prompt)
+float Application::PromptForFloat(const std::string &prompt, const bool &allowNegatives)
 {
     std::cout << prompt.c_str() << std::endl; 
-    return ProcessFloatInput(); 
+    return ProcessFloatInput(allowNegatives); 
 }
 
 int Application::PromptForInt(const std::string &prompt)
@@ -253,7 +278,7 @@ int Application::PromptForInt(const std::string &prompt)
     return ProcessIntInput(); 
 }
 
-float Application::ProcessFloatInput()
+float Application::ProcessFloatInput(const bool &allowNegatives)
 {
     float selectedDistance = 0.0f;
 
@@ -263,7 +288,7 @@ float Application::ProcessFloatInput()
         selectedDistance = std::stof(inputOption);
     }
 
-    if (selectedDistance < 0.0)
+    if (!allowNegatives && selectedDistance < 0.0)
     {
         std::cout << "Invalid value provided. Defaulting to 0.0" << std::endl;
         selectedDistance = 0.0f;
