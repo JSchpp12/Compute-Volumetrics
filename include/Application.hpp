@@ -44,11 +44,11 @@ class Application : public star::StarApplication
     void onScroll(double xoffset, double yoffset) override;
     void onWorldUpdate(const uint32_t &frameInFlightIndex) override;
 
-    static float PromptForFloat(const std::string &prompt); 
+    static float PromptForFloat(const std::string &prompt, const bool &allowNegative = false); 
 
     static int PromptForInt(const std::string &prompt); 
 
-    static float ProcessFloatInput();
+    static float ProcessFloatInput(const bool &allowNegatives);
 
     static int ProcessIntInput(); 
 };
