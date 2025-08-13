@@ -65,16 +65,14 @@ void Application::startup(star::StarDevice &device, const star::StarWindow &wind
         this->vol = static_cast<Volume *>(obj);
     }
 
-
-
     // auto horse = star::BasicObject::New(horsePath);
     // auto &h_i = horse->createInstance();
     // horse->drawBoundingBox = true;
     // h_i.setPosition(glm::vec3{0.885, 50.0, 50.0});
     // this->testObject = &h_i;
     // this->offscreenScene->add(std::move(horse));
-    this->offscreenScene->add(
-        std::make_unique<star::Light>(glm::vec3{0.885, 50, 50}, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0}));
+    this->offscreenScene->add(std::make_unique<star::Light>(glm::vec3{0.885, 50, 50}, star::Type::Light::directional,
+                                                            glm::vec3{-1.0, 0.0, 0.0}));
 
     {
         auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
@@ -83,13 +81,11 @@ void Application::startup(star::StarDevice &device, const star::StarWindow &wind
         terrain->createInstance();
         this->offscreenScene->add(std::move(terrain));
     }
-    
+
     {
-        // auto handle = this->offscreenScene->add(star::BasicObject::New(mediaDirectoryPath + "models/icoSphere/low_poly_icoSphere.obj"));
-        // auto &cube = this->scene->getObject(handle); 
-        // auto c_i = cube.createInstance();
-        // c_i.setPosition(glm::vec3{0.885, 5.0, 0.0}); 
-        // c_i.setScale(glm::vec3{10, 10, 10});
+        // auto handle = this->offscreenScene->add(star::BasicObject::New(mediaDirectoryPath +
+        // "models/icoSphere/low_poly_icoSphere.obj")); auto &cube = this->scene->getObject(handle); auto c_i =
+        // cube.createInstance(); c_i.setPosition(glm::vec3{0.885, 5.0, 0.0}); c_i.setScale(glm::vec3{10, 10, 10});
 
         // this->scene->getCamera()->setPosition(glm::vec3{0.885, 5.0, 0.0});
     }
@@ -97,13 +93,12 @@ void Application::startup(star::StarDevice &device, const star::StarWindow &wind
     this->scene->add(
         std::make_unique<star::Light>(glm::vec3{0, 10, 0}, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0}));
 
-    
-    this->scene->getCamera()->setPosition(glm::vec3{-305.11, 93.597, 161.739}); 
+    this->scene->getCamera()->setPosition(glm::vec3{-305.11, 93.597, 161.739});
     this->vol->getFogControlInfo().marchedInfo.defaultDensity = 0.0001;
-    this->vol->getFogControlInfo().marchedInfo.stepSizeDist = 0.1; 
-    this->vol->getFogControlInfo().marchedInfo.stepSizeDist_light = 1; 
+    this->vol->getFogControlInfo().marchedInfo.stepSizeDist = 0.1;
+    this->vol->getFogControlInfo().marchedInfo.stepSizeDist_light = 1;
     this->vol->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.7;
-    this->vol->getFogControlInfo().marchedInfo.sigmaScattering = 0; 
+    this->vol->getFogControlInfo().marchedInfo.sigmaScattering = 0;
 
     std::cout << "Application Controls" << std::endl;
     std::cout << "B - Modify fog properties" << std::endl;
@@ -162,9 +157,11 @@ void Application::onKeyRelease(int key, int scancode, int mods)
         //     camPosition.y + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.y))),
         //     camPosition.z + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.z)))});
     }
-    
-    if (key == star::KEY::T){
-        std::cout << this->scene->getCamera()->getPosition().x << "," << this->scene->getCamera()->getPosition().y << "," << this->scene->getCamera()->getPosition().z << std::endl;
+
+    if (key == star::KEY::T)
+    {
+        std::cout << this->scene->getCamera()->getPosition().x << "," << this->scene->getCamera()->getPosition().y
+                  << "," << this->scene->getCamera()->getPosition().z << std::endl;
     }
 
     if (key == star::KEY::B)
@@ -185,9 +182,12 @@ void Application::onKeyRelease(int key, int scancode, int mods)
         {
             std::string inputOption = std::string();
             std::getline(std::cin, inputOption);
-            try{
+            try
+            {
                 selectedMode = std::stoi(inputOption);
-            }catch (const std::exception &ex){
+            }
+            catch (const std::exception &ex)
+            {
                 std::cout << "Invalid option" << std::endl;
                 return;
             }
@@ -199,27 +199,27 @@ void Application::onKeyRelease(int key, int scancode, int mods)
             this->vol->getFogControlInfo().linearInfo.nearDist = PromptForFloat("Select vidibility");
             break;
         case (2):
-            this->vol->getFogControlInfo().linearInfo.farDist = PromptForFloat("Select distance"); 
+            this->vol->getFogControlInfo().linearInfo.farDist = PromptForFloat("Select distance");
             break;
         case (3):
-            this->vol->getFogControlInfo().expFogInfo.density = PromptForFloat("Select density"); 
+            this->vol->getFogControlInfo().expFogInfo.density = PromptForFloat("Select density");
             break;
         case (4):
-            this->vol->getFogControlInfo().marchedInfo.defaultDensity = PromptForFloat("Select density"); 
+            this->vol->getFogControlInfo().marchedInfo.defaultDensity = PromptForFloat("Select density");
             break;
         case (5):
-            this->vol->getFogControlInfo().marchedInfo.sigmaAbsorption = PromptForFloat("Select sigma"); 
+            this->vol->getFogControlInfo().marchedInfo.sigmaAbsorption = PromptForFloat("Select sigma");
             break;
         case (6):
-            this->vol->getFogControlInfo().marchedInfo.sigmaScattering = PromptForFloat("Select sigma"); 
+            this->vol->getFogControlInfo().marchedInfo.sigmaScattering = PromptForFloat("Select sigma");
             break;
         case (7):
-            this->vol->getFogControlInfo().marchedInfo.lightPropertyDirG = PromptForFloat("Select light prop", true); 
+            this->vol->getFogControlInfo().marchedInfo.lightPropertyDirG = PromptForFloat("Select light prop", true);
             break;
         case (8):
-            this->vol->getFogControlInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size"); 
+            this->vol->getFogControlInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size");
             break;
-        case(9):
+        case (9):
             this->vol->getFogControlInfo().marchedInfo.stepSizeDist_light = PromptForFloat("Select step size light");
             break;
         default:
@@ -268,14 +268,14 @@ void Application::onWorldUpdate(const uint32_t &frameInFlightIndex)
 
 float Application::PromptForFloat(const std::string &prompt, const bool &allowNegatives)
 {
-    std::cout << prompt.c_str() << std::endl; 
-    return ProcessFloatInput(allowNegatives); 
+    std::cout << prompt.c_str() << std::endl;
+    return ProcessFloatInput(allowNegatives);
 }
 
 int Application::PromptForInt(const std::string &prompt)
 {
     std::cout << prompt.c_str() << std::endl;
-    return ProcessIntInput(); 
+    return ProcessIntInput();
 }
 
 float Application::ProcessFloatInput(const bool &allowNegatives)
@@ -297,18 +297,20 @@ float Application::ProcessFloatInput(const bool &allowNegatives)
     return selectedDistance;
 }
 
-int Application::ProcessIntInput(){
-    int selectedValue = 0; 
+int Application::ProcessIntInput()
+{
+    int selectedValue = 0;
 
     {
-        std::string inputOption = std::string(); 
-        std::getline(std::cin, inputOption); 
+        std::string inputOption = std::string();
+        std::getline(std::cin, inputOption);
         selectedValue = std::stoi(inputOption);
     }
 
-    if (selectedValue < 0){
+    if (selectedValue < 0)
+    {
         std::cout << "Invalid value provided. Defaulting to 0" << std::endl;
-        selectedValue = 0; 
+        selectedValue = 0;
     }
 
     return selectedValue;
