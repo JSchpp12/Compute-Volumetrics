@@ -45,7 +45,8 @@ std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createFinal(vk::Device &d
 
 void CameraInfo::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const
 {
-    buffer.map();
+    void *mapped = nullptr;
+    buffer.map(&mapped);
 
     auto data = CameraData{glm::inverse(camera->getProjectionMatrix()),
                            glm::vec2(camera->getResolution()),
@@ -54,7 +55,7 @@ void CameraInfo::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const
                            camera->getNearClippingDistance(),
                            tan(camera->getVerticalFieldOfView(true))};
 
-    buffer.writeToIndex(&data, 0);
+    buffer.writeToIndex(&data, mapped, 0);
 
     buffer.unmap();
 }

@@ -49,12 +49,13 @@ std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createFinal(vk::Device 
 
 void AABBTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const
 {
-    buffer.map();
+    void *mapped = nullptr;
+    buffer.map(&mapped);
 
     std::array<glm::vec4, 2> rawaabbBounds = this->aabbBounds;
     for (int i = 0; i < 2; i++)
     {
-        buffer.writeToIndex(&rawaabbBounds[i], i);
+        buffer.writeToIndex(&rawaabbBounds[i], mapped, i);
     }
 
     buffer.unmap();

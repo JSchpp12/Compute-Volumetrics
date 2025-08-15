@@ -52,11 +52,12 @@ std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createFinal(
 
 void FogControlInfoTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const
 {
-    buffer.map();
+    void *mapped = nullptr;
+    buffer.map(&mapped);
 
     {
         FogInfo::FinalizedInfo info = FogInfo::FinalizedInfo(this->fogInfo);
-        buffer.writeToBuffer(&info, sizeof(FogInfo::FinalizedInfo));
+        buffer.writeToBuffer(&info, mapped, sizeof(FogInfo::FinalizedInfo));
     }
 
     buffer.unmap();

@@ -89,9 +89,10 @@ void SampledVolumeRequest::writeDataToStageBuffer(star::StarBuffers::Buffer &buf
         }
     }
 
-    buffer.map();
+    void *mapped = nullptr;
+    buffer.map(&mapped);
 
-    buffer.writeToBuffer(flattenedData.data(), sizeof(float) * floatCounter);
+    buffer.writeToBuffer(flattenedData.data(), mapped, sizeof(float) * floatCounter);
 
     buffer.unmap();
 }
