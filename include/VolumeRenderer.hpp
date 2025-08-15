@@ -107,13 +107,13 @@ class VolumeRenderer : public star::CommandBufferModifier,
     bool getWillBeRecordedOnce() override;
 
     // Inherited via RenderResourceModifier
-    void initResources(star::StarDevice &device, const int &numFramesInFlight, const vk::Extent2D &screensize) override;
+    void initResources(star::core::DeviceContext &device, const int &numFramesInFlight, const vk::Extent2D &screensize) override;
 
-    void destroyResources(star::StarDevice &device) override;
+    void destroyResources(star::core::DeviceContext &device) override;
 
     std::vector<std::pair<vk::DescriptorType, const int>> getDescriptorRequests(const int &numFramesInFlight) override;
 
-    void createDescriptors(star::StarDevice &device, const int &numFramesInFlight) override;
+    void createDescriptors(star::core::DeviceContext &device, const int &numFramesInFlight) override;
 
     static glm::uvec2 CalculateWorkGroupSize(const vk::Extent2D &screenSize);
 };

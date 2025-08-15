@@ -211,16 +211,16 @@ bool VolumeRenderer::getWillBeRecordedOnce()
     return false;
 }
 
-void VolumeRenderer::initResources(star::StarDevice &device, const int &numFramesInFlight,
+void VolumeRenderer::initResources(star::core::DeviceContext &device, const int &numFramesInFlight,
                                    const vk::Extent2D &screensize)
 {
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
     {
-        const uint32_t computeIndex = device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
+        const uint32_t computeIndex = device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
 
         this->graphicsQueueFamilyIndex =
-            std::make_unique<uint32_t>(device.getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
+            std::make_unique<uint32_t>(device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
         if (*this->graphicsQueueFamilyIndex != computeIndex)
         {
             this->computeQueueFamilyIndex = std::make_unique<uint32_t>(uint32_t(computeIndex));
@@ -229,11 +229,11 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
 
     this->displaySize = std::make_unique<vk::Extent2D>(screensize);
     {
-        uint32_t indices[] = {device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
-                              device.getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex()};
+        uint32_t indices[] = {device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
+                              device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex()};
 
         auto builder =
-            star::StarTextures::Texture::Builder(device.getDevice(), device.getAllocator().get())
+            star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(), device.getDevice().getAllocator().get())
                 .setCreateInfo(star::Allocator::AllocationBuilder()
                                    .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
                                    .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
@@ -267,11 +267,11 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
                 .setSamplerInfo(vk::SamplerCreateInfo()
                                     .setAnisotropyEnable(true)
                                     .setMaxAnisotropy(star::StarTextures::Texture::SelectAnisotropyLevel(
-                                        device.getPhysicalDevice().getProperties()))
+                                        device.getDevice().getPhysicalDevice().getProperties()))
                                     .setMagFilter(star::StarTextures::Texture::SelectTextureFiltering(
-                                        device.getPhysicalDevice().getProperties()))
+                                        device.getDevice().getPhysicalDevice().getProperties()))
                                     .setMinFilter(star::StarTextures::Texture::SelectTextureFiltering(
-                                        device.getPhysicalDevice().getProperties()))
+                                        device.getDevice().getPhysicalDevice().getProperties()))
                                     .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
                                     .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                                     .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
@@ -329,7 +329,7 @@ void VolumeRenderer::initResources(star::StarDevice &device, const int &numFrame
     }
 }
 
-void VolumeRenderer::destroyResources(star::StarDevice &device)
+void VolumeRenderer::destroyResources(star::core::DeviceContext &device)
 {
     this->compShaderInfo.reset();
 
@@ -341,7 +341,7 @@ void VolumeRenderer::destroyResources(star::StarDevice &device)
     this->marchedPipeline.reset();
     this->linearPipeline.reset();
     this->expPipeline.reset();
-    device.getDevice().destroyPipelineLayout(*this->computePipelineLayout);
+    device.getDevice().getVulkanDevice().destroyPipelineLayout(*this->computePipelineLayout);
 }
 
 std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescriptorRequests(
@@ -354,24 +354,24 @@ std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescrip
         std::make_pair(vk::DescriptorType::eCombinedImageSampler, 1)};
 }
 
-void VolumeRenderer::createDescriptors(star::StarDevice &device, const int &numFramesInFlight)
+void VolumeRenderer::createDescriptors(star::core::DeviceContext &device, const int &numFramesInFlight)
 {
     auto shaderInfoBuilder =
-        star::StarShaderInfo::Builder(device, numFramesInFlight)
-            .addSetLayout(star::StarDescriptorSetLayout::Builder(device)
+        star::StarShaderInfo::Builder(device.getDevice(), numFramesInFlight)
+            .addSetLayout(star::StarDescriptorSetLayout::Builder(device.getDevice())
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
                               .build())
-            .addSetLayout(star::StarDescriptorSetLayout::Builder(device)
+            .addSetLayout(star::StarDescriptorSetLayout::Builder(device.getDevice())
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
                               .build())
-            .addSetLayout(star::StarDescriptorSetLayout::Builder(device)
+            .addSetLayout(star::StarDescriptorSetLayout::Builder(device.getDevice())
                               .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
                               .build())
-            .addSetLayout(star::StarDescriptorSetLayout::Builder(device)
+            .addSetLayout(star::StarDescriptorSetLayout::Builder(device.getDevice())
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
@@ -408,7 +408,7 @@ void VolumeRenderer::createDescriptors(star::StarDevice &device, const int &numF
         pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
         this->computePipelineLayout =
-            std::make_unique<vk::PipelineLayout>(device.getDevice().createPipelineLayout(pipelineLayoutInfo));
+            std::make_unique<vk::PipelineLayout>(device.getDevice().getVulkanDevice().createPipelineLayout(pipelineLayoutInfo));
     }
 
     std::string compShaderPath =

@@ -116,7 +116,7 @@ void Volume::renderVolume(const double &fov_radians, const glm::vec3 &camPositio
     this->isVisible = true;
 }
 
-std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::StarDevice &device, vk::Extent2D swapChainExtent,
+std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::core::DeviceContext &device, vk::Extent2D swapChainExtent,
                                                           vk::PipelineLayout pipelineLayout,
                                                           star::RenderingTargetInfo renderingInfo)
 {
@@ -349,7 +349,7 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
                                          .setLayerCount(1))}));
 }
 
-void Volume::prepRender(star::StarDevice &device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout,
+void Volume::prepRender(star::core::DeviceContext &device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout,
                         star::RenderingTargetInfo renderingInfo, int numSwapChainImages,
                         star::StarShaderInfo::Builder fullEngineBuilder)
 {
@@ -359,7 +359,7 @@ void Volume::prepRender(star::StarDevice &device, vk::Extent2D swapChainExtent, 
                                        fullEngineBuilder);
 }
 
-void Volume::prepRender(star::StarDevice &device, int numSwapChainImages, star::StarPipeline &sharedPipeline,
+void Volume::prepRender(star::core::DeviceContext &device, int numSwapChainImages, star::StarPipeline &sharedPipeline,
                         star::StarShaderInfo::Builder fullEngineBuilder)
 {
     RecordQueueFamilyInfo(device, this->computeQueueFamily, this->graphicsQueueFamily);
@@ -579,9 +579,9 @@ openvdb::Mat4R Volume::getTransform(const glm::mat4 &objectDisplayMat)
     return openvdb::Mat4R(rawData.get());
 }
 
-void Volume::RecordQueueFamilyInfo(star::StarDevice &device, uint32_t &computeQueueFamilyIndex,
+void Volume::RecordQueueFamilyInfo(star::core::DeviceContext &device, uint32_t &computeQueueFamilyIndex,
                                    uint32_t &graphicsQueueFamilyIndex)
 {
-    computeQueueFamilyIndex = device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
-    graphicsQueueFamilyIndex = device.getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex();
+    computeQueueFamilyIndex = device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
+    graphicsQueueFamilyIndex = device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex();
 }

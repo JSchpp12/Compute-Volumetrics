@@ -90,7 +90,7 @@ class Volume : public star::StarObject
     void renderVolume(const double &fov_radians, const glm::vec3 &camPosition, const glm::mat4 &camDispMatrix,
                       const glm::mat4 &camProjMat);
 
-    std::unique_ptr<star::StarPipeline> buildPipeline(star::StarDevice &device, vk::Extent2D swapChainExtent,
+    std::unique_ptr<star::StarPipeline> buildPipeline(star::core::DeviceContext &device, vk::Extent2D swapChainExtent,
                                                       vk::PipelineLayout pipelineLayout,
                                                       star::RenderingTargetInfo renderInfo) override;
 
@@ -99,11 +99,11 @@ class Volume : public star::StarObject
     /// </summary>
     void updateGridTransforms();
 
-    virtual void prepRender(star::StarDevice &device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout,
+    virtual void prepRender(star::core::DeviceContext& device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout,
                             star::RenderingTargetInfo renderingInfo, int numSwapChainImages,
                             star::StarShaderInfo::Builder fullEngineBuilder) override;
 
-    virtual void prepRender(star::StarDevice &device, int numSwapChainImages, star::StarPipeline &sharedPipeline,
+    virtual void prepRender(star::core::DeviceContext& device, int numSwapChainImages, star::StarPipeline &sharedPipeline,
                             star::StarShaderInfo::Builder fullEngineBuilder) override;
 
     virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
@@ -211,6 +211,6 @@ class Volume : public star::StarObject
 
     static openvdb::Mat4R getTransform(const glm::mat4 &objectDisplayMat);
 
-    static void RecordQueueFamilyInfo(star::StarDevice &device, uint32_t &computeQueueFamilyIndex,
+    static void RecordQueueFamilyInfo(star::core::DeviceContext &context, uint32_t &computeQueueFamilyIndex,
                                       uint32_t &graphicsQueueFamilyIndex);
 };

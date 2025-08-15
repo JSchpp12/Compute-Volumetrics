@@ -25,10 +25,10 @@ class Application : public star::StarApplication
     void onKeyPress(int key, int scancode, int mods) override;
 
   protected:
-    std::shared_ptr<star::StarScene> createInitialScene(star::StarDevice &device, const star::StarWindow &window,
+    std::shared_ptr<star::StarScene> createInitialScene(star::core::DeviceContext &device, const star::StarWindow &window,
                                                         const uint8_t &numFramesInFlight) override;
 
-    virtual void startup(star::StarDevice &device, const star::StarWindow &window,
+    virtual void startup(star::core::DeviceContext &device, const star::StarWindow &window,
                            const uint8_t &numFramesInFlight) override;
 
   private:

@@ -132,13 +132,13 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
     }
 }
 
-void OffscreenRenderer::initResources(star::StarDevice &device, const int &numFramesInFlight,
+void OffscreenRenderer::initResources(star::core::DeviceContext &device, const int &numFramesInFlight,
                                       const vk::Extent2D &screenSize)
 {
     {
         this->graphicsQueueFamilyIndex =
-            std::make_unique<uint32_t>(device.getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
-        const uint32_t computeQueueIndex = device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
+            std::make_unique<uint32_t>(device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
+        const uint32_t computeQueueIndex = device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
 
         if (*this->graphicsQueueFamilyIndex != computeQueueIndex)
         {
@@ -151,7 +151,7 @@ void OffscreenRenderer::initResources(star::StarDevice &device, const int &numFr
     star::SceneRenderer::initResources(device, numFramesInFlight, screenSize);
 }
 
-std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToImages(star::StarDevice &device,
+std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToImages(star::core::DeviceContext &device,
                                                                                         const int &numFramesInFlight)
 {
     std::vector<std::unique_ptr<star::StarTextures::Texture>> newRenderToImages =
@@ -160,7 +160,7 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
     vk::Format colorFormat = getColorAttachmentFormat(device);
 
     auto builder =
-        star::StarTextures::Texture::Builder(device.getDevice(), device.getAllocator().get())
+        star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(), device.getDevice().getAllocator().get())
             .setCreateInfo(star::Allocator::AllocationBuilder()
                                .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
                                .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
@@ -208,7 +208,7 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
     {
         newRenderToImages.emplace_back(builder.build());
 
-        auto oneTimeSetup = device.beginSingleTimeCommands();
+        auto oneTimeSetup = device.getDevice().beginSingleTimeCommands();
 
         vk::ImageMemoryBarrier barrier{};
         barrier.sType = vk::StructureType::eImageMemoryBarrier;
@@ -235,14 +235,14 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
                                                                // wait on the barrier
             {}, {}, nullptr, barrier);
 
-        device.endSingleTimeCommands(std::move(oneTimeSetup));
+        device.getDevice().endSingleTimeCommands(std::move(oneTimeSetup));
     }
 
     return newRenderToImages;
 }
 
 std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToDepthImages(
-    star::StarDevice &device, const int &numFramesInFlight)
+    star::core::DeviceContext &device, const int &numFramesInFlight)
 {
     std::vector<std::unique_ptr<star::StarTextures::Texture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTextures::Texture>>();
@@ -250,7 +250,7 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
     const vk::Format depthFormat = this->getDepthAttachmentFormat(device);
 
     auto builder =
-        star::StarTextures::Texture::Builder(device.getDevice(), device.getAllocator().get())
+        star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(), device.getDevice().getAllocator().get())
             .setCreateInfo(
                 star::Allocator::AllocationBuilder()
                     .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
@@ -284,9 +284,9 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
                 vk::SamplerCreateInfo()
                     .setAnisotropyEnable(true)
                     .setMaxAnisotropy(
-                        star::StarTextures::Texture::SelectAnisotropyLevel(device.getPhysicalDevice().getProperties()))
-                    .setMagFilter(star::StarTextures::Texture::SelectTextureFiltering(device.getPhysicalDevice().getProperties()))
-                    .setMinFilter(star::StarTextures::Texture::SelectTextureFiltering(device.getPhysicalDevice().getProperties()))
+                        star::StarTextures::Texture::SelectAnisotropyLevel(device.getDevice().getPhysicalDevice().getProperties()))
+                    .setMagFilter(star::StarTextures::Texture::SelectTextureFiltering(device.getDevice().getPhysicalDevice().getProperties()))
+                    .setMinFilter(star::StarTextures::Texture::SelectTextureFiltering(device.getDevice().getPhysicalDevice().getProperties()))
                     .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
                     .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                     .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
@@ -303,7 +303,7 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
     {
         newRenderToImages.emplace_back(builder.build());
 
-        auto oneTimeSetup = device.beginSingleTimeCommands();
+        auto oneTimeSetup = device.getDevice().beginSingleTimeCommands();
 
         vk::ImageMemoryBarrier barrier{};
         barrier.sType = vk::StructureType::eImageMemoryBarrier;
@@ -329,13 +329,13 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
                                                                                                // wait on the barrier
                                                {}, {}, nullptr, barrier);
 
-        device.endSingleTimeCommands(std::move(oneTimeSetup));
+        device.getDevice().endSingleTimeCommands(std::move(oneTimeSetup));
     }
 
     return newRenderToImages;
 }
 
-std::vector<std::shared_ptr<star::StarBuffers::Buffer>> OffscreenRenderer::createDepthBufferContainers(star::StarDevice &device)
+std::vector<std::shared_ptr<star::StarBuffers::Buffer>> OffscreenRenderer::createDepthBufferContainers(star::core::DeviceContext &device)
 {
     return std::vector<std::shared_ptr<star::StarBuffers::Buffer>>();
 }
@@ -379,10 +379,10 @@ bool OffscreenRenderer::getWillBeRecordedOnce()
     return false;
 }
 
-vk::Format OffscreenRenderer::getColorAttachmentFormat(star::StarDevice &device) const
+vk::Format OffscreenRenderer::getColorAttachmentFormat(star::core::DeviceContext &device) const
 {
     vk::Format selectedFormat = vk::Format();
-    if (!device.findSupportedFormat(
+    if (!device.getDevice().findSupportedFormat(
             {vk::Format::eR8G8B8A8Srgb, vk::Format::eR8G8B8A8Unorm}, vk::ImageTiling::eOptimal,
             {vk::FormatFeatureFlagBits::eColorAttachment | vk::FormatFeatureFlagBits::eStorageImage}, selectedFormat))
     {
@@ -392,10 +392,10 @@ vk::Format OffscreenRenderer::getColorAttachmentFormat(star::StarDevice &device)
     return selectedFormat;
 }
 
-vk::Format OffscreenRenderer::getDepthAttachmentFormat(star::StarDevice &device) const
+vk::Format OffscreenRenderer::getDepthAttachmentFormat(star::core::DeviceContext &device) const
 {
     vk::Format selectedFormat = vk::Format();
-    if (!device.findSupportedFormat(
+    if (!device.getDevice().findSupportedFormat(
             {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
             vk::ImageTiling::eOptimal,
             {vk::FormatFeatureFlagBits::eDepthStencilAttachment | vk::FormatFeatureFlagBits::eSampledImage},
