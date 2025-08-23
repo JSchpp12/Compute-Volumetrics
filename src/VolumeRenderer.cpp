@@ -181,36 +181,6 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     commandBuffer.pipelineBarrier2(deps);
 }
 
-star::Command_Buffer_Order_Index VolumeRenderer::getCommandBufferOrderIndex()
-{
-    return star::Command_Buffer_Order_Index::second;
-}
-
-star::Command_Buffer_Order VolumeRenderer::getCommandBufferOrder()
-{
-    return star::Command_Buffer_Order::before_render_pass;
-}
-
-star::Queue_Type VolumeRenderer::getCommandBufferType()
-{
-    return star::Queue_Type::Tcompute;
-}
-
-vk::PipelineStageFlags VolumeRenderer::getWaitStages()
-{
-    return vk::PipelineStageFlagBits::eComputeShader;
-}
-
-bool VolumeRenderer::getWillBeSubmittedEachFrame()
-{
-    return true;
-}
-
-bool VolumeRenderer::getWillBeRecordedOnce()
-{
-    return false;
-}
-
 void VolumeRenderer::initResources(star::core::DeviceContext &device, const int &numFramesInFlight,
                                    const vk::Extent2D &screensize)
 {
@@ -287,35 +257,6 @@ void VolumeRenderer::initResources(star::core::DeviceContext &device, const int 
         for (int i = 0; i < numFramesInFlight; i++)
         {
             this->computeWriteToImages.emplace_back(builder.build());
-
-            // // set the layout to general for compute shader use
-            // auto oneTime = device.beginSingleTimeCommands();
-
-            // vk::ImageMemoryBarrier barrier{};
-            // barrier.sType = vk::StructureType::eImageMemoryBarrier;
-            // barrier.oldLayout = vk::ImageLayout::eUndefined;
-            // barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-            // barrier.srcQueueFamilyIndex = *this->graphicsQueueFamilyIndex;
-            // barrier.dstQueueFamilyIndex = *this->computeQueueFamilyIndex;
-
-            // barrier.image = this->computeWriteToImages.back()->getVulkanImage();
-            // barrier.srcAccessMask = vk::AccessFlagBits::eNone;
-            // barrier.dstAccessMask = vk::AccessFlagBits::eNone;
-
-            // barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-            // barrier.subresourceRange.baseMipLevel = 0; // image does not have any mipmap levels
-            // barrier.subresourceRange.levelCount = 1;   // image is not an array
-            // barrier.subresourceRange.baseArrayLayer = 0;
-            // barrier.subresourceRange.layerCount = 1;
-
-            // oneTime->buffer().pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe,     // which pipeline stages should
-            //                                                                              // occurr before barrier
-            //                                   vk::PipelineStageFlagBits::eBottomOfPipe, // pipeline stage in
-            //                                                                              // which operations will
-            //                                                                              // wait on the barrier
-            //                                   {}, {}, nullptr, barrier);
-
-            // device.endSingleTimeCommands(std::move(oneTime));
         }
     }
 
@@ -327,6 +268,16 @@ void VolumeRenderer::initResources(star::core::DeviceContext &device, const int 
         this->fogControlShaderInfo.emplace_back(star::ManagerRenderResource::addRequest(
             std::make_unique<FogControlInfoController>(i, this->fogControlInfo)));
     }
+
+    commandBuffer = device.getManagerCommandBuffer().submit(star::ManagerCommandBuffer::Request{
+        .recordBufferCallback = std::bind(&VolumeRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
+        .order = star::Command_Buffer_Order::before_render_pass, 
+        .orderIndex = star::Command_Buffer_Order_Index::second, 
+        .type = star::Queue_Type::Tcompute,
+        .waitStage = vk::PipelineStageFlagBits::eComputeShader,
+        .willBeSubmittedEachFrame = true,
+        .recordOnce = false
+    });
 }
 
 void VolumeRenderer::destroyResources(star::core::DeviceContext &device)

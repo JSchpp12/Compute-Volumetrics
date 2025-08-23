@@ -31,19 +31,10 @@ class OffscreenRenderer : public star::SceneRenderer
 
     std::vector<std::shared_ptr<star::StarBuffers::Buffer>> createDepthBufferContainers(star::core::DeviceContext &device);
     // Inherited via SceneRenderer
+    star::ManagerCommandBuffer::Request getCommandBufferRequest() override; 
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
         const int &frameInFlightIndex) override;
-
-    star::Command_Buffer_Order_Index getCommandBufferOrderIndex() override;
-
-    star::Command_Buffer_Order getCommandBufferOrder() override;
-
-    vk::PipelineStageFlags getWaitStages() override;
-
-    bool getWillBeSubmittedEachFrame() override;
-
-    bool getWillBeRecordedOnce() override;
 
     static vk::ImageMemoryBarrier2 createMemoryBarrierPrepForDepthCopy(const vk::Image &depthImage);
 };

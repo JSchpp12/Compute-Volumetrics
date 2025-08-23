@@ -136,9 +136,10 @@ void OffscreenRenderer::initResources(star::core::DeviceContext &device, const i
                                       const vk::Extent2D &screenSize)
 {
     {
-        this->graphicsQueueFamilyIndex =
-            std::make_unique<uint32_t>(device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
-        const uint32_t computeQueueIndex = device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
+        this->graphicsQueueFamilyIndex = std::make_unique<uint32_t>(
+            device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
+        const uint32_t computeQueueIndex =
+            device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
 
         if (*this->graphicsQueueFamilyIndex != computeQueueIndex)
         {
@@ -151,8 +152,8 @@ void OffscreenRenderer::initResources(star::core::DeviceContext &device, const i
     star::SceneRenderer::initResources(device, numFramesInFlight, screenSize);
 }
 
-std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToImages(star::core::DeviceContext &device,
-                                                                                        const int &numFramesInFlight)
+std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToImages(
+    star::core::DeviceContext &device, const int &numFramesInFlight)
 {
     std::vector<std::unique_ptr<star::StarTextures::Texture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTextures::Texture>>();
@@ -160,7 +161,8 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
     vk::Format colorFormat = getColorAttachmentFormat(device);
 
     auto builder =
-        star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(), device.getDevice().getAllocator().get())
+        star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(),
+                                             device.getDevice().getAllocator().get())
             .setCreateInfo(star::Allocator::AllocationBuilder()
                                .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
                                .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
@@ -250,7 +252,8 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
     const vk::Format depthFormat = this->getDepthAttachmentFormat(device);
 
     auto builder =
-        star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(), device.getDevice().getAllocator().get())
+        star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(),
+                                             device.getDevice().getAllocator().get())
             .setCreateInfo(
                 star::Allocator::AllocationBuilder()
                     .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
@@ -280,24 +283,25 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
                                                       .setLayerCount(1)
                                                       .setBaseMipLevel(0)
                                                       .setLevelCount(1)))
-            .setSamplerInfo(
-                vk::SamplerCreateInfo()
-                    .setAnisotropyEnable(true)
-                    .setMaxAnisotropy(
-                        star::StarTextures::Texture::SelectAnisotropyLevel(device.getDevice().getPhysicalDevice().getProperties()))
-                    .setMagFilter(star::StarTextures::Texture::SelectTextureFiltering(device.getDevice().getPhysicalDevice().getProperties()))
-                    .setMinFilter(star::StarTextures::Texture::SelectTextureFiltering(device.getDevice().getPhysicalDevice().getProperties()))
-                    .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
-                    .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
-                    .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
-                    .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-                    .setUnnormalizedCoordinates(VK_FALSE)
-                    .setCompareEnable(VK_FALSE)
-                    .setCompareOp(vk::CompareOp::eAlways)
-                    .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-                    .setMipLodBias(0.0f)
-                    .setMinLod(0.0f)
-                    .setMaxLod(0.0f));
+            .setSamplerInfo(vk::SamplerCreateInfo()
+                                .setAnisotropyEnable(true)
+                                .setMaxAnisotropy(star::StarTextures::Texture::SelectAnisotropyLevel(
+                                    device.getDevice().getPhysicalDevice().getProperties()))
+                                .setMagFilter(star::StarTextures::Texture::SelectTextureFiltering(
+                                    device.getDevice().getPhysicalDevice().getProperties()))
+                                .setMinFilter(star::StarTextures::Texture::SelectTextureFiltering(
+                                    device.getDevice().getPhysicalDevice().getProperties()))
+                                .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+                                .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+                                .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
+                                .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                                .setUnnormalizedCoordinates(VK_FALSE)
+                                .setCompareEnable(VK_FALSE)
+                                .setCompareOp(vk::CompareOp::eAlways)
+                                .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                                .setMipLodBias(0.0f)
+                                .setMinLod(0.0f)
+                                .setMaxLod(0.0f));
 
     for (int i = 0; i < numFramesInFlight; i++)
     {
@@ -335,9 +339,22 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
     return newRenderToImages;
 }
 
-std::vector<std::shared_ptr<star::StarBuffers::Buffer>> OffscreenRenderer::createDepthBufferContainers(star::core::DeviceContext &device)
+std::vector<std::shared_ptr<star::StarBuffers::Buffer>> OffscreenRenderer::createDepthBufferContainers(
+    star::core::DeviceContext &device)
 {
     return std::vector<std::shared_ptr<star::StarBuffers::Buffer>>();
+}
+
+star::ManagerCommandBuffer::Request OffscreenRenderer::getCommandBufferRequest()
+{
+    return star::ManagerCommandBuffer::Request{
+        .recordBufferCallback = std::bind(&OffscreenRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
+        .order = star::Command_Buffer_Order::before_render_pass,
+        .orderIndex = star::Command_Buffer_Order_Index::first, 
+        .waitStage = vk::PipelineStageFlagBits::eEarlyFragmentTests,
+        .willBeSubmittedEachFrame = true,
+        .recordOnce = false
+    };
 }
 
 vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(const int &frameInFlightIndex)
@@ -350,33 +367,6 @@ vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthA
     depthAttachmentInfo.clearValue = vk::ClearValue{vk::ClearDepthStencilValue{1.0f}};
 
     return depthAttachmentInfo;
-}
-
-star::Command_Buffer_Order_Index OffscreenRenderer::getCommandBufferOrderIndex()
-{
-    return star::Command_Buffer_Order_Index::first;
-}
-
-star::Command_Buffer_Order OffscreenRenderer::getCommandBufferOrder()
-{
-    return star::Command_Buffer_Order::before_render_pass;
-}
-
-vk::PipelineStageFlags OffscreenRenderer::getWaitStages()
-{
-    // should be able to wait until the fragment shader where the image produced
-    // from the compute shader will be used
-    return vk::PipelineStageFlagBits::eEarlyFragmentTests;
-}
-
-bool OffscreenRenderer::getWillBeSubmittedEachFrame()
-{
-    return true;
-}
-
-bool OffscreenRenderer::getWillBeRecordedOnce()
-{
-    return false;
 }
 
 vk::Format OffscreenRenderer::getColorAttachmentFormat(star::core::DeviceContext &device) const

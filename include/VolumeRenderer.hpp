@@ -20,7 +20,7 @@
 #include "StarShaderInfo.hpp"
 
 
-class VolumeRenderer : public star::CommandBufferModifier,
+class VolumeRenderer :
                        private star::RenderResourceModifier,
                        private star::DescriptorModifier
 {
@@ -66,7 +66,7 @@ class VolumeRenderer : public star::CommandBufferModifier,
     const std::array<glm::vec4, 2> &aabbBounds;
     const std::shared_ptr<star::StarCamera> camera = nullptr;
     glm::uvec2 workgroupSize = glm::uvec2();
-    star::Handle cameraShaderInfo;
+    star::Handle cameraShaderInfo, commandBuffer; 
     std::vector<star::Handle> fogControlShaderInfo;
     std::vector<star::Handle> sceneLightInfoBuffers = std::vector<star::Handle>();
     std::unique_ptr<star::StarShaderInfo> compShaderInfo = std::unique_ptr<star::StarShaderInfo>();
@@ -91,20 +91,7 @@ class VolumeRenderer : public star::CommandBufferModifier,
         std::shared_ptr<FogInfo>(new FogInfo(FogInfo::LinearFogInfo(0.001f, 100.0f), FogInfo::ExpFogInfo(0.5f),
                                              FogInfo::MarchedFogInfo(0.002f, 0.3f, 0.3f, 0.2f, 0.1f, 5.0f)));
 
-    // Inherited via CommandBufferModifier
-    void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
-
-    star::Command_Buffer_Order_Index getCommandBufferOrderIndex() override;
-
-    star::Command_Buffer_Order getCommandBufferOrder() override;
-
-    star::Queue_Type getCommandBufferType() override;
-
-    vk::PipelineStageFlags getWaitStages() override;
-
-    bool getWillBeSubmittedEachFrame() override;
-
-    bool getWillBeRecordedOnce() override;
+    void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex); 
 
     // Inherited via RenderResourceModifier
     void initResources(star::core::DeviceContext &device, const int &numFramesInFlight, const vk::Extent2D &screensize) override;
