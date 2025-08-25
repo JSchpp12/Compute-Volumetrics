@@ -28,7 +28,7 @@ class FogControlInfoController : public star::ManagerController::RenderResource:
     FogControlInfoController(const uint8_t &frameInFlightIndexToUpdateOn,
                              const std::shared_ptr<FogInfo> currentFogInfo);
 
-    std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::StarDevice &device) override;
+    std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::core::devices::StarDevice &device) override;
 
     bool isValid(const uint8_t &currentFrameInFlightIndex) const override;
 
