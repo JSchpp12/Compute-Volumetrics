@@ -6,18 +6,18 @@ void ScreenMaterial::applyDescriptorSetLayouts(star::StarDescriptorSetLayout::Bu
                             vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment);
 }
 
-void ScreenMaterial::prep(star::core::DeviceContext &device)
+void ScreenMaterial::prep(star::core::devices::DeviceContext &device)
 {
 }
 
-void ScreenMaterial::buildDescriptorSet(star::core::DeviceContext &device, star::StarShaderInfo::Builder &builder,
+void ScreenMaterial::buildDescriptorSet(star::core::devices::DeviceContext &device, star::StarShaderInfo::Builder &builder,
                                         const int &imageInFlightIndex)
 {
     builder.startSet();
     builder.add(*computeOutputImages.at(imageInFlightIndex), vk::ImageLayout::eShaderReadOnlyOptimal, true);
 }
 
-void ScreenMaterial::cleanup(star::core::DeviceContext &device)
+void ScreenMaterial::cleanup(star::core::devices::DeviceContext &device)
 {
 }
 

@@ -132,7 +132,7 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
     }
 }
 
-void OffscreenRenderer::initResources(star::core::DeviceContext &device, const int &numFramesInFlight,
+void OffscreenRenderer::initResources(star::core::devices::DeviceContext &device, const int &numFramesInFlight,
                                       const vk::Extent2D &screenSize)
 {
     {
@@ -153,7 +153,7 @@ void OffscreenRenderer::initResources(star::core::DeviceContext &device, const i
 }
 
 std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToImages(
-    star::core::DeviceContext &device, const int &numFramesInFlight)
+    star::core::devices::DeviceContext &device, const int &numFramesInFlight)
 {
     std::vector<std::unique_ptr<star::StarTextures::Texture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTextures::Texture>>();
@@ -244,7 +244,7 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
 }
 
 std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToDepthImages(
-    star::core::DeviceContext &device, const int &numFramesInFlight)
+    star::core::devices::DeviceContext &device, const int &numFramesInFlight)
 {
     std::vector<std::unique_ptr<star::StarTextures::Texture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTextures::Texture>>();
@@ -340,14 +340,14 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
 }
 
 std::vector<std::shared_ptr<star::StarBuffers::Buffer>> OffscreenRenderer::createDepthBufferContainers(
-    star::core::DeviceContext &device)
+    star::core::devices::DeviceContext &device)
 {
     return std::vector<std::shared_ptr<star::StarBuffers::Buffer>>();
 }
 
-star::ManagerCommandBuffer::Request OffscreenRenderer::getCommandBufferRequest()
+star::core::devices::managers::ManagerCommandBuffer::Request OffscreenRenderer::getCommandBufferRequest()
 {
-    return star::ManagerCommandBuffer::Request{
+    return star::core::devices::managers::ManagerCommandBuffer::Request{
         .recordBufferCallback = std::bind(&OffscreenRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
         .order = star::Command_Buffer_Order::before_render_pass,
         .orderIndex = star::Command_Buffer_Order_Index::first, 
@@ -369,7 +369,7 @@ vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthA
     return depthAttachmentInfo;
 }
 
-vk::Format OffscreenRenderer::getColorAttachmentFormat(star::core::DeviceContext &device) const
+vk::Format OffscreenRenderer::getColorAttachmentFormat(star::core::devices::DeviceContext &device) const
 {
     vk::Format selectedFormat = vk::Format();
     if (!device.getDevice().findSupportedFormat(
@@ -382,7 +382,7 @@ vk::Format OffscreenRenderer::getColorAttachmentFormat(star::core::DeviceContext
     return selectedFormat;
 }
 
-vk::Format OffscreenRenderer::getDepthAttachmentFormat(star::core::DeviceContext &device) const
+vk::Format OffscreenRenderer::getDepthAttachmentFormat(star::core::devices::DeviceContext &device) const
 {
     vk::Format selectedFormat = vk::Format();
     if (!device.getDevice().findSupportedFormat(
