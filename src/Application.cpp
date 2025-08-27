@@ -17,7 +17,7 @@ Application::Application()
 {
 }
 
-std::shared_ptr<StarScene> Application::createInitialScene(core::devices::DeviceContext &device, const StarWindow &window,
+std::shared_ptr<StarScene> Application::createInitialScene(core::device::DeviceContext &device, const StarWindow &window,
                                                            const uint8_t &numFramesInFlight)
 {
     std::shared_ptr<star::BasicCamera> camera = std::make_shared<star::BasicCamera>(
@@ -31,7 +31,7 @@ std::shared_ptr<StarScene> Application::createInitialScene(core::devices::Device
     return newScene;
 }
 
-void Application::startup(core::devices::DeviceContext &device, const star::StarWindow &window, const uint8_t &numFramesInFlight)
+void Application::startup(core::device::DeviceContext &device, const star::StarWindow &window, const uint8_t &numFramesInFlight)
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
     auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";

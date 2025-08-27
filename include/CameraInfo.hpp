@@ -59,5 +59,5 @@ class CameraInfoController : public star::ManagerController::RenderResource::Buf
   protected:
     const std::shared_ptr<star::StarCamera> camera = nullptr;
 
-    std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::core::devices::StarDevice &device) override;
+    std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::core::device::StarDevice &device) override;
 };

@@ -9,7 +9,7 @@
 #include <string>
 
 #include "StarBuffers/Buffer.hpp"
-#include "devices/StarDevice.hpp"
+#include "device/StarDevice.hpp"
 #include "StarMesh.hpp"
 
 class TerrainChunk

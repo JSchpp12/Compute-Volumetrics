@@ -20,8 +20,8 @@ class ScreenMaterial : public star::StarMaterial
 
     void applyDescriptorSetLayouts(star::StarDescriptorSetLayout::Builder &constBuilder) override;
     std::vector<std::pair<vk::DescriptorType, const int>> getDescriptorRequests(const int &numFramesInFlight) override;
-    void prep(star::core::devices::DeviceContext &device) override;
-    void buildDescriptorSet(star::core::devices::DeviceContext &device, star::StarShaderInfo::Builder &builder,
+    void prep(star::core::device::DeviceContext &device) override;
+    void buildDescriptorSet(star::core::device::DeviceContext &device, star::StarShaderInfo::Builder &builder,
                             const int &imageInFlightIndex) override;
-    void cleanup(star::core::devices::DeviceContext &device) override;
+    void cleanup(star::core::device::DeviceContext &device) override;
 };

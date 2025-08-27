@@ -16,8 +16,6 @@ VolumeRenderer::VolumeRenderer(const std::shared_ptr<star::StarCamera> camera,
       globalInfoBuffers(globalInfoBuffers), sceneLightInfoBuffers(sceneLightInfoBuffers), aabbBounds(aabbBounds),
       camera(camera), instanceModelInfo(instanceModelInfo), volumeTexture(volumeTexture)
 {
-    this->cameraShaderInfo =
-        star::ManagerRenderResource::addRequest(std::make_unique<CameraInfoController>(camera), true);
 }
 
 void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
@@ -181,9 +179,12 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     commandBuffer.pipelineBarrier2(deps);
 }
 
-void VolumeRenderer::initResources(star::core::devices::DeviceContext &device, const int &numFramesInFlight,
+void VolumeRenderer::initResources(star::core::device::DeviceContext &device, const int &numFramesInFlight,
                                    const vk::Extent2D &screensize)
 {
+    // this->cameraShaderInfo =
+    //     star::device::managers::ManagerRenderResource::addRequest(std::make_unique<CameraInfoController>(camera), true);
+
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
     {
@@ -269,18 +270,17 @@ void VolumeRenderer::initResources(star::core::devices::DeviceContext &device, c
             std::make_unique<FogControlInfoController>(i, this->fogControlInfo)));
     }
 
-    commandBuffer = device.getManagerCommandBuffer().submit(star::core::devices::managers::ManagerCommandBuffer::Request{
+    commandBuffer = device.getManagerCommandBuffer().submit(star::core::device::managers::ManagerCommandBuffer::Request{
         .recordBufferCallback = std::bind(&VolumeRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
         .order = star::Command_Buffer_Order::before_render_pass, 
         .orderIndex = star::Command_Buffer_Order_Index::second, 
         .type = star::Queue_Type::Tcompute,
         .waitStage = vk::PipelineStageFlagBits::eComputeShader,
-        .willBeSubmittedEachFrame = true,
         .recordOnce = false
     });
 }
 
-void VolumeRenderer::destroyResources(star::core::devices::DeviceContext &device)
+void VolumeRenderer::destroyResources(star::core::device::DeviceContext &device)
 {
     this->compShaderInfo.reset();
 
@@ -305,7 +305,7 @@ std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescrip
         std::make_pair(vk::DescriptorType::eCombinedImageSampler, 1)};
 }
 
-void VolumeRenderer::createDescriptors(star::core::devices::DeviceContext &device, const int &numFramesInFlight)
+void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device, const int &numFramesInFlight)
 {
     auto shaderInfoBuilder =
         star::StarShaderInfo::Builder(device.getDevice(), numFramesInFlight)

@@ -69,7 +69,7 @@ FogControlInfoController::FogControlInfoController(const uint8_t &getFrameInFlig
 {
 }
 
-std::unique_ptr<star::TransferRequest::Buffer> FogControlInfoController::createTransferRequest(star::core::devices::StarDevice &device)
+std::unique_ptr<star::TransferRequest::Buffer> FogControlInfoController::createTransferRequest(star::core::device::StarDevice &device)
 {
     this->lastFogInfo = *this->currentFogInfo;
 

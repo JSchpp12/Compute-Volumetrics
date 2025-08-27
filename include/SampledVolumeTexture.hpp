@@ -41,7 +41,7 @@ class SampledVolumeController : public star::ManagerController::RenderResource::
     {
     }
 
-    std::unique_ptr<star::TransferRequest::Texture> createTransferRequest(star::core::devices::StarDevice &device) override;
+    std::unique_ptr<star::TransferRequest::Texture> createTransferRequest(star::core::device::StarDevice &device) override;
 
   protected:
     std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledData;

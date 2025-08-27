@@ -130,7 +130,7 @@ void SampledVolumeRequest::copyFromTransferSRCToDST(star::StarBuffers::Buffer &s
                                              vk::ImageLayout::eShaderReadOnlyOptimal);
 }
 
-std::unique_ptr<star::TransferRequest::Texture> SampledVolumeController::createTransferRequest(star::core::devices::StarDevice &device)
+std::unique_ptr<star::TransferRequest::Texture> SampledVolumeController::createTransferRequest(star::core::device::StarDevice &device)
 {
     return std::make_unique<SampledVolumeRequest>(
         device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(), std::move(this->sampledData));

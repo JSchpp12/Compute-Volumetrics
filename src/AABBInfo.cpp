@@ -61,7 +61,7 @@ void AABBTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) con
     buffer.unmap();
 }
 
-std::unique_ptr<star::TransferRequest::Buffer> AABBController::createTransferRequest(star::core::devices::StarDevice &device)
+std::unique_ptr<star::TransferRequest::Buffer> AABBController::createTransferRequest(star::core::device::StarDevice &device)
 {
     return std::make_unique<AABBTransfer>(
         this->aabbBounds, device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
