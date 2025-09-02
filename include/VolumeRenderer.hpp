@@ -32,7 +32,8 @@ class VolumeRenderer :
         marched
     };
 
-    VolumeRenderer(const std::shared_ptr<star::StarCamera> camera, const std::vector<star::Handle> &instanceModelInfo,
+    VolumeRenderer(std::shared_ptr<FogInfo> fogControlInfo,
+        const std::shared_ptr<star::StarCamera> camera, const std::vector<star::Handle> &instanceModelInfo,
                 std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
                    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
                    const std::vector<star::Handle> &globalInfoBuffers,
@@ -54,17 +55,14 @@ class VolumeRenderer :
     {
         return this->currentFogType;
     }
-    FogInfo &getFogControlInfo()
-    {
-        return *this->fogControlInfo;
-    }
-
   private:
+    std::shared_ptr<FogInfo> m_fogControlInfo;
     bool isFirstPass = true;
     const star::Handle volumeTexture;
     const std::vector<star::Handle> &instanceModelInfo;
     const std::array<glm::vec4, 2> &aabbBounds;
     const std::shared_ptr<star::StarCamera> camera = nullptr;
+    star::core::device::DeviceID m_deviceID; 
     glm::uvec2 workgroupSize = glm::uvec2();
     star::Handle cameraShaderInfo, commandBuffer; 
     std::vector<star::Handle> fogControlShaderInfo;
@@ -87,9 +85,6 @@ class VolumeRenderer :
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
 
     FogType currentFogType = FogType::marched;
-    std::shared_ptr<FogInfo> fogControlInfo =
-        std::shared_ptr<FogInfo>(new FogInfo(FogInfo::LinearFogInfo(0.001f, 100.0f), FogInfo::ExpFogInfo(0.5f),
-                                             FogInfo::MarchedFogInfo(0.002f, 0.3f, 0.3f, 0.2f, 0.1f, 5.0f)));
 
     void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex); 
 

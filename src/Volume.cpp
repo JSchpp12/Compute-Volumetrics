@@ -5,35 +5,20 @@
 #include "ManagerRenderResource.hpp"
 #include "SampledVolumeTexture.hpp"
 
-Volume::Volume(std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
+Volume::Volume(star::core::device::DeviceContext &context, std::shared_ptr<star::StarCamera> camera,
+               const uint32_t &screenWidth, const uint32_t &screenHeight,
                std::vector<std::unique_ptr<star::Light>> &lightList,
                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
                std::vector<star::Handle> &globalInfos, std::vector<star::Handle> &lightInfos)
     : camera(camera), screenDimensions(screenWidth, screenHeight), lightList(lightList),
       offscreenRenderToColorImages(offscreenRenderToColorImages),
-      offscreenRenderToDepthImages(offscreenRenderToDepthImages), StarObject()
+      offscreenRenderToDepthImages(offscreenRenderToDepthImages),
+      m_fogControlInfo(std::make_shared<FogInfo>(FogInfo::LinearFogInfo(0.001f, 100.0f), FogInfo::ExpFogInfo(0.5f),
+                                                 FogInfo::MarchedFogInfo(0.002f, 0.3f, 0.3f, 0.2f, 0.1f, 5.0f))),
+      StarObject()
 {
-    openvdb::initialize();
-    loadModel();
-
-    std::vector<std::vector<star::Color>> colors;
-    colors.resize(this->screenDimensions.y);
-    for (int y = 0; y < this->screenDimensions.y; y++)
-    {
-        colors[y].resize(this->screenDimensions.x);
-        for (int x = 0; x < this->screenDimensions.x; x++)
-        {
-            if (x == this->screenDimensions.x / 2)
-                colors[y][x] = star::Color(1.0f, 1.0f, 1.0f, 1.0f);
-        }
-    }
-
-    this->volumeRenderer = std::make_unique<VolumeRenderer>(
-        this->camera, this->instanceModelInfos, offscreenRenderToColorImages, offscreenRenderToDepthImages, globalInfos,
-        lightInfos, this->sampledTexture, this->aabbBounds);
-
-    loadGeometry();
+    initVolume(context, globalInfos, lightInfos);
 }
 
 std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
@@ -116,7 +101,8 @@ void Volume::renderVolume(const double &fov_radians, const glm::vec3 &camPositio
     this->isVisible = true;
 }
 
-std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::core::device::DeviceContext &device, vk::Extent2D swapChainExtent,
+std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::core::device::DeviceContext &device,
+                                                          vk::Extent2D swapChainExtent,
                                                           vk::PipelineLayout pipelineLayout,
                                                           star::RenderingTargetInfo renderingInfo)
 {
@@ -145,7 +131,7 @@ std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::core::device::De
     return newPipeline;
 }
 
-void Volume::loadModel()
+void Volume::loadModel(star::core::device::DeviceContext &context)
 {
     const std::string filePath(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) +
                                "volumes/sphere.vdb");
@@ -231,12 +217,12 @@ void Volume::loadModel()
     ProcessVolume processor = ProcessVolume(this->grid.get(), *sampledGridData, step_size, halfTotalSteps);
     oneapi::tbb::parallel_for(bounds, processor);
 
-    this->sampledTexture =
-        star::ManagerRenderResource::addRequest(std::make_unique<SampledVolumeController>(std::move(sampledGridData)));
+    this->sampledTexture = star::ManagerRenderResource::addRequest(
+        context.getDeviceID(), std::make_unique<SampledVolumeController>(std::move(sampledGridData)));
     std::cout << "Done" << std::endl;
 }
 
-void Volume::loadGeometry()
+void Volume::loadGeometry(star::core::device::DeviceContext &context)
 {
     std::unique_ptr<std::vector<star::Vertex>> verts =
         std::unique_ptr<std::vector<star::Vertex>>(new std::vector<star::Vertex>{
@@ -266,9 +252,9 @@ void Volume::loadGeometry()
     auto newMeshes = std::vector<std::unique_ptr<star::StarMesh>>();
 
     star::Handle vertBuffer = star::ManagerRenderResource::addRequest(
-        std::make_unique<star::ManagerController::RenderResource::VertInfo>(*verts));
+        context.getDeviceID(), std::make_unique<star::ManagerController::RenderResource::VertInfo>(*verts));
     star::Handle indBuffer = star::ManagerRenderResource::addRequest(
-        std::make_unique<star::ManagerController::RenderResource::IndicesInfo>(*inds));
+        context.getDeviceID(), std::make_unique<star::ManagerController::RenderResource::IndicesInfo>(*inds));
 
     newMeshes.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(
         vertBuffer, indBuffer, *verts, *inds, std::move(material), this->aabbBounds[0], this->aabbBounds[1], false)));
@@ -349,22 +335,47 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
                                          .setLayerCount(1))}));
 }
 
-void Volume::prepRender(star::core::device::DeviceContext &device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout,
-                        star::RenderingTargetInfo renderingInfo, int numSwapChainImages,
-                        star::StarShaderInfo::Builder fullEngineBuilder)
+void Volume::prepRender(star::core::device::DeviceContext &context, vk::Extent2D swapChainExtent,
+                        vk::PipelineLayout pipelineLayout, star::RenderingTargetInfo renderingInfo,
+                        int numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder)
 {
-    RecordQueueFamilyInfo(device, this->computeQueueFamily, this->graphicsQueueFamily);
+    RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
 
-    this->star::StarObject::prepRender(device, swapChainExtent, pipelineLayout, renderingInfo, numSwapChainImages,
+    this->star::StarObject::prepRender(context, swapChainExtent, pipelineLayout, renderingInfo, numSwapChainImages,
                                        fullEngineBuilder);
 }
 
-void Volume::prepRender(star::core::device::DeviceContext &device, int numSwapChainImages, star::StarPipeline &sharedPipeline,
-                        star::StarShaderInfo::Builder fullEngineBuilder)
+void Volume::prepRender(star::core::device::DeviceContext &context, int numSwapChainImages,
+                        star::StarPipeline &sharedPipeline, star::StarShaderInfo::Builder fullEngineBuilder)
 {
-    RecordQueueFamilyInfo(device, this->computeQueueFamily, this->graphicsQueueFamily);
+    RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
 
-    this->star::StarObject::prepRender(device, numSwapChainImages, sharedPipeline, fullEngineBuilder);
+    this->star::StarObject::prepRender(context, numSwapChainImages, sharedPipeline, fullEngineBuilder);
+}
+
+void Volume::initVolume(star::core::device::DeviceContext &context, std::vector<star::Handle> &globalInfos,
+                        std::vector<star::Handle> &lightInfos)
+{
+    openvdb::initialize();
+    loadModel(context);
+
+    std::vector<std::vector<star::Color>> colors;
+    colors.resize(this->screenDimensions.y);
+    for (int y = 0; y < this->screenDimensions.y; y++)
+    {
+        colors[y].resize(this->screenDimensions.x);
+        for (int x = 0; x < this->screenDimensions.x; x++)
+        {
+            if (x == this->screenDimensions.x / 2)
+                colors[y][x] = star::Color(1.0f, 1.0f, 1.0f, 1.0f);
+        }
+    }
+
+    this->volumeRenderer = std::make_unique<VolumeRenderer>(
+        m_fogControlInfo, this->camera, this->instanceModelInfos, offscreenRenderToColorImages,
+        offscreenRenderToDepthImages, globalInfos, lightInfos, this->sampledTexture, this->aabbBounds);
+
+    loadGeometry(context);
 }
 
 void Volume::updateGridTransforms()
@@ -582,6 +593,8 @@ openvdb::Mat4R Volume::getTransform(const glm::mat4 &objectDisplayMat)
 void Volume::RecordQueueFamilyInfo(star::core::device::DeviceContext &device, uint32_t &computeQueueFamilyIndex,
                                    uint32_t &graphicsQueueFamilyIndex)
 {
-    computeQueueFamilyIndex = device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
-    graphicsQueueFamilyIndex = device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex();
+    computeQueueFamilyIndex =
+        device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
+    graphicsQueueFamilyIndex =
+        device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex();
 }

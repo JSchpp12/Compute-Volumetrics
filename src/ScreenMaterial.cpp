@@ -10,11 +10,12 @@ void ScreenMaterial::prep(star::core::device::DeviceContext &device)
 {
 }
 
-void ScreenMaterial::buildDescriptorSet(star::core::device::DeviceContext &device, star::StarShaderInfo::Builder &builder,
+void ScreenMaterial::buildDescriptorSet(star::core::device::DeviceContext &context, star::StarShaderInfo::Builder &builder,
                                         const int &imageInFlightIndex)
 {
     builder.startSet();
-    builder.add(*computeOutputImages.at(imageInFlightIndex), vk::ImageLayout::eShaderReadOnlyOptimal, true);
+
+    builder.add(*computeOutputImages.at(imageInFlightIndex), vk::ImageLayout::eShaderReadOnlyOptimal, false);
 }
 
 void ScreenMaterial::cleanup(star::core::device::DeviceContext &device)

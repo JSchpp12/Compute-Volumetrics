@@ -16,15 +16,15 @@
 class Terrain : public star::StarObject
 {
   public:
-    Terrain(const std::string &terrainDefFile) : terrainDefFile(terrainDefFile)
+    Terrain(star::core::device::DeviceContext &context, const std::string &terrainDefFile) : terrainDefFile(terrainDefFile)
     {
-        loadGeometry();
+        loadGeometry(context);
     };
 
   protected:
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
-    void loadGeometry();
+    void loadGeometry(star::core::device::DeviceContext &context);
 
   private:
     const std::string terrainDefFile;

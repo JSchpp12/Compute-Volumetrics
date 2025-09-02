@@ -5,99 +5,101 @@
 #include "FogControlInfo.hpp"
 #include "ManagerRenderResource.hpp"
 
-VolumeRenderer::VolumeRenderer(const std::shared_ptr<star::StarCamera> camera,
+VolumeRenderer::VolumeRenderer(std::shared_ptr<FogInfo> fogControlInfo, const std::shared_ptr<star::StarCamera> camera,
                                const std::vector<star::Handle> &instanceModelInfo,
                                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
                                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
                                const std::vector<star::Handle> &globalInfoBuffers,
                                const std::vector<star::Handle> &sceneLightInfoBuffers,
                                const star::Handle &volumeTexture, const std::array<glm::vec4, 2> &aabbBounds)
-    : offscreenRenderToColors(offscreenRenderToColors), offscreenRenderToDepths(offscreenRenderToDepths),
-      globalInfoBuffers(globalInfoBuffers), sceneLightInfoBuffers(sceneLightInfoBuffers), aabbBounds(aabbBounds),
-      camera(camera), instanceModelInfo(instanceModelInfo), volumeTexture(volumeTexture)
+    : m_fogControlInfo(fogControlInfo), offscreenRenderToColors(offscreenRenderToColors),
+      offscreenRenderToDepths(offscreenRenderToDepths), globalInfoBuffers(globalInfoBuffers),
+      sceneLightInfoBuffers(sceneLightInfoBuffers), aabbBounds(aabbBounds), camera(camera),
+      instanceModelInfo(instanceModelInfo), volumeTexture(volumeTexture)
+
 {
 }
 
 void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
 {
-        std::vector<vk::ImageMemoryBarrier2> prepareImages = std::vector<vk::ImageMemoryBarrier2>{
+    std::vector<vk::ImageMemoryBarrier2> prepareImages = std::vector<vk::ImageMemoryBarrier2>{
         vk::ImageMemoryBarrier2()
-                        .setImage(this->offscreenRenderToColors->at(frameInFlightIndex)->getVulkanImage())
-                        .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
-                        .setNewLayout(vk::ImageLayout::eGeneral)
-                        .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
-                        .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-                        .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                        .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-                        .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ? *this->graphicsQueueFamilyIndex
-                                                                                        : vk::QueueFamilyIgnored)
-                        .setDstQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ? *this->computeQueueFamilyIndex
-                                                                                        : vk::QueueFamilyIgnored)
-                        .setSubresourceRange(vk::ImageSubresourceRange()
-                                                .setBaseMipLevel(0)
-                                                .setLevelCount(1)
-                                                .setBaseArrayLayer(0)
-                                                .setLayerCount(1)
-                                                .setAspectMask(vk::ImageAspectFlagBits::eColor)),
-                    vk::ImageMemoryBarrier2()
-                        .setImage(this->offscreenRenderToDepths->at(frameInFlightIndex)->getVulkanImage())
-                        .setOldLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-                        .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                        .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
-                        .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-                    .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                        .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-                        .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ? *this->graphicsQueueFamilyIndex
-                                                                                        : vk::QueueFamilyIgnored)
-                        .setDstQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ? *this->computeQueueFamilyIndex
-                                                                                        : vk::QueueFamilyIgnored)
-                        .setSubresourceRange(vk::ImageSubresourceRange()
-                                                .setBaseMipLevel(0)
-                                                .setLevelCount(1)
-                                                .setBaseArrayLayer(0)
-                                                .setLayerCount(1)
-                                                .setAspectMask(vk::ImageAspectFlagBits::eDepth))
-    };
+            .setImage(this->offscreenRenderToColors->at(frameInFlightIndex)->getVulkanImage())
+            .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
+            .setNewLayout(vk::ImageLayout::eGeneral)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+            .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
+            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ? *this->graphicsQueueFamilyIndex
+                                                                             : vk::QueueFamilyIgnored)
+            .setDstQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ? *this->computeQueueFamilyIndex
+                                                                             : vk::QueueFamilyIgnored)
+            .setSubresourceRange(vk::ImageSubresourceRange()
+                                     .setBaseMipLevel(0)
+                                     .setLevelCount(1)
+                                     .setBaseArrayLayer(0)
+                                     .setLayerCount(1)
+                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)),
+        vk::ImageMemoryBarrier2()
+            .setImage(this->offscreenRenderToDepths->at(frameInFlightIndex)->getVulkanImage())
+            .setOldLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+            .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+            .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
+            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ? *this->graphicsQueueFamilyIndex
+                                                                             : vk::QueueFamilyIgnored)
+            .setDstQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ? *this->computeQueueFamilyIndex
+                                                                             : vk::QueueFamilyIgnored)
+            .setSubresourceRange(vk::ImageSubresourceRange()
+                                     .setBaseMipLevel(0)
+                                     .setLevelCount(1)
+                                     .setBaseArrayLayer(0)
+                                     .setLayerCount(1)
+                                     .setAspectMask(vk::ImageAspectFlagBits::eDepth))};
 
-    if (this->isFirstPass){
-        prepareImages.push_back(
-            vk::ImageMemoryBarrier2()
-                .setImage(this->computeWriteToImages.at(frameInFlightIndex)->getVulkanImage())
-                .setOldLayout(vk::ImageLayout::eUndefined)
-                .setNewLayout(vk::ImageLayout::eGeneral)
-                .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
-                .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-                .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
-                .setSubresourceRange(vk::ImageSubresourceRange()
-                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                         .setBaseMipLevel(0)
-                                         .setLevelCount(1)
-                                         .setBaseArrayLayer(0)
-                                         .setLayerCount(1))
-        );
-    }else{
-            prepareImages.push_back(vk::ImageMemoryBarrier2()
-                .setImage(this->computeWriteToImages.at(frameInFlightIndex)->getVulkanImage())
-                .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setNewLayout(vk::ImageLayout::eGeneral)
-                .setSrcQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
-                .setDstQueueFamilyIndex(*this->computeQueueFamilyIndex)
-                .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
-                .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-                .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
-                .setSubresourceRange(vk::ImageSubresourceRange()
-                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                         .setBaseMipLevel(0)
-                                         .setLevelCount(1)
-                                         .setBaseArrayLayer(0)
-                                         .setLayerCount(1)));
+    if (this->isFirstPass)
+    {
+        prepareImages.push_back(vk::ImageMemoryBarrier2()
+                                    .setImage(this->computeWriteToImages.at(frameInFlightIndex)->getVulkanImage())
+                                    .setOldLayout(vk::ImageLayout::eUndefined)
+                                    .setNewLayout(vk::ImageLayout::eGeneral)
+                                    .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                    .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                    .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+                                    .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+                                    .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+                                    .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
+                                    .setSubresourceRange(vk::ImageSubresourceRange()
+                                                             .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                             .setBaseMipLevel(0)
+                                                             .setLevelCount(1)
+                                                             .setBaseArrayLayer(0)
+                                                             .setLayerCount(1)));
+    }
+    else
+    {
+        prepareImages.push_back(vk::ImageMemoryBarrier2()
+                                    .setImage(this->computeWriteToImages.at(frameInFlightIndex)->getVulkanImage())
+                                    .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                                    .setNewLayout(vk::ImageLayout::eGeneral)
+                                    .setSrcQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
+                                    .setDstQueueFamilyIndex(*this->computeQueueFamilyIndex)
+                                    .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+                                    .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+                                    .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+                                    .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
+                                    .setSubresourceRange(vk::ImageSubresourceRange()
+                                                             .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                             .setBaseMipLevel(0)
+                                                             .setLevelCount(1)
+                                                             .setBaseArrayLayer(0)
+                                                             .setLayerCount(1)));
     }
 
-    commandBuffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(prepareImages)); 
+    commandBuffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(prepareImages));
 
     switch (this->currentFogType)
     {
@@ -144,7 +146,8 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
             .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
             .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
             .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests)
+            .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests |
+                             vk::PipelineStageFlagBits2::eLateFragmentTests)
             .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentRead)
             .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
             .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
@@ -165,14 +168,11 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
             .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
             .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
             .setSubresourceRange(vk::ImageSubresourceRange()
-                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                        .setBaseMipLevel(0)
-                        .setLevelCount(1)
-                        .setBaseArrayLayer(0)
-                        .setLayerCount(1))
-        };
-
-        
+                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                     .setBaseMipLevel(0)
+                                     .setLevelCount(1)
+                                     .setBaseArrayLayer(0)
+                                     .setLayerCount(1))};
 
     auto deps = vk::DependencyInfo().setImageMemoryBarrierCount(3).setPImageMemoryBarriers(&backToGraphics.front());
 
@@ -182,16 +182,21 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
 void VolumeRenderer::initResources(star::core::device::DeviceContext &device, const int &numFramesInFlight,
                                    const vk::Extent2D &screensize)
 {
-    // this->cameraShaderInfo =
-    //     star::device::managers::ManagerRenderResource::addRequest(std::make_unique<CameraInfoController>(camera), true);
+    m_deviceID = device.getDeviceID();
+
+    
+    this->cameraShaderInfo =
+        star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<CameraInfoController>(camera),
+        true);
 
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
     {
-        const uint32_t computeIndex = device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
+        const uint32_t computeIndex =
+            device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
 
-        this->graphicsQueueFamilyIndex =
-            std::make_unique<uint32_t>(device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
+        this->graphicsQueueFamilyIndex = std::make_unique<uint32_t>(
+            device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
         if (*this->graphicsQueueFamilyIndex != computeIndex)
         {
             this->computeQueueFamilyIndex = std::make_unique<uint32_t>(uint32_t(computeIndex));
@@ -200,11 +205,13 @@ void VolumeRenderer::initResources(star::core::device::DeviceContext &device, co
 
     this->displaySize = std::make_unique<vk::Extent2D>(screensize);
     {
-        uint32_t indices[] = {device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
-                              device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex()};
+        uint32_t indices[] = {
+            device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
+            device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex()};
 
         auto builder =
-            star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(), device.getDevice().getAllocator().get())
+            star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(),
+                                                 device.getDevice().getAllocator().get())
                 .setCreateInfo(star::Allocator::AllocationBuilder()
                                    .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
                                    .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
@@ -264,20 +271,20 @@ void VolumeRenderer::initResources(star::core::device::DeviceContext &device, co
     for (uint8_t i = 0; i < numFramesInFlight; i++)
     {
         this->aabbInfoBuffers.emplace_back(
-            star::ManagerRenderResource::addRequest(std::make_unique<AABBController>(this->aabbBounds)));
+            star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<AABBController>(this->aabbBounds)));
 
         this->fogControlShaderInfo.emplace_back(star::ManagerRenderResource::addRequest(
-            std::make_unique<FogControlInfoController>(i, this->fogControlInfo)));
+            m_deviceID, std::make_unique<FogControlInfoController>(i, m_fogControlInfo)));
     }
 
     commandBuffer = device.getManagerCommandBuffer().submit(star::core::device::managers::ManagerCommandBuffer::Request{
-        .recordBufferCallback = std::bind(&VolumeRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
-        .order = star::Command_Buffer_Order::before_render_pass, 
-        .orderIndex = star::Command_Buffer_Order_Index::second, 
+        .recordBufferCallback =
+            std::bind(&VolumeRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
+        .order = star::Command_Buffer_Order::before_render_pass,
+        .orderIndex = star::Command_Buffer_Order_Index::second,
         .type = star::Queue_Type::Tcompute,
         .waitStage = vk::PipelineStageFlagBits::eComputeShader,
-        .recordOnce = false
-    });
+        .recordOnce = false});
 }
 
 void VolumeRenderer::destroyResources(star::core::device::DeviceContext &device)
@@ -308,7 +315,7 @@ std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescrip
 void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device, const int &numFramesInFlight)
 {
     auto shaderInfoBuilder =
-        star::StarShaderInfo::Builder(device.getDevice(), numFramesInFlight)
+        star::StarShaderInfo::Builder(device.getDeviceID(), device.getDevice(), numFramesInFlight)
             .addSetLayout(star::StarDescriptorSetLayout::Builder(device.getDevice())
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
@@ -317,11 +324,12 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
                               .build())
-            .addSetLayout(star::StarDescriptorSetLayout::Builder(device.getDevice())
-                              .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                              .build())
+            .addSetLayout(
+                star::StarDescriptorSetLayout::Builder(device.getDevice())
+                    .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                    .addBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
+                    .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                    .build())
             .addSetLayout(star::StarDescriptorSetLayout::Builder(device.getDevice())
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
@@ -358,8 +366,8 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
         pipelineLayoutInfo.pushConstantRangeCount = 0;
         pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-        this->computePipelineLayout =
-            std::make_unique<vk::PipelineLayout>(device.getDevice().getVulkanDevice().createPipelineLayout(pipelineLayoutInfo));
+        this->computePipelineLayout = std::make_unique<vk::PipelineLayout>(
+            device.getDevice().getVulkanDevice().createPipelineLayout(pipelineLayoutInfo));
     }
 
     std::string compShaderPath =

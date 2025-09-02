@@ -81,7 +81,7 @@ class Volume : public star::StarObject
     bool rayMarchToAABB = false;
 
     ~Volume() = default;
-    Volume(std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
+    Volume(star::core::device::DeviceContext &context, std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
            std::vector<std::unique_ptr<star::Light>> &lightList,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
@@ -117,7 +117,7 @@ class Volume : public star::StarObject
 
     FogInfo &getFogControlInfo()
     {
-        return this->volumeRenderer->getFogControlInfo();
+        return *this->m_fogControlInfo;
     }
 
   protected:
@@ -128,6 +128,7 @@ class Volume : public star::StarObject
     std::array<glm::vec4, 2> aabbBounds;
     std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages = nullptr;
     std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages = nullptr;
+    std::shared_ptr<FogInfo> m_fogControlInfo = nullptr; 
 
     std::vector<std::unique_ptr<star::Light>> &lightList;
     float stepSize = 0.05f, stepSize_light = 0.4f;
@@ -142,9 +143,11 @@ class Volume : public star::StarObject
 
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
-    void loadModel();
+    void initVolume(star::core::device::DeviceContext &context, std::vector<star::Handle> &globalInfos, std::vector<star::Handle> &lightInfos); 
+    
+    void loadModel(star::core::device::DeviceContext &context);
 
-    void loadGeometry();
+    void loadGeometry(star::core::device::DeviceContext &context);
 
     void convertToFog(openvdb::FloatGrid::Ptr &grid);
 

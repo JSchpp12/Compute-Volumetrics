@@ -13,11 +13,7 @@
 
 using namespace star;
 
-Application::Application()
-{
-}
-
-std::shared_ptr<StarScene> Application::createInitialScene(core::device::DeviceContext &device, const StarWindow &window,
+std::shared_ptr<StarScene> Application::createInitialScene(core::device::DeviceContext &context, const StarWindow &window,
                                                            const uint8_t &numFramesInFlight)
 {
     std::shared_ptr<star::BasicCamera> camera = std::make_shared<star::BasicCamera>(
@@ -26,7 +22,7 @@ std::shared_ptr<StarScene> Application::createInitialScene(core::device::DeviceC
     camera->setPosition(glm::vec3{4.0f, 0.0f, 0.0f});
     camera->setForwardVector(glm::vec3{0.0, 0.0, 0.0} - camera->getPosition());
 
-    std::shared_ptr<StarScene> newScene = std::make_shared<star::StarScene>(numFramesInFlight, camera);
+    std::shared_ptr<StarScene> newScene = std::make_shared<star::StarScene>(context.getDeviceID(), numFramesInFlight, camera);
 
     return newScene;
 }
@@ -54,7 +50,7 @@ void Application::startup(core::device::DeviceContext &device, const star::StarW
         const uint32_t width = window.getExtent().width;
         const uint32_t height = window.getExtent().height;
         auto screen =
-            std::make_unique<Volume>(this->scene->getCamera(), width, height, this->scene->getLights(),
+            std::make_unique<Volume>(device, this->scene->getCamera(), width, height, this->scene->getLights(),
                                      this->offscreenSceneRenderer->getRenderToColorImages(),
                                      this->offscreenSceneRenderer->getRenderToDepthImages(), globalInfos, lightInfos);
 
@@ -77,7 +73,7 @@ void Application::startup(core::device::DeviceContext &device, const star::StarW
     {
         auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
 
-        auto terrain = std::make_unique<Terrain>(terrainInfoPath);
+        auto terrain = std::make_unique<Terrain>(device, terrainInfoPath);
         terrain->createInstance();
         this->offscreenScene->add(std::move(terrain));
     }

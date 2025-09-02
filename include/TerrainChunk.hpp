@@ -22,7 +22,7 @@ class TerrainChunk
     /// @brief Load meshes from the provided files
     void load();
 
-    std::unique_ptr<star::StarMesh> getMesh();
+    std::unique_ptr<star::StarMesh> getMesh(star::core::device::DeviceContext &context);
 
     std::string &getTextureFile();
 
