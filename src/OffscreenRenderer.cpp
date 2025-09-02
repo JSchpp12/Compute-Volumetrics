@@ -2,7 +2,7 @@
 
 #include "Allocator.hpp"
 
-OffscreenRenderer::OffscreenRenderer(std::shared_ptr<star::StarScene> scene) : star::SceneRenderer(scene)
+OffscreenRenderer::OffscreenRenderer(std::shared_ptr<star::StarScene> scene) : star::Renderer(scene)
 {
 }
 
@@ -149,7 +149,7 @@ void OffscreenRenderer::initResources(star::core::device::DeviceContext &device,
 
     this->firstFramePassCounter = uint32_t(numFramesInFlight);
 
-    star::SceneRenderer::initResources(device, numFramesInFlight, screenSize);
+    star::Renderer::initResources(device, numFramesInFlight, screenSize);
 }
 
 std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToImages(
