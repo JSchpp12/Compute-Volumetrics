@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core/renderer/SceneRenderer.hpp"
+#include "core/renderer/Renderer.hpp"
 
-class OffscreenRenderer : public star::Renderer
+class OffscreenRenderer : public star::core::renderer::Renderer
 {
   public:
     OffscreenRenderer(std::shared_ptr<star::StarScene> scene);
