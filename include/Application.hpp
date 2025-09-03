@@ -11,6 +11,7 @@
 #include <glm/gtx/transform.hpp>
 #include <memory>
 
+#include "BasicCamera.hpp"
 #include "Interactivity.hpp"
 #include "OffscreenRenderer.hpp"
 #include "ShaderManager.hpp"
@@ -24,19 +25,17 @@ class Application : public star::StarApplication
 
     void onKeyPress(int key, int scancode, int mods) override;
 
-  protected:
-    std::shared_ptr<star::StarScene> createInitialScene(star::core::device::DeviceContext &context, const star::StarWindow &window,
-                                                        const uint8_t &numFramesInFlight) override;
-
-    virtual void startup(star::core::device::DeviceContext &context, const star::StarWindow &window,
-                           const uint8_t &numFramesInFlight) override;
+    std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context,
+                                               const star::StarWindow &window,
+                                               const uint8_t &numFramesInFlight) override;
 
   private:
-    std::shared_ptr<star::StarScene> offscreenScene = std::shared_ptr<star::StarScene>();
-    std::unique_ptr<OffscreenRenderer> offscreenSceneRenderer = std::unique_ptr<OffscreenRenderer>();
+  std::shared_ptr<star::StarScene> m_mainScene = nullptr;
+    std::shared_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
 
     star::StarObjectInstance *testObject = nullptr;
-    Volume *vol = nullptr;
+    std::shared_ptr<Volume> m_volume = nullptr;
+    std::shared_ptr<star::Light> m_mainLight = nullptr;
 
     void onKeyRelease(int key, int scancode, int mods) override;
     void onMouseMovement(double xpos, double ypos) override;
@@ -44,11 +43,16 @@ class Application : public star::StarApplication
     void onScroll(double xoffset, double yoffset) override;
     void onWorldUpdate(const uint32_t &frameInFlightIndex) override;
 
-    static float PromptForFloat(const std::string &prompt, const bool &allowNegative = false); 
+    static float PromptForFloat(const std::string &prompt, const bool &allowNegative = false);
 
-    static int PromptForInt(const std::string &prompt); 
+    static int PromptForInt(const std::string &prompt);
 
     static float ProcessFloatInput(const bool &allowNegatives);
 
-    static int ProcessIntInput(); 
+    static int ProcessIntInput();
+
+    static std::shared_ptr<OffscreenRenderer> CreateOffscreenRenderer(star::core::device::DeviceContext &context,
+                                                                      const uint8_t &numFramesInFlight,
+                                                                      std::shared_ptr<star::BasicCamera> camera,
+                                                                      std::shared_ptr<star::Light> mainLight);
 };

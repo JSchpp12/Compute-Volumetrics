@@ -31,14 +31,15 @@ layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
     mat4 proj;
     mat4 view;
     mat4 inverseView;
-    int numLights;
-}
-globalUbo;
+} globalUbo;
 
-layout(set = 0, binding = 1) readonly buffer GlobalLightBuffer{
+layout(set = 0, binding = 1) uniform GlobalLightInfo{
+    int numLights;
+} lightInfo; 
+
+layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer{
     Light lights[];
-}
-globalLights;
+ } lightList;
 
 layout(set = 1, binding = 0) uniform additionalCameraInfo
 {
@@ -213,8 +214,8 @@ vec4 forwardMarch(const vec3 viewDirection, const vec3 backgroundColor, const Ra
 
 		transparency *= beerExpTrans;
 
-		for (int j = 0; j < globalUbo.numLights; j++){
-			Ray rayToLight = createRay(position, vec4(normalize(globalLights.lights[j].position.xyz - position.xyz), 0));
+		for (int j = 0; j < lightInfo.numLights; j++){
+			Ray rayToLight = createRay(position, vec4(normalize(lightList.lights[j].position.xyz - position.xyz), 0));
 
             float lt0 = 0;
             float lt1 = 0;  
@@ -234,7 +235,7 @@ vec4 forwardMarch(const vec3 viewDirection, const vec3 backgroundColor, const Ra
                 const float lightAtten = exp(-sumLightSampleDensities * -lt1 * (sigmaAbsorption + sigmaScattering)); 
                 const float phaseResult = lightAtten * applyHenyeyGreensteinPhase(position.xyz, rayToLight.direction.xyz, lightPropertyDir_g) * density * fittedStepSizeToLight;
 
-                resultingColor = resultingColor + (globalLights.lights[j].ambient * phaseResult); 
+                resultingColor = resultingColor + (lightList.lights[j].ambient * phaseResult); 
             }
 		}
     }

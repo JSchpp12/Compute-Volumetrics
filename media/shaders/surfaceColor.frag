@@ -24,10 +24,14 @@ layout(binding = 0, set = 0) uniform GlobalUniformBufferObject {
 	mat4 proj;
 	mat4 view;  
 	mat4 inverseView; 
-	int numLights; 
+	uint renderSettings;
 } globalUbo; 
 
- layout(binding = 1, set = 0) readonly buffer globalLightBuffer{
+layout(binding = 1, set = 0) uniform SceneLightInfo{
+	uint numLights; 
+} sceneLightInfo; 
+
+layout(binding = 2, set = 0) readonly buffer globalLightBuffer{
 	Light lights[];
  };
 
@@ -42,7 +46,7 @@ void main() {
 	vec3 cameraPosWorld = globalUbo.inverseView[3].xyz; 
 	vec3 viewDirection = normalize(cameraPosWorld - inFragPositionWorld); 
 
-	for (int i = 0; i < globalUbo.numLights; i++){
+	for (int i = 0; i < lightInfo.numLights; i++){
 		//ambient light 
 		ambientLight += (lights[i].ambient.xyz * lights[i].ambient.w); 
 

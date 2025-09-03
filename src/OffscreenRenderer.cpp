@@ -2,7 +2,19 @@
 
 #include "Allocator.hpp"
 
-OffscreenRenderer::OffscreenRenderer(std::shared_ptr<star::StarScene> scene) : star::core::renderer::Renderer(scene)
+OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
+                                     std::vector<std::shared_ptr<star::StarObject>> objects,
+                                     std::vector<std::shared_ptr<star::Light>> lights,
+                                     std::vector<star::Handle> &cameraInfos)
+    : star::core::renderer::Renderer(context, numFramesInFlight, objects, lights, cameraInfos)
+{
+}
+
+OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
+                                     std::vector<std::shared_ptr<star::StarObject>> objects,
+                                     std::vector<std::shared_ptr<star::Light>> lights,
+                                     std::shared_ptr<star::StarCamera> camera)
+    : star::core::renderer::Renderer(context, numFramesInFlight, objects, lights, camera)
 {
 }
 
@@ -348,12 +360,12 @@ std::vector<std::shared_ptr<star::StarBuffers::Buffer>> OffscreenRenderer::creat
 star::core::device::managers::ManagerCommandBuffer::Request OffscreenRenderer::getCommandBufferRequest()
 {
     return star::core::device::managers::ManagerCommandBuffer::Request{
-        .recordBufferCallback = std::bind(&OffscreenRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
+        .recordBufferCallback =
+            std::bind(&OffscreenRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
         .order = star::Command_Buffer_Order::before_render_pass,
-        .orderIndex = star::Command_Buffer_Order_Index::first, 
+        .orderIndex = star::Command_Buffer_Order_Index::first,
         .waitStage = vk::PipelineStageFlagBits::eEarlyFragmentTests,
-        .recordOnce = false
-    };
+        .recordOnce = false};
 }
 
 vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(const int &frameInFlightIndex)

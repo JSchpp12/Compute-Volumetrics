@@ -11,11 +11,12 @@ VolumeRenderer::VolumeRenderer(std::shared_ptr<FogInfo> fogControlInfo, const st
                                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
                                const std::vector<star::Handle> &globalInfoBuffers,
                                const std::vector<star::Handle> &sceneLightInfoBuffers,
-                               const star::Handle &volumeTexture, const std::array<glm::vec4, 2> &aabbBounds)
+                               const std::vector<star::Handle> &sceneLightList, const star::Handle &volumeTexture,
+                               const std::array<glm::vec4, 2> &aabbBounds)
     : m_fogControlInfo(fogControlInfo), offscreenRenderToColors(offscreenRenderToColors),
       offscreenRenderToDepths(offscreenRenderToDepths), globalInfoBuffers(globalInfoBuffers),
-      sceneLightInfoBuffers(sceneLightInfoBuffers), aabbBounds(aabbBounds), camera(camera),
-      instanceModelInfo(instanceModelInfo), volumeTexture(volumeTexture)
+      sceneLightInfoBuffers(sceneLightInfoBuffers), sceneLightList(sceneLightList), aabbBounds(aabbBounds),
+      camera(camera), instanceModelInfo(instanceModelInfo), volumeTexture(volumeTexture)
 
 {
 }
@@ -184,10 +185,8 @@ void VolumeRenderer::initResources(star::core::device::DeviceContext &device, co
 {
     m_deviceID = device.getDeviceID();
 
-    
     this->cameraShaderInfo =
-        star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<CameraInfoController>(camera),
-        true);
+        star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<CameraInfoController>(camera), true);
 
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
@@ -318,7 +317,8 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
         star::StarShaderInfo::Builder(device.getDeviceID(), device.getDevice(), numFramesInFlight)
             .addSetLayout(star::StarDescriptorSetLayout::Builder(device.getDevice())
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
                               .build())
             .addSetLayout(star::StarDescriptorSetLayout::Builder(device.getDevice())
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
@@ -342,6 +342,7 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
             .startSet()
             .add(this->globalInfoBuffers.at(i), false)
             .add(this->sceneLightInfoBuffers.at(i), false)
+            .add(this->sceneLightList.at(i), false)
             .startSet()
             .add(this->cameraShaderInfo, false)
             .add(this->volumeTexture, vk::ImageLayout::eGeneral, true)

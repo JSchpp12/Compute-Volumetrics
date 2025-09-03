@@ -37,7 +37,9 @@ class VolumeRenderer :
                 std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
                    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
                    const std::vector<star::Handle> &globalInfoBuffers,
-                   const std::vector<star::Handle> &sceneLightInfoBuffers, const star::Handle &volumeTexture,
+                   const std::vector<star::Handle> &globalLightList,
+                   const std::vector<star::Handle> &sceneLightInfoBuffers, 
+                   const star::Handle &volumeTexture,
                    const std::array<glm::vec4, 2> &aabbBounds);
 
     virtual ~VolumeRenderer() = default;
@@ -66,7 +68,7 @@ class VolumeRenderer :
     glm::uvec2 workgroupSize = glm::uvec2();
     star::Handle cameraShaderInfo, commandBuffer; 
     std::vector<star::Handle> fogControlShaderInfo;
-    std::vector<star::Handle> sceneLightInfoBuffers = std::vector<star::Handle>();
+    std::vector<star::Handle> sceneLightInfoBuffers, sceneLightList; 
     std::unique_ptr<star::StarShaderInfo> compShaderInfo = std::unique_ptr<star::StarShaderInfo>();
     std::vector<star::Handle> globalInfoBuffers = std::vector<star::Handle>();
     std::vector<star::Handle> aabbInfoBuffers;

@@ -64,7 +64,6 @@ class Volume : public star::StarObject
                 size_t sampledLocY = coord.y() + halfTotalSteps;
                 size_t sampledLocZ = coord.z() + halfTotalSteps;
                 sampledGridData[sampledLocX][sampledLocY][sampledLocZ] = result;
-                // sampledGridData[sampledLocX][sampledLocY][sampledLocZ] = 0.95f;
             }
         }
 
@@ -80,18 +79,18 @@ class Volume : public star::StarObject
     bool rayMarchToVolumeBoundry = false;
     bool rayMarchToAABB = false;
 
-    ~Volume() = default;
-    Volume(star::core::device::DeviceContext &context, std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
-           std::vector<std::unique_ptr<star::Light>> &lightList,
+    virtual ~Volume() = default;
+    Volume(star::core::device::DeviceContext &context, std::shared_ptr<star::StarCamera> camera,
+           const uint32_t &screenWidth, const uint32_t &screenHeight,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
-           std::vector<star::Handle> &globalInfos, std::vector<star::Handle> &lightInfos);
+           std::vector<star::Handle> sceneCameraInfos, std::vector<star::Handle> lightInfos, std::vector<star::Handle> lightList);
 
-    void renderVolume(const double &fov_radians, const glm::vec3 &camPosition, const glm::mat4 &camDispMatrix,
-                      const glm::mat4 &camProjMat);
+    // void renderVolume(const double &fov_radians, const glm::vec3 &camPosition, const glm::mat4 &camDispMatrix,
+    //                   const glm::mat4 &camProjMat);
 
-    std::unique_ptr<star::StarPipeline> buildPipeline(star::core::device::DeviceContext &device, vk::Extent2D swapChainExtent,
-                                                      vk::PipelineLayout pipelineLayout,
+    std::unique_ptr<star::StarPipeline> buildPipeline(star::core::device::DeviceContext &device,
+                                                      vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout,
                                                       star::RenderingTargetInfo renderInfo) override;
 
     /// <summary>
@@ -99,11 +98,12 @@ class Volume : public star::StarObject
     /// </summary>
     void updateGridTransforms();
 
-    virtual void prepRender(star::core::device::DeviceContext& device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout,
-                            star::RenderingTargetInfo renderingInfo, int numSwapChainImages,
-                            star::StarShaderInfo::Builder fullEngineBuilder) override;
+    virtual void prepRender(star::core::device::DeviceContext &device, vk::Extent2D swapChainExtent,
+                            vk::PipelineLayout pipelineLayout, star::RenderingTargetInfo renderingInfo,
+                            int numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder) override;
 
-    virtual void prepRender(star::core::device::DeviceContext& device, int numSwapChainImages, star::StarPipeline &sharedPipeline,
+    virtual void prepRender(star::core::device::DeviceContext &device, int numSwapChainImages,
+                            star::StarPipeline &sharedPipeline,
                             star::StarShaderInfo::Builder fullEngineBuilder) override;
 
     virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
@@ -128,13 +128,8 @@ class Volume : public star::StarObject
     std::array<glm::vec4, 2> aabbBounds;
     std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages = nullptr;
     std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages = nullptr;
-    std::shared_ptr<FogInfo> m_fogControlInfo = nullptr; 
+    std::shared_ptr<FogInfo> m_fogControlInfo = nullptr;
 
-    std::vector<std::unique_ptr<star::Light>> &lightList;
-    float stepSize = 0.05f, stepSize_light = 0.4f;
-    float sigma_absorbtion = 0.001f, sigma_scattering = 0.001f, lightPropertyDir_g = 0.2f;
-    float volDensity = 1.0f;
-    int russianRouletteCutoff = 4;
     glm::vec2 screenDimensions{};
     openvdb::FloatGrid::Ptr grid{};
 
@@ -143,8 +138,9 @@ class Volume : public star::StarObject
 
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
-    void initVolume(star::core::device::DeviceContext &context, std::vector<star::Handle> &globalInfos, std::vector<star::Handle> &lightInfos); 
-    
+    void initVolume(star::core::device::DeviceContext &context, std::vector<star::Handle> &globalInfos,
+                    std::vector<star::Handle> &lightInfos, std::vector<star::Handle> &lightList);
+
     void loadModel(star::core::device::DeviceContext &context);
 
     void loadGeometry(star::core::device::DeviceContext &context);
@@ -190,27 +186,29 @@ class Volume : public star::StarObject
     static float henyeyGreensteinPhase(const glm::vec3 &viewDirection, const glm::vec3 &lightDirection,
                                        const float &gValue);
 
-    static void calculateColor(
-        const std::vector<std::unique_ptr<star::Light>> &lightList, const float &stepSize, const float &stepSize_light,
-        const int &russianRouletteCutoff, const float &sigma_absorbtion, const float &sigma_scattering,
-        const float &lightPropertyDir_g, const float &volDensity, const std::array<glm::vec3, 2> &aabbBounds,
-        openvdb::FloatGrid::Ptr grid, RayCamera camera,
-        std::vector<std::optional<std::pair<std::pair<size_t, size_t>, star::Color *>>> coordColorWork,
-        bool marchToaabbIntersection, bool marchToVolBoundry);
+    // static void calculateColor(
+    //     const std::vector<std::unique_ptr<star::Light>> &lightList, const float &stepSize, const float
+    //     &stepSize_light, const int &russianRouletteCutoff, const float &sigma_absorbtion, const float
+    //     &sigma_scattering, const float &lightPropertyDir_g, const float &volDensity, const std::array<glm::vec3, 2>
+    //     &aabbBounds, openvdb::FloatGrid::Ptr grid, RayCamera camera,
+    //     std::vector<std::optional<std::pair<std::pair<size_t, size_t>, star::Color *>>> coordColorWork,
+    //     bool marchToaabbIntersection, bool marchToVolBoundry);
 
-    static bool rayBoxIntersect(const star::Ray &ray, const std::array<glm::vec3, 2> &aabbBounds, float &t0, float &t1);
+    // static bool rayBoxIntersect(const star::Ray &ray, const std::array<glm::vec3, 2> &aabbBounds, float &t0, float
+    // &t1);
 
-    static star::Color forwardMarch(const std::vector<std::unique_ptr<star::Light>> &lightList, const float &stepSize,
-                                    const float &stepSize_light, const int &russianRouletteCutoff,
-                                    const float &sigma_absorbtion, const float &sigma_scattering,
-                                    const float &lightPropertyDir_g, const float &volDensity, const star::Ray &ray,
-                                    openvdb::FloatGrid::Ptr grid, const std::array<glm::vec3, 2> &aabbHit,
-                                    const float &t0, const float &t1);
+    // static star::Color forwardMarch(const std::vector<std::unique_ptr<star::Light>> &lightList, const float
+    // &stepSize,
+    //                                 const float &stepSize_light, const int &russianRouletteCutoff,
+    //                                 const float &sigma_absorbtion, const float &sigma_scattering,
+    //                                 const float &lightPropertyDir_g, const float &volDensity, const star::Ray &ray,
+    //                                 openvdb::FloatGrid::Ptr grid, const std::array<glm::vec3, 2> &aabbHit,
+    //                                 const float &t0, const float &t1);
 
-    static star::Color forwardMarchToVolumeActiveBoundry(const float &stepSize, const star::Ray &ray,
-                                                         const std::array<glm::vec3, 2> &aabbHit,
-                                                         openvdb::FloatGrid::Ptr grid, const float &t0,
-                                                         const float &t1);
+    // static star::Color forwardMarchToVolumeActiveBoundry(const float &stepSize, const star::Ray &ray,
+    //                                                      const std::array<glm::vec3, 2> &aabbHit,
+    //                                                      openvdb::FloatGrid::Ptr grid, const float &t0,
+    //                                                      const float &t1);
 
     static openvdb::Mat4R getTransform(const glm::mat4 &objectDisplayMat);
 
