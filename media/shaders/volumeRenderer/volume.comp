@@ -264,18 +264,18 @@ void main()
     float t0 = 0;
     float t1 = 0;
 
-    if (rayBoxIntersect(camRay, t0, t1) && t0 < worldDepthDistance){
-        //need to get world distance from depth buffer value 
-        //ray marching algorithm happens in world space...
-        // const float worldCutoffPoint = camRay.origin + camRay.direction 
+    // if (rayBoxIntersect(camRay, t0, t1) && t0 < worldDepthDistance){
+    //     //need to get world distance from depth buffer value 
+    //     //ray marching algorithm happens in world space...
+    //     // const float worldCutoffPoint = camRay.origin + camRay.direction 
         
-        resultingColor = forwardMarch(
-            viewDirectionWorld.xyz, 
-            imgColor, camRay, t0, t1,
-                                     fogInfo.marchedFog_sigmaAbsorption, fogInfo.marchedFog_sigmaScattering,
-                                     fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_defaultDensity, 
-                                     worldDepthDistance);
-    }
+    //     resultingColor = forwardMarch(
+    //         viewDirectionWorld.xyz, 
+    //         imgColor, camRay, t0, t1,
+    //                                  fogInfo.marchedFog_sigmaAbsorption, fogInfo.marchedFog_sigmaScattering,
+    //                                  fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_defaultDensity, 
+    //                                  worldDepthDistance);
+    // }
 
     imageStore(outputImage, targetPixel, resultingColor);
 }

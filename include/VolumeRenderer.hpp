@@ -19,10 +19,7 @@
 #include "StarObjectInstance.hpp"
 #include "StarShaderInfo.hpp"
 
-
-class VolumeRenderer :
-                       private star::RenderResourceModifier,
-                       private star::DescriptorModifier
+class VolumeRenderer : private star::RenderResourceModifier, private star::DescriptorModifier
 {
   public:
     enum FogType
@@ -32,23 +29,20 @@ class VolumeRenderer :
         marched
     };
 
-    VolumeRenderer(std::shared_ptr<FogInfo> fogControlInfo,
-        const std::shared_ptr<star::StarCamera> camera, const std::vector<star::Handle> &instanceModelInfo,
-                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
+    VolumeRenderer(std::shared_ptr<FogInfo> fogControlInfo, const std::shared_ptr<star::StarCamera> camera,
+                   const std::vector<star::Handle> &instanceModelInfo,
+                   std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
                    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
-                   const std::vector<star::Handle> &globalInfoBuffers,
-                   const std::vector<star::Handle> &globalLightList,
-                   const std::vector<star::Handle> &sceneLightInfoBuffers, 
-                   const star::Handle &volumeTexture,
+                   const std::vector<star::Handle> &globalInfoBuffers, const std::vector<star::Handle> &globalLightList,
+                   const std::vector<star::Handle> &sceneLightInfoBuffers, const star::Handle &volumeTexture,
                    const std::array<glm::vec4, 2> &aabbBounds);
 
-    virtual ~VolumeRenderer() = default;
+    bool isRenderReady(star::core::device::DeviceContext &context);
 
     std::vector<std::unique_ptr<star::StarTextures::Texture>> &getRenderToImages()
     {
         return this->computeWriteToImages;
     }
-
     void setFogType(const FogType &type)
     {
         this->currentFogType = type;
@@ -57,18 +51,20 @@ class VolumeRenderer :
     {
         return this->currentFogType;
     }
+
   private:
+    bool isReady = false; 
     std::shared_ptr<FogInfo> m_fogControlInfo;
     bool isFirstPass = true;
     const star::Handle volumeTexture;
     const std::vector<star::Handle> &instanceModelInfo;
     const std::array<glm::vec4, 2> &aabbBounds;
     const std::shared_ptr<star::StarCamera> camera = nullptr;
-    star::core::device::DeviceID m_deviceID; 
+    star::core::device::DeviceID m_deviceID;
     glm::uvec2 workgroupSize = glm::uvec2();
-    star::Handle cameraShaderInfo, commandBuffer; 
+    star::Handle cameraShaderInfo, commandBuffer;
     std::vector<star::Handle> fogControlShaderInfo;
-    std::vector<star::Handle> sceneLightInfoBuffers, sceneLightList; 
+    std::vector<star::Handle> sceneLightInfoBuffers, sceneLightList;
     std::unique_ptr<star::StarShaderInfo> compShaderInfo = std::unique_ptr<star::StarShaderInfo>();
     std::vector<star::Handle> globalInfoBuffers = std::vector<star::Handle>();
     std::vector<star::Handle> aabbInfoBuffers;
@@ -88,10 +84,11 @@ class VolumeRenderer :
 
     FogType currentFogType = FogType::marched;
 
-    void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex); 
+    void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex);
 
     // Inherited via RenderResourceModifier
-    void initResources(star::core::device::DeviceContext &device, const int &numFramesInFlight, const vk::Extent2D &screensize) override;
+    void initResources(star::core::device::DeviceContext &device, const int &numFramesInFlight,
+                       const vk::Extent2D &screensize) override;
 
     void destroyResources(star::core::device::DeviceContext &device) override;
 

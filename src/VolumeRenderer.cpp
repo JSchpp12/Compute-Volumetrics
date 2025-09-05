@@ -21,6 +21,23 @@ VolumeRenderer::VolumeRenderer(std::shared_ptr<FogInfo> fogControlInfo, const st
 {
 }
 
+bool VolumeRenderer::isRenderReady(star::core::device::DeviceContext &context)
+{
+    if (isReady)
+    {
+        return true;
+    }
+
+    if (marchedPipeline->isRenderReady(context) && linearPipeline->isRenderReady(context) &&
+        expPipeline->isRenderReady(context))
+    {
+        isReady = true;
+        return true;
+    }
+
+    return false; 
+}
+
 void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
 {
     std::vector<vk::ImageMemoryBarrier2> prepareImages = std::vector<vk::ImageMemoryBarrier2>{
@@ -102,26 +119,29 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
 
     commandBuffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(prepareImages));
 
-    switch (this->currentFogType)
+    if (isReady)
     {
-    case (FogType::marched):
-        this->marchedPipeline->bind(commandBuffer);
-        break;
-    case (FogType::linear):
-        this->linearPipeline->bind(commandBuffer);
-        break;
-    case (FogType::exp):
-        this->expPipeline->bind(commandBuffer);
-        break;
-    default:
-        throw std::runtime_error("Unsupported type");
+        switch (this->currentFogType)
+        {
+        case (FogType::marched):
+            this->marchedPipeline->bind(commandBuffer);
+            break;
+        case (FogType::linear):
+            this->linearPipeline->bind(commandBuffer);
+            break;
+        case (FogType::exp):
+            this->expPipeline->bind(commandBuffer);
+            break;
+        default:
+            throw std::runtime_error("Unsupported type");
+        }
+
+        auto sets = this->compShaderInfo->getDescriptors(frameInFlightIndex);
+        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0,
+                                         static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
+
+        commandBuffer.dispatch(this->workgroupSize.x, this->workgroupSize.y, 1);
     }
-
-    auto sets = this->compShaderInfo->getDescriptors(frameInFlightIndex);
-    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0,
-                                     static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
-
-    commandBuffer.dispatch(this->workgroupSize.x, this->workgroupSize.y, 1);
 
     // give render to image back to graphics queue
     std::array<vk::ImageMemoryBarrier2, 3> backToGraphics{
@@ -375,23 +395,20 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
         star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/volume.comp";
     auto compShader = star::StarShader(compShaderPath, star::Shader_Stage::compute);
 
-    this->marchedPipeline =
-        std::make_unique<star::StarComputePipeline>(device, *this->computePipelineLayout, compShader);
-    this->marchedPipeline->init();
+    this->marchedPipeline = std::make_unique<star::StarComputePipeline>(*this->computePipelineLayout, compShader);
+    this->marchedPipeline->init(device);
 
     std::string linearFogPath =
         star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/linearFog.comp";
     auto linearCompShader = star::StarShader(linearFogPath, star::Shader_Stage::compute);
-    this->linearPipeline =
-        std::make_unique<star::StarComputePipeline>(device, *this->computePipelineLayout, linearCompShader);
-    this->linearPipeline->init();
+    this->linearPipeline = std::make_unique<star::StarComputePipeline>(*this->computePipelineLayout, linearCompShader);
+    this->linearPipeline->init(device);
 
     const std::string expFogPath =
         star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/expFog.comp";
     auto expCompShader = star::StarShader(expFogPath, star::Shader_Stage::compute);
-    this->expPipeline =
-        std::make_unique<star::StarComputePipeline>(device, *this->computePipelineLayout, expCompShader);
-    this->expPipeline->init();
+    this->expPipeline = std::make_unique<star::StarComputePipeline>(*this->computePipelineLayout, expCompShader);
+    this->expPipeline->init(device);
 }
 
 glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize)

@@ -14,7 +14,6 @@
 #include "BasicCamera.hpp"
 #include "Interactivity.hpp"
 #include "OffscreenRenderer.hpp"
-#include "ShaderManager.hpp"
 #include "StarApplication.hpp"
 #include "Volume.hpp"
 

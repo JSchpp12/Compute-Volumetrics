@@ -106,6 +106,8 @@ class Volume : public star::StarObject
                             star::StarPipeline &sharedPipeline,
                             star::StarShaderInfo::Builder fullEngineBuilder) override;
 
+    virtual bool isRenderReady(star::core::device::DeviceContext &context) override; 
+
     virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
 
     virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
