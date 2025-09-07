@@ -123,7 +123,7 @@ std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::core::device::De
     auto graphicsShaders = this->getShaders();
 
     auto newPipeline =
-        std::make_unique<star::StarGraphicsPipeline>(settings, graphicsShaders.at(star::Shader_Stage::vertex),
+        std::make_unique<star::StarGraphicsPipeline>(swapChainExtent, pipelineLayout, renderingInfo, graphicsShaders.at(star::Shader_Stage::vertex),
                                                      graphicsShaders.at(star::Shader_Stage::fragment));
     newPipeline->init(device);
 
