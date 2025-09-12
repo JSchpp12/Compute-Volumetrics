@@ -24,7 +24,6 @@
 #include "Light.hpp"
 #include "Ray.hpp"
 #include "RenderResourceModifier.hpp"
-#include "RenderingTargetInfo.hpp"
 #include "RuntimeUpdateTexture.hpp"
 #include "ScreenMaterial.hpp"
 #include "StarCamera.hpp"
@@ -89,9 +88,9 @@ class Volume : public star::StarObject
     // void renderVolume(const double &fov_radians, const glm::vec3 &camPosition, const glm::mat4 &camDispMatrix,
     //                   const glm::mat4 &camProjMat);
 
-    std::unique_ptr<star::StarPipeline> buildPipeline(star::core::device::DeviceContext &device,
-                                                      vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout,
-                                                      star::RenderingTargetInfo renderInfo) override;
+    // star::Handle buildPipeline(star::core::device::DeviceContext &device,
+    //                                                   vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout,
+    //                                                   star::core::renderer::RenderingTargetInfo renderInfo) override;
 
     /// <summary>
     /// Expensive, only call when necessary.
@@ -99,11 +98,11 @@ class Volume : public star::StarObject
     void updateGridTransforms();
 
     virtual void prepRender(star::core::device::DeviceContext &device, vk::Extent2D swapChainExtent,
-                            vk::PipelineLayout pipelineLayout, star::RenderingTargetInfo renderingInfo,
+                            vk::PipelineLayout pipelineLayout, star::core::renderer::RenderingTargetInfo renderingInfo,
                             int numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder) override;
 
     virtual void prepRender(star::core::device::DeviceContext &device, int numSwapChainImages,
-                            star::StarPipeline &sharedPipeline,
+                            star::Handle sharedPipeline,
                             star::StarShaderInfo::Builder fullEngineBuilder) override;
 
     virtual bool isRenderReady(star::core::device::DeviceContext &context) override; 
@@ -111,6 +110,8 @@ class Volume : public star::StarObject
     virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
 
     virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
+
+    virtual void frameUpdate(star::core::device::DeviceContext &context) override; 
 
     void setFogType(const VolumeRenderer::FogType &fogType)
     {

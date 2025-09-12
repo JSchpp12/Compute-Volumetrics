@@ -37,98 +37,35 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
     return shaders;
 }
 
-// void Volume::renderVolume(const double &fov_radians, const glm::vec3 &camPosition, const glm::mat4 &camDispMatrix,
-//                           const glm::mat4 &camProjMat)
+// star::Handle Volume::buildPipeline(star::core::device::DeviceContext &device,
+//                                                           vk::Extent2D swapChainExtent,
+//                                                           vk::PipelineLayout pipelineLayout,
+//                                                           star::RenderingTargetInfo renderingInfo)
 // {
-//     RayCamera camera(glm::vec2{1280, 720}, fov_radians, camDispMatrix, camProjMat);
+//     star::StarGraphicsPipeline::PipelineConfigSettings settings;
+//     star::StarGraphicsPipeline::defaultPipelineConfigInfo(settings, swapChainExtent, pipelineLayout, renderingInfo);
 
-//     std::array<glm::vec3, 2> bbounds = this->meshes.front()->getBoundingBoxCoords();
-//     {
-//         const auto position = this->instances.front()->getPosition();
-//         const auto scale = this->instances.front()->getScale();
+//     // enable alpha blending
+//     settings.colorBlendAttachment.blendEnable = VK_TRUE;
+//     settings.colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+//     settings.colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+//     settings.colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+//     settings.colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+//     settings.colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+//     settings.colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
 
-//         bbounds[0] = bbounds[0] * scale + position;
-//         bbounds[1] = bbounds[1] * scale + position;
-//     }
+//     settings.colorBlendInfo.logicOpEnable = VK_FALSE;
+//     settings.colorBlendInfo.logicOp = vk::LogicOp::eCopy;
 
-//     {
-//         int curX = 0, curY = 0;
-//         std::array<std::unique_ptr<std::jthread>, NUM_THREADS> threads;
-//         int numPerThread = std::floor((this->screenDimensions.x * this->screenDimensions.y) / NUM_THREADS);
+//     auto graphicsShaders = this->getShaders();
 
-//         for (auto &thread : threads)
-//         {
-//             // create work for each thread
-//             std::vector<std::optional<std::pair<std::pair<size_t, size_t>, star::Color *>>> coordWork(numPerThread);
+//     auto newPipeline =
+//         std::make_unique<star::StarGraphicsPipeline>(graphicsShaders.at(star::Shader_Stage::vertex),
+//                                                      graphicsShaders.at(star::Shader_Stage::fragment));
+//     newPipeline->init(device, pipelineLayout);
 
-//             int curIndex = 0;
-
-//             for (int i = 0; i < numPerThread; i++)
-//             {
-//                 coordWork[curIndex] = std::make_optional(std::make_pair(std::pair<int, int>(curX, curY), nullptr));
-
-//                 if (curX == this->screenDimensions.x - 1 && curY < this->screenDimensions.y - 1)
-//                 {
-//                     curX = 0;
-//                     curY++;
-//                 }
-//                 else if (curX == this->screenDimensions.x - 1)
-//                 {
-//                     break;
-//                 }
-//                 else
-//                 {
-//                     curX++;
-//                 }
-
-//                 curIndex++;
-//             }
-
-//             // create thread
-//             thread = std::make_unique<std::jthread>(
-//                 Volume::calculateColor, std::ref(this->lightList), std::ref(this->stepSize),
-//                 std::ref(this->stepSize_light), std::ref(this->russianRouletteCutoff), std::ref(this->sigma_absorbtion),
-//                 std::ref(this->sigma_scattering), std::ref(this->lightPropertyDir_g), std::ref(this->volDensity),
-//                 std::ref(bbounds), this->grid, camera, coordWork, this->rayMarchToAABB, this->rayMarchToVolumeBoundry);
-//         }
-//     }
-//     std::cout << "Done" << std::endl;
-
-//     // this->screenTexture->updateGPU();
-
-//     this->udpdateVolumeRender = false;
-//     this->isVisible = true;
+//     return newPipeline;
 // }
-
-std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::core::device::DeviceContext &device,
-                                                          vk::Extent2D swapChainExtent,
-                                                          vk::PipelineLayout pipelineLayout,
-                                                          star::RenderingTargetInfo renderingInfo)
-{
-    star::StarGraphicsPipeline::PipelineConfigSettings settings;
-    star::StarGraphicsPipeline::defaultPipelineConfigInfo(settings, swapChainExtent, pipelineLayout, renderingInfo);
-
-    // enable alpha blending
-    settings.colorBlendAttachment.blendEnable = VK_TRUE;
-    settings.colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-    settings.colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
-    settings.colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
-    settings.colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
-    settings.colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
-    settings.colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
-
-    settings.colorBlendInfo.logicOpEnable = VK_FALSE;
-    settings.colorBlendInfo.logicOp = vk::LogicOp::eCopy;
-
-    auto graphicsShaders = this->getShaders();
-
-    auto newPipeline =
-        std::make_unique<star::StarGraphicsPipeline>(swapChainExtent, pipelineLayout, renderingInfo, graphicsShaders.at(star::Shader_Stage::vertex),
-                                                     graphicsShaders.at(star::Shader_Stage::fragment));
-    newPipeline->init(device);
-
-    return newPipeline;
-}
 
 void Volume::loadModel(star::core::device::DeviceContext &context)
 {
@@ -334,8 +271,14 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
                                          .setLayerCount(1))}));
 }
 
+void Volume::frameUpdate(star::core::device::DeviceContext &context){
+    this->volumeRenderer->frameUpdate(context); 
+
+    frameUpdate(context); 
+}
+
 void Volume::prepRender(star::core::device::DeviceContext &context, vk::Extent2D swapChainExtent,
-                        vk::PipelineLayout pipelineLayout, star::RenderingTargetInfo renderingInfo,
+                        vk::PipelineLayout pipelineLayout, star::core::renderer::RenderingTargetInfo renderingInfo,
                         int numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder)
 {
     RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
@@ -345,10 +288,9 @@ void Volume::prepRender(star::core::device::DeviceContext &context, vk::Extent2D
 }
 
 void Volume::prepRender(star::core::device::DeviceContext &context, int numSwapChainImages,
-                        star::StarPipeline &sharedPipeline, star::StarShaderInfo::Builder fullEngineBuilder)
+                        star::Handle sharedPipeline, star::StarShaderInfo::Builder fullEngineBuilder)
 {
     RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
-
     this->star::StarObject::prepRender(context, numSwapChainImages, sharedPipeline, fullEngineBuilder);
 }
 

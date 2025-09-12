@@ -4,6 +4,7 @@
 #include "ConfigFile.hpp"
 #include "FogControlInfo.hpp"
 #include "ManagerRenderResource.hpp"
+#include "core/exception/NeedsPrepared.hpp"
 
 VolumeRenderer::VolumeRenderer(std::shared_ptr<FogInfo> fogControlInfo, const std::shared_ptr<star::StarCamera> camera,
                                const std::vector<star::Handle> &instanceModelInfo,
@@ -28,14 +29,36 @@ bool VolumeRenderer::isRenderReady(star::core::device::DeviceContext &context)
         return true;
     }
 
-    if (marchedPipeline->isRenderReady(context) && linearPipeline->isRenderReady(context) &&
-        expPipeline->isRenderReady(context))
-    {
-        isReady = true;
-        return true;
-    }
+    return context.getPipelineManager().get(marchedPipeline)->isReady() &&
+           context.getPipelineManager().get(linearPipeline)->isReady() &&
+           context.getPipelineManager().get(expPipeline)->isReady();
+}
 
-    return false; 
+void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context)
+{
+    star::StarPipeline *currentPipeline = nullptr;
+
+    switch (this->currentFogType)
+    {
+    case (FogType::marched):
+        currentPipeline = &context.getPipelineManager().get(this->marchedPipeline)->request.pipeline;
+        break;
+    case (FogType::linear):
+        currentPipeline = &context.getPipelineManager().get(this->linearPipeline)->request.pipeline;
+        break;
+    case (FogType::exp):
+        currentPipeline = &context.getPipelineManager().get(this->expPipeline)->request.pipeline;
+        break;
+    default:
+        throw std::runtime_error("Unsupported type");
+    }
+    m_renderingContext = std::make_unique<star::core::renderer::RenderingContext>(currentPipeline);
+}
+
+star::core::renderer::RenderingContext VolumeRenderer::buildRenderingContext(star::core::device::DeviceContext &context)
+{
+
+    return star::core::renderer::RenderingContext();
 }
 
 void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
@@ -121,20 +144,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
 
     if (isReady)
     {
-        switch (this->currentFogType)
-        {
-        case (FogType::marched):
-            this->marchedPipeline->bind(commandBuffer);
-            break;
-        case (FogType::linear):
-            this->linearPipeline->bind(commandBuffer);
-            break;
-        case (FogType::exp):
-            this->expPipeline->bind(commandBuffer);
-            break;
-        default:
-            throw std::runtime_error("Unsupported type");
-        }
+        this->m_renderingContext->pipeline->bind(commandBuffer);
 
         auto sets = this->compShaderInfo->getDescriptors(frameInFlightIndex);
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0,
@@ -315,9 +325,6 @@ void VolumeRenderer::destroyResources(star::core::device::DeviceContext &device)
         computeWriteToImage.reset();
     }
 
-    this->marchedPipeline.reset();
-    this->linearPipeline.reset();
-    this->expPipeline.reset();
     device.getDevice().getVulkanDevice().destroyPipelineLayout(*this->computePipelineLayout);
 }
 
@@ -393,22 +400,28 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
 
     std::string compShaderPath =
         star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/volume.comp";
-    auto compShader = star::StarShader(compShaderPath, star::Shader_Stage::compute);
 
-    this->marchedPipeline = std::make_unique<star::StarComputePipeline>(*this->computePipelineLayout, compShader);
-    this->marchedPipeline->init(device);
+    this->marchedPipeline = device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{
+        star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
+                           std::vector<star::Handle>{device.getShaderManager().submit(
+                               star::StarShader(compShaderPath, star::Shader_Stage::compute))})});
 
     std::string linearFogPath =
         star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/linearFog.comp";
     auto linearCompShader = star::StarShader(linearFogPath, star::Shader_Stage::compute);
-    this->linearPipeline = std::make_unique<star::StarComputePipeline>(*this->computePipelineLayout, linearCompShader);
-    this->linearPipeline->init(device);
+    this->linearPipeline = device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{
+        star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
+                           std::vector<star::Handle>{device.getShaderManager().submit(
+                               star::StarShader(linearFogPath, star::Shader_Stage::compute))})});
 
     const std::string expFogPath =
         star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/expFog.comp";
     auto expCompShader = star::StarShader(expFogPath, star::Shader_Stage::compute);
-    this->expPipeline = std::make_unique<star::StarComputePipeline>(*this->computePipelineLayout, expCompShader);
-    this->expPipeline->init(device);
+
+    this->expPipeline = device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{
+        star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
+                           std::vector<star::Handle>{device.getShaderManager().submit(
+                               star::StarShader(expFogPath, star::Shader_Stage::compute))})});
 }
 
 glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize)

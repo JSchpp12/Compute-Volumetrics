@@ -18,6 +18,8 @@
 #include "StarComputePipeline.hpp"
 #include "StarObjectInstance.hpp"
 #include "StarShaderInfo.hpp"
+#include "core/renderer/RenderingContext.hpp"
+
 
 class VolumeRenderer : private star::RenderResourceModifier, private star::DescriptorModifier
 {
@@ -39,6 +41,10 @@ class VolumeRenderer : private star::RenderResourceModifier, private star::Descr
 
     bool isRenderReady(star::core::device::DeviceContext &context);
 
+    void frameUpdate(star::core::device::DeviceContext &context); 
+
+    star::core::renderer::RenderingContext buildRenderingContext(star::core::device::DeviceContext &context); 
+
     std::vector<std::unique_ptr<star::StarTextures::Texture>> &getRenderToImages()
     {
         return this->computeWriteToImages;
@@ -53,6 +59,7 @@ class VolumeRenderer : private star::RenderResourceModifier, private star::Descr
     }
 
   private:
+    std::unique_ptr<star::core::renderer::RenderingContext> m_renderingContext; 
     bool isReady = false; 
     std::shared_ptr<FogInfo> m_fogControlInfo;
     bool isFirstPass = true;
@@ -76,9 +83,7 @@ class VolumeRenderer : private star::RenderResourceModifier, private star::Descr
     std::vector<std::unique_ptr<star::StarTextures::Texture>> computeWriteToImages =
         std::vector<std::unique_ptr<star::StarTextures::Texture>>();
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
-    std::unique_ptr<star::StarComputePipeline> marchedPipeline = std::unique_ptr<star::StarComputePipeline>(),
-                                               linearPipeline = std::unique_ptr<star::StarComputePipeline>(),
-                                               expPipeline = std::unique_ptr<star::StarComputePipeline>();
+    star::Handle marchedPipeline, linearPipeline, expPipeline; 
     std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
 
