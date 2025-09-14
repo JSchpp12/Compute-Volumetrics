@@ -41,25 +41,27 @@ void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context)
     switch (this->currentFogType)
     {
     case (FogType::marched):
-        currentPipeline = &context.getPipelineManager().get(this->marchedPipeline)->request.pipeline;
+        m_renderingContext = std::make_unique<star::core::renderer::RenderingContext>(
+            context.getPipelineManager().get(this->marchedPipeline)->request.pipeline);
         break;
     case (FogType::linear):
-        currentPipeline = &context.getPipelineManager().get(this->linearPipeline)->request.pipeline;
+        m_renderingContext = std::make_unique<star::core::renderer::RenderingContext>(
+            context.getPipelineManager().get(this->linearPipeline)->request.pipeline);
         break;
     case (FogType::exp):
-        currentPipeline = &context.getPipelineManager().get(this->expPipeline)->request.pipeline;
+        m_renderingContext = std::make_unique<star::core::renderer::RenderingContext>(
+            context.getPipelineManager().get(this->expPipeline)->request.pipeline);
         break;
     default:
         throw std::runtime_error("Unsupported type");
     }
-    m_renderingContext = std::make_unique<star::core::renderer::RenderingContext>(currentPipeline);
 }
 
-star::core::renderer::RenderingContext VolumeRenderer::buildRenderingContext(star::core::device::DeviceContext &context)
-{
-
-    return star::core::renderer::RenderingContext();
-}
+// star::core::renderer::RenderingContext VolumeRenderer::buildRenderingContext(star::core::device::DeviceContext
+// &context)
+// {
+//     return star::core::renderer::RenderingContext();
+// }
 
 void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
 {
@@ -144,7 +146,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
 
     if (isReady)
     {
-        this->m_renderingContext->pipeline->bind(commandBuffer);
+        this->m_renderingContext->pipeline.bind(commandBuffer);
 
         auto sets = this->compShaderInfo->getDescriptors(frameInFlightIndex);
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0,
@@ -313,6 +315,7 @@ void VolumeRenderer::initResources(star::core::device::DeviceContext &device, co
         .orderIndex = star::Command_Buffer_Order_Index::second,
         .type = star::Queue_Type::Tcompute,
         .waitStage = vk::PipelineStageFlagBits::eComputeShader,
+        .willBeSubmittedEachFrame = true,
         .recordOnce = false});
 }
 

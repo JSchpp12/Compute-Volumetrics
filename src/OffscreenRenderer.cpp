@@ -365,6 +365,7 @@ star::core::device::managers::ManagerCommandBuffer::Request OffscreenRenderer::g
         .order = star::Command_Buffer_Order::before_render_pass,
         .orderIndex = star::Command_Buffer_Order_Index::first,
         .waitStage = vk::PipelineStageFlagBits::eEarlyFragmentTests,
+        .willBeSubmittedEachFrame = true,
         .recordOnce = false};
 }
 

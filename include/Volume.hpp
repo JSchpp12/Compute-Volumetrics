@@ -1,21 +1,5 @@
 #pragma once
 
-#include <openvdb/Grid.h>
-#include <openvdb/openvdb.h>
-#include <openvdb/tools/GridTransformer.h>
-#include <openvdb/tools/Interpolation.h>
-#include <openvdb/tools/LevelSetSphere.h>
-#include <openvdb/tools/RayTracer.h>
-#include <stdio.h>
-#include <tbb/tbb.h>
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/ext.hpp>
-#include <glm/gtx/string_cast.hpp>
-#include <random>
-#include <string>
-#include <thread>
-
 #include "Color.hpp"
 #include "ConfigFile.hpp"
 #include "FileHelpers.hpp"
@@ -32,6 +16,22 @@
 #include "VertColorMaterial.hpp"
 #include "Vertex.hpp"
 #include "VolumeRenderer.hpp"
+
+#include <openvdb/Grid.h>
+#include <openvdb/openvdb.h>
+#include <openvdb/tools/GridTransformer.h>
+#include <openvdb/tools/Interpolation.h>
+#include <openvdb/tools/LevelSetSphere.h>
+#include <openvdb/tools/RayTracer.h>
+#include <stdio.h>
+#include <tbb/tbb.h>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/ext.hpp>
+#include <glm/gtx/string_cast.hpp>
+#include <random>
+#include <string>
+#include <thread>
 
 constexpr auto NUM_THREADS = 20;
 

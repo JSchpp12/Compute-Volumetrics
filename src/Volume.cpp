@@ -274,7 +274,7 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
 void Volume::frameUpdate(star::core::device::DeviceContext &context){
     this->volumeRenderer->frameUpdate(context); 
 
-    frameUpdate(context); 
+    star::StarObject::frameUpdate(context); 
 }
 
 void Volume::prepRender(star::core::device::DeviceContext &context, vk::Extent2D swapChainExtent,

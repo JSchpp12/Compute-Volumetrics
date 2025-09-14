@@ -43,7 +43,7 @@ class VolumeRenderer : private star::RenderResourceModifier, private star::Descr
 
     void frameUpdate(star::core::device::DeviceContext &context); 
 
-    star::core::renderer::RenderingContext buildRenderingContext(star::core::device::DeviceContext &context); 
+    // star::core::renderer::RenderingContext buildRenderingContext(star::core::device::DeviceContext &context); 
 
     std::vector<std::unique_ptr<star::StarTextures::Texture>> &getRenderToImages()
     {
@@ -59,7 +59,7 @@ class VolumeRenderer : private star::RenderResourceModifier, private star::Descr
     }
 
   private:
-    std::unique_ptr<star::core::renderer::RenderingContext> m_renderingContext; 
+    std::unique_ptr<star::core::renderer::RenderingContext> m_renderingContext = nullptr; 
     bool isReady = false; 
     std::shared_ptr<FogInfo> m_fogControlInfo;
     bool isFirstPass = true;

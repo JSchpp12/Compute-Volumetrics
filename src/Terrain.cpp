@@ -34,7 +34,7 @@ void Terrain::loadGeometry(star::core::device::DeviceContext &context)
     bool setWorldCenter = false;
     glm::dvec3 worldCenter = glm::dvec3();
 
-    for (int i = 0; i < fileInfo.infos().size(); i++)
+    for (size_t i = 0; i < fileInfo.infos().size(); i++)
     {
         if (!setWorldCenter)
         {

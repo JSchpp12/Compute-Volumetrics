@@ -3,7 +3,6 @@
     "nlohmann-json",
     "stb",
     "blosc",
-    "openvdb",
     "gdal",
     "glm",
     "vulkan-memory-allocator",
@@ -21,6 +20,10 @@
     {
       "name": "gdal",
       "features": [ "png", "geos" ]
+    },
+    {
+      "name": "openvdb",
+      "features": ["nanovdb", "nanovdb-tools"]
     }
   ]
 }
