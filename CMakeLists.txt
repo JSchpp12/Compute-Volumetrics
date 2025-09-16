@@ -74,6 +74,7 @@ set(${PROJECT_NAME}_INCLUDE_DIRS
 )
 
 add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCES};${${PROJECT_NAME}_HEADERS}")
+target_compile_options(${PROJECT_NAME} PRIVATE -frtti -fexceptions)
 
 target_include_directories(${PROJECT_NAME}
 	PRIVATE "include"
@@ -87,7 +88,6 @@ if (WIN32)
 			starlight
 			OpenVDB::openvdb
 			GDAL::GDAL
-			nlohmann_json::nlohmann_json
 	)
 else()
 	find_package(Blosc CONFIG REQUIRED)
@@ -97,7 +97,6 @@ else()
 			starlight
 			OpenVDB::openvdb
 			GDAL::GDAL
-			nlohmann_json::nlohmann_json
 			blosc_static
 	)
 endif()
