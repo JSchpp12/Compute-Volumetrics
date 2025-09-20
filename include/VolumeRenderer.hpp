@@ -1,11 +1,5 @@
 #pragma once
 
-#include <vma/vk_mem_alloc.h>
-
-#include <memory>
-#include <vector>
-#include <vulkan/vulkan.hpp>
-
 #include "AABBInfo.hpp"
 #include "CommandBufferModifier.hpp"
 #include "CopyDepthTextureToBuffer.hpp"
@@ -20,6 +14,10 @@
 #include "StarShaderInfo.hpp"
 #include "core/renderer/RenderingContext.hpp"
 
+#include <memory>
+#include <vector>
+#include <vma/vk_mem_alloc.h>
+#include <vulkan/vulkan.hpp>
 
 class VolumeRenderer : private star::DescriptorModifier
 {
@@ -41,14 +39,14 @@ class VolumeRenderer : private star::DescriptorModifier
 
     bool isRenderReady(star::core::device::DeviceContext &context);
 
-    void frameUpdate(star::core::device::DeviceContext &context); 
+    void frameUpdate(star::core::device::DeviceContext &context);
 
-    void prepRender(star::core::device::DeviceContext &device,
-                    const vk::Extent2D &screensize, const uint8_t &numFramesInFlight);
+    void prepRender(star::core::device::DeviceContext &device, const vk::Extent2D &screensize,
+                    const uint8_t &numFramesInFlight);
 
     void cleanupRender(star::core::device::DeviceContext &device);
 
-    // star::core::renderer::RenderingContext buildRenderingContext(star::core::device::DeviceContext &context); 
+    // star::core::renderer::RenderingContext buildRenderingContext(star::core::device::DeviceContext &context);
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> &getRenderToImages()
     {
@@ -64,8 +62,8 @@ class VolumeRenderer : private star::DescriptorModifier
     }
 
   private:
-    std::unique_ptr<star::core::renderer::RenderingContext> m_renderingContext = nullptr; 
-    bool isReady = false; 
+    std::unique_ptr<star::core::renderer::RenderingContext> m_renderingContext = nullptr;
+    bool isReady = false;
     std::shared_ptr<FogInfo> m_fogControlInfo;
     bool isFirstPass = true;
     const star::Handle volumeTexture;
@@ -88,7 +86,7 @@ class VolumeRenderer : private star::DescriptorModifier
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
         std::vector<std::shared_ptr<star::StarTextures::Texture>>();
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
-    star::Handle marchedPipeline, linearPipeline, expPipeline; 
+    star::Handle marchedPipeline, linearPipeline, expPipeline;
     std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
 

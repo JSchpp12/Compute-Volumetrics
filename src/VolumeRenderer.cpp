@@ -17,7 +17,6 @@ VolumeRenderer::VolumeRenderer(std::shared_ptr<FogInfo> fogControlInfo, const st
       offscreenRenderToDepths(offscreenRenderToDepths), globalInfoBuffers(globalInfoBuffers),
       sceneLightInfoBuffers(sceneLightInfoBuffers), sceneLightList(sceneLightList), aabbBounds(aabbBounds),
       camera(camera), instanceModelInfo(instanceModelInfo), volumeTexture(volumeTexture)
-
 {
 }
 
@@ -319,7 +318,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &device, const
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
 {
-    this->compShaderInfo->cleanupRender(context.getDevice()); 
+    this->compShaderInfo->cleanupRender(context.getDevice());
     this->compShaderInfo.reset();
 
     for (auto &computeWriteToImage : this->computeWriteToImages)

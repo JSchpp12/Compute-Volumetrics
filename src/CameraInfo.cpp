@@ -1,6 +1,7 @@
 #include "CameraInfo.hpp"
 
-std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const
+std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createStagingBuffer(vk::Device &device,
+                                                                           VmaAllocator &allocator) const
 {
     return star::StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
@@ -18,12 +19,16 @@ std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createStagingBuffer(vk::D
         .build();
 }
 
-std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createFinal(vk::Device &device, VmaAllocator &allocator,
-                                                          const std::vector<uint32_t> &transferQueueFamilyIndex) const
+std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createFinal(
+    vk::Device &device, VmaAllocator &allocator, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
+    uint32_t numInds = 1;
     std::vector<uint32_t> indices = {this->computeQueueFamilyIndex};
     for (const auto &index : transferQueueFamilyIndex)
+    {
         indices.push_back(index);
+        numInds++;
+    }
 
     return star::StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
@@ -33,7 +38,7 @@ std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createFinal(vk::Device &d
                 .build(),
             vk::BufferCreateInfo()
                 .setSharingMode(vk::SharingMode::eConcurrent)
-                .setQueueFamilyIndexCount(indices.size())
+                .setQueueFamilyIndexCount(numInds)
                 .setPQueueFamilyIndices(indices.data())
                 .setSize(sizeof(CameraData))
                 .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer),
@@ -60,7 +65,8 @@ void CameraInfo::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const
     buffer.unmap();
 }
 
-std::unique_ptr<star::TransferRequest::Buffer> CameraInfoController::createTransferRequest(star::core::device::StarDevice &device)
+std::unique_ptr<star::TransferRequest::Buffer> CameraInfoController::createTransferRequest(
+    star::core::device::StarDevice &device)
 {
     return std::make_unique<CameraInfo>(
         this->camera, device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
