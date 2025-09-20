@@ -26,6 +26,8 @@ class Terrain : public star::StarObject
 
     void loadGeometry(star::core::device::DeviceContext &context);
 
+    std::vector<std::unique_ptr<star::StarMesh>> loadMeshes(star::core::device::DeviceContext &context) override; 
+
   private:
     const std::string terrainDefFile;
 };

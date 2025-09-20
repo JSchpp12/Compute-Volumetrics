@@ -111,8 +111,8 @@ void main() {
 	}else{
 		vec3 totalSurfaceColor = vec3(0.0);
 
-		if ((lightInfo.numLights) != 0){
-			for (int i = 0; i < lightInfo.numLights; i++){
+		if ((sceneLightInfo.numLights) != 0){
+			for (int i = 0; i < sceneLightInfo.numLights; i++){
 				//check if the current light object is a spotlight
 				isSpot = ((lights[i].settings.y & lightChecker.spot) != 0);
 				isDirectional = ((lights[i].settings.y & lightChecker.directional) != 0);

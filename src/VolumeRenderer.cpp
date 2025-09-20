@@ -57,12 +57,6 @@ void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context)
     }
 }
 
-// star::core::renderer::RenderingContext VolumeRenderer::buildRenderingContext(star::core::device::DeviceContext
-// &context)
-// {
-//     return star::core::renderer::RenderingContext();
-// }
-
 void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
 {
     std::vector<vk::ImageMemoryBarrier2> prepareImages = std::vector<vk::ImageMemoryBarrier2>{
@@ -212,8 +206,8 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     commandBuffer.pipelineBarrier2(deps);
 }
 
-void VolumeRenderer::initResources(star::core::device::DeviceContext &device, const int &numFramesInFlight,
-                                   const vk::Extent2D &screensize)
+void VolumeRenderer::prepRender(star::core::device::DeviceContext &device, const vk::Extent2D &screensize,
+                                const uint8_t &numFramesInFlight)
 {
     m_deviceID = device.getDeviceID();
 
@@ -293,7 +287,7 @@ void VolumeRenderer::initResources(star::core::device::DeviceContext &device, co
                                     .setMinLod(0.0f)
                                     .setMaxLod(0.0f));
 
-        for (int i = 0; i < numFramesInFlight; i++)
+        for (uint8_t i = 0; i < numFramesInFlight; i++)
         {
             this->computeWriteToImages.emplace_back(builder.build());
         }
@@ -319,7 +313,7 @@ void VolumeRenderer::initResources(star::core::device::DeviceContext &device, co
         .recordOnce = false});
 }
 
-void VolumeRenderer::destroyResources(star::core::device::DeviceContext &device)
+void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &device)
 {
     this->compShaderInfo.reset();
 
@@ -345,26 +339,26 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
 {
     auto shaderInfoBuilder =
         star::StarShaderInfo::Builder(device.getDeviceID(), device.getDevice(), numFramesInFlight)
-            .addSetLayout(star::StarDescriptorSetLayout::Builder(device.getDevice())
+            .addSetLayout(star::StarDescriptorSetLayout::Builder()
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .build())
-            .addSetLayout(star::StarDescriptorSetLayout::Builder(device.getDevice())
+                              .build(device.getDevice()))
+            .addSetLayout(star::StarDescriptorSetLayout::Builder()
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                              .build())
+                              .build(device.getDevice()))
             .addSetLayout(
-                star::StarDescriptorSetLayout::Builder(device.getDevice())
+                star::StarDescriptorSetLayout::Builder()
                     .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
                     .addBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
                     .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                    .build())
-            .addSetLayout(star::StarDescriptorSetLayout::Builder(device.getDevice())
+                    .build(device.getDevice()))
+            .addSetLayout(star::StarDescriptorSetLayout::Builder()
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .build());
+                              .build(device.getDevice()));
 
     for (int i = 0; i < numFramesInFlight; i++)
     {

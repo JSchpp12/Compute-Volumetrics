@@ -5,17 +5,18 @@
 #include "ManagerRenderResource.hpp"
 #include "SampledVolumeTexture.hpp"
 
-Volume::Volume(star::core::device::DeviceContext &context, std::shared_ptr<star::StarCamera> camera,
+Volume::Volume(star::core::device::DeviceContext &context, const size_t &numFramesInFlight, std::shared_ptr<star::StarCamera> camera,
                const uint32_t &screenWidth, const uint32_t &screenHeight,
                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
                std::vector<star::Handle> sceneCameraInfos, std::vector<star::Handle> lightInfos, std::vector<star::Handle> lightList)
-    : camera(camera), screenDimensions(screenWidth, screenHeight),
+    : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
+    
+    camera(camera), screenDimensions(screenWidth, screenHeight),
       offscreenRenderToColorImages(offscreenRenderToColorImages),
       offscreenRenderToDepthImages(offscreenRenderToDepthImages),
       m_fogControlInfo(std::make_shared<FogInfo>(FogInfo::LinearFogInfo(0.001f, 100.0f), FogInfo::ExpFogInfo(0.5f),
-                                                 FogInfo::MarchedFogInfo(0.002f, 0.3f, 0.3f, 0.2f, 0.1f, 5.0f))),
-      StarObject()
+                                                 FogInfo::MarchedFogInfo(0.002f, 0.3f, 0.3f, 0.2f, 0.1f, 5.0f)))
 {
     initVolume(context, sceneCameraInfos, lightInfos, lightList);
 }
@@ -158,46 +159,6 @@ void Volume::loadModel(star::core::device::DeviceContext &context)
     std::cout << "Done" << std::endl;
 }
 
-void Volume::loadGeometry(star::core::device::DeviceContext &context)
-{
-    std::unique_ptr<std::vector<star::Vertex>> verts =
-        std::unique_ptr<std::vector<star::Vertex>>(new std::vector<star::Vertex>{
-            star::Vertex{glm::vec3{-1.0f, -1.0f, 0.0f}, // position
-                         glm::vec3{0.0f, 1.0f, 0.0f},   // normal - posy
-                         glm::vec3{0.0f, 1.0f, 0.0f},   // color
-                         glm::vec2{0.0f, 0.0f}},
-            star::Vertex{glm::vec3{1.0f, -1.0f, 0.0f}, // position
-                         glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
-                         glm::vec3{0.0f, 1.0f, 0.0f},  // color
-                         glm::vec2{1.0f, 0.0f}},
-            star::Vertex{glm::vec3{1.0f, 1.0f, 0.0f}, // position
-                         glm::vec3{0.0f, 1.0f, 0.0f}, // normal - posy
-                         glm::vec3{1.0f, 0.0f, 0.0f}, // color
-                         glm::vec2{1.0f, 1.0f}},
-            star::Vertex{glm::vec3{-1.0f, 1.0f, 0.0f}, // position
-                         glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
-                         glm::vec3{0.0f, 1.0f, 0.0f},  // color
-                         glm::vec2{0.0f, 1.0f}},
-        });
-
-    std::unique_ptr<std::vector<uint32_t>> inds =
-        std::unique_ptr<std::vector<uint32_t>>(new std::vector<uint32_t>{0, 3, 2, 0, 2, 1});
-
-    std::unique_ptr<ScreenMaterial> material =
-        std::unique_ptr<ScreenMaterial>(std::make_unique<ScreenMaterial>(this->volumeRenderer->getRenderToImages()));
-    auto newMeshes = std::vector<std::unique_ptr<star::StarMesh>>();
-
-    star::Handle vertBuffer = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), std::make_unique<star::ManagerController::RenderResource::VertInfo>(*verts));
-    star::Handle indBuffer = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), std::make_unique<star::ManagerController::RenderResource::IndicesInfo>(*inds));
-
-    newMeshes.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(
-        vertBuffer, indBuffer, *verts, *inds, std::move(material), this->aabbBounds[0], this->aabbBounds[1], false)));
-
-    this->meshes = std::move(newMeshes);
-}
-
 void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
 {
     const float outside = grid->background();
@@ -277,21 +238,33 @@ void Volume::frameUpdate(star::core::device::DeviceContext &context){
     star::StarObject::frameUpdate(context); 
 }
 
-void Volume::prepRender(star::core::device::DeviceContext &context, vk::Extent2D swapChainExtent,
-                        vk::PipelineLayout pipelineLayout, star::core::renderer::RenderingTargetInfo renderingInfo,
-                        int numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder)
+void Volume::prepRender(star::core::device::DeviceContext& context, const vk::Extent2D &swapChainExtent,
+			const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder, 
+			vk::PipelineLayout pipelineLayout, star::core::renderer::RenderingTargetInfo renderingInfo)
 {
+    volumeRenderer->prepRender(context, swapChainExtent, numSwapChainImages); 
+
+    for (size_t i = 0; i < this->volumeRenderer->getRenderToImages().size(); i++){
+        static_cast<ScreenMaterial *>(m_meshMaterials[0].get())->addComputeWriteToImage(this->volumeRenderer->getRenderToImages()[i]); 
+    }
+
     RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
 
-    this->star::StarObject::prepRender(context, swapChainExtent, pipelineLayout, renderingInfo, numSwapChainImages,
-                                       fullEngineBuilder);
+    this->star::StarObject::prepRender(context, swapChainExtent, numSwapChainImages, fullEngineBuilder, pipelineLayout, renderingInfo);
 }
 
-void Volume::prepRender(star::core::device::DeviceContext &context, int numSwapChainImages,
-                        star::Handle sharedPipeline, star::StarShaderInfo::Builder fullEngineBuilder)
+void Volume::prepRender(star::core::device::DeviceContext& context, const vk::Extent2D &swapChainExtent, const uint8_t &numSwapChainImages, 
+			star::StarShaderInfo::Builder fullEngineBuilder, star::Handle sharedPipeline)
 {
+    volumeRenderer->prepRender(context, swapChainExtent, numSwapChainImages); 
+
+    for (size_t i = 0; i < this->volumeRenderer->getRenderToImages().size(); i++){
+        static_cast<ScreenMaterial *>(m_meshMaterials[0].get())->addComputeWriteToImage(this->volumeRenderer->getRenderToImages()[i]); 
+    }
+
     RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
-    this->star::StarObject::prepRender(context, numSwapChainImages, sharedPipeline, fullEngineBuilder);
+
+    this->star::StarObject::prepRender(context, swapChainExtent, numSwapChainImages, fullEngineBuilder, sharedPipeline);
 }
 
 bool Volume::isRenderReady(star::core::device::DeviceContext &context){
@@ -319,8 +292,6 @@ void Volume::initVolume(star::core::device::DeviceContext &context, std::vector<
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
         m_fogControlInfo, this->camera, this->instanceModelInfos, offscreenRenderToColorImages,
         offscreenRenderToDepthImages, globalInfos, lightInfos, lightList, this->sampledTexture, this->aabbBounds);
-
-    loadGeometry(context);
 }
 
 void Volume::updateGridTransforms()
@@ -350,175 +321,44 @@ float Volume::henyeyGreensteinPhase(const glm::vec3 &viewDirection, const glm::v
     return 1.0f / (4.0f * glm::pi<float>()) * (1.0f - gValue * gValue) / denom;
 }
 
-// void Volume::calculateColor(
-//     const std::vector<std::unique_ptr<star::Light>> &lightList, const float &stepSize, const float &stepSize_light,
-//     const int &russianRouletteCutoff, const float &sigma_absorbtion, const float &sigma_scattering,
-//     const float &lightPropertyDir_g, const float &volDensity, const std::array<glm::vec3, 2> &aabbBounds,
-//     openvdb::FloatGrid::Ptr grid, RayCamera camera,
-//     std::vector<std::optional<std::pair<std::pair<size_t, size_t>, star::Color *>>> coordColorWork,
-//     bool marchToaabbIntersection, bool marchToVolBoundry)
-// {
-//     for (auto &work : coordColorWork)
-//     {
-//         if (work.has_value())
-//         {
-//             float t0 = 0, t1 = 0;
-//             auto ray = camera.getRayForPixel(work->first.first, work->first.second);
-//             star::Color newCol{};
+std::vector<std::unique_ptr<star::StarMesh>> Volume::loadMeshes(star::core::device::DeviceContext &context){
+    std::vector<std::unique_ptr<star::StarMesh>> meshes; 
 
-//             if (rayBoxIntersect(ray, aabbBounds, t0, t1))
-//                 if (marchToaabbIntersection)
-//                     newCol = star::Color(1.0f, 0.0f, 0.0f, 1.0f);
-//                 else if (marchToVolBoundry)
-//                     newCol = forwardMarchToVolumeActiveBoundry(stepSize, ray, aabbBounds, grid, t0, t1);
-//                 else
-//                     newCol =
-//                         forwardMarch(lightList, stepSize, stepSize_light, russianRouletteCutoff, sigma_absorbtion,
-//                                      sigma_scattering, lightPropertyDir_g, volDensity, ray, grid, aabbBounds, t0, t1);
-//             else
-//                 newCol = star::Color(0.0f, 0.0f, 0.0f, 0.0f);
+        std::unique_ptr<std::vector<star::Vertex>> verts =
+        std::unique_ptr<std::vector<star::Vertex>>(new std::vector<star::Vertex>{
+            star::Vertex{glm::vec3{-1.0f, -1.0f, 0.0f}, // position
+                         glm::vec3{0.0f, 1.0f, 0.0f},   // normal - posy
+                         glm::vec3{0.0f, 1.0f, 0.0f},   // color
+                         glm::vec2{0.0f, 0.0f}},
+            star::Vertex{glm::vec3{1.0f, -1.0f, 0.0f}, // position
+                         glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
+                         glm::vec3{0.0f, 1.0f, 0.0f},  // color
+                         glm::vec2{1.0f, 0.0f}},
+            star::Vertex{glm::vec3{1.0f, 1.0f, 0.0f}, // position
+                         glm::vec3{0.0f, 1.0f, 0.0f}, // normal - posy
+                         glm::vec3{1.0f, 0.0f, 0.0f}, // color
+                         glm::vec2{1.0f, 1.0f}},
+            star::Vertex{glm::vec3{-1.0f, 1.0f, 0.0f}, // position
+                         glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
+                         glm::vec3{0.0f, 1.0f, 0.0f},  // color
+                         glm::vec2{0.0f, 1.0f}},
+        });
 
-//             *work->second = newCol;
-//         }
-//     }
-// }
+    std::unique_ptr<std::vector<uint32_t>> inds =
+        std::unique_ptr<std::vector<uint32_t>>(new std::vector<uint32_t>{0, 3, 2, 0, 2, 1});
 
-// bool Volume::rayBoxIntersect(const star::Ray &ray, const std::array<glm::vec3, 2> &aabbBounds, float &t0, float &t1)
-// {
-//     float tmin = -INFINITY, tmax = INFINITY, txmin = 0, txmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
+    auto newMeshes = std::vector<std::unique_ptr<star::StarMesh>>();
 
-//     txmin = (aabbBounds[ray.sign[0]].x - ray.org.x) * ray.invDir.x;
-//     txmax = (aabbBounds[!ray.sign[0]].x - ray.org.x) * ray.invDir.x;
+    star::Handle vertBuffer = star::ManagerRenderResource::addRequest(
+        context.getDeviceID(), std::make_unique<star::ManagerController::RenderResource::VertInfo>(*verts));
+    star::Handle indBuffer = star::ManagerRenderResource::addRequest(
+        context.getDeviceID(), std::make_unique<star::ManagerController::RenderResource::IndicesInfo>(*inds));
 
-//     tmin = std::min(txmin, txmax);
-//     tmax = std::max(txmin, txmax);
+    newMeshes.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(
+        vertBuffer, indBuffer, *verts, *inds, m_meshMaterials.at(0), this->aabbBounds[0], this->aabbBounds[1], false)));
 
-//     tymin = (aabbBounds[ray.sign[1]].y - ray.org.y) * ray.invDir.y;
-//     tymax = (aabbBounds[!ray.sign[1]].y - ray.org.y) * ray.invDir.y;
-
-//     tmin = std::max(tmin, std::min(tymin, tymax));
-//     tmax = std::min(tmax, std::max(tymin, tymax));
-
-//     tzmin = (aabbBounds[ray.sign[2]].z - ray.org.z) * ray.invDir.z;
-//     tzmax = (aabbBounds[!ray.sign[2]].z - ray.org.z) * ray.invDir.z;
-
-//     tmin = std::max(tmin, std::min(tzmin, tzmax));
-//     tmax = std::min(tmax, std::max(tzmin, tzmax));
-
-//     t0 = tmin;
-//     t1 = tmax;
-
-//     return tmax >= std::max(0.0f, tmin);
-// }
-
-// star::Color Volume::forwardMarch(const std::vector<std::unique_ptr<star::Light>> &lightList, const float &stepSize,
-//                                  const float &stepSize_light, const int &russianRouletteCutoff,
-//                                  const float &sigma_absorbtion, const float &sigma_scattering,
-//                                  const float &lightPropertyDir_g, const float &volDensity, const star::Ray &ray,
-//                                  openvdb::FloatGrid::Ptr grid, const std::array<glm::vec3, 2> &aabbHit, const float &t0,
-//                                  const float &t1)
-// {
-//     int numSteps = static_cast<int>(std::ceil((t1 - t0) / stepSize));
-//     float fittedStepSize = (t1 - t0) / numSteps;
-//     float transparency = 1.0f;
-//     star::Color backColor{};
-//     star::Color resultingColor{};
-
-//     auto gridAccessor = grid->getConstAccessor();
-//     openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler> sampler(
-//         gridAccessor, grid->transform());
-
-//     for (int i = 0; i < numSteps; ++i)
-//     {
-//         float randJitter = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
-//         float t = t0 + fittedStepSize * (i + 0.5f);
-//         glm::vec3 position = ray.org + (t / ray.invDir);
-//         openvdb::Vec3R oPosition(position.x, position.y, position.z);
-//         openvdb::FloatGrid::ValueType sampledDensity = sampler.wsSample(oPosition);
-//         float beerExpTrans = std::exp(-fittedStepSize * sampledDensity * (sigma_absorbtion + sigma_scattering));
-//         transparency *= beerExpTrans;
-
-//         for (const auto &light : lightList)
-//         {
-//             // in-scattering
-//             star::Ray lightRay{position, glm::normalize(light->getPosition() - position)};
-
-//             float lt0 = 0, lt1 = 0;
-//             if (rayBoxIntersect(lightRay, aabbHit, lt0, lt1))
-//             {
-//                 int numLightSteps = static_cast<int>(std::ceil((lt1 - lt0) / stepSize_light));
-//                 float fittedLightStepSize = (lt1 - lt0) / static_cast<float>(numLightSteps);
-
-//                 float sumLightSampleDensities = 0.0f;
-//                 for (int lightStep = 0; lightStep < numLightSteps; lightStep++)
-//                 {
-//                     float tLight = fittedLightStepSize * (lightStep + 0.5);
-//                     glm::vec3 lightTracePosition = lightRay.org + (tLight / lightRay.invDir);
-
-//                     openvdb::FloatGrid::ValueType sampledValue = sampler.wsSample(
-//                         openvdb::Vec3R(lightTracePosition.x, lightTracePosition.y, lightTracePosition.z));
-//                     sumLightSampleDensities += sampledValue;
-//                 }
-
-//                 float lightAtten = std::exp(-sumLightSampleDensities * -lt1 * (sigma_absorbtion + sigma_scattering));
-//                 float phaseResult = lightAtten * henyeyGreensteinPhase(position, lightRay.dir, lightPropertyDir_g) *
-//                                     volDensity * fittedLightStepSize;
-
-//                 resultingColor.setR(resultingColor.getR() + (light->getAmbient().r * phaseResult));
-//                 resultingColor.setG(resultingColor.getG() + (light->getAmbient().g * phaseResult));
-//                 resultingColor.setB(resultingColor.getB() + (light->getAmbient().b * phaseResult));
-//                 resultingColor.setA(resultingColor.getA() + (light->getAmbient().a * phaseResult));
-//             }
-//         }
-
-//         resultingColor.setR(resultingColor.getR() * transparency);
-//         resultingColor.setG(resultingColor.getG() * transparency);
-//         resultingColor.setB(resultingColor.getB() * transparency);
-//         resultingColor.setA(resultingColor.getA() * transparency);
-
-//         // russian roulette cutoff
-//         if ((transparency < 1e-3) && (randJitter > 1.0f / russianRouletteCutoff))
-//             break;
-//         else if (transparency < 1e-3)
-//             transparency *= russianRouletteCutoff;
-//     }
-
-//     resultingColor.setR(backColor.getR() * transparency + resultingColor.getR());
-//     resultingColor.setG(backColor.getG() * transparency + resultingColor.getG());
-//     resultingColor.setB(backColor.getB() * transparency + resultingColor.getB());
-//     resultingColor.setA(backColor.getA() * transparency + resultingColor.getA());
-//     return resultingColor;
-// }
-
-// star::Color Volume::forwardMarchToVolumeActiveBoundry(const float &stepSize, const star::Ray &ray,
-//                                                       const std::array<glm::vec3, 2> &aabbHit,
-//                                                       openvdb::FloatGrid::Ptr grid, const float &t0, const float &t1)
-// {
-//     int numSteps = static_cast<int>(std::ceil((t1 - t0) / stepSize));
-//     float fittedStepSize = (t1 - t0) / numSteps;
-//     star::Color resultingColor{};
-
-//     auto gridAccessor = grid->getConstAccessor();
-//     openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler> sampler(
-//         gridAccessor, grid->transform());
-
-//     for (int i = 0; i < numSteps; ++i)
-//     {
-//         float t = t0 + fittedStepSize * (i + 0.5f);
-//         glm::vec3 position = ray.org + (t / ray.invDir);
-//         openvdb::Vec3R oPosition(position.x, position.y, position.z);
-//         openvdb::FloatGrid::ValueType sampledDensity = sampler.wsSample(oPosition);
-
-//         if (sampledDensity > 0.0f && sampledDensity < 1.0f)
-//         {
-//             resultingColor.setR(1.0f);
-//             resultingColor.setA(1.0f);
-//             break;
-//         }
-//     }
-
-//     return resultingColor;
-// }
+    return newMeshes; 
+}
 
 openvdb::Mat4R Volume::getTransform(const glm::mat4 &objectDisplayMat)
 {

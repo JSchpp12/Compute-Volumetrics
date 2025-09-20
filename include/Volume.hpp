@@ -79,14 +79,11 @@ class Volume : public star::StarObject
     bool rayMarchToAABB = false;
 
     virtual ~Volume() = default;
-    Volume(star::core::device::DeviceContext &context, std::shared_ptr<star::StarCamera> camera,
+    Volume(star::core::device::DeviceContext &context, const size_t &numFramesInFlight, std::shared_ptr<star::StarCamera> camera,
            const uint32_t &screenWidth, const uint32_t &screenHeight,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
            std::vector<star::Handle> sceneCameraInfos, std::vector<star::Handle> lightInfos, std::vector<star::Handle> lightList);
-
-    // void renderVolume(const double &fov_radians, const glm::vec3 &camPosition, const glm::mat4 &camDispMatrix,
-    //                   const glm::mat4 &camProjMat);
 
     // star::Handle buildPipeline(star::core::device::DeviceContext &device,
     //                                                   vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout,
@@ -97,13 +94,12 @@ class Volume : public star::StarObject
     /// </summary>
     void updateGridTransforms();
 
-    virtual void prepRender(star::core::device::DeviceContext &device, vk::Extent2D swapChainExtent,
-                            vk::PipelineLayout pipelineLayout, star::core::renderer::RenderingTargetInfo renderingInfo,
-                            int numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder) override;
+    virtual void prepRender(star::core::device::DeviceContext& context, const vk::Extent2D &swapChainExtent,
+			const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder, 
+			vk::PipelineLayout pipelineLayout, star::core::renderer::RenderingTargetInfo renderingInfo) override;
 
-    virtual void prepRender(star::core::device::DeviceContext &device, int numSwapChainImages,
-                            star::Handle sharedPipeline,
-                            star::StarShaderInfo::Builder fullEngineBuilder) override;
+    virtual void prepRender(star::core::device::DeviceContext& context, const vk::Extent2D &swapChainExtent, const uint8_t &numSwapChainImages, 
+			star::StarShaderInfo::Builder fullEngineBuilder, star::Handle sharedPipeline) override;
 
     virtual bool isRenderReady(star::core::device::DeviceContext &context) override; 
 
@@ -149,6 +145,8 @@ class Volume : public star::StarObject
     void loadGeometry(star::core::device::DeviceContext &context);
 
     void convertToFog(openvdb::FloatGrid::Ptr &grid);
+
+    std::vector<std::unique_ptr<star::StarMesh>> loadMeshes(star::core::device::DeviceContext &context) override; 
 
     // virtual void recordRenderPassCommands(vk::CommandBuffer &commandBuffer, vk::PipelineLayout &pipelineLayout,
     //                                       int swapChainIndexNum) override;

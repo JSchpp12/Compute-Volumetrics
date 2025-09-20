@@ -22,7 +22,7 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
 void Terrain::loadGeometry(star::core::device::DeviceContext &context)
 {
     TerrainInfoFile fileInfo = TerrainInfoFile(this->terrainDefFile);
-    const std::string terrainPath = star::FileHelpers::GetBaseFileDirectory(this->terrainDefFile);
+    const std::string terrainPath = star::FileHelpers::GetParentDirectory(this->terrainDefFile);
 
     TerrainGrid grid = TerrainGrid();
 
@@ -62,4 +62,10 @@ void Terrain::loadGeometry(star::core::device::DeviceContext &context)
     {
         this->meshes.emplace_back(chunk.getMesh(context));
     }
+}
+
+std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::device::DeviceContext &context){
+    std::vector<std::unique_ptr<star::StarMesh>> terrainMeshes; 
+
+    return terrainMeshes; 
 }

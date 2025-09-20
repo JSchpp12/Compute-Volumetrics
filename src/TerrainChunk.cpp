@@ -69,8 +69,7 @@ void TerrainChunk::load()
 
 std::unique_ptr<star::StarMesh> TerrainChunk::getMesh(star::core::device::DeviceContext &context)
 {
-    auto material = std::make_shared<star::TextureMaterial>(star::ManagerRenderResource::addRequest(context.getDeviceID(),
-        std::make_unique<star::ManagerController::RenderResource::TextureFile>(this->textureFile)));
+    auto material = std::make_shared<star::TextureMaterial>(this->textureFile);
 
     star::Handle vertBuffer = context.getManagerRenderResource().addRequest(context.getDeviceID(),
         std::make_unique<star::ManagerController::RenderResource::VertInfo>(*verts));

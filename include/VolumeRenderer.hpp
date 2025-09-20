@@ -21,7 +21,7 @@
 #include "core/renderer/RenderingContext.hpp"
 
 
-class VolumeRenderer : private star::RenderResourceModifier, private star::DescriptorModifier
+class VolumeRenderer : private star::DescriptorModifier
 {
   public:
     enum FogType
@@ -43,9 +43,14 @@ class VolumeRenderer : private star::RenderResourceModifier, private star::Descr
 
     void frameUpdate(star::core::device::DeviceContext &context); 
 
+    void prepRender(star::core::device::DeviceContext &device,
+                    const vk::Extent2D &screensize, const uint8_t &numFramesInFlight);
+
+    void cleanupRender(star::core::device::DeviceContext &device);
+
     // star::core::renderer::RenderingContext buildRenderingContext(star::core::device::DeviceContext &context); 
 
-    std::vector<std::unique_ptr<star::StarTextures::Texture>> &getRenderToImages()
+    std::vector<std::shared_ptr<star::StarTextures::Texture>> &getRenderToImages()
     {
         return this->computeWriteToImages;
     }
@@ -80,8 +85,8 @@ class VolumeRenderer : private star::RenderResourceModifier, private star::Descr
     std::unique_ptr<uint32_t> graphicsQueueFamilyIndex, computeQueueFamilyIndex;
 
     std::unique_ptr<vk::Extent2D> displaySize = std::unique_ptr<vk::Extent2D>();
-    std::vector<std::unique_ptr<star::StarTextures::Texture>> computeWriteToImages =
-        std::vector<std::unique_ptr<star::StarTextures::Texture>>();
+    std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
+        std::vector<std::shared_ptr<star::StarTextures::Texture>>();
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
     star::Handle marchedPipeline, linearPipeline, expPipeline; 
     std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
@@ -90,12 +95,6 @@ class VolumeRenderer : private star::RenderResourceModifier, private star::Descr
     FogType currentFogType = FogType::marched;
 
     void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex);
-
-    // Inherited via RenderResourceModifier
-    void initResources(star::core::device::DeviceContext &device, const int &numFramesInFlight,
-                       const vk::Extent2D &screensize) override;
-
-    void destroyResources(star::core::device::DeviceContext &device) override;
 
     std::vector<std::pair<vk::DescriptorType, const int>> getDescriptorRequests(const int &numFramesInFlight) override;
 

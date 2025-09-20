@@ -12,16 +12,16 @@
 class ScreenMaterial : public star::StarMaterial
 {
   public:
-    ScreenMaterial(std::vector<std::unique_ptr<star::StarTextures::Texture>> &computeOutputImages)
-        : computeOutputImages(computeOutputImages) {};
+    std::vector<std::pair<vk::DescriptorType, const int>> getDescriptorRequests(
+        const int &numFramesInFlight) const override;
+
+    void addComputeWriteToImage(std::shared_ptr<star::StarTextures::Texture> computeTexture);
+
+    void addDescriptorSetLayoutsTo(star::StarDescriptorSetLayout::Builder &builder) const override;
 
   protected:
-    std::vector<std::unique_ptr<star::StarTextures::Texture>> &computeOutputImages;
+    std::vector<std::shared_ptr<star::StarTextures::Texture>> m_computeOutputImages =
+        std::vector<std::shared_ptr<star::StarTextures::Texture>>();
 
-    void applyDescriptorSetLayouts(star::StarDescriptorSetLayout::Builder &constBuilder) override;
-    std::vector<std::pair<vk::DescriptorType, const int>> getDescriptorRequests(const int &numFramesInFlight) override;
-    void prep(star::core::device::DeviceContext &device) override;
-    void buildDescriptorSet(star::core::device::DeviceContext &device, star::StarShaderInfo::Builder &builder,
-                            const int &imageInFlightIndex) override;
-    void cleanup(star::core::device::DeviceContext &device) override;
+    std::unique_ptr<star::StarShaderInfo> buildShaderInfo(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight, star::StarShaderInfo::Builder builder) override; 
 };
