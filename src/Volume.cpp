@@ -73,7 +73,7 @@ void Volume::loadModel(star::core::device::DeviceContext &context)
     const std::string filePath(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) +
                                "volumes/sphere.vdb");
 
-    if (!star::FileHelpers::FileExists(filePath))
+    if (!star::file_helpers::FileExists(filePath))
     {
         throw std::runtime_error("Provided file does not exist" + filePath);
     }

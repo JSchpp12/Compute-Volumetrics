@@ -21,7 +21,7 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
 
 std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::device::DeviceContext &context){
     TerrainInfoFile fileInfo = TerrainInfoFile(m_terrainDefFile);
-    const std::string terrainPath = star::FileHelpers::GetParentDirectory(m_terrainDefFile);
+    const std::string terrainPath = star::file_helpers::GetParentDirectory(m_terrainDefFile);
 
     TerrainGrid grid = TerrainGrid();
 
@@ -75,7 +75,7 @@ std::vector<std::shared_ptr<star::StarMaterial>> Terrain::LoadMaterials(std::str
     std::vector<std::shared_ptr<star::StarMaterial>> materials = std::vector<std::shared_ptr<star::StarMaterial>>(fileInfo.infos().size());
 
     for (size_t i = 0; i < fileInfo.infos().size(); i++){
-        auto foundTexture = star::FileHelpers::FindFileInDirectoryWithSameNameIgnoreFileType(mediaDirectoryPath, fileInfo.infos()[i].textureFile);
+        auto foundTexture = star::file_helpers::FindFileInDirectoryWithSameNameIgnoreFileType(mediaDirectoryPath, fileInfo.infos()[i].textureFile);
         if (!foundTexture.has_value()){
             throw std::runtime_error("Failed to find matching texture for file"); 
         }

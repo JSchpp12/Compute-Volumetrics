@@ -24,7 +24,7 @@ TerrainChunk::TerrainChunk(const std::string &fullHeightFile, const std::string 
 {
     std::string terrainDir = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "/terrains";
     std::optional<std::string> matchedFile =
-        star::FileHelpers::FindFileInDirectoryWithSameNameIgnoreFileType(terrainDir, nTextureFile);
+        star::file_helpers::FindFileInDirectoryWithSameNameIgnoreFileType(terrainDir, nTextureFile);
     assert(matchedFile.has_value() && "Unable to find matching texture file");
 
     this->textureFile = matchedFile.value();
@@ -313,7 +313,7 @@ TerrainChunk::TerrainDataset::TerrainDataset(const std::string &path, const glm:
     : path(path), northEast(northEast), southEast(southEast), southWest(southWest), northWest(northWest),
       center(center), offset(offset)
 {
-    if (!star::FileHelpers::FileExists(path))
+    if (!star::file_helpers::FileExists(path))
     {
         throw std::runtime_error("File does not exist");
     }
