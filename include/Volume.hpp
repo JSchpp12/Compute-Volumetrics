@@ -101,6 +101,8 @@ class Volume : public star::StarObject
     virtual void prepRender(star::core::device::DeviceContext& context, const vk::Extent2D &swapChainExtent, const uint8_t &numSwapChainImages, 
 			star::StarShaderInfo::Builder fullEngineBuilder, star::Handle sharedPipeline) override;
 
+    virtual void cleanupRender(star::core::device::DeviceContext &context) override;
+
     virtual bool isRenderReady(star::core::device::DeviceContext &context) override; 
 
     virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;

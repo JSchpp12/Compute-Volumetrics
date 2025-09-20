@@ -37,7 +37,7 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     m_mainLight = std::make_shared<star::Light>(glm::vec3{0.885, 50, 50}, star::Type::Light::directional,
                                                 glm::vec3{-1.0, 0.0, 0.0});
 
-    // auto offscreenRenderer = CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight);
+    auto offscreenRenderer = CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight);
 
     {
         const uint32_t width = window.getExtent().width;
@@ -49,22 +49,16 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         size_t fNumFramesInFlight = 0;
         star::CastHelpers::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
-        //     m_volume = std::make_shared<Volume>(
-        //         context, fNumFramesInFlight, camera, width, height, offscreenRenderer->getRenderToColorImages(),
-        //         offscreenRenderer->getRenderToDepthImages(), offscreenRenderer->getCameraInfoBuffers(),
-        //         offscreenRenderer->getLightInfoBuffers(), offscreenRenderer->getLightListBuffers());
+        m_volume = std::make_shared<Volume>(
+            context, fNumFramesInFlight, camera, width, height, offscreenRenderer->getRenderToColorImages(),
+            offscreenRenderer->getRenderToDepthImages(), offscreenRenderer->getCameraInfoBuffers(),
+            offscreenRenderer->getLightInfoBuffers(), offscreenRenderer->getLightListBuffers());
 
-        //     auto &s_i = m_volume->createInstance();
-        //     s_i.setScale(glm::vec3{10.0, 10.0, 10.0});
+        auto &s_i = m_volume->createInstance();
+        s_i.setScale(glm::vec3{10.0, 10.0, 10.0});
+        std::vector<std::shared_ptr<StarObject>> objects{m_volume};
 
-        auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-        auto horse = std::make_shared<star::BasicObject>(horsePath);
-        auto &i = horse->createInstance();
-
-        std::vector<std::shared_ptr<StarObject>> objects{horse};
-
-        // std::vector<std::shared_ptr<star::core::renderer::Renderer>> additionals{offscreenRenderer};
-        std::vector<std::shared_ptr<star::core::renderer::Renderer>> additionals{};
+        std::vector<std::shared_ptr<star::core::renderer::Renderer>> additionals{offscreenRenderer};
         std::shared_ptr<star::core::renderer::SwapChainRenderer> presentationRenderer =
             std::make_shared<star::core::renderer::SwapChainRenderer>(
                 context, numFramesInFlight, objects, std::vector<std::shared_ptr<star::Light>>{m_mainLight}, camera,

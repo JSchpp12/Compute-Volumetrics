@@ -267,6 +267,12 @@ void Volume::prepRender(star::core::device::DeviceContext& context, const vk::Ex
     this->star::StarObject::prepRender(context, swapChainExtent, numSwapChainImages, fullEngineBuilder, sharedPipeline);
 }
 
+void Volume::cleanupRender(star::core::device::DeviceContext &context){
+    volumeRenderer->cleanupRender(context); 
+    
+    star::StarObject::cleanupRender(context); 
+}
+
 bool Volume::isRenderReady(star::core::device::DeviceContext &context){
     return star::StarObject::isRenderReady(context) && this->volumeRenderer->isRenderReady(context); 
 }

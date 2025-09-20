@@ -218,7 +218,6 @@ void main(){
 	const vec4 targetPixelInputColor = vec4(imageLoad(inputSceneColor, targetPixel));
     const float fogAmt = calcFogAmt(worldDepthDistance, fogInfo.linearFog_nearDistance, fogInfo.linearFog_farDistance);
 
-    // const vec4 finalColor = mix(targetPixelInputColor, vec4(1.0, 1.0, 1.0, 1.0), fogAmt); 
-    const vec4 finalColor = vec4(1.0, 0.0, 0.0, 1.0); 
+    const vec4 finalColor = mix(targetPixelInputColor, vec4(1.0, 1.0, 1.0, 1.0), fogAmt); 
     imageStore(outputImage, targetPixel, finalColor); 
 }

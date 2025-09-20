@@ -29,9 +29,14 @@ bool VolumeRenderer::isRenderReady(star::core::device::DeviceContext &context)
         return true;
     }
 
-    return context.getPipelineManager().get(marchedPipeline)->isReady() &&
-           context.getPipelineManager().get(linearPipeline)->isReady() &&
-           context.getPipelineManager().get(expPipeline)->isReady();
+    if (context.getPipelineManager().get(marchedPipeline)->isReady() &&
+        context.getPipelineManager().get(linearPipeline)->isReady() &&
+        context.getPipelineManager().get(expPipeline)->isReady())
+    {
+        isReady = true;
+    }
+
+    return isReady;
 }
 
 void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context)
@@ -313,8 +318,9 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &device, const
         .recordOnce = false});
 }
 
-void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &device)
+void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
 {
+    this->compShaderInfo->cleanupRender(context.getDevice()); 
     this->compShaderInfo.reset();
 
     for (auto &computeWriteToImage : this->computeWriteToImages)
@@ -322,7 +328,7 @@ void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &device)
         computeWriteToImage.reset();
     }
 
-    device.getDevice().getVulkanDevice().destroyPipelineLayout(*this->computePipelineLayout);
+    context.getDevice().getVulkanDevice().destroyPipelineLayout(*this->computePipelineLayout);
 }
 
 std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescriptorRequests(
