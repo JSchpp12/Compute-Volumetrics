@@ -4,7 +4,6 @@
 #include "ConfigFile.hpp"
 #include "FogControlInfo.hpp"
 #include "ManagerRenderResource.hpp"
-#include "core/exception/NeedsPrepared.hpp"
 
 VolumeRenderer::VolumeRenderer(std::shared_ptr<FogInfo> fogControlInfo, const std::shared_ptr<star::StarCamera> camera,
                                const std::vector<star::Handle> &instanceModelInfo,
