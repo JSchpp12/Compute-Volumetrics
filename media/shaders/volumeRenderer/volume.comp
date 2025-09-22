@@ -51,7 +51,9 @@ layout(set = 1, binding = 0) uniform additionalCameraInfo
     float scale;
 }
 addCamInfo;
-layout(set = 1, binding = 1, r32f) uniform readonly image3D sampledVolume;
+layout(std430, set = 1, binding = 1) buffer PNanoVDBBuffer{
+    uint pnanovdb_buf_data[];
+};
 
 layout(set = 2, binding = 0, rgba8) uniform readonly image2D inputSceneColor;
 layout(set = 2, binding = 1) uniform sampler2D inputSceneDepth;
@@ -81,6 +83,8 @@ layout(set = 3, binding = 2) uniform FogControllerInfo
     float marchedFog_stepSizeDist_light;
 }
 fogInfo;
+
+#include "PNanoVDB.h"
 
 struct Ray
 {

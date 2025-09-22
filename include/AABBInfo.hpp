@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <glm/glm.hpp>
 
 #include "ManagerController_RenderResource_Buffer.hpp"

@@ -1,16 +1,15 @@
 #include "Application.hpp"
 
-#include <sstream>
-#include <string>
-
 #include "BasicObject.hpp"
 #include "ConfigFile.hpp"
 #include "DebugHelpers.hpp"
-#include "KeyStates.hpp"
 #include "Terrain.hpp"
-#include "Time.hpp"
 
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
+
+#include <sstream>
+#include <string>
+
 
 using namespace star;
 
@@ -49,13 +48,15 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         size_t fNumFramesInFlight = 0;
         star::CastHelpers::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
+        std::string vdbPath = mediaDirectoryPath + "volumes/utahteapot.vdb";
         m_volume = std::make_shared<Volume>(
-            context, fNumFramesInFlight, camera, width, height, offscreenRenderer->getRenderToColorImages(),
+            context, vdbPath, fNumFramesInFlight, camera, width, height, offscreenRenderer->getRenderToColorImages(),
             offscreenRenderer->getRenderToDepthImages(), offscreenRenderer->getCameraInfoBuffers(),
             offscreenRenderer->getLightInfoBuffers(), offscreenRenderer->getLightListBuffers());
 
         auto &s_i = m_volume->createInstance();
         s_i.setScale(glm::vec3{10.0, 10.0, 10.0});
+        s_i.setPosition(glm::vec3{0.0, 0.0, 0.0}); 
         std::vector<std::shared_ptr<StarObject>> objects{m_volume};
 
         std::vector<std::shared_ptr<star::core::renderer::Renderer>> additionals{offscreenRenderer};
@@ -302,10 +303,6 @@ std::shared_ptr<OffscreenRenderer> Application::CreateOffscreenRenderer(star::co
     auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
     terrain->createInstance();
 
-    // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    // auto horse = std::make_shared<star::BasicObject>(horsePath);
-    // auto &i = horse->createInstance();
-    // i.setPosition(glm::vec3{0.0f, 0.0f, 0.0f});
     std::vector<std::shared_ptr<star::StarObject>> objects{
         terrain
     };

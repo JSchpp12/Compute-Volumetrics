@@ -43,43 +43,43 @@ enum Phase_Function
 class Volume : public star::StarObject
 {
   public:
-    class ProcessVolume
-    {
-        std::vector<std::vector<std::vector<float>>> &sampledGridData;
-        openvdb::FloatGrid::ConstAccessor myAccessor;
-        const size_t &myStepSize = 0;
-        const size_t &halfTotalSteps = 0;
+    // class ProcessVolume
+    // {
+    //     std::vector<std::vector<std::vector<float>>> &sampledGridData;
+    //     openvdb::FloatGrid::ConstAccessor myAccessor;
+    //     const size_t &myStepSize = 0;
+    //     const size_t &halfTotalSteps = 0;
 
-      public:
-        void operator()(const openvdb::CoordBBox &it) const
-        {
-            for (auto &coord : it)
-            {
-                openvdb::Vec3R finalCoord =
-                    openvdb::Vec3R(coord.x() * myStepSize, coord.y() * myStepSize, coord.z() * myStepSize);
-                float result = openvdb::tools::BoxSampler::sample(this->myAccessor, finalCoord);
+    //   public:
+    //     void operator()(const openvdb::CoordBBox &it) const
+    //     {
+    //         for (auto &coord : it)
+    //         {
+    //             openvdb::Vec3R finalCoord =
+    //                 openvdb::Vec3R(coord.x() * myStepSize, coord.y() * myStepSize, coord.z() * myStepSize);
+    //             float result = openvdb::tools::BoxSampler::sample(this->myAccessor, finalCoord);
 
-                size_t sampledLocX = coord.x() + halfTotalSteps;
-                size_t sampledLocY = coord.y() + halfTotalSteps;
-                size_t sampledLocZ = coord.z() + halfTotalSteps;
-                sampledGridData[sampledLocX][sampledLocY][sampledLocZ] = result;
-            }
-        }
+    //             size_t sampledLocX = coord.x() + halfTotalSteps;
+    //             size_t sampledLocY = coord.y() + halfTotalSteps;
+    //             size_t sampledLocZ = coord.z() + halfTotalSteps;
+    //             sampledGridData[sampledLocX][sampledLocY][sampledLocZ] = result;
+    //         }
+    //     }
 
-        ProcessVolume(openvdb::FloatGrid *volume, std::vector<std::vector<std::vector<float>>> &gridData,
-                      const size_t &myStepSize, const size_t &halfTotalSteps)
-            : myAccessor(volume->getConstAccessor()), sampledGridData(gridData), myStepSize(myStepSize),
-              halfTotalSteps(halfTotalSteps)
-        {
-        }
-    };
+    //     ProcessVolume(openvdb::FloatGrid *volume, std::vector<std::vector<std::vector<float>>> &gridData,
+    //                   const size_t &myStepSize, const size_t &halfTotalSteps)
+    //         : myAccessor(volume->getConstAccessor()), sampledGridData(gridData), myStepSize(myStepSize),
+    //           halfTotalSteps(halfTotalSteps)
+    //     {
+    //     }
+    // };
 
     bool udpdateVolumeRender = false;
     bool rayMarchToVolumeBoundry = false;
     bool rayMarchToAABB = false;
 
     virtual ~Volume() = default;
-    Volume(star::core::device::DeviceContext &context, const size_t &numFramesInFlight, std::shared_ptr<star::StarCamera> camera,
+    Volume(star::core::device::DeviceContext &context, std::string vdbPath, const size_t &numFramesInFlight, std::shared_ptr<star::StarCamera> camera,
            const uint32_t &screenWidth, const uint32_t &screenHeight,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
@@ -124,7 +124,6 @@ class Volume : public star::StarObject
   protected:
     std::shared_ptr<star::StarCamera> camera = nullptr;
     star::Handle cameraShaderInfo = star::Handle();
-    star::Handle sampledTexture = star::Handle();
     std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr;
     std::array<glm::vec4, 2> aabbBounds;
     std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages = nullptr;
@@ -139,10 +138,10 @@ class Volume : public star::StarObject
 
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
-    void initVolume(star::core::device::DeviceContext &context, std::vector<star::Handle> &globalInfos,
+    void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath, std::vector<star::Handle> &globalInfos,
                     std::vector<star::Handle> &lightInfos, std::vector<star::Handle> &lightList);
 
-    void loadModel(star::core::device::DeviceContext &context);
+    void loadModel(star::core::device::DeviceContext &context, const std::string &filePath);
 
     void loadGeometry(star::core::device::DeviceContext &context);
 

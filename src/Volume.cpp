@@ -3,22 +3,22 @@
 #include "ManagerController_RenderResource_IndicesInfo.hpp"
 #include "ManagerController_RenderResource_VertInfo.hpp"
 #include "ManagerRenderResource.hpp"
-#include "SampledVolumeTexture.hpp"
 
-Volume::Volume(star::core::device::DeviceContext &context, const size_t &numFramesInFlight, std::shared_ptr<star::StarCamera> camera,
-               const uint32_t &screenWidth, const uint32_t &screenHeight,
+Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath,
+               const size_t &numFramesInFlight, std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth,
+               const uint32_t &screenHeight,
                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
-               std::vector<star::Handle> sceneCameraInfos, std::vector<star::Handle> lightInfos, std::vector<star::Handle> lightList)
+               std::vector<star::Handle> sceneCameraInfos, std::vector<star::Handle> lightInfos,
+               std::vector<star::Handle> lightList)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
-    
-    camera(camera), screenDimensions(screenWidth, screenHeight),
+      camera(camera), screenDimensions(screenWidth, screenHeight),
       offscreenRenderToColorImages(offscreenRenderToColorImages),
       offscreenRenderToDepthImages(offscreenRenderToDepthImages),
       m_fogControlInfo(std::make_shared<FogInfo>(FogInfo::LinearFogInfo(0.001f, 100.0f), FogInfo::ExpFogInfo(0.5f),
                                                  FogInfo::MarchedFogInfo(0.002f, 0.3f, 0.3f, 0.2f, 0.1f, 5.0f)))
 {
-    initVolume(context, sceneCameraInfos, lightInfos, lightList);
+    initVolume(context, std::move(vdbFilePath), sceneCameraInfos, lightInfos, lightList);
 }
 
 std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
@@ -68,15 +68,15 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
 //     return newPipeline;
 // }
 
-void Volume::loadModel(star::core::device::DeviceContext &context)
+void Volume::loadModel(star::core::device::DeviceContext &context, const std::string &filePath)
 {
-    const std::string filePath(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) +
-                               "volumes/sphere.vdb");
 
     if (!star::file_helpers::FileExists(filePath))
     {
         throw std::runtime_error("Provided file does not exist" + filePath);
     }
+
+    openvdb::initialize();
 
     openvdb::GridBase::Ptr baseGrid{};
 
@@ -90,7 +90,7 @@ void Volume::loadModel(star::core::device::DeviceContext &context)
         std::cout << "Available Grids in file:" << std::endl;
         std::cout << nameIter.gridName() << std::endl;
 
-        if (nameIter.gridName() == "ls_sphere")
+        if (!baseGrid)
         {
             baseGrid = file.readGrid(nameIter.gridName());
         }
@@ -117,46 +117,6 @@ void Volume::loadModel(star::core::device::DeviceContext &context)
 
     this->aabbBounds[0] = glm::vec4{bmin.x(), bmin.y(), bmin.z(), 1.0};
     this->aabbBounds[1] = glm::vec4{bmax.x(), bmax.y(), bmax.z(), 1.0};
-
-    auto gridAccessor = grid->getConstAccessor();
-    openvdb::math::CoordBBox bounds;
-    gridAccessor.tree().getIndexRange(bounds);
-
-    size_t step_size = 200;
-    {
-        openvdb::math::Coord min = bounds.min();
-        {
-            int x = static_cast<int>(min.x()) / static_cast<int>(step_size);
-            int y = static_cast<int>(min.y()) / static_cast<int>(step_size);
-            int z = static_cast<int>(min.z()) / static_cast<int>(step_size);
-            min = openvdb::math::Coord(x, y, z);
-        }
-
-        openvdb::math::Coord max = bounds.max();
-        {
-            int x = static_cast<int>(max.x()) / static_cast<int>(step_size);
-            int y = static_cast<int>(max.y()) / static_cast<int>(step_size);
-            int z = static_cast<int>(max.z()) / static_cast<int>(step_size);
-            max = openvdb::math::Coord(x, y, z);
-        }
-
-        bounds = openvdb::math::CoordBBox(min, max);
-    }
-
-    auto sampledBoundrySize = bounds.extents().asVec3i();
-    std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledGridData =
-        std::unique_ptr<std::vector<std::vector<std::vector<float>>>>(new std::vector(
-            sampledBoundrySize.x(),
-            std::vector<std::vector<float>>(sampledBoundrySize.y(), std::vector<float>(sampledBoundrySize.z(), 0.0f))));
-
-    std::cout << "Sampling grid with step size of: " << step_size << std::endl;
-    size_t halfTotalSteps = sampledGridData->size() / 2;
-    ProcessVolume processor = ProcessVolume(this->grid.get(), *sampledGridData, step_size, halfTotalSteps);
-    oneapi::tbb::parallel_for(bounds, processor);
-
-    this->sampledTexture = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), std::make_unique<SampledVolumeController>(std::move(sampledGridData)));
-    std::cout << "Done" << std::endl;
 }
 
 void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
@@ -232,34 +192,41 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
                                          .setLayerCount(1))}));
 }
 
-void Volume::frameUpdate(star::core::device::DeviceContext &context){
-    this->volumeRenderer->frameUpdate(context); 
+void Volume::frameUpdate(star::core::device::DeviceContext &context)
+{
+    this->volumeRenderer->frameUpdate(context);
 
-    star::StarObject::frameUpdate(context); 
+    star::StarObject::frameUpdate(context);
 }
 
-void Volume::prepRender(star::core::device::DeviceContext& context, const vk::Extent2D &swapChainExtent,
-			const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder, 
-			vk::PipelineLayout pipelineLayout, star::core::renderer::RenderingTargetInfo renderingInfo)
+void Volume::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
+                        const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder,
+                        vk::PipelineLayout pipelineLayout, star::core::renderer::RenderingTargetInfo renderingInfo)
 {
-    volumeRenderer->prepRender(context, swapChainExtent, numSwapChainImages); 
+    volumeRenderer->prepRender(context, swapChainExtent, numSwapChainImages);
 
-    for (size_t i = 0; i < this->volumeRenderer->getRenderToImages().size(); i++){
-        static_cast<ScreenMaterial *>(m_meshMaterials[0].get())->addComputeWriteToImage(this->volumeRenderer->getRenderToImages()[i]); 
+    for (size_t i = 0; i < this->volumeRenderer->getRenderToImages().size(); i++)
+    {
+        static_cast<ScreenMaterial *>(m_meshMaterials[0].get())
+            ->addComputeWriteToImage(this->volumeRenderer->getRenderToImages()[i]);
     }
 
     RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
 
-    this->star::StarObject::prepRender(context, swapChainExtent, numSwapChainImages, fullEngineBuilder, pipelineLayout, renderingInfo);
+    this->star::StarObject::prepRender(context, swapChainExtent, numSwapChainImages, fullEngineBuilder, pipelineLayout,
+                                       renderingInfo);
 }
 
-void Volume::prepRender(star::core::device::DeviceContext& context, const vk::Extent2D &swapChainExtent, const uint8_t &numSwapChainImages, 
-			star::StarShaderInfo::Builder fullEngineBuilder, star::Handle sharedPipeline)
+void Volume::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
+                        const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder,
+                        star::Handle sharedPipeline)
 {
-    volumeRenderer->prepRender(context, swapChainExtent, numSwapChainImages); 
+    volumeRenderer->prepRender(context, swapChainExtent, numSwapChainImages);
 
-    for (size_t i = 0; i < this->volumeRenderer->getRenderToImages().size(); i++){
-        static_cast<ScreenMaterial *>(m_meshMaterials[0].get())->addComputeWriteToImage(this->volumeRenderer->getRenderToImages()[i]); 
+    for (size_t i = 0; i < this->volumeRenderer->getRenderToImages().size(); i++)
+    {
+        static_cast<ScreenMaterial *>(m_meshMaterials[0].get())
+            ->addComputeWriteToImage(this->volumeRenderer->getRenderToImages()[i]);
     }
 
     RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
@@ -267,21 +234,23 @@ void Volume::prepRender(star::core::device::DeviceContext& context, const vk::Ex
     this->star::StarObject::prepRender(context, swapChainExtent, numSwapChainImages, fullEngineBuilder, sharedPipeline);
 }
 
-void Volume::cleanupRender(star::core::device::DeviceContext &context){
-    volumeRenderer->cleanupRender(context); 
-    
-    star::StarObject::cleanupRender(context); 
-}
-
-bool Volume::isRenderReady(star::core::device::DeviceContext &context){
-    return star::StarObject::isRenderReady(context) && this->volumeRenderer->isRenderReady(context); 
-}
-
-void Volume::initVolume(star::core::device::DeviceContext &context, std::vector<star::Handle> &globalInfos,
-                        std::vector<star::Handle> &lightInfos, std::vector<star::Handle> &lightList)
+void Volume::cleanupRender(star::core::device::DeviceContext &context)
 {
-    openvdb::initialize();
-    loadModel(context);
+    volumeRenderer->cleanupRender(context);
+
+    star::StarObject::cleanupRender(context);
+}
+
+bool Volume::isRenderReady(star::core::device::DeviceContext &context)
+{
+    return star::StarObject::isRenderReady(context) && this->volumeRenderer->isRenderReady(context);
+}
+
+void Volume::initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
+                        std::vector<star::Handle> &globalInfos, std::vector<star::Handle> &lightInfos,
+                        std::vector<star::Handle> &lightList)
+{
+    loadModel(context, vdbFilePath);
 
     std::vector<std::vector<star::Color>> colors;
     colors.resize(this->screenDimensions.y);
@@ -296,8 +265,8 @@ void Volume::initVolume(star::core::device::DeviceContext &context, std::vector<
     }
 
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
-        m_fogControlInfo, this->camera, this->instanceModelInfos, offscreenRenderToColorImages,
-        offscreenRenderToDepthImages, globalInfos, lightInfos, lightList, this->sampledTexture, this->aabbBounds);
+        vdbFilePath, m_fogControlInfo, this->camera, this->instanceModelInfos, offscreenRenderToColorImages,
+        offscreenRenderToDepthImages, globalInfos, lightInfos, lightList, this->aabbBounds);
 }
 
 void Volume::updateGridTransforms()
@@ -327,10 +296,11 @@ float Volume::henyeyGreensteinPhase(const glm::vec3 &viewDirection, const glm::v
     return 1.0f / (4.0f * glm::pi<float>()) * (1.0f - gValue * gValue) / denom;
 }
 
-std::vector<std::unique_ptr<star::StarMesh>> Volume::loadMeshes(star::core::device::DeviceContext &context){
-    std::vector<std::unique_ptr<star::StarMesh>> meshes; 
+std::vector<std::unique_ptr<star::StarMesh>> Volume::loadMeshes(star::core::device::DeviceContext &context)
+{
+    std::vector<std::unique_ptr<star::StarMesh>> meshes;
 
-        std::unique_ptr<std::vector<star::Vertex>> verts =
+    std::unique_ptr<std::vector<star::Vertex>> verts =
         std::unique_ptr<std::vector<star::Vertex>>(new std::vector<star::Vertex>{
             star::Vertex{glm::vec3{-1.0f, -1.0f, 0.0f}, // position
                          glm::vec3{0.0f, 1.0f, 0.0f},   // normal - posy
@@ -363,7 +333,7 @@ std::vector<std::unique_ptr<star::StarMesh>> Volume::loadMeshes(star::core::devi
     newMeshes.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(
         vertBuffer, indBuffer, *verts, *inds, m_meshMaterials.at(0), this->aabbBounds[0], this->aabbBounds[1], false)));
 
-    return newMeshes; 
+    return newMeshes;
 }
 
 openvdb::Mat4R Volume::getTransform(const glm::mat4 &objectDisplayMat)

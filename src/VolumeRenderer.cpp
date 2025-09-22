@@ -4,19 +4,22 @@
 #include "ConfigFile.hpp"
 #include "FogControlInfo.hpp"
 #include "ManagerRenderResource.hpp"
+#include "VDBInfo.hpp"
 
-VolumeRenderer::VolumeRenderer(std::shared_ptr<FogInfo> fogControlInfo, const std::shared_ptr<star::StarCamera> camera,
+VolumeRenderer::VolumeRenderer(std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
+                               const std::shared_ptr<star::StarCamera> camera,
                                const std::vector<star::Handle> &instanceModelInfo,
                                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
                                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
                                const std::vector<star::Handle> &globalInfoBuffers,
                                const std::vector<star::Handle> &sceneLightInfoBuffers,
-                               const std::vector<star::Handle> &sceneLightList, const star::Handle &volumeTexture,
+                               const std::vector<star::Handle> &sceneLightList,
                                const std::array<glm::vec4, 2> &aabbBounds)
-    : m_fogControlInfo(fogControlInfo), offscreenRenderToColors(offscreenRenderToColors),
-      offscreenRenderToDepths(offscreenRenderToDepths), globalInfoBuffers(globalInfoBuffers),
-      sceneLightInfoBuffers(sceneLightInfoBuffers), sceneLightList(sceneLightList), aabbBounds(aabbBounds),
-      camera(camera), instanceModelInfo(instanceModelInfo), volumeTexture(volumeTexture)
+    : m_vdbFilePath(std::move(vdbFilePath)), m_fogControlInfo(fogControlInfo),
+      offscreenRenderToColors(offscreenRenderToColors), offscreenRenderToDepths(offscreenRenderToDepths),
+      globalInfoBuffers(globalInfoBuffers), sceneLightInfoBuffers(sceneLightInfoBuffers),
+      sceneLightList(sceneLightList), aabbBounds(aabbBounds), camera(camera), instanceModelInfo(instanceModelInfo),
+      volumeTexture(volumeTexture)
 {
 }
 
@@ -39,8 +42,6 @@ bool VolumeRenderer::isRenderReady(star::core::device::DeviceContext &context)
 
 void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context)
 {
-    star::StarPipeline *currentPipeline = nullptr;
-
     switch (this->currentFogType)
     {
     case (FogType::marched):
@@ -217,6 +218,8 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &device, const
     this->cameraShaderInfo =
         star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<CameraInfoController>(camera), true);
 
+    this->vdbInfo = star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<VDBInfoController>(m_vdbFilePath), true); 
+
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
     {
@@ -335,7 +338,7 @@ std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescrip
     return std::vector<std::pair<vk::DescriptorType, const int>>{
         std::make_pair(vk::DescriptorType::eStorageImage, (3 * numFramesInFlight)),
         std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + (4 * numFramesInFlight)),
-        std::make_pair(vk::DescriptorType::eStorageBuffer, 1),
+        std::make_pair(vk::DescriptorType::eStorageBuffer, 2),
         std::make_pair(vk::DescriptorType::eCombinedImageSampler, 1)};
 }
 
@@ -373,7 +376,7 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
             .add(this->sceneLightList.at(i), false)
             .startSet()
             .add(this->cameraShaderInfo, false)
-            .add(this->volumeTexture, vk::ImageLayout::eGeneral, true)
+            .add(this->vdbInfo, false)
             .startSet()
             .add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
             .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal, false)
@@ -402,10 +405,12 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
     std::string compShaderPath =
         star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/volume.comp";
 
-    this->marchedPipeline = device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{
-        star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
-                           std::vector<star::Handle>{device.getShaderManager().submit(
-                               star::StarShader(compShaderPath, star::Shader_Stage::compute))})});
+    this->marchedPipeline =
+        device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{star::StarPipeline(
+            star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
+            std::vector<star::Handle>{device.getShaderManager().submit(star::core::device::manager::ShaderRequest{
+                star::StarShader(compShaderPath, star::Shader_Stage::compute),
+                std::make_unique<star::Compiler>("PNANOVDB_GLSL")})})});
 
     std::string linearFogPath =
         star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/linearFog.comp";

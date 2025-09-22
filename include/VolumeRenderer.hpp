@@ -6,7 +6,6 @@
 #include "DescriptorModifier.hpp"
 #include "FogInfo.hpp"
 #include "RenderResourceModifier.hpp"
-#include "SampledVolumeTexture.hpp"
 #include "StarBuffers/Buffer.hpp"
 #include "StarCamera.hpp"
 #include "StarComputePipeline.hpp"
@@ -29,13 +28,12 @@ class VolumeRenderer : private star::DescriptorModifier
         marched
     };
 
-    VolumeRenderer(std::shared_ptr<FogInfo> fogControlInfo, const std::shared_ptr<star::StarCamera> camera,
-                   const std::vector<star::Handle> &instanceModelInfo,
+    VolumeRenderer(std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
+                   const std::shared_ptr<star::StarCamera> camera, const std::vector<star::Handle> &instanceModelInfo,
                    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
                    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
                    const std::vector<star::Handle> &globalInfoBuffers, const std::vector<star::Handle> &globalLightList,
-                   const std::vector<star::Handle> &sceneLightInfoBuffers, const star::Handle &volumeTexture,
-                   const std::array<glm::vec4, 2> &aabbBounds);
+                   const std::vector<star::Handle> &sceneLightInfoBuffers, const std::array<glm::vec4, 2> &aabbBounds);
 
     bool isRenderReady(star::core::device::DeviceContext &context);
 
@@ -62,6 +60,7 @@ class VolumeRenderer : private star::DescriptorModifier
     }
 
   private:
+    std::string m_vdbFilePath;
     std::unique_ptr<star::core::renderer::RenderingContext> m_renderingContext = nullptr;
     bool isReady = false;
     std::shared_ptr<FogInfo> m_fogControlInfo;
@@ -72,7 +71,7 @@ class VolumeRenderer : private star::DescriptorModifier
     const std::shared_ptr<star::StarCamera> camera = nullptr;
     star::core::device::DeviceID m_deviceID;
     glm::uvec2 workgroupSize = glm::uvec2();
-    star::Handle cameraShaderInfo, commandBuffer;
+    star::Handle cameraShaderInfo, commandBuffer, vdbInfo;
     std::vector<star::Handle> fogControlShaderInfo;
     std::vector<star::Handle> sceneLightInfoBuffers, sceneLightList;
     std::unique_ptr<star::StarShaderInfo> compShaderInfo = std::unique_ptr<star::StarShaderInfo>();

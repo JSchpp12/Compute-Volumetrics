@@ -26,6 +26,7 @@ add_subdirectory("extern/starlight")
 
 set(${PROJECT_NAME}_SOURCES
 	"src/main.cpp"
+	"src/VDBInfo.cpp"
  	"src/Application.cpp"
 	"src/Volume.cpp"
 	"src/Terrain.cpp"
@@ -49,6 +50,7 @@ set(${PROJECT_NAME}_SOURCES
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/Application.hpp"
+	"include/VDBInfo.hpp"
 	"include/Volume.hpp"
 	"include/Terrain.hpp"
 	"include/VolumeRenderer.hpp"
@@ -190,5 +192,7 @@ add_custom_target(format_cpp_files
 )
 
 if (NOT ${HEADLESS})
-    target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_PRESENTATION)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_PRESENTATION "NANOVDB_USE_OPENVDB")
+else()
+	target_compile_definitions(${PROJECT_NAME} PRIVATE "NANOVDB_USE_OPENVDB")
 endif()
