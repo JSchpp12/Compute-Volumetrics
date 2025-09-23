@@ -86,8 +86,6 @@ layout(set = 3, binding = 2) uniform FogControllerInfo
 }
 fogInfo;
 
-#include "PNanoVDB.h"
-
 struct Ray
 {
     vec4 origin;
@@ -96,16 +94,8 @@ struct Ray
     bool signed[3];
 };
 
-// Define the GLSL grid handle type
-// This macro is defined inside PNanoVDB.h
-pnanovdb_buf_t nanoVDBBuffer; 
-
-pnanovdb_grid_handle_t makeNanoGrid(uint baseByteOffset) {
-    pnanovdb_grid_handle_t h; 
-    h.address.byte_offset = baseByteOffset; 
-    return h;
-}
-
+#include "PNanoVDB.h"
+#include "volume_helpers.comp"
 
 Ray createRay(const vec4 origin, const vec4 direction)
 {
@@ -217,66 +207,6 @@ float applyHenyeyGreensteinPhase(const vec3 viewDirection, const vec3 lightDirec
     return float(1) / (4 * radians(180)) * (1 - gValue * gValue) / denom; 
 }
 
-vec4 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewDirection, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
-                  const float sigmaAbsorption, const float sigmaScattering, const float lightPropertyDir_g,
-                  const float cutOffDistance)
-{
-
-    pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
-    pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
-
-    vec4 resultingColor = vec4(backgroundColor, 1.0); 
-	float transparency = 1;
-
-    const int fittedNumSteps = int(floor((t1 - t0) / fogInfo.marchedFog_stepSizeDist));
-    const float fittedStepSize = (t1 - t0) / fittedNumSteps; 
-
-    for (int i = 0; i < fittedNumSteps; i++){
-        // setting to middle
-        float t = t0 + fittedStepSize * (i + 0.5f);
-
-        //check if march is beyond where the cutoff point should be
-        if (t > cutOffDistance){
-            break;
-        }
-
-		vec4 position = vec4(ray.origin.xyz + (t / ray.invDirection.xyz), 1); 
-        float density = 0.01;
-		float beerExpTrans = exp(-fittedStepSize * density * (sigmaAbsorption + sigmaScattering)); 
-
-		transparency *= beerExpTrans;
-
-		for (int j = 0; j < lightInfo.numLights; j++){
-			Ray rayToLight = createRay(position, vec4(normalize(lightList.lights[j].position.xyz - position.xyz), 0));
-
-            float lt0 = 0;
-            float lt1 = 0;  
-            if (rayBoxIntersect(grid, rayToLight, lt0, lt1)){ 
-                const float fittedStepSizeToLight = (lt1 - lt0) / fogInfo.marchedFog_stepSizeDist_light;
-                const int fittedNumStepsLight = int(floor((lt1 - lt0) / fittedStepSizeToLight));
-
-                float sumLightSampleDensities = 0; 
-                for (int k = 0; k < fittedNumStepsLight; k++){
-                    //cant remember why there is a 0.5 here.......
-                    float tLight = fittedStepSizeToLight * (k + 0.5); 
-
-                    const vec4 lightTracePosition = vec4(rayToLight.origin.xyz + (tLight / rayToLight.invDirection.xyz), 1); 
-
-
-                    sumLightSampleDensities += density;
-                }
-
-                const float lightAtten = exp(-sumLightSampleDensities * -lt1 * (sigmaAbsorption + sigmaScattering)); 
-                const float phaseResult = lightAtten * applyHenyeyGreensteinPhase(position.xyz, rayToLight.direction.xyz, lightPropertyDir_g) * density * fittedStepSizeToLight;
-
-                resultingColor = resultingColor + (lightList.lights[j].ambient * phaseResult); 
-            }
-		}
-    }
-
-    return resultingColor * transparency; 
-}
-
 void main()
 {
     if (!checkForThreadOutsideOfTarget())
@@ -302,19 +232,8 @@ void main()
     float t1 = 0;
 
     if (rayBoxIntersect(grid, camRay, t0, t1) && t0 < worldDepthDistance){
-        //need to get world distance from depth buffer value 
-        //ray marching algorithm happens in world space...
-        // const float worldCutoffPoint = camRay.origin + camRay.direction 
-        
-        resultingColor = forwardMarch(grid,
-            viewDirectionWorld.xyz, 
-            imgColor, camRay, t0, t1,
-                                     fogInfo.marchedFog_sigmaAbsorption, fogInfo.marchedFog_sigmaScattering,
-                                     fogInfo.marchedFog_lightPropertyDirG, 
-                                     worldDepthDistance);
+        resultingColor = vec4(1.0, 0.0, 0.0, 1.0); 
     }
-
-
 
     imageStore(outputImage, targetPixel, resultingColor);
 }

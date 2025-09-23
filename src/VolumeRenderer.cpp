@@ -32,7 +32,9 @@ bool VolumeRenderer::isRenderReady(star::core::device::DeviceContext &context)
 
     if (context.getPipelineManager().get(marchedPipeline)->isReady() &&
         context.getPipelineManager().get(linearPipeline)->isReady() &&
-        context.getPipelineManager().get(expPipeline)->isReady())
+        context.getPipelineManager().get(expPipeline)->isReady() &&
+        context.getPipelineManager().get(nanoVDBPipeline_hitBoundingBox)->isReady() &&
+        context.getPipelineManager().get(nanoVDBPipeline_surface)->isReady())
     {
         isReady = true;
     }
@@ -55,6 +57,14 @@ void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context)
     case (FogType::exp):
         m_renderingContext = std::make_unique<star::core::renderer::RenderingContext>(
             context.getPipelineManager().get(this->expPipeline)->request.pipeline);
+        break;
+    case (FogType::nano_boundingBox):
+        m_renderingContext = std::make_unique<star::core::renderer::RenderingContext>(
+            context.getPipelineManager().get(this->nanoVDBPipeline_hitBoundingBox)->request.pipeline);
+        break;
+    case (FogType::nano_surface):
+        m_renderingContext = std::make_unique<star::core::renderer::RenderingContext>(
+            context.getPipelineManager().get(this->nanoVDBPipeline_surface)->request.pipeline);
         break;
     default:
         throw std::runtime_error("Unsupported type");
@@ -218,7 +228,8 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &device, const
     this->cameraShaderInfo =
         star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<CameraInfoController>(camera), true);
 
-    this->vdbInfo = star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<VDBInfoController>(m_vdbFilePath), true); 
+    this->vdbInfo =
+        star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<VDBInfoController>(m_vdbFilePath), true);
 
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
@@ -353,7 +364,7 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
                               .build(device.getDevice()))
             .addSetLayout(star::StarDescriptorSetLayout::Builder()
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
                               .build(device.getDevice()))
             .addSetLayout(
                 star::StarDescriptorSetLayout::Builder()
@@ -402,15 +413,42 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
             device.getDevice().getVulkanDevice().createPipelineLayout(pipelineLayoutInfo));
     }
 
-    std::string compShaderPath =
-        star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/volume.comp";
+    {
+        std::string compShaderPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) +
+                                     "shaders/volumeRenderer/nanoVDBHitBoundingBox.comp";
 
-    this->marchedPipeline =
-        device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{star::StarPipeline(
-            star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
-            std::vector<star::Handle>{device.getShaderManager().submit(star::core::device::manager::ShaderRequest{
-                star::StarShader(compShaderPath, star::Shader_Stage::compute),
-                std::make_unique<star::Compiler>("PNANOVDB_GLSL")})})});
+        this->nanoVDBPipeline_hitBoundingBox =
+            device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{star::StarPipeline(
+                star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
+                std::vector<star::Handle>{device.getShaderManager().submit(star::core::device::manager::ShaderRequest{
+                    star::StarShader(compShaderPath, star::Shader_Stage::compute),
+                    std::make_unique<star::Compiler>("PNANOVDB_GLSL")})})});
+    }
+
+    {
+
+        std::string compShaderPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) +
+                                     "shaders/volumeRenderer/nanoVDBSurface.comp";
+
+        this->nanoVDBPipeline_surface =
+            device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{star::StarPipeline(
+                star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
+                std::vector<star::Handle>{device.getShaderManager().submit(star::core::device::manager::ShaderRequest{
+                    star::StarShader(compShaderPath, star::Shader_Stage::compute),
+                    std::make_unique<star::Compiler>("PNANOVDB_GLSL")})})});
+    }
+
+    {
+        std::string compShaderPath =
+            star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/volume.comp";
+
+        this->marchedPipeline =
+            device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{star::StarPipeline(
+                star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
+                std::vector<star::Handle>{device.getShaderManager().submit(star::core::device::manager::ShaderRequest{
+                    star::StarShader(compShaderPath, star::Shader_Stage::compute),
+                    std::make_unique<star::Compiler>("PNANOVDB_GLSL")})})});
+    }
 
     std::string linearFogPath =
         star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/linearFog.comp";

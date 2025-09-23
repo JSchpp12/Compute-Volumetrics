@@ -10,18 +10,22 @@ class FogInfo
         float linearFog_nearDist = 0.0f, linearFog_farDist = 0.0f, expFog_density = 0.0f,
               marchedFog_defaultDensity = 0.0f, marchedFog_sigmaAbsorption = 0.0f, marchedFog_sigmaScattering = 0.0f,
               marchedFog_lightPropertyDirG = 0.0f, marchedFog_stepSizeDist = 1.0f, marchedFog_stepSizeDist_light = 3.0f;
+        uint32_t marchedFog_levelSet_maxNumSteps = 10, vdb_gridType = 0;
 
         FinalizedInfo(const float &linearFog_nearDist, const float &linearFog_farDist, const float &expFog_density,
                       const float &marchedFog_defaultDensity, const float &marchedFog_sigmaAbsorption,
                       const float &marchedFog_sigmaScattering, const float &marchedFog_lightPropertyDirG,
-                      const float &marchedFog_stepSizeDist, const float &marchedFog_stepSizeDist_light)
+                      const float &marchedFog_stepSizeDist, const float &marchedFog_stepSizeDist_light,
+                      uint32_t marchedFog_levelSet_maxNumSteps, uint32_t vdb_gridType)
             : linearFog_nearDist(linearFog_nearDist), linearFog_farDist(linearFog_farDist),
               expFog_density(expFog_density), marchedFog_defaultDensity(marchedFog_defaultDensity),
               marchedFog_sigmaAbsorption(marchedFog_sigmaAbsorption),
               marchedFog_sigmaScattering(marchedFog_sigmaScattering),
               marchedFog_lightPropertyDirG(marchedFog_lightPropertyDirG),
               marchedFog_stepSizeDist(marchedFog_stepSizeDist),
-              marchedFog_stepSizeDist_light(marchedFog_stepSizeDist_light)
+              marchedFog_stepSizeDist_light(marchedFog_stepSizeDist_light),
+              marchedFog_levelSet_maxNumSteps(std::move(marchedFog_levelSet_maxNumSteps)),
+              vdb_gridType(std::move(vdb_gridType))
         {
         }
     };
@@ -189,6 +193,8 @@ class FogInfo
                              this->marchedInfo.sigmaScattering,
                              this->marchedInfo.lightPropertyDirG,
                              this->marchedInfo.stepSizeDist,
-                             this->marchedInfo.stepSizeDist_light};
+                             this->marchedInfo.stepSizeDist_light,
+                             uint32_t(10),
+                             uint32_t(0)};
     }
 };

@@ -25,7 +25,9 @@ class VolumeRenderer : private star::DescriptorModifier
     {
         linear,
         exp,
-        marched
+        marched,
+        nano_boundingBox,
+        nano_surface
     };
 
     VolumeRenderer(std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
@@ -85,7 +87,7 @@ class VolumeRenderer : private star::DescriptorModifier
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
         std::vector<std::shared_ptr<star::StarTextures::Texture>>();
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
-    star::Handle marchedPipeline, linearPipeline, expPipeline;
+    star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline;
     std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
 

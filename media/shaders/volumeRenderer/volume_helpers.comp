@@ -1,0 +1,27 @@
+pnanovdb_buf_t nanoVDBBuffer; 
+
+pnanovdb_grid_handle_t makeNanoGrid(uint baseByteOffset) {
+    pnanovdb_grid_handle_t h; 
+    h.address.byte_offset = baseByteOffset; 
+    return h;
+}
+
+float gridReadAt(in pnanovdb_grid_handle_t grid, in vec3 worldPosition){
+    pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
+    pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
+
+    pnanovdb_readaccessor_t acc;
+    pnanovdb_readaccessor_init(acc, root);
+
+    pnanovdb_vec3_t indexCoord = pnanovdb_grid_world_to_indexf(nanoVDBBuffer, grid, worldPosition); 
+    pnanovdb_coord_t ijk; 
+    ijk.x = int(floor(indexCoord.x)); 
+    ijk.y = int(floor(indexCoord.y));
+    ijk.z = int(floor(indexCoord.z)); 
+
+    pnanovdb_grid_type_t type = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid); 
+
+    pnanovdb_address_t address = pnanovdb_readaccessor_get_value_address(type,
+                             nanoVDBBuffer, acc, ijk);
+    return pnanovdb_read_float(nanoVDBBuffer, address); 
+}

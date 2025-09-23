@@ -33,7 +33,7 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         star::CastHelpers::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
     }
 
-    m_mainLight = std::make_shared<star::Light>(glm::vec3{0.885, 50, 50}, star::Type::Light::directional,
+    m_mainLight = std::make_shared<star::Light>(glm::vec3{0, 0, 0}, star::Type::Light::directional,
                                                 glm::vec3{-1.0, 0.0, 0.0});
 
     auto offscreenRenderer = CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight);
@@ -69,11 +69,11 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
                                                         presentationRenderer, additionals);
     }
 
-    // m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001;
-    // m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.1;
-    // m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 1;
-    // m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.7;
-    // m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0;
+    m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.5;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 1;
+    m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.7;
+    m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0;
 
     // std::cout << "Application Controls" << std::endl;
     // std::cout << "B - Modify fog properties" << std::endl;
@@ -173,7 +173,7 @@ void Application::onKeyRelease(int key, int scancode, int mods)
         switch (selectedMode)
         {
         case (1):
-            m_volume->getFogControlInfo().linearInfo.nearDist = PromptForFloat("Select vidibility");
+            m_volume->getFogControlInfo().linearInfo.nearDist = PromptForFloat("Select visibility");
             break;
         case (2):
             m_volume->getFogControlInfo().linearInfo.farDist = PromptForFloat("Select distance");
@@ -220,6 +220,16 @@ void Application::onKeyRelease(int key, int scancode, int mods)
     {
         std::cout << "Setting fog type to: Exponential" << std::endl;
         m_volume->setFogType(VolumeRenderer::FogType::exp);
+    }
+
+    if (key == star::KEY::H){
+        std::cout << "Setting fog type to: Nano Bounding Box" << std::endl;
+        m_volume->setFogType(VolumeRenderer::FogType::nano_boundingBox);
+    }
+
+    if (key == star::KEY::G){
+        std::cout << "Setting fog type to: NANO Surface" << std::endl;
+        m_volume->setFogType(VolumeRenderer::FogType::nano_surface); 
     }
 }
 
@@ -299,12 +309,18 @@ std::shared_ptr<OffscreenRenderer> Application::CreateOffscreenRenderer(star::co
                                                                         std::shared_ptr<star::Light> mainLight)
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-    auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-    auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
-    terrain->createInstance();
+    // auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+    // auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
+    // terrain->createInstance();
+
+    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    auto horse = std::make_shared<star::BasicObject>(horsePath); 
+    auto h_i = horse->createInstance();
+    h_i.setPosition(glm::vec3{0.0, 0.0, 0.0}); 
 
     std::vector<std::shared_ptr<star::StarObject>> objects{
-        terrain
+        // terrain
+        horse
     };
     std::vector<std::shared_ptr<star::Light>> lights{mainLight};
 
