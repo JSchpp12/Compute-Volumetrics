@@ -84,6 +84,8 @@ std::unique_ptr<nanovdb::GridHandle<nanovdb::HostBuffer>> VDBRequest::loadNanoVo
         throw std::runtime_error(oss.str());
     }
 
+    std::cout << "Beginning OpenVDB to NanoVDB conversion" << std::endl;
+
     openvdb::initialize();
 
     openvdb::io::File file(m_vdbPath);
@@ -111,6 +113,7 @@ std::unique_ptr<nanovdb::GridHandle<nanovdb::HostBuffer>> VDBRequest::loadNanoVo
     // Convert the OpenVDB grid, srcGrid, into a NanoVDB grid handle.
     auto handle = nanovdb::tools::createNanoGrid(*grid);
 
+    std::cout << "NanoVDB Ready" << std::endl; 
     return std::make_unique<nanovdb::GridHandle<nanovdb::HostBuffer>>(nanovdb::tools::createNanoGrid(*grid));
 }
 

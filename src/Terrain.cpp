@@ -21,7 +21,7 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
 
 std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::device::DeviceContext &context){
     TerrainInfoFile fileInfo = TerrainInfoFile(m_terrainDefFile);
-    const std::string terrainPath = star::file_helpers::GetParentDirectory(m_terrainDefFile);
+    const std::string terrainPath = star::file_helpers::GetParentDirectory(m_terrainDefFile).string();
 
     TerrainGrid grid = TerrainGrid();
 
