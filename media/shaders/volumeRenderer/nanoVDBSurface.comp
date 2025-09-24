@@ -214,7 +214,6 @@ vec3 shadeSurface(const vec3 position, const vec3 normal){
         color += (0.25 * lightList.lights[i].ambient.rgb); 
     }
 
-    color = pow(color, vec3(1.0 / 2.2)); // sRGB gamma correction
     return color; 
 }
 
@@ -229,7 +228,8 @@ vec3 estimateNormal(in pnanovdb_grid_handle_t grid, vec3 position, const float v
 }
 
 vec3 refineSurfacePosition(in pnanovdb_grid_handle_t grid, const Ray ray, vec3 position, float t, float threshold, const float voxSize){
-    
+    const float approachStepSize = 0.25 * voxSize; 
+
     for (int i = 0; i < 10; i++){
         float sdf = gridReadAt(grid, position);
 
@@ -237,7 +237,7 @@ vec3 refineSurfacePosition(in pnanovdb_grid_handle_t grid, const Ray ray, vec3 p
             break;
         }
 
-        position -= (sdf * 0.25 * voxSize) * ray.direction.xyz; 
+        position -= (sdf * approachStepSize) * ray.direction.xyz; 
     }
 
     return position; 
@@ -251,8 +251,8 @@ vec3 forwardMarchLevelSet(in pnanovdb_grid_handle_t grid, const vec3 viewDirecti
                             const float cutOffDistance, const uint maxNumSteps)
 {
     const float voxSize = float(pnanovdb_grid_get_voxel_size(nanoVDBBuffer, grid, 0));
-    const float threshold = voxSize * 0.5;
-    const float stepSizeMultiplier = 0.5; 
+    const float threshold = voxSize * 2.0;
+    const float stepSizeMultiplier = 1.0; 
 
     vec3 resultingColor = backgroundColor;
     vec3 previousPosition; 
@@ -270,7 +270,7 @@ vec3 forwardMarchLevelSet(in pnanovdb_grid_handle_t grid, const vec3 viewDirecti
         }
 
         //check for change in sign of sdf function, stepped too far 
-        if (previousSDF * sdf < 0){
+        if (previousSDF * sdf < 0 || abs(sdf) < threshold){
             vec3 refinedPosition = refineSurfacePosition(grid, ray, position, t, threshold, voxSize);
             vec3 normal = estimateNormal(grid, refinedPosition, voxSize); 
             resultingColor = shadeSurface(refinedPosition, normal); 
@@ -279,7 +279,9 @@ vec3 forwardMarchLevelSet(in pnanovdb_grid_handle_t grid, const vec3 viewDirecti
 
         previousPosition = position;
         previousSDF = sdf;
-        t += (sdf * stepSizeMultiplier);
+
+        float stepSize = clamp(sdf * stepSizeMultiplier, voxSize * 0.5, voxSize * 10.0);
+        t += stepSize;
     }
 
     return clamp(resultingColor, 0.0, 1.0); 
