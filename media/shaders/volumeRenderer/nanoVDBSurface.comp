@@ -265,7 +265,7 @@ vec3 forwardMarchLevelSet(in pnanovdb_grid_handle_t grid, const vec3 viewDirecti
         float sdf = gridReadAt(grid, position); 
 
         //check for if beyond range of bounding box
-        if (t > t1){
+        if (t > t1 || t > cutOffDistance){
             break;
         }
 
@@ -318,7 +318,7 @@ void main()
         
         resultingColor = forwardMarchLevelSet(grid,
             viewDirectionWorld.xyz, 
-            imgColor, camRay, t0, t1, worldDepthDistance, 
+            imgColor.xyz, camRay, t0, t1, worldDepthDistance, 
             fogInfo.marchedFog_levelSet_maxNumSteps);
     }
 

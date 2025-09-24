@@ -56,7 +56,7 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
 
         auto &s_i = m_volume->createInstance();
         s_i.setScale(glm::vec3{10.0, 10.0, 10.0});
-        s_i.setPosition(glm::vec3{0.0, 0.0, 0.0}); 
+        s_i.setPosition(glm::vec3{0.0, 10.0, 0.0}); 
         std::vector<std::shared_ptr<StarObject>> objects{m_volume};
 
         std::vector<std::shared_ptr<star::core::renderer::Renderer>> additionals{offscreenRenderer};
@@ -309,18 +309,18 @@ std::shared_ptr<OffscreenRenderer> Application::CreateOffscreenRenderer(star::co
                                                                         std::shared_ptr<star::Light> mainLight)
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-    // auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-    // auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
-    // terrain->createInstance();
+    auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+    auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
+    terrain->createInstance();
 
-    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    auto horse = std::make_shared<star::BasicObject>(horsePath); 
-    auto h_i = horse->createInstance();
-    h_i.setPosition(glm::vec3{0.0, 0.0, 0.0}); 
+    // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    // auto horse = std::make_shared<star::BasicObject>(horsePath); 
+    // auto h_i = horse->createInstance();
+    // h_i.setPosition(glm::vec3{0.0, 0.0, 0.0}); 
 
     std::vector<std::shared_ptr<star::StarObject>> objects{
-        // terrain
-        horse
+        terrain
+        // horse
     };
     std::vector<std::shared_ptr<star::Light>> lights{mainLight};
 

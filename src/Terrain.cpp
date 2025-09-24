@@ -21,7 +21,7 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
 
 std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::device::DeviceContext &context){
     TerrainInfoFile fileInfo = TerrainInfoFile(m_terrainDefFile);
-    const std::string terrainPath = star::file_helpers::GetParentDirectory(m_terrainDefFile).string();
+    const auto terrainPath = star::file_helpers::GetParentDirectory(m_terrainDefFile);
 
     TerrainGrid grid = TerrainGrid();
 
@@ -33,20 +33,22 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
     bool setWorldCenter = false;
     glm::dvec3 worldCenter = glm::dvec3();
 
+    const auto fullHeightFilePath = terrainPath / boost::filesystem::path(fileInfo.getFullHeightFilePath());
     for (size_t i = 0; i < fileInfo.infos().size(); i++)
     {
+        const auto infoPath = terrainPath / fileInfo.infos()[i].textureFile; 
         if (!setWorldCenter)
         {
             setWorldCenter = true;
 
-            float height = TerrainChunk::getCenterHeightFromGDAL(terrainPath + fileInfo.getFullHeightFilePath(),
+            float height = TerrainChunk::getCenterHeightFromGDAL(fullHeightFilePath.string(),
                                                                  glm::dvec3{});
 
             worldCenter = glm::dvec3{fileInfo.infos()[i].cornerNW.x, fileInfo.infos()[i].cornerNW.y, height};
         }
 
-        chunks.emplace_back(terrainPath + fileInfo.getFullHeightFilePath(),
-                            terrainPath + fileInfo.infos()[i].textureFile, fileInfo.infos()[i].cornerNE,
+        chunks.emplace_back(fullHeightFilePath.string(),
+                            infoPath.string(), fileInfo.infos()[i].cornerNE,
                             fileInfo.infos()[i].cornerSE, fileInfo.infos()[i].cornerSW, fileInfo.infos()[i].cornerNW,
                             worldCenter, fileInfo.infos()[i].center);
     }

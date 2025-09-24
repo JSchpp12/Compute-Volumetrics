@@ -49,5 +49,6 @@ class VDBInfoController : public star::ManagerController::RenderResource::Buffer
         star::core::device::StarDevice &device) override;
 
   private:
+  // nanovdb::GridType type; 
     std::string m_vdbPath;
 };
