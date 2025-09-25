@@ -73,10 +73,10 @@ class VolumeRenderer : private star::DescriptorModifier
     const std::shared_ptr<star::StarCamera> camera = nullptr;
     star::core::device::DeviceID m_deviceID;
     glm::uvec2 workgroupSize = glm::uvec2();
-    star::Handle cameraShaderInfo, commandBuffer, vdbInfo;
+    star::Handle cameraShaderInfo, commandBuffer, vdbInfoSDF, vdbInfoFog;
     std::vector<star::Handle> fogControlShaderInfo;
     std::vector<star::Handle> sceneLightInfoBuffers, sceneLightList;
-    std::unique_ptr<star::StarShaderInfo> compShaderInfo = std::unique_ptr<star::StarShaderInfo>();
+    std::unique_ptr<star::StarShaderInfo> SDFShaderInfo, VolumeShaderInfo;
     std::vector<star::Handle> globalInfoBuffers = std::vector<star::Handle>();
     std::vector<star::Handle> aabbInfoBuffers;
     std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors = nullptr;
@@ -96,6 +96,9 @@ class VolumeRenderer : private star::DescriptorModifier
     void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex);
 
     std::vector<std::pair<vk::DescriptorType, const int>> getDescriptorRequests(const int &numFramesInFlight) override;
+
+    std::unique_ptr<star::StarShaderInfo> buildShaderInfo(star::core::device::DeviceContext &context,
+                                                          const uint8_t &numFramesInFlight, const bool &useSDF) const;
 
     void createDescriptors(star::core::device::DeviceContext &device, const int &numFramesInFlight) override;
 

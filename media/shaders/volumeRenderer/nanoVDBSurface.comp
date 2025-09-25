@@ -164,9 +164,9 @@ vec3 estimateNormal(in pnanovdb_grid_handle_t grid, const vec3 position, const f
     float eps = voxSize * 0.5 * volumeUniformScale; 
 
     return normalize(vec3(
-        gridReadAt(grid, position + vec3(eps, 0, 0), inverseModelMatrix, volumeUniformScale) - gridReadAt(grid, position - vec3(eps, 0, 0), inverseModelMatrix, volumeUniformScale),
-        gridReadAt(grid, position + vec3(0, eps, 0), inverseModelMatrix, volumeUniformScale) - gridReadAt(grid, position - vec3(0, eps, 0), inverseModelMatrix, volumeUniformScale),
-        gridReadAt(grid, position + vec3(0, 0, eps), inverseModelMatrix, volumeUniformScale) - gridReadAt(grid, position - vec3(0, 0, eps), inverseModelMatrix, volumeUniformScale)
+        (gridReadAt(grid, position + vec3(eps, 0, 0), inverseModelMatrix) * volumeUniformScale) - (gridReadAt(grid, position - vec3(eps, 0, 0), inverseModelMatrix) * volumeUniformScale),
+        (gridReadAt(grid, position + vec3(0, eps, 0), inverseModelMatrix) * volumeUniformScale) - (gridReadAt(grid, position - vec3(0, eps, 0), inverseModelMatrix) * volumeUniformScale),
+        (gridReadAt(grid, position + vec3(0, 0, eps), inverseModelMatrix) * volumeUniformScale) - (gridReadAt(grid, position - vec3(0, 0, eps), inverseModelMatrix) * volumeUniformScale)
     ));
 }
 
@@ -174,7 +174,7 @@ vec3 refineSurfacePosition(in pnanovdb_grid_handle_t grid, const Ray ray, vec3 p
     const float approachStepSize = 0.25 * voxSize; 
 
     for (int i = 0; i < 10; i++){
-        float sdf = gridReadAt(grid, position.xyz, inverseModelMatrix,volumeUniformScale);
+        float sdf = gridReadAt(grid, position.xyz, inverseModelMatrix) * volumeUniformScale;
 
         if (abs(sdf) < threshold){
             break;
@@ -206,7 +206,7 @@ vec3 forwardMarchLevelSet(in pnanovdb_grid_handle_t grid, const vec3 viewDirecti
     for (uint i = 0; i < 1000; i++){
         vec4 position = worldRay.origin + ((t) * worldRay.direction); 
 
-        float sdf = gridReadAt(grid, position.xyz, inverseModelMatrix, volumeUniformScale); 
+        float sdf = gridReadAt(grid, position.xyz, inverseModelMatrix); 
 
         //check for if beyond range of bounding box
         if (t > t1 || t > cutOffDistance){

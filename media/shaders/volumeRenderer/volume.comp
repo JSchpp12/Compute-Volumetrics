@@ -144,13 +144,13 @@ bool checkForThreadOutsideOfTarget()
 }
 
 float applyHenyeyGreensteinPhase(const vec3 viewDirection, const vec3 lightDirection, const float gValue){
-    const float cosTheta = dot(viewDirection, lightDirection); 
+    const float cosTheta = clamp(dot(viewDirection, lightDirection), -1.0, 1.0); 
     const float denom = pow(1 + gValue * gValue - 2 * gValue * cosTheta, 1.5);
     return float(1) / (4 * radians(180)) * (1 - gValue * gValue) / denom; 
 }
 
 vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewDirection, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
-                  const mat4 inverseModelMatrix, const float sigmaAbsorption, const float sigmaScattering, const float lightPropertyDir_g,
+                  const mat4 inverseModelMatrix, const float volumeUniformScale, const float sigmaAbsorption, const float sigmaScattering, const float lightPropertyDir_g,
                   const float cutOffDistance)
 {
     pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
@@ -172,7 +172,7 @@ vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewDirection, cons
         }
 
 		vec4 position = vec4(ray.origin.xyz + (t * ray.direction.xyz), 1.0); 
-        float density = 0.01;
+        float density = gridReadAt(grid, position.xyz, inverseModelMatrix);
 		float beerExpTrans = exp(-fittedStepSize * density * (sigmaAbsorption + sigmaScattering)); 
 
 		transparency *= beerExpTrans;
@@ -196,7 +196,7 @@ vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewDirection, cons
                     sumLightSampleDensities += density;
                 }
 
-                const float lightAtten = exp(-sumLightSampleDensities * -lt1 * (sigmaAbsorption + sigmaScattering)); 
+                const float lightAtten = exp(sumLightSampleDensities * lt1 * (sigmaAbsorption + sigmaScattering)); 
                 const float phaseResult = lightAtten * applyHenyeyGreensteinPhase(position.xyz, rayToLight.direction.xyz, lightPropertyDir_g) * density * fittedStepSizeToLight;
 
                 resultingColor = resultingColor + (lightList.lights[j].ambient.rgb * phaseResult); 
@@ -226,8 +226,9 @@ void main()
     pnanovdb_grid_handle_t grid = makeNanoGrid(0);
 
     const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]); 
-    Ray worldRay = createRay(orgWorld, viewDirectionWorld.xyz);  
-    Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix); 
+    const Ray worldRay = createRay(orgWorld, viewDirectionWorld.xyz);  
+    const Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix); 
+    const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]); 
 
     float t0World = 0;
     float t1World = 0;
@@ -236,13 +237,11 @@ void main()
         
         resultingColor = forwardMarch(grid,
             viewDirectionWorld.xyz, 
-            resultingColor, worldRay, t0World, t1World, inverseModelMatrix,
+            resultingColor, worldRay, t0World, t1World, inverseModelMatrix, volumeUniformScale,
                                      fogInfo.marchedFog_sigmaAbsorption, fogInfo.marchedFog_sigmaScattering,
                                      fogInfo.marchedFog_lightPropertyDirG, 
                                      worldDepthDistance);
     }
-
-
 
     imageStore(outputImage, targetPixel, vec4(resultingColor, 1.0));
 }

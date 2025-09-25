@@ -156,7 +156,12 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     {
         this->m_renderingContext->pipeline.bind(commandBuffer);
 
-        auto sets = this->compShaderInfo->getDescriptors(frameInFlightIndex);
+        std::vector<vk::DescriptorSet> sets;
+        if (this->currentFogType == FogType::marched){
+            sets = this->VolumeShaderInfo->getDescriptors(frameInFlightIndex);
+        }else{
+            sets = this->SDFShaderInfo->getDescriptors(frameInFlightIndex); 
+        }
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0,
                                          static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
 
@@ -228,8 +233,11 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &device, const
     this->cameraShaderInfo =
         star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<CameraInfoController>(camera), true);
 
-    this->vdbInfo =
-        star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<VDBInfoController>(m_vdbFilePath), true);
+    this->vdbInfoSDF = star::ManagerRenderResource::addRequest(
+        m_deviceID, std::make_unique<VDBInfoController>(m_vdbFilePath, openvdb::GridClass::GRID_LEVEL_SET), true);
+
+    this->vdbInfoFog = star::ManagerRenderResource::addRequest(
+        m_deviceID, std::make_unique<VDBInfoController>(m_vdbFilePath, openvdb::GridClass::GRID_FOG_VOLUME), true);
 
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
@@ -332,8 +340,11 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &device, const
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
 {
-    this->compShaderInfo->cleanupRender(context.getDevice());
-    this->compShaderInfo.reset();
+    this->SDFShaderInfo->cleanupRender(context.getDevice());
+    this->SDFShaderInfo.reset();
+
+    this->VolumeShaderInfo->cleanupRender(context.getDevice()); 
+    this->VolumeShaderInfo.reset(); 
 
     for (auto &computeWriteToImage : this->computeWriteToImages)
     {
@@ -355,53 +366,11 @@ std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescrip
 
 void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device, const int &numFramesInFlight)
 {
-    auto shaderInfoBuilder =
-        star::StarShaderInfo::Builder(device.getDeviceID(), device.getDevice(), numFramesInFlight)
-            .addSetLayout(star::StarDescriptorSetLayout::Builder()
-                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .build(device.getDevice()))
-            .addSetLayout(star::StarDescriptorSetLayout::Builder()
-                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .build(device.getDevice()))
-            .addSetLayout(
-                star::StarDescriptorSetLayout::Builder()
-                    .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                    .addBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
-                    .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                    .build(device.getDevice()))
-            .addSetLayout(star::StarDescriptorSetLayout::Builder()
-                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .build(device.getDevice()));
-
-    for (int i = 0; i < numFramesInFlight; i++)
-    {
-        shaderInfoBuilder.startOnFrameIndex(i)
-            .startSet()
-            .add(this->globalInfoBuffers.at(i), false)
-            .add(this->sceneLightInfoBuffers.at(i), false)
-            .add(this->sceneLightList.at(i), false)
-            .startSet()
-            .add(this->cameraShaderInfo, false)
-            .add(this->vdbInfo, false)
-            .startSet()
-            .add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
-            .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal, false)
-            .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
-            .startSet()
-            .add(this->instanceModelInfo.at(i), false)
-            .add(this->aabbInfoBuffers.at(i), false)
-            .add(this->fogControlShaderInfo.at(i), false);
-    }
-
-    this->compShaderInfo = shaderInfoBuilder.build();
+    this->SDFShaderInfo = buildShaderInfo(device, numFramesInFlight, true);
+    this->VolumeShaderInfo = buildShaderInfo(device, numFramesInFlight, false); 
 
     {
-        auto sets = this->compShaderInfo->getDescriptorSetLayouts();
+        auto sets = this->SDFShaderInfo->getDescriptorSetLayouts();
         vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = vk::StructureType::ePipelineLayoutCreateInfo;
         pipelineLayoutInfo.pSetLayouts = sets.data();
@@ -466,6 +435,64 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
         star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
                            std::vector<star::Handle>{device.getShaderManager().submit(
                                star::StarShader(expFogPath, star::Shader_Stage::compute))})});
+}
+
+std::unique_ptr<star::StarShaderInfo> VolumeRenderer::buildShaderInfo(star::core::device::DeviceContext &context,
+                                                                      const uint8_t &numFramesInFlight,
+                                                                      const bool &useSDF) const
+{
+    auto shaderInfoBuilder =
+        star::StarShaderInfo::Builder(context.getDeviceID(), context.getDevice(), numFramesInFlight)
+            .addSetLayout(star::StarDescriptorSetLayout::Builder()
+                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .build(context.getDevice()))
+            .addSetLayout(star::StarDescriptorSetLayout::Builder()
+                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .build(context.getDevice()))
+            .addSetLayout(
+                star::StarDescriptorSetLayout::Builder()
+                    .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                    .addBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
+                    .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                    .build(context.getDevice()))
+            .addSetLayout(star::StarDescriptorSetLayout::Builder()
+                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .build(context.getDevice()));
+
+    for (uint8_t i = 0; i < numFramesInFlight; i++)
+    {
+        shaderInfoBuilder.startOnFrameIndex(i)
+            .startSet()
+            .add(this->globalInfoBuffers.at(i), false)
+            .add(this->sceneLightInfoBuffers.at(i), false)
+            .add(this->sceneLightList.at(i), false)
+            .startSet()
+            .add(this->cameraShaderInfo, false);
+        if (useSDF)
+        {
+            shaderInfoBuilder.add(this->vdbInfoSDF, false);
+        }
+        else
+        {
+            shaderInfoBuilder.add(this->vdbInfoFog, false);
+        }
+
+        shaderInfoBuilder.startSet()
+            .add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
+            .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal, false)
+            .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
+            .startSet()
+            .add(this->instanceModelInfo.at(i), false)
+            .add(this->aabbInfoBuffers.at(i), false)
+            .add(this->fogControlShaderInfo.at(i), false);
+    }
+
+    return shaderInfoBuilder.build(); 
 }
 
 glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize)

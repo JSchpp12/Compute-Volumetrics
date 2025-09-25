@@ -10,7 +10,6 @@
 #include <sstream>
 #include <string>
 
-
 using namespace star;
 
 std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &context, const StarWindow &window,
@@ -33,7 +32,7 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         star::CastHelpers::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
     }
 
-    m_mainLight = std::make_shared<star::Light>(glm::vec3{0, 0, 0}, star::Type::Light::directional,
+    m_mainLight = std::make_shared<star::Light>(glm::vec3{0, 100, 0}, star::Type::Light::directional,
                                                 glm::vec3{-1.0, 0.0, 0.0});
 
     auto offscreenRenderer = CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight);
@@ -43,7 +42,6 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         const uint32_t height = window.getExtent().height;
         std::vector<star::Handle> globalInfos(numInFlight);
         std::vector<star::Handle> lightInfos(numInFlight);
-        std::vector<star::Handle> lightLists(numInFlight);
 
         size_t fNumFramesInFlight = 0;
         star::CastHelpers::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
@@ -55,8 +53,8 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
             offscreenRenderer->getLightInfoBuffers(), offscreenRenderer->getLightListBuffers());
 
         auto &s_i = m_volume->createInstance();
-        s_i.setScale(glm::vec3{10.0, 10.0, 10.0});
-        s_i.setPosition(glm::vec3{0.0, 10.0, 0.0}); 
+        s_i.setPosition(glm::vec3{50.0, 30.0, 0.0}); 
+        s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f}); 
         std::vector<std::shared_ptr<StarObject>> objects{m_volume};
 
         std::vector<std::shared_ptr<star::core::renderer::Renderer>> additionals{offscreenRenderer};
@@ -106,6 +104,18 @@ void Application::onKeyPress(int key, int scancode, int mods)
     //      m_volume->rayMarchToAABB = !m_volume->rayMarchToAABB;
     //      m_volume->rayMarchToVolumeBoundry = false;
     //  }
+    if (key == star::KEY::P){
+        auto pos = m_volume->getInstance(0).getPosition();
+        pos.x += 10;
+        pos.y += 10;   
+        m_volume->getInstance(0).setPosition(pos); 
+    }
+    if (key == star::KEY::O){
+        m_volume->getInstance(0).setScale(m_volume->getInstance(0).getScale() + 1.0f);
+    }
+    if (key == star::KEY::I){
+        m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90); 
+    }
 }
 
 void Application::onKeyRelease(int key, int scancode, int mods)
@@ -309,18 +319,19 @@ std::shared_ptr<OffscreenRenderer> Application::CreateOffscreenRenderer(star::co
                                                                         std::shared_ptr<star::Light> mainLight)
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-    auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-    auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
-    terrain->createInstance();
 
-    // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    // auto horse = std::make_shared<star::BasicObject>(horsePath); 
-    // auto h_i = horse->createInstance();
-    // h_i.setPosition(glm::vec3{0.0, 0.0, 0.0}); 
+    // auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+    // auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
+    // terrain->createInstance();
+
+    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    auto horse = std::make_shared<star::BasicObject>(horsePath); 
+    auto h_i = horse->createInstance();
+    h_i.setPosition(glm::vec3{0.0, 0.0, 0.0}); 
 
     std::vector<std::shared_ptr<star::StarObject>> objects{
-        terrain
-        // horse
+        // terrain
+        horse
     };
     std::vector<std::shared_ptr<star::Light>> lights{mainLight};
 

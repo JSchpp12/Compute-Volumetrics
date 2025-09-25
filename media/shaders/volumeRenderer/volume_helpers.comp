@@ -41,7 +41,7 @@ pnanovdb_grid_handle_t makeNanoGrid(uint baseByteOffset) {
     return h;
 }
 
-float gridReadAt(in pnanovdb_grid_handle_t grid, const in vec3 worldPosition, const in mat4 inverseModelMatrix, const in float volumeUniformScale){
+float gridReadAt(in pnanovdb_grid_handle_t grid, const in vec3 worldPosition, const in mat4 inverseModelMatrix){
     const vec3 localPosition = (inverseModelMatrix * vec4(worldPosition, 1.0)).xyz; 
 
     pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
@@ -60,7 +60,7 @@ float gridReadAt(in pnanovdb_grid_handle_t grid, const in vec3 worldPosition, co
 
     pnanovdb_address_t address = pnanovdb_readaccessor_get_value_address(type,
                              nanoVDBBuffer, acc, ijk);
-    return float(pnanovdb_read_float(nanoVDBBuffer, address)) * volumeUniformScale; 
+    return float(pnanovdb_read_float(nanoVDBBuffer, address)); 
 }
 
 bool rayBoxIntersectLocal(in pnanovdb_grid_handle_t grid, in Ray ray, inout float t0, inout float t1)

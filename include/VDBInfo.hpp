@@ -3,22 +3,19 @@
 #include "ManagerController_RenderResource_Buffer.hpp"
 #include "TransferRequest_Buffer.hpp"
 
-#include <nanovdb/HostBuffer.h>
-#include <nanovdb/GridHandle.h>
+#include "VolumeData.hpp"
 
 #include <string>
 
 class VDBRequest : public star::TransferRequest::Buffer
 {
   public:
-    VDBRequest(std::string vdbPath, uint8_t computeQueueIndex)
-        : m_vdbPath(std::move(vdbPath)), m_computeQueueIndex(std::move(computeQueueIndex))
+    VDBRequest(uint8_t computeQueueIndex, std::string vdbPath, openvdb::GridClass ensureThisType)
+        : m_computeQueueIndex(std::move(computeQueueIndex)), m_volumeData(std::move(vdbPath), std::move(ensureThisType))
     {
     }
 
     virtual ~VDBRequest() = default;
-
-    virtual void prep() override;
 
     std::unique_ptr<star::StarBuffers::Buffer> createStagingBuffer(vk::Device &device,
                                                                    VmaAllocator &allocator) const override;
@@ -30,18 +27,15 @@ class VDBRequest : public star::TransferRequest::Buffer
     void writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const override;
 
   private:
-    std::string m_vdbPath;
     uint8_t m_computeQueueIndex;
-    std::unique_ptr<nanovdb::GridHandle<nanovdb::HostBuffer>> m_gridData = nullptr; 
-    // std::unique_ptr<nanovdb::GridHandle<nanovdb::>> m_rawGridDataHandle = nullptr;
-
-    std::unique_ptr<nanovdb::GridHandle<nanovdb::HostBuffer>> loadNanoVolume();
+    VolumeData m_volumeData; 
 };
 
 class VDBInfoController : public star::ManagerController::RenderResource::Buffer
 {
   public:
-    VDBInfoController(std::string vdbPath) : m_vdbPath(std::move(vdbPath))
+    VDBInfoController(std::string vdbPath, openvdb::GridClass ensureThisType)
+        : m_vdbPath(std::move(vdbPath)), m_ensureThisType(std::move(ensureThisType))
     {
     }
 
@@ -49,6 +43,7 @@ class VDBInfoController : public star::ManagerController::RenderResource::Buffer
         star::core::device::StarDevice &device) override;
 
   private:
-  // nanovdb::GridType type; 
+    // nanovdb::GridType type;
     std::string m_vdbPath;
+    openvdb::GridClass m_ensureThisType;
 };
