@@ -61,7 +61,7 @@ layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
 
 layout(set = 3, binding = 0) uniform InstanceModelMatrix
 {
-    mat4 modelMatrix[1024];
+    mat4 instanceModelMatrix[1024];
 };
 
 layout(set = 3, binding = 1) uniform aabbInfo
@@ -87,33 +87,7 @@ layout(set = 3, binding = 2) uniform FogControllerInfo
 fogInfo;
 
 #include "PNanoVDB.h"
-
-struct Ray
-{
-    vec4 origin;
-    vec4 direction;
-    vec4 invDirection;
-    bool signed[3];
-};
-
-// Define the GLSL grid handle type
-// This macro is defined inside PNanoVDB.h
-pnanovdb_buf_t nanoVDBBuffer; 
-
-pnanovdb_grid_handle_t makeNanoGrid(uint baseByteOffset) {
-    pnanovdb_grid_handle_t h; 
-    h.address.byte_offset = baseByteOffset; 
-    return h;
-}
-
-
-Ray createRay(const vec4 origin, const vec4 direction)
-{
-    vec3 invDir = vec3(1.0 / direction.x, 1.0 / direction.y, 1.0 / direction.z);
-
-    return Ray(origin, direction, vec4(invDir, 0.0),
-               bool[3](bool(invDir.x < 0), bool(invDir.y < 0), bool(invDir.z < 0)));
-}
+#include "volume_helpers.comp"
 
 vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const float ndz){
     // 1) Build NDC coordinates in [−1, +1]
@@ -169,63 +143,20 @@ bool checkForThreadOutsideOfTarget()
     return true;
 }
 
-bool rayBoxIntersect(in pnanovdb_grid_handle_t grid, in Ray ray, inout float t0, inout float t1)
-{
-    vec3 bounds[2];
-    bounds[0] = vec3(
-        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 0)),
-        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 1)),
-        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 2))
-    );
-    bounds[1] = vec3(
-        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 3)),
-        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 4)), 
-        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 5))
-    );
-
-    float tmin = -(1.0 / 0.0);
-    float tmax = (1.0 / 0.0);
-    float txmin = 0, txmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
-
-    txmin = (bounds[int(ray.signed[0])].x - ray.origin.x) * ray.invDirection.x;
-    txmax = (bounds[int(!ray.signed[0])].x - ray.origin.x) * ray.invDirection.x;
-
-    tmin = min(txmin, txmax);
-    tmax = max(txmin, txmax);
-
-    tymin = (bounds[int(ray.signed[1])].y - ray.origin.y) * ray.invDirection.y;
-    tymax = (bounds[int(!ray.signed[1])].y - ray.origin.y) * ray.invDirection.y;
-
-    tmin = max(tmin, min(tymin, tymax));
-    tmax = min(tmax, max(tymin, tymax));
-
-    tzmin = (bounds[int(ray.signed[2])].z - ray.origin.z) * ray.invDirection.z;
-    tzmax = (bounds[int(!ray.signed[2])].z - ray.origin.z) * ray.invDirection.z;
-
-    tmin = max(tmin, min(tzmin, tzmax));
-    tmax = min(tmax, max(tzmin, tzmax));
-
-    t0 = tmin;
-    t1 = tmax;
-
-    return tmax >= max(0.0, tmin);
-}
-
 float applyHenyeyGreensteinPhase(const vec3 viewDirection, const vec3 lightDirection, const float gValue){
     const float cosTheta = dot(viewDirection, lightDirection); 
     const float denom = pow(1 + gValue * gValue - 2 * gValue * cosTheta, 1.5);
     return float(1) / (4 * radians(180)) * (1 - gValue * gValue) / denom; 
 }
 
-vec4 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewDirection, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
-                  const float sigmaAbsorption, const float sigmaScattering, const float lightPropertyDir_g,
+vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewDirection, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
+                  const mat4 inverseModelMatrix, const float sigmaAbsorption, const float sigmaScattering, const float lightPropertyDir_g,
                   const float cutOffDistance)
 {
-
     pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
     pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
 
-    vec4 resultingColor = vec4(backgroundColor, 1.0); 
+    vec3 resultingColor = backgroundColor;
 	float transparency = 1;
 
     const int fittedNumSteps = int(floor((t1 - t0) / fogInfo.marchedFog_stepSizeDist));
@@ -240,18 +171,19 @@ vec4 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewDirection, cons
             break;
         }
 
-		vec4 position = vec4(ray.origin.xyz + (t / ray.invDirection.xyz), 1); 
+		vec4 position = vec4(ray.origin.xyz + (t * ray.direction.xyz), 1.0); 
         float density = 0.01;
 		float beerExpTrans = exp(-fittedStepSize * density * (sigmaAbsorption + sigmaScattering)); 
 
 		transparency *= beerExpTrans;
 
 		for (int j = 0; j < lightInfo.numLights; j++){
-			Ray rayToLight = createRay(position, vec4(normalize(lightList.lights[j].position.xyz - position.xyz), 0));
+			Ray rayToLight = createRay(position, normalize(lightList.lights[j].position.xyz - position.xyz));
+            Ray rayToLightLocal = transformWorldRayToGridLocal(rayToLight, inverseModelMatrix); 
 
             float lt0 = 0;
             float lt1 = 0;  
-            if (rayBoxIntersect(grid, rayToLight, lt0, lt1)){ 
+            if (rayBoxIntersectWorld(grid, instanceModelMatrix[0], rayToLightLocal, rayToLight, lt0, lt1)){ 
                 const float fittedStepSizeToLight = (lt1 - lt0) / fogInfo.marchedFog_stepSizeDist_light;
                 const int fittedNumStepsLight = int(floor((lt1 - lt0) / fittedStepSizeToLight));
 
@@ -260,16 +192,14 @@ vec4 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewDirection, cons
                     //cant remember why there is a 0.5 here.......
                     float tLight = fittedStepSizeToLight * (k + 0.5); 
 
-                    const vec4 lightTracePosition = vec4(rayToLight.origin.xyz + (tLight / rayToLight.invDirection.xyz), 1); 
-
-
+                    const vec4 lightTracePosition = vec4(rayToLight.origin.xyz + (tLight / rayToLight.invDirection.xyz), 1);
                     sumLightSampleDensities += density;
                 }
 
                 const float lightAtten = exp(-sumLightSampleDensities * -lt1 * (sigmaAbsorption + sigmaScattering)); 
                 const float phaseResult = lightAtten * applyHenyeyGreensteinPhase(position.xyz, rayToLight.direction.xyz, lightPropertyDir_g) * density * fittedStepSizeToLight;
 
-                resultingColor = resultingColor + (lightList.lights[j].ambient * phaseResult); 
+                resultingColor = resultingColor + (lightList.lights[j].ambient.rgb * phaseResult); 
             }
 		}
     }
@@ -291,24 +221,22 @@ void main()
     const vec4 viewDirectionWorld = getWorldViewDirection(viewPositionWorld); 
     const float worldDepthDistance = length(viewPositionWorld.xyz - viewDirectionWorld.xyz); 
 
-    const vec3 imgColor = vec3(imageLoad(inputSceneColor, targetPixel).rgb);
-    vec4 resultingColor = vec4(imgColor, 1.0);
+    vec3 resultingColor = imageLoad(inputSceneColor, targetPixel).rgb;
 
-    pnanovdb_grid_handle_t grid = makeNanoGrid(0); 
+    pnanovdb_grid_handle_t grid = makeNanoGrid(0);
 
-    Ray camRay = createRay(orgWorld, viewDirectionWorld);
+    const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]); 
+    Ray worldRay = createRay(orgWorld, viewDirectionWorld.xyz);  
+    Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix); 
 
-    float t0 = 0;
-    float t1 = 0;
+    float t0World = 0;
+    float t1World = 0;
 
-    if (rayBoxIntersect(grid, camRay, t0, t1) && t0 < worldDepthDistance){
-        //need to get world distance from depth buffer value 
-        //ray marching algorithm happens in world space...
-        // const float worldCutoffPoint = camRay.origin + camRay.direction 
+    if (rayBoxIntersectWorld(grid, instanceModelMatrix[0], localRay, worldRay, t0World, t1World) && t0World < worldDepthDistance){
         
         resultingColor = forwardMarch(grid,
             viewDirectionWorld.xyz, 
-            imgColor, camRay, t0, t1,
+            resultingColor, worldRay, t0World, t1World, inverseModelMatrix,
                                      fogInfo.marchedFog_sigmaAbsorption, fogInfo.marchedFog_sigmaScattering,
                                      fogInfo.marchedFog_lightPropertyDirG, 
                                      worldDepthDistance);
@@ -316,5 +244,5 @@ void main()
 
 
 
-    imageStore(outputImage, targetPixel, resultingColor);
+    imageStore(outputImage, targetPixel, vec4(resultingColor, 1.0));
 }

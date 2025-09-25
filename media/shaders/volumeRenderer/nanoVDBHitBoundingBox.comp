@@ -163,19 +163,19 @@ void main()
     const vec4 viewDirectionWorld = getWorldViewDirection(viewPositionWorld); 
     const float worldDepthDistance = length(viewPositionWorld.xyz - viewDirectionWorld.xyz); 
 
-    const vec3 imgColor = vec3(imageLoad(inputSceneColor, targetPixel).rgb);
-    vec4 resultingColor = vec4(imgColor, 1.0);
+    vec3 resultingColor = imageLoad(inputSceneColor, targetPixel).rgb;
 
     pnanovdb_grid_handle_t grid = makeNanoGrid(0); 
     mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]); 
-    Ray localRay = createGridLocalRay(orgWorld, viewDirectionWorld.xyz, inverseModelMatrix); 
+    Ray worldRay = createRay(orgWorld, viewDirectionWorld.xyz); 
+    Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix); 
 
     float t0 = 0;
     float t1 = 0;
 
-    if (rayBoxIntersect(grid, localRay, inverseModelMatrix, t0, t1) && t0 < worldDepthDistance){
-        resultingColor = vec4(1.0, 0.0, 0.0, 1.0); 
+    if (rayBoxIntersectWorld(grid, instanceModelMatrix[0], localRay, worldRay, t0, t1) && t0 < worldDepthDistance){
+        resultingColor = vec3(1.0, 0.0, 0.0); 
     }
 
-    imageStore(outputImage, targetPixel, resultingColor);
+    imageStore(outputImage, targetPixel, vec4(resultingColor, 1.0));
 }

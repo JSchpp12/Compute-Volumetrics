@@ -63,7 +63,7 @@ float gridReadAt(in pnanovdb_grid_handle_t grid, const in vec3 worldPosition, co
     return float(pnanovdb_read_float(nanoVDBBuffer, address)) * volumeUniformScale; 
 }
 
-bool rayBoxIntersect(in pnanovdb_grid_handle_t grid, in Ray ray, const in mat4 inverseModelMatrix, inout float t0, inout float t1)
+bool rayBoxIntersectLocal(in pnanovdb_grid_handle_t grid, in Ray ray, inout float t0, inout float t1)
 {
     vec4 bounds[2];
     bounds[0] = vec4(
@@ -105,6 +105,37 @@ bool rayBoxIntersect(in pnanovdb_grid_handle_t grid, in Ray ray, const in mat4 i
     t1 = tmax;
 
     return tmax >= max(0.0, tmin);
+}
+
+bool rayBoxIntersectWorld(
+    in pnanovdb_grid_handle_t grid,
+    const in mat4 gridToScene,        // G -> S (== inverse(sceneToGrid))
+    const in Ray rayGrid,             // in G
+    const in Ray worldRay,            // the original ray in S
+    inout float t0World,
+    inout float t1World)
+{
+    float t0G, t1G;
+    if (!rayBoxIntersectLocal(grid, rayGrid, t0G, t1G)) {
+        return false;
+    }
+
+    // Compute entry/exit points in G, then transform to S
+    vec3 p0G = (rayGrid.origin + t0G * rayGrid.direction).xyz;
+    vec3 p1G = (rayGrid.origin + t1G * rayGrid.direction).xyz;
+
+    vec3 p0S = (gridToScene * vec4(p0G, 1.0)).xyz;
+    vec3 p1S = (gridToScene * vec4(p1G, 1.0)).xyz;
+
+    // Project onto the (unit) world ray direction
+    vec3 oS = worldRay.origin.xyz;
+    vec3 dS = normalize(worldRay.direction.xyz);
+
+    t0World = dot(p0S - oS, dS);
+    t1World = dot(p1S - oS, dS);
+
+    if (t1World < t0World) { float tmp = t0World; t0World = t1World; t1World = tmp; }
+    return true;
 }
 
 float extractUniformVolumeScale(const mat4 modelMatrix){
