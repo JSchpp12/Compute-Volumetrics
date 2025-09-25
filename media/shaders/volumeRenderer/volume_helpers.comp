@@ -1,19 +1,56 @@
 pnanovdb_buf_t nanoVDBBuffer; 
 
+struct Ray
+{
+    vec4 origin;
+    vec4 direction;
+    vec4 invDirection;
+    bool signed[3];
+};
+
+Ray createRay(const vec4 origin, const vec3 direction)
+{
+    vec3 invDir = vec3(1.0 / direction.x, 1.0 / direction.y, 1.0 / direction.z);
+
+    return Ray(origin, 
+        vec4(direction, 0.0), 
+        vec4(invDir, 0.0),
+        bool[3](bool(invDir.x < 0), bool(invDir.y < 0), bool(invDir.z < 0))
+    );
+}
+
+Ray transformWorldRayToGridLocal(const in Ray worldRay, const in mat4 inverseModelMatrix){
+    vec3 direction = mat3(inverseModelMatrix) * worldRay.direction.xyz; // do NOT normalize
+    vec3 inverseDirection = 1.0 / direction;
+
+    return Ray(vec4((inverseModelMatrix * worldRay.origin).xyz, 1.0),
+               vec4(direction, 0.0),
+               vec4(inverseDirection, 0.0),
+               bool[3](inverseDirection.x < 0.0, inverseDirection.y < 0.0, inverseDirection.z < 0.0));
+}
+
+Ray createGridLocalRay(vec4 origin, vec3 viewDirection, const in mat4 inverseModelMatrix){
+    origin = inverseModelMatrix * origin;
+    viewDirection = mat3(inverseModelMatrix) * viewDirection.xyz;
+    return createRay(origin, viewDirection);
+}
+
 pnanovdb_grid_handle_t makeNanoGrid(uint baseByteOffset) {
     pnanovdb_grid_handle_t h; 
     h.address.byte_offset = baseByteOffset; 
     return h;
 }
 
-float gridReadAt(in pnanovdb_grid_handle_t grid, in vec3 worldPosition){
+float gridReadAt(in pnanovdb_grid_handle_t grid, const in vec3 worldPosition, const in mat4 inverseModelMatrix, const in float volumeUniformScale){
+    const vec3 localPosition = (inverseModelMatrix * vec4(worldPosition, 1.0)).xyz; 
+
     pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
     pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
 
     pnanovdb_readaccessor_t acc;
     pnanovdb_readaccessor_init(acc, root);
 
-    pnanovdb_vec3_t indexCoord = pnanovdb_grid_world_to_indexf(nanoVDBBuffer, grid, worldPosition); 
+    pnanovdb_vec3_t indexCoord = pnanovdb_grid_world_to_indexf(nanoVDBBuffer, grid, localPosition); 
     pnanovdb_coord_t ijk; 
     ijk.x = int(floor(indexCoord.x)); 
     ijk.y = int(floor(indexCoord.y));
@@ -23,5 +60,53 @@ float gridReadAt(in pnanovdb_grid_handle_t grid, in vec3 worldPosition){
 
     pnanovdb_address_t address = pnanovdb_readaccessor_get_value_address(type,
                              nanoVDBBuffer, acc, ijk);
-    return pnanovdb_read_float(nanoVDBBuffer, address); 
+    return float(pnanovdb_read_float(nanoVDBBuffer, address)) * volumeUniformScale; 
+}
+
+bool rayBoxIntersect(in pnanovdb_grid_handle_t grid, in Ray ray, const in mat4 inverseModelMatrix, inout float t0, inout float t1)
+{
+    vec4 bounds[2];
+    bounds[0] = vec4(
+        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 0)),
+        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 1)),
+        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 2)),
+        1.0
+    );
+    bounds[1] = vec4(
+        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 3)),
+        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 4)), 
+        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 5)),
+        1.0
+    );
+
+    float tmin = -(1.0 / 0.0);
+    float tmax = (1.0 / 0.0);
+    float txmin = 0, txmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
+
+    txmin = (bounds[int(ray.signed[0])].x - ray.origin.x) * ray.invDirection.x;
+    txmax = (bounds[int(!ray.signed[0])].x - ray.origin.x) * ray.invDirection.x;
+
+    tmin = min(txmin, txmax);
+    tmax = max(txmin, txmax);
+
+    tymin = (bounds[int(ray.signed[1])].y - ray.origin.y) * ray.invDirection.y;
+    tymax = (bounds[int(!ray.signed[1])].y - ray.origin.y) * ray.invDirection.y;
+
+    tmin = max(tmin, min(tymin, tymax));
+    tmax = min(tmax, max(tymin, tymax));
+
+    tzmin = (bounds[int(ray.signed[2])].z - ray.origin.z) * ray.invDirection.z;
+    tzmax = (bounds[int(!ray.signed[2])].z - ray.origin.z) * ray.invDirection.z;
+
+    tmin = max(tmin, min(tzmin, tzmax));
+    tmax = min(tmax, max(tzmin, tzmax));
+
+    t0 = tmin;
+    t1 = tmax;
+
+    return tmax >= max(0.0, tmin);
+}
+
+float extractUniformVolumeScale(const mat4 modelMatrix){
+    return (length(modelMatrix[0].xyz) + length(modelMatrix[1].xyz) + length(modelMatrix[2].xyz)) / 3.0f; 
 }
