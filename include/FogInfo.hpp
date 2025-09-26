@@ -101,7 +101,7 @@ class FogInfo
 
     struct MarchedFogInfo
     {
-        float defaultDensity = 0.0f, sigmaAbsorption = 0.0f, sigmaScattering = 0.0f, lightPropertyDirG = 0.0f,
+        float defaultDensity = 0.0f, sigmaAbsorption = 0.0f, sigmaScattering = 0.0f,
               stepSizeDist = 0.0f, stepSizeDist_light = 0.0f;
 
         MarchedFogInfo() = default;
@@ -144,6 +144,21 @@ class FogInfo
                    this->lightPropertyDirG != other.lightPropertyDirG || this->stepSizeDist != other.stepSizeDist ||
                    this->stepSizeDist_light != other.stepSizeDist_light;
         }
+
+        float getLightPropertyDirG() const{
+            return lightPropertyDirG;
+        }
+        void setLightPropertyDirG(const float &value){
+            if (value < -1.0f || value > 1.0f){
+                lightPropertyDirG = 0.0; 
+            }
+
+            lightPropertyDirG = value; 
+        }
+
+        private:
+        float lightPropertyDirG = 0.0f; 
+
     };
 
     LinearFogInfo linearInfo = LinearFogInfo();
@@ -191,7 +206,7 @@ class FogInfo
                              this->marchedInfo.defaultDensity,
                              this->marchedInfo.sigmaAbsorption,
                              this->marchedInfo.sigmaScattering,
-                             this->marchedInfo.lightPropertyDirG,
+                             this->marchedInfo.getLightPropertyDirG(),
                              this->marchedInfo.stepSizeDist,
                              this->marchedInfo.stepSizeDist_light,
                              uint32_t(10),

@@ -32,8 +32,8 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         star::CastHelpers::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
     }
 
-    m_mainLight = std::make_shared<star::Light>(glm::vec3{0, 100, 0}, star::Type::Light::directional,
-                                                glm::vec3{-1.0, 0.0, 0.0});
+    m_mainLight =
+        std::make_shared<star::Light>(glm::vec3{0, 100, 0}, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0});
 
     auto offscreenRenderer = CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight);
 
@@ -53,8 +53,8 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
             offscreenRenderer->getLightInfoBuffers(), offscreenRenderer->getLightListBuffers());
 
         auto &s_i = m_volume->createInstance();
-        s_i.setPosition(glm::vec3{50.0, 30.0, 0.0}); 
-        s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f}); 
+        s_i.setPosition(glm::vec3{50.0, 30.0, 0.0});
+        s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
         std::vector<std::shared_ptr<StarObject>> objects{m_volume};
 
         std::vector<std::shared_ptr<star::core::renderer::Renderer>> additionals{offscreenRenderer};
@@ -68,10 +68,11 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     }
 
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.5;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 1;
-    m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.7;
-    m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.1;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 0.5;
+    m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.5;
+    m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0.5;
+    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.8f); 
 
     // std::cout << "Application Controls" << std::endl;
     // std::cout << "B - Modify fog properties" << std::endl;
@@ -104,18 +105,6 @@ void Application::onKeyPress(int key, int scancode, int mods)
     //      m_volume->rayMarchToAABB = !m_volume->rayMarchToAABB;
     //      m_volume->rayMarchToVolumeBoundry = false;
     //  }
-    if (key == star::KEY::P){
-        auto pos = m_volume->getInstance(0).getPosition();
-        pos.x += 10;
-        pos.y += 10;   
-        m_volume->getInstance(0).setPosition(pos); 
-    }
-    if (key == star::KEY::O){
-        m_volume->getInstance(0).setScale(m_volume->getInstance(0).getScale() + 1.0f);
-    }
-    if (key == star::KEY::I){
-        m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90); 
-    }
 }
 
 void Application::onKeyRelease(int key, int scancode, int mods)
@@ -201,7 +190,7 @@ void Application::onKeyRelease(int key, int scancode, int mods)
             m_volume->getFogControlInfo().marchedInfo.sigmaScattering = PromptForFloat("Select sigma");
             break;
         case (7):
-            m_volume->getFogControlInfo().marchedInfo.lightPropertyDirG = PromptForFloat("Select light prop", true);
+            m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(PromptForFloat("Select light prop", true));
             break;
         case (8):
             m_volume->getFogControlInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size");
@@ -232,14 +221,32 @@ void Application::onKeyRelease(int key, int scancode, int mods)
         m_volume->setFogType(VolumeRenderer::FogType::exp);
     }
 
-    if (key == star::KEY::H){
+    if (key == star::KEY::H)
+    {
         std::cout << "Setting fog type to: Nano Bounding Box" << std::endl;
         m_volume->setFogType(VolumeRenderer::FogType::nano_boundingBox);
     }
 
-    if (key == star::KEY::G){
+    if (key == star::KEY::G)
+    {
         std::cout << "Setting fog type to: NANO Surface" << std::endl;
-        m_volume->setFogType(VolumeRenderer::FogType::nano_surface); 
+        m_volume->setFogType(VolumeRenderer::FogType::nano_surface);
+    }
+
+    if (key == star::KEY::P)
+    {
+        auto pos = m_volume->getInstance(0).getPosition();
+        pos.x += 10;
+        pos.y += 10;
+        m_volume->getInstance(0).setPosition(pos);
+    }
+    if (key == star::KEY::O)
+    {
+        m_volume->getInstance(0).setScale(m_volume->getInstance(0).getScale() + 1.0f);
+    }
+    if (key == star::KEY::I)
+    {
+        m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90);
     }
 }
 
@@ -325,14 +332,12 @@ std::shared_ptr<OffscreenRenderer> Application::CreateOffscreenRenderer(star::co
     // terrain->createInstance();
 
     auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    auto horse = std::make_shared<star::BasicObject>(horsePath); 
+    auto horse = std::make_shared<star::BasicObject>(horsePath);
     auto h_i = horse->createInstance();
-    h_i.setPosition(glm::vec3{0.0, 0.0, 0.0}); 
+    h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
 
-    std::vector<std::shared_ptr<star::StarObject>> objects{
-        // terrain
-        horse
-    };
+    std::vector<std::shared_ptr<star::StarObject>> objects{// terrain
+                                                           horse};
     std::vector<std::shared_ptr<star::Light>> lights{mainLight};
 
     return std::make_shared<OffscreenRenderer>(context, numFramesInFlight, objects, lights, camera);

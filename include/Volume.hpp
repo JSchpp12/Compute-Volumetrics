@@ -79,37 +79,41 @@ class Volume : public star::StarObject
     bool rayMarchToAABB = false;
 
     virtual ~Volume() = default;
-    Volume(star::core::device::DeviceContext &context, std::string vdbPath, const size_t &numFramesInFlight, std::shared_ptr<star::StarCamera> camera,
-           const uint32_t &screenWidth, const uint32_t &screenHeight,
+    Volume(star::core::device::DeviceContext &context, std::string vdbPath, const size_t &numFramesInFlight,
+           std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
-           std::vector<star::Handle> sceneCameraInfos, std::vector<star::Handle> lightInfos, std::vector<star::Handle> lightList);
+           std::vector<star::Handle> sceneCameraInfos, std::vector<star::Handle> lightInfos,
+           std::vector<star::Handle> lightList);
 
     // star::Handle buildPipeline(star::core::device::DeviceContext &device,
-    //                                                   vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout,
-    //                                                   star::core::renderer::RenderingTargetInfo renderInfo) override;
+    //                                                   vk::Extent2D swapChainExtent, vk::PipelineLayout
+    //                                                   pipelineLayout, star::core::renderer::RenderingTargetInfo
+    //                                                   renderInfo) override;
 
     /// <summary>
     /// Expensive, only call when necessary.
     /// </summary>
     void updateGridTransforms();
 
-    virtual void prepRender(star::core::device::DeviceContext& context, const vk::Extent2D &swapChainExtent,
-			const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder, 
-			vk::PipelineLayout pipelineLayout, star::core::renderer::RenderingTargetInfo renderingInfo) override;
+    virtual void prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
+                            const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder,
+                            vk::PipelineLayout pipelineLayout,
+                            star::core::renderer::RenderingTargetInfo renderingInfo) override;
 
-    virtual void prepRender(star::core::device::DeviceContext& context, const vk::Extent2D &swapChainExtent, const uint8_t &numSwapChainImages, 
-			star::StarShaderInfo::Builder fullEngineBuilder, star::Handle sharedPipeline) override;
+    virtual void prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
+                            const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder,
+                            star::Handle sharedPipeline) override;
 
     virtual void cleanupRender(star::core::device::DeviceContext &context) override;
 
-    virtual bool isRenderReady(star::core::device::DeviceContext &context) override; 
+    virtual bool isRenderReady(star::core::device::DeviceContext &context) override;
 
     virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
 
     virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
 
-    virtual void frameUpdate(star::core::device::DeviceContext &context) override; 
+    virtual void frameUpdate(star::core::device::DeviceContext &context) override;
 
     void setFogType(const VolumeRenderer::FogType &fogType)
     {
@@ -118,6 +122,7 @@ class Volume : public star::StarObject
 
     FogInfo &getFogControlInfo()
     {
+        assert(m_fogControlInfo && "Fog control info must be proper");
         return *this->m_fogControlInfo;
     }
 
@@ -138,8 +143,9 @@ class Volume : public star::StarObject
 
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
-    void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath, std::vector<star::Handle> &globalInfos,
-                    std::vector<star::Handle> &lightInfos, std::vector<star::Handle> &lightList);
+    void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
+                    std::vector<star::Handle> &globalInfos, std::vector<star::Handle> &lightInfos,
+                    std::vector<star::Handle> &lightList);
 
     void loadModel(star::core::device::DeviceContext &context, const std::string &filePath);
 
@@ -147,7 +153,7 @@ class Volume : public star::StarObject
 
     void convertToFog(openvdb::FloatGrid::Ptr &grid);
 
-    std::vector<std::unique_ptr<star::StarMesh>> loadMeshes(star::core::device::DeviceContext &context) override; 
+    std::vector<std::unique_ptr<star::StarMesh>> loadMeshes(star::core::device::DeviceContext &context) override;
 
     // virtual void recordRenderPassCommands(vk::CommandBuffer &commandBuffer, vk::PipelineLayout &pipelineLayout,
     //                                       int swapChainIndexNum) override;
