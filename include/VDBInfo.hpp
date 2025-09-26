@@ -3,17 +3,20 @@
 #include "ManagerController_RenderResource_Buffer.hpp"
 #include "TransferRequest_Buffer.hpp"
 
-#include "VolumeData.hpp"
+#include "VolumeDataBase.hpp"
 
 #include <string>
 
 class VDBRequest : public star::TransferRequest::Buffer
 {
   public:
-    VDBRequest(uint8_t computeQueueIndex, std::string vdbPath, openvdb::GridClass ensureThisType)
-        : m_computeQueueIndex(std::move(computeQueueIndex)), m_volumeData(std::move(vdbPath), std::move(ensureThisType))
+    VDBRequest(uint8_t computeQueueIndex, std::unique_ptr<VolumeDataBase> volumeData)
+        : m_computeQueueIndex(std::move(computeQueueIndex)), m_volumeData(std::move(volumeData))
     {
+      assert(m_volumeData && "Sanity check to ensure volume data is valid"); 
     }
+
+    virtual void prep() override; 
 
     virtual ~VDBRequest() = default;
 
@@ -28,14 +31,14 @@ class VDBRequest : public star::TransferRequest::Buffer
 
   private:
     uint8_t m_computeQueueIndex;
-    VolumeData m_volumeData; 
+    std::unique_ptr<VolumeDataBase> m_volumeData = nullptr; 
 };
 
 class VDBInfoController : public star::ManagerController::RenderResource::Buffer
 {
   public:
-    VDBInfoController(std::string vdbPath, openvdb::GridClass ensureThisType)
-        : m_vdbPath(std::move(vdbPath)), m_ensureThisType(std::move(ensureThisType))
+    VDBInfoController(std::unique_ptr<VolumeDataBase> volumeData)
+        : m_volumeData(std::move(volumeData))
     {
     }
 
@@ -43,7 +46,6 @@ class VDBInfoController : public star::ManagerController::RenderResource::Buffer
         star::core::device::StarDevice &device) override;
 
   private:
-    // nanovdb::GridType type;
-    std::string m_vdbPath;
-    openvdb::GridClass m_ensureThisType;
+  std::unique_ptr<VolumeDataBase> m_volumeData; 
+
 };

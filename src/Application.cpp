@@ -46,7 +46,7 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         size_t fNumFramesInFlight = 0;
         star::CastHelpers::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
-        std::string vdbPath = mediaDirectoryPath + "volumes/utahteapot.vdb";
+        std::string vdbPath = mediaDirectoryPath + "volumes/dragon.vdb";
         m_volume = std::make_shared<Volume>(
             context, vdbPath, fNumFramesInFlight, camera, width, height, offscreenRenderer->getRenderToColorImages(),
             offscreenRenderer->getRenderToDepthImages(), offscreenRenderer->getCameraInfoBuffers(),

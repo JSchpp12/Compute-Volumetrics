@@ -46,7 +46,9 @@ set(${PROJECT_NAME}_SOURCES
 	"src/FogControlInfo.cpp"
 	"src/CopyDepthTextureToBuffer.cpp"
 	"src/FogInfo.cpp"
-	"src/VolumeData.cpp"
+	"src/VolumeDataBase.cpp"
+	"src/FogData.cpp"
+	"src/LevelSetData.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -70,7 +72,9 @@ set(${PROJECT_NAME}_HEADERS
 	"include/FogControlInfo.hpp"
 	"include/CopyDepthTextureToBuffer.hpp"
 	"include/FogInfo.hpp"
-	"include/VolumeData.hpp"
+	"include/VolumeDataBase.hpp"
+	"include/FogData.hpp"
+	"include/LevelSetData.hpp"
 )
 
 set(${PROJECT_NAME}_INCLUDE_DIRS

@@ -2,6 +2,10 @@
 
 #include "FileHelpers.hpp"
 
+void VDBRequest::prep(){
+    m_volumeData->prep(); 
+}
+
 std::unique_ptr<star::StarBuffers::Buffer> VDBRequest::createStagingBuffer(vk::Device &device,
                                                                            VmaAllocator &allocator) const
 {
@@ -13,11 +17,11 @@ std::unique_ptr<star::StarBuffers::Buffer> VDBRequest::createStagingBuffer(vk::D
                 .build(),
             vk::BufferCreateInfo()
                 .setSharingMode(vk::SharingMode::eExclusive)
-                .setSize(m_volumeData.getSize())
+                .setSize(m_volumeData->getSize())
                 .setUsage(vk::BufferUsageFlagBits::eTransferSrc),
             "VDBInfo_SRC")
         .setInstanceCount(1)
-        .setInstanceSize(m_volumeData.getSize())
+        .setInstanceSize(m_volumeData->getSize())
         .build();
 }
 
@@ -42,22 +46,24 @@ std::unique_ptr<star::StarBuffers::Buffer> VDBRequest::createFinal(
                 .setSharingMode(vk::SharingMode::eConcurrent)
                 .setQueueFamilyIndexCount(numInds)
                 .setPQueueFamilyIndices(indices.data())
-                .setSize(m_volumeData.getSize())
+                .setSize(m_volumeData->getSize())
                 .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer),
             "VDBInfo")
         .setInstanceCount(1)
-        .setInstanceSize(m_volumeData.getSize())
+        .setInstanceSize(m_volumeData->getSize())
         .build();
 }
 
 void VDBRequest::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const
 {
-    m_volumeData.writeDataToBuffer(buffer);
+    m_volumeData->writeDataToBuffer(buffer);
 }
 
 std::unique_ptr<star::TransferRequest::Buffer> VDBInfoController::createTransferRequest(
     star::core::device::StarDevice &device)
 {
+    assert(m_volumeData && "Volume data has already been given away"); 
+
     return std::make_unique<VDBRequest>(device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
-                                        m_vdbPath, m_ensureThisType);
+                                        std::move(m_volumeData));
 }

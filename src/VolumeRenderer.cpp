@@ -6,6 +6,10 @@
 #include "ManagerRenderResource.hpp"
 #include "VDBInfo.hpp"
 
+#include "FogData.hpp"
+#include "LevelSetData.hpp"
+
+
 VolumeRenderer::VolumeRenderer(std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
                                const std::shared_ptr<star::StarCamera> camera,
                                const std::vector<star::Handle> &instanceModelInfo,
@@ -157,10 +161,13 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
         this->m_renderingContext->pipeline.bind(commandBuffer);
 
         std::vector<vk::DescriptorSet> sets;
-        if (this->currentFogType == FogType::marched){
+        if (this->currentFogType == FogType::marched)
+        {
             sets = this->VolumeShaderInfo->getDescriptors(frameInFlightIndex);
-        }else{
-            sets = this->SDFShaderInfo->getDescriptors(frameInFlightIndex); 
+        }
+        else
+        {
+            sets = this->SDFShaderInfo->getDescriptors(frameInFlightIndex);
         }
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0,
                                          static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
@@ -233,11 +240,17 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &device, const
     this->cameraShaderInfo =
         star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<CameraInfoController>(camera), true);
 
-    this->vdbInfoSDF = star::ManagerRenderResource::addRequest(
-        m_deviceID, std::make_unique<VDBInfoController>(m_vdbFilePath, openvdb::GridClass::GRID_LEVEL_SET), true);
+    this->vdbInfoSDF =
+        star::ManagerRenderResource::addRequest(m_deviceID,
+                                                std::make_unique<VDBInfoController>(std::make_unique<LevelSetData>(
+                                                    m_vdbFilePath, openvdb::GridClass::GRID_LEVEL_SET)),
+                                                true);
 
-    this->vdbInfoFog = star::ManagerRenderResource::addRequest(
-        m_deviceID, std::make_unique<VDBInfoController>(m_vdbFilePath, openvdb::GridClass::GRID_FOG_VOLUME), true);
+    this->vdbInfoFog =
+        star::ManagerRenderResource::addRequest(m_deviceID,
+                                                std::make_unique<VDBInfoController>(std::make_unique<LevelSetData>(
+                                                    m_vdbFilePath, openvdb::GridClass::GRID_FOG_VOLUME)),
+                                                true);
 
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
@@ -343,8 +356,8 @@ void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
     this->SDFShaderInfo->cleanupRender(context.getDevice());
     this->SDFShaderInfo.reset();
 
-    this->VolumeShaderInfo->cleanupRender(context.getDevice()); 
-    this->VolumeShaderInfo.reset(); 
+    this->VolumeShaderInfo->cleanupRender(context.getDevice());
+    this->VolumeShaderInfo.reset();
 
     for (auto &computeWriteToImage : this->computeWriteToImages)
     {
@@ -367,7 +380,7 @@ std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescrip
 void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device, const int &numFramesInFlight)
 {
     this->SDFShaderInfo = buildShaderInfo(device, numFramesInFlight, true);
-    this->VolumeShaderInfo = buildShaderInfo(device, numFramesInFlight, false); 
+    this->VolumeShaderInfo = buildShaderInfo(device, numFramesInFlight, false);
 
     {
         auto sets = this->SDFShaderInfo->getDescriptorSetLayouts();
@@ -492,7 +505,7 @@ std::unique_ptr<star::StarShaderInfo> VolumeRenderer::buildShaderInfo(star::core
             .add(this->fogControlShaderInfo.at(i), false);
     }
 
-    return shaderInfoBuilder.build(); 
+    return shaderInfoBuilder.build();
 }
 
 glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize)
