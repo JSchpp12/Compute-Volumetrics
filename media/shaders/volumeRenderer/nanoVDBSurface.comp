@@ -250,7 +250,7 @@ void main()
     pnanovdb_grid_handle_t grid = makeNanoGrid(0);
 
     const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]); 
-    Ray worldRay = createRay(orgWorld, viewDirectionWorld.xyz);  
+    Ray worldRay = createRay(orgWorld.xyz, viewDirectionWorld.xyz);  
     Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix); 
 
     float t0 = 0;

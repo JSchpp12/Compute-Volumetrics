@@ -1,5 +1,7 @@
 #version 450
 
+const float PI = 3.1415926535897932384626433832795;
+
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 struct Light_Type
@@ -146,65 +148,84 @@ bool checkForThreadOutsideOfTarget()
 float applyHenyeyGreensteinPhase(const vec3 viewDirection, const vec3 lightDirection, const float gValue){
     const float cosTheta = clamp(dot(viewDirection, lightDirection), -1.0, 1.0); 
     const float denom = pow(1 + gValue * gValue - 2 * gValue * cosTheta, 1.5);
-    return float(1) / (4 * radians(180)) * (1 - gValue * gValue) / denom; 
+    return float(1) / (4 *PI) * (1 - gValue * gValue) / denom; 
 }
 
-vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewDirection, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
+float rand(vec2 co){
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewPositionWorld, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
                   const mat4 inverseModelMatrix, const float volumeUniformScale, const float sigmaAbsorption, const float sigmaScattering, const float lightPropertyDir_g,
-                  const float cutOffDistance)
-{
-    pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
-    pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
+                  const float mainStepSize, const float lightStepSize, const float cutOffDistance)
+{ 
+    const float jitter = rand(ivec2(gl_GlobalInvocationID.xy));
 
-    vec3 resultingColor = backgroundColor;
-	float transparency = 1;
+    const float extinctionCoef = sigmaAbsorption + sigmaScattering; 
 
-    const int fittedNumSteps = int(floor((t1 - t0) / fogInfo.marchedFog_stepSizeDist));
-    const float fittedStepSize = (t1 - t0) / fittedNumSteps; 
+    const float endDist = min(t1, cutOffDistance); 
+    const int fittedNumSteps = max(1, int(ceil(endDist / mainStepSize)));
 
+    // if (endDist <= t0){
+    //     return backgroundColor; 
+    // }
+
+	float camTransparency = 1.0;
+    vec3 inScatteringRadiance = vec3(0.0); 
     for (int i = 0; i < fittedNumSteps; i++){
         // setting to middle
-        float t = t0 + fittedStepSize * (i + 0.5f);
-
+        float t = t0 + mainStepSize * (i + 0.5 + jitter);
         //check if march is beyond where the cutoff point should be
-        if (t > cutOffDistance){
+        if (t >= endDist){
             break;
         }
 
-		vec4 position = vec4(ray.origin.xyz + (t * ray.direction.xyz), 1.0); 
-        float density = gridReadAt(grid, position.xyz, inverseModelMatrix);
-		float beerExpTrans = exp(-fittedStepSize * density * (sigmaAbsorption + sigmaScattering)); 
-
-		transparency *= beerExpTrans;
+		const vec3 worldPos = ray.origin.xyz + (t * ray.direction.xyz); 
+        const float rho = gridReadAt(grid, worldPos.xyz, inverseModelMatrix); 
+        const float sigmaT = extinctionCoef * rho;  
+        const float sigmaS = sigmaScattering * rho;
 
 		for (int j = 0; j < lightInfo.numLights; j++){
-			Ray rayToLight = createRay(position, normalize(lightList.lights[j].position.xyz - position.xyz));
-            Ray rayToLightLocal = transformWorldRayToGridLocal(rayToLight, inverseModelMatrix); 
+            const float lightJitter = fract(jitter * 1.61803398875);  
+
+            const vec3 lightPos = lightList.lights[j].position.xyz;
+            float lightDist = length(lightPos - worldPos);
+            const vec3 lightDir = normalize(lightPos - worldPos); 
+
+            const Ray rayToLight = createRay(worldPos, lightDir);
+            const Ray rayToLightLocal = transformWorldRayToGridLocal(rayToLight, inverseModelMatrix); 
 
             float lt0 = 0;
             float lt1 = 0;  
+            float tau = 0.0; 
             if (rayBoxIntersectWorld(grid, instanceModelMatrix[0], rayToLightLocal, rayToLight, lt0, lt1)){ 
-                const float fittedStepSizeToLight = (lt1 - lt0) / fogInfo.marchedFog_stepSizeDist_light;
-                const int fittedNumStepsLight = int(floor((lt1 - lt0) / fittedStepSizeToLight));
+                //check if light is within the bounds of the volume and clamp to that distance rather than going all the way through
+                const float boxStepDistance = lt1 - lt0; 
+                const float clampedDistanceToLight = min(boxStepDistance, lightDist);  
+                const int fittedNumStepsToLight = max(1, int(ceil(clampedDistanceToLight / lightStepSize))); 
 
                 float sumLightSampleDensities = 0; 
-                for (int k = 0; k < fittedNumStepsLight; k++){
-                    //cant remember why there is a 0.5 here.......
-                    float tLight = fittedStepSizeToLight * (k + 0.5); 
+                for (int k = 0; k < fittedNumStepsToLight; k++){
+                    const float tLight = lightStepSize * (k + 0.5 + lightJitter); 
+                    const vec3 lightTracePosition = rayToLight.origin.xyz + (tLight * rayToLight.direction.xyz);
+                    const float rhoLight = gridReadAt(grid, lightTracePosition, inverseModelMatrix); 
 
-                    const vec4 lightTracePosition = vec4(rayToLight.origin.xyz + (tLight / rayToLight.invDirection.xyz), 1);
-                    sumLightSampleDensities += density;
+                    tau += (extinctionCoef * rhoLight * lightStepSize); 
                 }
+                const vec3 lightToCameraDir = normalize(-ray.direction.xyz);
+                const float tLight = exp(-tau); 
+                const float phase = applyHenyeyGreensteinPhase(lightToCameraDir, lightDir, lightPropertyDir_g); 
+                const vec3 contrib = camTransparency * sigmaS * phase * tLight * lightList.lights[j].ambient.rgb * mainStepSize; 
 
-                const float lightAtten = exp(sumLightSampleDensities * lt1 * (sigmaAbsorption + sigmaScattering)); 
-                const float phaseResult = lightAtten * applyHenyeyGreensteinPhase(position.xyz, rayToLight.direction.xyz, lightPropertyDir_g) * density * fittedStepSizeToLight;
-
-                resultingColor = resultingColor + (lightList.lights[j].ambient.rgb * phaseResult); 
+                inScatteringRadiance += contrib; 
             }
 		}
+
+        const float dT = exp(-sigmaT * mainStepSize); 
+        camTransparency *= dT; 
     }
 
-    return resultingColor * transparency; 
+    return camTransparency * backgroundColor + inScatteringRadiance; 
 }
 
 void main()
@@ -219,14 +240,14 @@ void main()
     const vec4 viewPositionWorld = getWorldPositionFromClip(clipSpace);
     const vec4 orgWorld = getWorldOrigin(); 
     const vec4 viewDirectionWorld = getWorldViewDirection(viewPositionWorld); 
-    const float worldDepthDistance = length(viewPositionWorld.xyz - viewDirectionWorld.xyz); 
+    const float worldDepthDistance = length(viewPositionWorld.xyz - orgWorld.xyz); 
 
     vec3 resultingColor = imageLoad(inputSceneColor, targetPixel).rgb;
 
     pnanovdb_grid_handle_t grid = makeNanoGrid(0);
 
     const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]); 
-    const Ray worldRay = createRay(orgWorld, viewDirectionWorld.xyz);  
+    const Ray worldRay = createRay(orgWorld.xyz, viewDirectionWorld.xyz);  
     const Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix); 
     const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]); 
 
@@ -236,10 +257,12 @@ void main()
     if (rayBoxIntersectWorld(grid, instanceModelMatrix[0], localRay, worldRay, t0World, t1World) && t0World < worldDepthDistance){
         
         resultingColor = forwardMarch(grid,
-            viewDirectionWorld.xyz, 
-            resultingColor, worldRay, t0World, t1World, inverseModelMatrix, volumeUniformScale,
+            viewPositionWorld.xyz, 
+            resultingColor, worldRay, 
+            t0World, t1World, inverseModelMatrix, volumeUniformScale,
                                      fogInfo.marchedFog_sigmaAbsorption, fogInfo.marchedFog_sigmaScattering,
-                                     fogInfo.marchedFog_lightPropertyDirG, 
+                                     fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_stepSizeDist,
+                                     fogInfo.marchedFog_stepSizeDist_light, 
                                      worldDepthDistance);
     }
 
