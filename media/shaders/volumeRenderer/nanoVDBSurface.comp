@@ -30,7 +30,7 @@ layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
 {
     mat4 proj;
     mat4 view;
-    mat4 inverseView;
+    mat4 invView;
 } globalUbo;
 
 layout(set = 0, binding = 1) uniform GlobalLightInfo{
@@ -43,7 +43,7 @@ layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer{
 
 layout(set = 1, binding = 0) uniform additionalCameraInfo
 {
-    mat4 inverseProjMatrix;
+    mat4 invProj;
     vec2 cameraDimensions;
     float aspectRatio;
     float farClipDist;
@@ -89,32 +89,28 @@ fogInfo;
 #include "PNanoVDB.h"
 #include "volume_helpers.comp"
 
-
-vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const float ndz){
-    // 1) Build NDC coordinates in [−1, +1]
-    float ndcX = ((float(pixelCoords.x) + 0.5) / addCamInfo.cameraDimensions.x) * 2.0 - 1.0;
-    float ndcY = ((float(pixelCoords.y) + 0.5) / addCamInfo.cameraDimensions.y) * 2.0 - 1.0;
-
-    // Vulkan's Y axis is flipped compared to OpenGL
-    ndcY = -ndcY; 
-
-    // 2) Reconstruct clip-space with Z = −1 (the near plane), W = 1
-    return vec4(ndcX, ndcY, ndz, 1.0);
+vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const uvec2 resolution, const float depth){
+    vec2 uv = (vec2(pixelCoords) + 0.5) / vec2(resolution);
+    uv = uv * 2.0 - 1.0; 
+    float clipZ = depth * 2.0 - 1.0; 
+ 
+    return vec4(uv.x, uv.y, clipZ, 1.0);  
 }
 
-vec4 getWorldPositionFromClip(const vec4 clipCoords){
-    // 3) Go back to view-space:
-    vec4 viewPositionWorld = addCamInfo.inverseProjMatrix * clipCoords;
+void getSceneViewInfoForPix(in const ivec2 pixelCoords, in const uvec2 resolution, in float depth, out vec3 orgWorld, out vec3 viewDirWorld) {
+    vec4 clipPos = getClipSpaceCoordsFromPixel(pixelCoords, resolution, depth);
 
-    return viewPositionWorld / viewPositionWorld.w; 
-}
+    vec4 viewPos = addCamInfo.invProj * clipPos;
+    viewPos /= viewPos.w;
 
-vec4 getWorldViewDirection(const vec4 viewPositionWorld){
-    return vec4(normalize((globalUbo.inverseView * vec4(viewPositionWorld.xyz, 0.0)).xyz), 0);
-}
+    vec3 cameraPosWorld = (globalUbo.invView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 
-vec4 getWorldOrigin(){
-    return vec4((globalUbo.inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz, 1.0);
+    // Compute ray direction
+    vec3 rayDirView = normalize(viewPos.xyz);
+    vec3 rayDirWorld = normalize((globalUbo.invView * vec4(rayDirView, 0.0)).xyz); // transform to world space
+    
+    orgWorld = cameraPosWorld;
+    viewDirWorld = rayDirWorld;
 }
 
 ivec2 getTargetPixelCoords()
@@ -160,21 +156,26 @@ vec3 shadeSurface(const vec3 position, const vec3 normal){
     return color; 
 }
 
-vec3 estimateNormal(in pnanovdb_grid_handle_t grid, const vec3 position, const float voxSize, const float volumeUniformScale, const mat4 inverseModelMatrix){
-    float eps = voxSize * 0.5 * volumeUniformScale; 
+vec3 estimateNormal(pnanovdb_grid_handle_t grid, pnanovdb_readaccessor_t acc, pnanovdb_grid_type_t type, const vec3 pos, const float voxSize, const float volumeUniformScale){
+    float eps = voxSize * 0.5; 
+
+    vec4 posA = vec4(eps, 0, 0, 1.0); 
+    vec4 posB = vec4(0, eps, 0, 1.0); 
+    vec4 posC = vec4(0, 0, eps, 1.0); 
 
     return normalize(vec3(
-        (gridReadAt(grid, position + vec3(eps, 0, 0), inverseModelMatrix) * volumeUniformScale) - (gridReadAt(grid, position - vec3(eps, 0, 0), inverseModelMatrix) * volumeUniformScale),
-        (gridReadAt(grid, position + vec3(0, eps, 0), inverseModelMatrix) * volumeUniformScale) - (gridReadAt(grid, position - vec3(0, eps, 0), inverseModelMatrix) * volumeUniformScale),
-        (gridReadAt(grid, position + vec3(0, 0, eps), inverseModelMatrix) * volumeUniformScale) - (gridReadAt(grid, position - vec3(0, 0, eps), inverseModelMatrix) * volumeUniformScale)
+        ((gridReadAt(grid, acc, type, pos + posA.xyz)) - (gridReadAt(grid, acc, type, pos - posA.xyz))),
+        ((gridReadAt(grid, acc, type, pos + posB.xyz)) - (gridReadAt(grid, acc, type, pos - posB.xyz))),
+        ((gridReadAt(grid, acc, type, pos + posC.xyz)) - (gridReadAt(grid, acc, type, pos - posC.xyz)))
     ));
 }
 
-vec3 refineSurfacePosition(in pnanovdb_grid_handle_t grid, const Ray ray, vec3 position, float t, float threshold, const float voxSize, const float volumeUniformScale, const mat4 inverseModelMatrix){
+vec3 refineSurfacePosition(pnanovdb_grid_handle_t grid, pnanovdb_readaccessor_t acc, pnanovdb_grid_type_t type, const Ray ray, vec3 position, float threshold, const float voxSize, const float volumeUniformScale){
     const float approachStepSize = 0.25 * voxSize; 
 
     for (int i = 0; i < 10; i++){
-        float sdf = gridReadAt(grid, position.xyz, inverseModelMatrix) * volumeUniformScale;
+        vec4 readPos = vec4(position, 1.0); 
+        float sdf = gridReadAt(grid, acc, type, readPos.xyz);
 
         if (abs(sdf) < threshold){
             break;
@@ -188,43 +189,46 @@ vec3 refineSurfacePosition(in pnanovdb_grid_handle_t grid, const Ray ray, vec3 p
 
 //sphere ray marching application on level set nanoVDB volume
 vec3 forwardMarchLevelSet(in pnanovdb_grid_handle_t grid, const vec3 viewDirection, 
-                            const vec3 backgroundColor, const Ray worldRay, 
-                            const mat4 inverseModelMatrix,
+                            const vec3 backgroundColor, const Ray localRay, 
                             const float volumeUniformScale, 
-                            const float t0, const float t1,  
-                            const float cutOffDistance, const uint maxNumSteps)
+                            const float t0, const float t1, const float cutoffDistance, 
+                            const uint maxNumSteps)
 {
     const float voxSize = float(pnanovdb_grid_get_voxel_size(nanoVDBBuffer, grid, 0));
     const float threshold = voxSize * 2.0;
-    const float stepSizeMultiplier = 1.0; 
 
     vec3 resultingColor = backgroundColor;
     vec4 previousPosition; 
     float t = t0; 
-    float previousSDF = 0; 
+    float previousSDF = 0;
 
-    for (uint i = 0; i < 1000; i++){
-        vec4 position = worldRay.origin + ((t) * worldRay.direction); 
+    pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
+    pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
+    pnanovdb_readaccessor_t acc;
+    pnanovdb_readaccessor_init(acc, root);
+    pnanovdb_grid_type_t type = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid); 
 
-        float sdf = gridReadAt(grid, position.xyz, inverseModelMatrix); 
+    for (uint i = 0; i < maxNumSteps; i++){
+        const vec4 position = localRay.origin + ((t) * localRay.direction);
+        const float sdf = gridReadAt(grid, acc, type, position.xyz);
 
         //check for if beyond range of bounding box
-        if (t > t1 || t > cutOffDistance){
+        if (t > t1 || t > cutoffDistance){
             break;
         }
 
         //check for change in sign of sdf function, stepped too far 
         if (previousSDF * sdf < 0 || abs(sdf) < threshold){
-            vec3 refinedPosition = refineSurfacePosition(grid, worldRay, position.xyz, t, threshold, voxSize, volumeUniformScale, inverseModelMatrix);
-            vec3 normal = estimateNormal(grid, refinedPosition, voxSize, volumeUniformScale, inverseModelMatrix); 
-            resultingColor = shadeSurface(refinedPosition, normal); 
+            vec3 refinedPosition = refineSurfacePosition(grid, acc, type, localRay, position.xyz, threshold, voxSize, volumeUniformScale);
+            vec3 normal = estimateNormal(grid, acc, type, refinedPosition, voxSize, volumeUniformScale); 
+            resultingColor = shadeSurface(position.xyz, normal); 
             break;
         }
 
         previousPosition = position;
         previousSDF = sdf;
 
-        float stepSize = clamp(sdf, voxSize * 0.5, voxSize * 10.0); 
+        const float stepSize = clamp(sdf, voxSize * 0.5, voxSize * 10.0); 
         t += stepSize;
     }
 
@@ -232,38 +236,38 @@ vec3 forwardMarchLevelSet(in pnanovdb_grid_handle_t grid, const vec3 viewDirecti
 }
 
 void main()
-{
-    if (!checkForThreadOutsideOfTarget())
-        return;
+{       
+    uvec2 gid = gl_GlobalInvocationID.xy;
+    uvec2 size = uvec2(addCamInfo.cameraDimensions.xy);
+    if (any(greaterThanEqual(gid, size))) return;
 
-    const ivec2 targetPixel = getTargetPixelCoords();
+    ivec2 targetPixel = getTargetPixelCoords(); 
+    pnanovdb_grid_handle_t grid = makeNanoGrid(0);
+    
     float targetPixelInputDepth = texelFetch(inputSceneDepth, targetPixel, 0).r;
-
-    const vec4 clipSpace = getClipSpaceCoordsFromPixel(targetPixel, targetPixelInputDepth); 
-    const vec4 viewPositionWorld = getWorldPositionFromClip(clipSpace);
-    const vec4 orgWorld = getWorldOrigin(); 
-    const vec4 viewDirectionWorld = getWorldViewDirection(viewPositionWorld); 
-    const float worldDepthDistance = length(viewPositionWorld.xyz - viewDirectionWorld.xyz); 
-
+    const float linearDepth = linearizeDepth(targetPixelInputDepth, addCamInfo.nearClipDist, addCamInfo.farClipDist); 
     vec3 resultingColor = imageLoad(inputSceneColor, targetPixel).rgb;
 
-    pnanovdb_grid_handle_t grid = makeNanoGrid(0);
+    vec3 viewDirScene = vec3(0.0); 
+    vec3 orgScene = vec3(0.0);
+    getSceneViewInfoForPix(targetPixel, uvec2(addCamInfo.cameraDimensions.x, addCamInfo.cameraDimensions.y), targetPixelInputDepth, orgScene, viewDirScene); 
 
     const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]); 
-    Ray worldRay = createRay(orgWorld.xyz, viewDirectionWorld.xyz);  
+    Ray worldRay = createRay(orgScene.xyz, viewDirScene.xyz);  
     Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix); 
 
     float t0 = 0;
     float t1 = 0;
-
     const float scale = extractUniformVolumeScale(instanceModelMatrix[0]);
-    if (rayBoxIntersectWorld(grid, instanceModelMatrix[0], localRay, worldRay, t0, t1) && t0 < worldDepthDistance){
+    if (rayBoxIntersectLocal(grid, localRay, t0, t1) && t0 < linearDepth){
         resultingColor = forwardMarchLevelSet(grid,
-            viewDirectionWorld.xyz, 
-            resultingColor, worldRay, 
-            inverseModelMatrix, 
+            viewDirScene, 
+            resultingColor, 
+            localRay,
             scale,
-            t0, t1, worldDepthDistance, 
+            t0,
+            t1,
+            linearDepth,
             fogInfo.marchedFog_levelSet_maxNumSteps);
     }
 

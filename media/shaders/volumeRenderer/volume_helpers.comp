@@ -42,25 +42,15 @@ pnanovdb_grid_handle_t makeNanoGrid(uint baseByteOffset) {
     return h;
 }
 
-float gridReadAt(in pnanovdb_grid_handle_t grid, const in vec3 worldPosition, const in mat4 inverseModelMatrix){
-    const vec3 localPosition = (inverseModelMatrix * vec4(worldPosition, 1.0)).xyz; 
-
-    pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
-    pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
-
-    pnanovdb_readaccessor_t acc;
-    pnanovdb_readaccessor_init(acc, root);
-
-    pnanovdb_vec3_t indexCoord = pnanovdb_grid_world_to_indexf(nanoVDBBuffer, grid, localPosition); 
+float gridReadAt(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccessor_t acc,in pnanovdb_grid_type_t type, const in vec3 position){
+    pnanovdb_vec3_t indexCoord = pnanovdb_grid_world_to_indexf(nanoVDBBuffer, grid, position.xyz); 
     pnanovdb_coord_t ijk; 
     ijk.x = int(floor(indexCoord.x)); 
     ijk.y = int(floor(indexCoord.y));
     ijk.z = int(floor(indexCoord.z)); 
 
-    pnanovdb_grid_type_t type = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid); 
-
     pnanovdb_address_t address = pnanovdb_readaccessor_get_value_address(type,
-                             nanoVDBBuffer, acc, ijk);
+                            nanoVDBBuffer, acc, ijk);
     return float(pnanovdb_read_float(nanoVDBBuffer, address)); 
 }
 
@@ -102,8 +92,8 @@ bool rayBoxIntersectLocal(in pnanovdb_grid_handle_t grid, in Ray gridRay, inout 
     tmin = max(tmin, min(tzmin, tzmax));
     tmax = min(tmax, max(tzmin, tzmax));
 
-    t0 = tmin;
-    t1 = tmax;
+    t0 = max(0.0, tmin);
+    t1 = max(0.0, tmax);
 
     return tmax >= max(0.0, tmin);
 }
