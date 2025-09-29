@@ -23,7 +23,8 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     // camera->setForwardVector(glm::vec3{0.0, 0.0, 0.0} - camera->getPosition());
     // camera->setPosition(glm::vec3{-305.11, 93.597, 161.739});
 
-    camera->setPosition(glm::vec3{4.0, 4.0, 4.0});
+    camera->setMovementSpeed(100); 
+    camera->setPosition(glm::vec3{10.0, 10.0, 10.0});
     camera->setForwardVector(glm::vec3{0.0, 0.0, 0.0} - camera->getPosition());
 
     uint8_t numInFlight;
@@ -68,8 +69,8 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     }
 
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.1;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 0.5;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 3.0;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 3.0;
     m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.5;
     m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0.5;
     m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.8f); 

@@ -24,5 +24,5 @@ void LevelSetData::convertVolumeFormat(openvdb::SharedPtr<openvdb::FloatGrid> &b
         {
             throw std::runtime_error("Cant convert");
         }
-    }
+    } 
 }

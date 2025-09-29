@@ -10,7 +10,7 @@ class FogInfo
         float linearFog_nearDist = 0.0f, linearFog_farDist = 0.0f, expFog_density = 0.0f,
               marchedFog_defaultDensity = 0.0f, marchedFog_sigmaAbsorption = 0.0f, marchedFog_sigmaScattering = 0.0f,
               marchedFog_lightPropertyDirG = 0.0f, marchedFog_stepSizeDist = 1.0f, marchedFog_stepSizeDist_light = 3.0f;
-        uint32_t marchedFog_levelSet_maxNumSteps = 10, vdb_gridType = 0;
+        uint32_t marchedFog_levelSet_maxNumSteps = 1000, vdb_gridType = 0;
 
         FinalizedInfo(const float &linearFog_nearDist, const float &linearFog_farDist, const float &expFog_density,
                       const float &marchedFog_defaultDensity, const float &marchedFog_sigmaAbsorption,
@@ -209,7 +209,7 @@ class FogInfo
                              this->marchedInfo.getLightPropertyDirG(),
                              this->marchedInfo.stepSizeDist,
                              this->marchedInfo.stepSizeDist_light,
-                             uint32_t(10),
-                             uint32_t(0)};
+                             uint32_t(1000), uint32_t(10)
+                             };
     }
 };
