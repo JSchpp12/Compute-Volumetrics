@@ -115,7 +115,7 @@ vec4 getWorldViewDirection(const vec4 viewPositionWorld){
 }
 
 vec4 getWorldOrigin(){
-    return vec4((globalUbo.inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz, 1.0);
+    return vec4((globalUbo.inverseView * addCamInfo.inverseProjMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz, 1.0);
 }
 
 ivec2 getTargetPixelCoords()
@@ -156,43 +156,31 @@ float rand(vec2 co){
 }
 
 vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewPositionWorld, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
-                  const mat4 inverseModelMatrix, const float volumeUniformScale, const float sigmaAbsorption, const float sigmaScattering, const float lightPropertyDir_g,
-                  const float mainStepSize, const float lightStepSize, const float cutOffDistance)
+                  const mat4 inverseModelMatrix, const float volumeUniformScale, float sigmaAbsorption, const float sigmaScattering, const float lightPropertyDir_g,
+                  float mainStepSize, const float lightStepSize, const float cutOffDistance)
 { 
-    const float jitter = rand(ivec2(gl_GlobalInvocationID.xy));
+    sigmaAbsorption = 0.1; 
+    mainStepSize = 0.2; 
 
-    const float extinctionCoef = sigmaAbsorption + sigmaScattering; 
+    // const float endDist = min(t1, cutOffDistance); 
+    const int fittedNumSteps = max(1, int(ceil(t1 / mainStepSize)));
+    const float middleStepSizeDist = mainStepSize / 2.0; 
 
-    const float endDist = min(t1, cutOffDistance); 
-    const int fittedNumSteps = max(1, int(ceil(endDist / mainStepSize)));
-
-    // if (endDist <= t0){
-    //     return backgroundColor; 
-    // }
-
-	float camTransparency = 1.0;
-    vec3 inScatteringRadiance = vec3(0.0); 
+	float transparency = 1.0;
+    vec3 resultingRadiance = vec3(0.0); 
     for (int i = 0; i < fittedNumSteps; i++){
         // setting to middle
-        float t = t0 + mainStepSize * (i + 0.5 + jitter);
-        //check if march is beyond where the cutoff point should be
-        if (t >= endDist){
-            break;
-        }
-
-		const vec3 worldPos = ray.origin.xyz + (t * ray.direction.xyz); 
-        const float rho = gridReadAt(grid, worldPos.xyz, inverseModelMatrix); 
-        const float sigmaT = extinctionCoef * rho;  
-        const float sigmaS = sigmaScattering * rho;
+        const float t = t0 + mainStepSize * (i + middleStepSizeDist);
+		const vec3 worldPos = ray.origin.xyz + t * ray.direction.xyz; 
+        float sampleTransparency = exp(-mainStepSize * sigmaAbsorption); 
+        transparency *= sampleTransparency; 
 
 		for (int j = 0; j < lightInfo.numLights; j++){
-            const float lightJitter = fract(jitter * 1.61803398875);  
-
             const vec3 lightPos = lightList.lights[j].position.xyz;
-            float lightDist = length(lightPos - worldPos);
-            const vec3 lightDir = normalize(lightPos - worldPos); 
 
-            const Ray rayToLight = createRay(worldPos, lightDir);
+            //might need to check if light is within volume later
+
+            const Ray rayToLight = createRay(worldPos, normalize(lightPos - worldPos));
             const Ray rayToLightLocal = transformWorldRayToGridLocal(rayToLight, inverseModelMatrix); 
 
             float lt0 = 0;
@@ -200,32 +188,14 @@ vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewPositionWorld, 
             float tau = 0.0; 
             if (rayBoxIntersectWorld(grid, instanceModelMatrix[0], rayToLightLocal, rayToLight, lt0, lt1)){ 
                 //check if light is within the bounds of the volume and clamp to that distance rather than going all the way through
-                const float boxStepDistance = lt1 - lt0; 
-                const float clampedDistanceToLight = min(boxStepDistance, lightDist);  
-                const int fittedNumStepsToLight = max(1, int(ceil(clampedDistanceToLight / lightStepSize))); 
+                float lightAttenuation = exp(-lt1 * sigmaAbsorption);
 
-                float sumLightSampleDensities = 0; 
-                for (int k = 0; k < fittedNumStepsToLight; k++){
-                    const float tLight = lightStepSize * (k + 0.5 + lightJitter); 
-                    const vec3 lightTracePosition = rayToLight.origin.xyz + (tLight * rayToLight.direction.xyz);
-                    const float rhoLight = gridReadAt(grid, lightTracePosition, inverseModelMatrix); 
-
-                    tau += (extinctionCoef * rhoLight * lightStepSize); 
-                }
-                const vec3 lightToCameraDir = normalize(-ray.direction.xyz);
-                const float tLight = exp(-tau); 
-                const float phase = applyHenyeyGreensteinPhase(lightToCameraDir, lightDir, lightPropertyDir_g); 
-                const vec3 contrib = camTransparency * sigmaS * phase * tLight * lightList.lights[j].ambient.rgb * mainStepSize; 
-
-                inScatteringRadiance += contrib; 
+                resultingRadiance += transparency * lightList.lights[j].ambient.rgb * lightAttenuation * mainStepSize; 
             }
 		}
-
-        const float dT = exp(-sigmaT * mainStepSize); 
-        camTransparency *= dT; 
     }
 
-    return camTransparency * backgroundColor + inScatteringRadiance; 
+    return backgroundColor * transparency + resultingRadiance; 
 }
 
 void main()
@@ -254,7 +224,7 @@ void main()
     float t0World = 0;
     float t1World = 0;
 
-    if (rayBoxIntersectWorld(grid, instanceModelMatrix[0], localRay, worldRay, t0World, t1World) && t0World < worldDepthDistance){
+    if (rayBoxIntersectWorld(grid, inverseModelMatrix, localRay, worldRay, t0World, t1World) && t0World < worldDepthDistance){
         
         resultingColor = forwardMarch(grid,
             viewPositionWorld.xyz, 
