@@ -32,7 +32,7 @@ layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
 {
     mat4 proj;
     mat4 view;
-    mat4 inverseView;
+    mat4 invView;
 } globalUbo;
 
 layout(set = 0, binding = 1) uniform GlobalLightInfo{
@@ -45,7 +45,7 @@ layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer{
 
 layout(set = 1, binding = 0) uniform additionalCameraInfo
 {
-    mat4 inverseProjMatrix;
+    mat4 invProj;
     vec2 cameraDimensions;
     float aspectRatio;
     float farClipDist;
@@ -91,31 +91,28 @@ fogInfo;
 #include "PNanoVDB.h"
 #include "volume_helpers.comp"
 
-vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const float ndz){
-    // 1) Build NDC coordinates in [−1, +1]
-    float ndcX = ((float(pixelCoords.x) + 0.5) / addCamInfo.cameraDimensions.x) * 2.0 - 1.0;
-    float ndcY = ((float(pixelCoords.y) + 0.5) / addCamInfo.cameraDimensions.y) * 2.0 - 1.0;
-
-    // Vulkan's Y axis is flipped compared to OpenGL
-    ndcY = -ndcY; 
-
-    // 2) Reconstruct clip-space with Z = −1 (the near plane), W = 1
-    return vec4(ndcX, ndcY, ndz, 1.0);
+vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const uvec2 resolution, const float depth){
+    vec2 uv = (vec2(pixelCoords) + 0.5) / vec2(resolution);
+    uv = uv * 2.0 - 1.0; 
+    float clipZ = depth * 2.0 - 1.0; 
+ 
+    return vec4(uv.x, uv.y, clipZ, 1.0);  
 }
 
-vec4 getWorldPositionFromClip(const vec4 clipCoords){
-    // 3) Go back to view-space:
-    vec4 viewPositionWorld = addCamInfo.inverseProjMatrix * clipCoords;
+void getSceneViewInfoForPix(in const ivec2 pixelCoords, in const uvec2 resolution, in float depth, out vec3 orgWorld, out vec3 viewDirWorld) {
+    vec4 clipPos = getClipSpaceCoordsFromPixel(pixelCoords, resolution, depth);
 
-    return viewPositionWorld / viewPositionWorld.w; 
-}
+    vec4 viewPos = addCamInfo.invProj * clipPos;
+    viewPos /= viewPos.w;
 
-vec4 getWorldViewDirection(const vec4 viewPositionWorld){
-    return vec4(normalize((globalUbo.inverseView * vec4(viewPositionWorld.xyz, 0.0)).xyz), 0);
-}
+    vec3 cameraPosWorld = (globalUbo.invView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 
-vec4 getWorldOrigin(){
-    return vec4((globalUbo.inverseView * addCamInfo.inverseProjMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz, 1.0);
+    // Compute ray direction
+    vec3 rayDirView = normalize(viewPos.xyz);
+    vec3 rayDirWorld = normalize((globalUbo.invView * vec4(rayDirView, 0.0)).xyz); // transform to world space
+    
+    orgWorld = cameraPosWorld;
+    viewDirWorld = rayDirWorld;
 }
 
 ivec2 getTargetPixelCoords()
@@ -155,7 +152,7 @@ float rand(vec2 co){
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
-vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewPositionWorld, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
+vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
                   const mat4 inverseModelMatrix, const float volumeUniformScale, float sigmaAbsorption, const float sigmaScattering, const float lightPropertyDir_g,
                   float mainStepSize, const float lightStepSize, const float cutOffDistance)
 { 
@@ -186,7 +183,7 @@ vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewPositionWorld, 
             float lt0 = 0;
             float lt1 = 0;  
             float tau = 0.0; 
-            if (rayBoxIntersectWorld(grid, instanceModelMatrix[0], rayToLightLocal, rayToLight, lt0, lt1)){ 
+            if (rayBoxIntersect(grid, rayToLight, lt0, lt1)){ 
                 //check if light is within the bounds of the volume and clamp to that distance rather than going all the way through
                 float lightAttenuation = exp(-lt1 * sigmaAbsorption);
 
@@ -200,40 +197,44 @@ vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 viewPositionWorld, 
 
 void main()
 {
-    if (!checkForThreadOutsideOfTarget())
-        return;
+    uvec2 gid = gl_GlobalInvocationID.xy;
+    uvec2 size = uvec2(addCamInfo.cameraDimensions.xy);
+    if (any(greaterThanEqual(gid, size))) return;
 
-    const ivec2 targetPixel = getTargetPixelCoords();
+    ivec2 targetPixel = getTargetPixelCoords(); 
+    pnanovdb_grid_handle_t grid = makeNanoGrid(0);
+    const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]);
+    
     float targetPixelInputDepth = texelFetch(inputSceneDepth, targetPixel, 0).r;
-
-    const vec4 clipSpace = getClipSpaceCoordsFromPixel(targetPixel, targetPixelInputDepth); 
-    const vec4 viewPositionWorld = getWorldPositionFromClip(clipSpace);
-    const vec4 orgWorld = getWorldOrigin(); 
-    const vec4 viewDirectionWorld = getWorldViewDirection(viewPositionWorld); 
-    const float worldDepthDistance = length(viewPositionWorld.xyz - orgWorld.xyz); 
-
+    const float linearDepth = linearizeDepth(targetPixelInputDepth, addCamInfo.nearClipDist, addCamInfo.farClipDist); 
     vec3 resultingColor = imageLoad(inputSceneColor, targetPixel).rgb;
 
-    pnanovdb_grid_handle_t grid = makeNanoGrid(0);
+    vec3 viewDirScene = vec3(0.0); 
+    vec3 orgScene = vec3(0.0);
+    getSceneViewInfoForPix(targetPixel, uvec2(addCamInfo.cameraDimensions.x, addCamInfo.cameraDimensions.y), targetPixelInputDepth, orgScene, viewDirScene); 
 
     const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]); 
-    const Ray worldRay = createRay(orgWorld.xyz, viewDirectionWorld.xyz);  
-    const Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix); 
-    const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]); 
+    Ray worldRay = createRay(orgScene.xyz, viewDirScene.xyz);  
+    Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix); 
 
-    float t0World = 0;
-    float t1World = 0;
+    float t0 = 0;
+    float t1 = 0;
 
-    if (rayBoxIntersectWorld(grid, inverseModelMatrix, localRay, worldRay, t0World, t1World) && t0World < worldDepthDistance){
-        
+    if (rayBoxIntersect(grid, localRay, t0, t1) && t0 < linearDepth){
         resultingColor = forwardMarch(grid,
-            viewPositionWorld.xyz, 
-            resultingColor, worldRay, 
-            t0World, t1World, inverseModelMatrix, volumeUniformScale,
-                                     fogInfo.marchedFog_sigmaAbsorption, fogInfo.marchedFog_sigmaScattering,
-                                     fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_stepSizeDist,
-                                     fogInfo.marchedFog_stepSizeDist_light, 
-                                     worldDepthDistance);
+            resultingColor, 
+            localRay, 
+            t0, 
+            t1, 
+            inverseModelMatrix, 
+            volumeUniformScale,
+            fogInfo.marchedFog_sigmaAbsorption,
+            fogInfo.marchedFog_sigmaScattering,
+            fogInfo.marchedFog_lightPropertyDirG, 
+            fogInfo.marchedFog_stepSizeDist,
+            fogInfo.marchedFog_stepSizeDist_light,
+            linearDepth
+        );
     }
 
     imageStore(outputImage, targetPixel, vec4(resultingColor, 1.0));

@@ -243,7 +243,8 @@ void main()
 
     ivec2 targetPixel = getTargetPixelCoords(); 
     pnanovdb_grid_handle_t grid = makeNanoGrid(0);
-    
+    const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]);
+
     float targetPixelInputDepth = texelFetch(inputSceneDepth, targetPixel, 0).r;
     const float linearDepth = linearizeDepth(targetPixelInputDepth, addCamInfo.nearClipDist, addCamInfo.farClipDist); 
     vec3 resultingColor = imageLoad(inputSceneColor, targetPixel).rgb;
@@ -258,17 +259,18 @@ void main()
 
     float t0 = 0;
     float t1 = 0;
-    const float scale = extractUniformVolumeScale(instanceModelMatrix[0]);
-    if (rayBoxIntersectLocal(grid, localRay, t0, t1) && t0 < linearDepth){
+
+    if (rayBoxIntersect(grid, localRay, t0, t1) && t0 < linearDepth){
         resultingColor = forwardMarchLevelSet(grid,
             viewDirScene, 
             resultingColor, 
             localRay,
-            scale,
+            volumeUniformScale,
             t0,
             t1,
             linearDepth,
-            fogInfo.marchedFog_levelSet_maxNumSteps);
+            1000
+        );
     }
 
     imageStore(outputImage, targetPixel, vec4(resultingColor, 1.0));
