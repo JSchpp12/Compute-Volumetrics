@@ -1,0 +1,30 @@
+struct Ray
+{
+    vec4 origin;
+    vec4 direction;
+    vec4 invDirection;
+    bool signed[3];
+};
+
+vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const uvec2 resolution, const float depth){
+    vec2 uv = (vec2(pixelCoords) + 0.5) / vec2(resolution);
+    uv = uv * 2.0 - 1.0; 
+    float clipZ = depth * 2.0 - 1.0; 
+ 
+    return vec4(uv.x, uv.y, clipZ, 1.0);  
+}
+
+void getSceneViewInfoForPix(in const ivec2 pixelCoords, in const uvec2 resolution, in float depth, out vec3 orgWorld, out vec3 viewDirWorld) {
+    vec4 clipPos = getClipSpaceCoordsFromPixel(pixelCoords, resolution, depth);
+
+    vec4 viewPos = addCamInfo.invProj * clipPos;
+    viewPos /= viewPos.w;
+
+    const vec3 cameraPosWorld = (globalUbo.invView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+
+    // Compute ray direction
+    const vec3 rayDirView = normalize(viewPos.xyz);
+    
+    orgWorld = cameraPosWorld;
+    viewDirWorld = normalize((globalUbo.invView * vec4(rayDirView, 0.0)).xyz);
+}

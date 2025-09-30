@@ -1,12 +1,6 @@
 pnanovdb_buf_t nanoVDBBuffer; 
 
-struct Ray
-{
-    vec4 origin;
-    vec4 direction;
-    vec4 invDirection;
-    bool signed[3];
-};
+//make sure to include ray_helpers.comp in parent
 
 Ray createRay(const vec3 origin, const vec3 direction)
 {
