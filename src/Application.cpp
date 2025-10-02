@@ -25,16 +25,18 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
 
     camera->setMovementSpeed(100); 
     camera->setPosition(glm::vec3{10.0, 10.0, 10.0});
-    camera->setForwardVector(glm::vec3{0.0, 0.0, 0.0} - camera->getPosition());
+    const auto dirTowardsCenter = glm::normalize(glm::vec3{0.0, 0.0, 0.0} - camera->getPosition());
+    camera->setForwardVector(dirTowardsCenter);
+
+    const glm::vec3 lightPos = glm::vec3{0.0, 0.0, 0.0} + (dirTowardsCenter * 50.0f); 
+    m_mainLight =
+        std::make_shared<star::Light>(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0});
 
     uint8_t numInFlight;
     {
         int framesInFlight = std::stoi(star::ConfigFile::getSetting(star::Config_Settings::frames_in_flight));
         star::CastHelpers::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
     }
-
-    m_mainLight =
-        std::make_shared<star::Light>(glm::vec3{0, 100, 0}, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0});
 
     auto offscreenRenderer = CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight);
 
@@ -69,8 +71,8 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     }
 
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 3.0;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 3.0;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.2;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 0.2;
     m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.5;
     m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0.5;
     m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.8f); 

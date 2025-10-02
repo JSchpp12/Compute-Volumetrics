@@ -120,10 +120,9 @@ bool checkForThreadOutsideOfTarget()
     return true;
 }
 
-float applyHenyeyGreensteinPhase(const vec3 viewDirection, const vec3 lightDirection, const float gValue){
-    const float cosTheta = clamp(dot(viewDirection, lightDirection), -1.0, 1.0); 
-    const float denom = pow(1 + gValue * gValue - 2 * gValue * cosTheta, 1.5);
-    return float(1) / (4 *PI) * (1 - gValue * gValue) / denom; 
+float applyHenyeyGreensteinPhase(const float cosTheta, const float gValue){
+    const float denom = 1.0 + gValue * gValue - 2.0 * gValue * cosTheta;
+    return (1.0 / (4.0 * PI)) * (1.0 - gValue * gValue) / sqrt(denom); 
 }
 
 float rand(vec2 co){
@@ -131,39 +130,55 @@ float rand(vec2 co){
 }
 
 vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
-                  const mat4 inverseModelMatrix, const float volumeUniformScale, float sigmaAbsorption, const float sigmaScattering, const float lightPropertyDir_g,
+                  const mat4 inverseModelMatrix, const float volumeUniformScale, float sigmaAbsorption, float sigmaScattering, float lightPropertyDir_g,
                   float mainStepSize, const float lightStepSize, const float cutOffDistance)
 { 
-    sigmaAbsorption = 0.1; 
+    lightPropertyDir_g = -0.2; 
     mainStepSize = 0.2; 
+    sigmaAbsorption = 100; 
+    sigmaScattering = 0.5; 
+
+    pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
+    pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
+    pnanovdb_readaccessor_t acc;
+    pnanovdb_readaccessor_init(acc, root);
+    pnanovdb_grid_type_t type = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid); 
 
     // const float endDist = min(t1, cutOffDistance); 
     const int fittedNumSteps = max(1, int(ceil(t1 / mainStepSize)));
     const float middleStepSizeDist = mainStepSize / 2.0; 
+    const float sigmaT = sigmaAbsorption + sigmaScattering;
+    float densityP = 1.0;
 
 	float transparency = 1.0;
     vec3 resultingRadiance = vec3(0.0); 
     for (int i = 0; i < fittedNumSteps; i++){
         // setting to middle
         const float t = t0 + mainStepSize * (i + middleStepSizeDist);
-		const vec3 worldPos = ray.origin.xyz + t * ray.direction.xyz; 
-        float sampleTransparency = exp(-mainStepSize * sigmaAbsorption); 
-        transparency *= sampleTransparency; 
+		const vec3 pos = ray.origin.xyz + t * ray.direction.xyz; 
+        // const float densityP = gridReadAt(grid, acc, type, pos);
+
+        float sampleAttenuation = exp(-mainStepSize * sigmaAbsorption); 
+        transparency *= sampleAttenuation; 
 
 		for (int j = 0; j < lightInfo.numLights; j++){
             const vec3 lightPos = lightList.lights[j].position.xyz;
 
             //might need to check if light is within volume later
-
-            const Ray rayToLight = createRay(worldPos, normalize(lightPos - worldPos));
-            const Ray rayToLightLocal = transformWorldRayToGridLocal(rayToLight, inverseModelMatrix); 
+            const Ray rayToLight = createRay(pos, normalize(lightPos - pos));
 
             float lt0 = 0;
             float lt1 = 0;  
             float tau = 0.0; 
             if (rayBoxIntersect(grid, rayToLight, lt0, lt1)){ 
                 //check if light is within the bounds of the volume and clamp to that distance rather than going all the way through
+
+
                 float lightAttenuation = exp(-lt1 * sigmaAbsorption);
+
+                // const float cosTheta = clamp(dot(ray.invDirection.xyz, rayToLight.direction.xyz), -1.0, 1.0); 
+
+                // const float phase = clamp(applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g), 0.0, 1.0);  
 
                 resultingRadiance += transparency * lightList.lights[j].ambient.rgb * lightAttenuation * mainStepSize; 
             }
