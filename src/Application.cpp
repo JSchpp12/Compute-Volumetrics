@@ -28,7 +28,7 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     const auto dirTowardsCenter = glm::normalize(glm::vec3{0.0, 0.0, 0.0} - camera->getPosition());
     camera->setForwardVector(dirTowardsCenter);
 
-    const glm::vec3 lightPos = glm::vec3{0.0, 0.0, 0.0} + (dirTowardsCenter * 50.0f); 
+    const glm::vec3 lightPos = glm::vec3{50.0f, 30.0f, 0.0f} - glm::vec3{0.0f, -20.0f, 0.0f}; 
     m_mainLight =
         std::make_shared<star::Light>(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0});
 
@@ -71,10 +71,10 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     }
 
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.2;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 0.2;
-    m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.5;
-    m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0.5;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.3;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 0.8;
+    m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.01;
+    m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0.05;
     m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.8f); 
 
     // std::cout << "Application Controls" << std::endl;
