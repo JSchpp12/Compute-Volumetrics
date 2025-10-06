@@ -6,6 +6,23 @@ struct Ray
     bool signed[3];
 };
 
+Ray createRay(const vec3 origin, const vec3 direction)
+{
+    const vec3 d = normalize(direction); 
+    const vec3 invD = 1.0 / d; 
+
+    const bool sx = d.x < 1.0; 
+    const bool sy = d.y < 1.0; 
+    const bool sz = d.z < 1.0;
+
+    return Ray(
+        vec4(origin, 1.0), 
+        vec4(d, 0.0), 
+        vec4(invD, 0.0),
+        bool[3](sx, sy, sz)
+    );
+}
+
 vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const uvec2 resolution, const float depth){
     vec2 uv = (vec2(pixelCoords) + 0.5) / vec2(resolution);
     uv = uv * 2.0 - 1.0; 

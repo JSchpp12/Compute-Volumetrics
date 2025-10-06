@@ -140,7 +140,7 @@ vec3 estimateNormal(pnanovdb_grid_handle_t grid, pnanovdb_readaccessor_t acc, pn
     vec4 posB = vec4(0, eps, 0, 1.0); 
     vec4 posC = vec4(0, 0, eps, 1.0); 
 
-    return -normalize(vec3(
+    return normalize(vec3(
         ((gridReadAt(grid, acc, type, pos + posA.xyz)) - (gridReadAt(grid, acc, type, pos - posA.xyz))),
         ((gridReadAt(grid, acc, type, pos + posB.xyz)) - (gridReadAt(grid, acc, type, pos - posB.xyz))),
         ((gridReadAt(grid, acc, type, pos + posC.xyz)) - (gridReadAt(grid, acc, type, pos - posC.xyz)))
