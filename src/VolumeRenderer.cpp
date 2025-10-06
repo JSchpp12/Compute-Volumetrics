@@ -372,7 +372,7 @@ std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescrip
     const int &numFramesInFlight)
 {
     return std::vector<std::pair<vk::DescriptorType, const int>>{
-        std::make_pair(vk::DescriptorType::eStorageImage, (3 * numFramesInFlight)),
+        std::make_pair(vk::DescriptorType::eStorageImage, 1 + (3 * numFramesInFlight)),
         std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + (4 * numFramesInFlight)),
         std::make_pair(vk::DescriptorType::eStorageBuffer, 2),
         std::make_pair(vk::DescriptorType::eCombinedImageSampler, 1)};
@@ -465,6 +465,7 @@ std::unique_ptr<star::StarShaderInfo> VolumeRenderer::buildShaderInfo(star::core
             .addSetLayout(star::StarDescriptorSetLayout::Builder()
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
                               .build(context.getDevice()))
             .addSetLayout(
                 star::StarDescriptorSetLayout::Builder()
@@ -495,6 +496,7 @@ std::unique_ptr<star::StarShaderInfo> VolumeRenderer::buildShaderInfo(star::core
         {
             shaderInfoBuilder.add(this->vdbInfoFog, false);
         }
+        shaderInfoBuilder.add(this->randomValueTexture, vk::ImageLayout::eGeneral, vk::Format::eR32Sfloat, false); 
 
         shaderInfoBuilder.startSet()
             .add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)

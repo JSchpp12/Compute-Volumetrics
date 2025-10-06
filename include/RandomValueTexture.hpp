@@ -11,27 +11,9 @@ class RandomValueTexture : public star::TransferRequest::TextureData<float, 1>
                                                        vk::ImageLayout::eGeneral)
     {
     }
+    virtual ~RandomValueTexture() = default;
 
   protected:
-    float generateRandomValue(const float &floor, const float &ceil) const
-    {
-        return 0.0f;
-    }
-
     virtual std::unique_ptr<std::vector<float>> loadTexture(const uint32_t &width,
-                                                            const uint32_t &height) const override
-    {
-        auto data = std::make_unique<std::vector<float>>(width * height);
-
-        for (uint32_t y = 0; y < height; y++)
-        {
-            for (uint32_t x = 0; x < width; x++)
-            {
-                std::size_t idx = static_cast<std::size_t>(y) * width + x;
-                data->at(idx) = generateRandomValue(0.0f, 1.0f);
-            }
-        }
-
-        return data;
-    }
+                                                            const uint32_t &height) const override;
 };
