@@ -71,9 +71,8 @@ class VolumeRenderer : private star::DescriptorModifier
     const std::vector<star::Handle> &instanceModelInfo;
     const std::array<glm::vec4, 2> &aabbBounds;
     const std::shared_ptr<star::StarCamera> camera = nullptr;
-    star::core::device::DeviceID m_deviceID;
     glm::uvec2 workgroupSize = glm::uvec2();
-    star::Handle cameraShaderInfo, commandBuffer, vdbInfoSDF, vdbInfoFog;
+    star::Handle cameraShaderInfo, commandBuffer, vdbInfoSDF, vdbInfoFog, randomValueTexture;
     std::vector<star::Handle> fogControlShaderInfo;
     std::vector<star::Handle> sceneLightInfoBuffers, sceneLightList;
     std::unique_ptr<star::StarShaderInfo> SDFShaderInfo, VolumeShaderInfo;
@@ -83,7 +82,6 @@ class VolumeRenderer : private star::DescriptorModifier
     std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths = nullptr;
     std::unique_ptr<uint32_t> graphicsQueueFamilyIndex, computeQueueFamilyIndex;
 
-    std::unique_ptr<vk::Extent2D> displaySize = std::unique_ptr<vk::Extent2D>();
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
         std::vector<std::shared_ptr<star::StarTextures::Texture>>();
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();

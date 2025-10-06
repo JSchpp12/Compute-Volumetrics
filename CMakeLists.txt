@@ -49,6 +49,8 @@ set(${PROJECT_NAME}_SOURCES
 	"src/VolumeDataBase.cpp"
 	"src/FogData.cpp"
 	"src/LevelSetData.cpp"
+	"src/RandomValueTexture.cpp"
+	"src/RandomValueTextureController.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -75,6 +77,8 @@ set(${PROJECT_NAME}_HEADERS
 	"include/VolumeDataBase.hpp"
 	"include/FogData.hpp"
 	"include/LevelSetData.hpp"
+	"include/RandomValueTexture.hpp"
+	"include/RandomValueTextureController.hpp"
 )
 
 set(${PROJECT_NAME}_INCLUDE_DIRS

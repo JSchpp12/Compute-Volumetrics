@@ -4,11 +4,11 @@
 #include "ConfigFile.hpp"
 #include "FogControlInfo.hpp"
 #include "ManagerRenderResource.hpp"
+#include "RandomValueTextureController.hpp"
 #include "VDBInfo.hpp"
 
 #include "FogData.hpp"
 #include "LevelSetData.hpp"
-
 
 VolumeRenderer::VolumeRenderer(std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
                                const std::shared_ptr<star::StarCamera> camera,
@@ -232,57 +232,57 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     commandBuffer.pipelineBarrier2(deps);
 }
 
-void VolumeRenderer::prepRender(star::core::device::DeviceContext &device, const vk::Extent2D &screensize,
+void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &screensize,
                                 const uint8_t &numFramesInFlight)
 {
-    m_deviceID = device.getDeviceID();
-
-    this->cameraShaderInfo =
-        star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<CameraInfoController>(camera), true);
+    this->cameraShaderInfo = star::ManagerRenderResource::addRequest(
+        context.getDeviceID(), std::make_unique<CameraInfoController>(camera), true);
 
     this->vdbInfoSDF =
-        star::ManagerRenderResource::addRequest(m_deviceID,
+        star::ManagerRenderResource::addRequest(context.getDeviceID(),
                                                 std::make_unique<VDBInfoController>(std::make_unique<LevelSetData>(
                                                     m_vdbFilePath, openvdb::GridClass::GRID_LEVEL_SET)),
                                                 true);
 
     this->vdbInfoFog =
-        star::ManagerRenderResource::addRequest(m_deviceID,
+        star::ManagerRenderResource::addRequest(context.getDeviceID(),
                                                 std::make_unique<VDBInfoController>(std::make_unique<LevelSetData>(
                                                     m_vdbFilePath, openvdb::GridClass::GRID_FOG_VOLUME)),
                                                 true);
+
+    this->randomValueTexture = star::ManagerRenderResource::addRequest(
+        context.getDeviceID(), std::make_unique<RandomValueTextureController>(screensize.width, screensize.height));
 
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
     {
         const uint32_t computeIndex =
-            device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
+            context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
 
         this->graphicsQueueFamilyIndex = std::make_unique<uint32_t>(
-            device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
+            context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
         if (*this->graphicsQueueFamilyIndex != computeIndex)
         {
             this->computeQueueFamilyIndex = std::make_unique<uint32_t>(uint32_t(computeIndex));
         }
     }
 
-    this->displaySize = std::make_unique<vk::Extent2D>(screensize);
     {
         uint32_t indices[] = {
-            device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
-            device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex()};
+            context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
+            context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex()};
 
         auto builder =
-            star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(),
-                                                 device.getDevice().getAllocator().get())
+            star::StarTextures::Texture::Builder(context.getDevice().getVulkanDevice(),
+                                                 context.getDevice().getAllocator().get())
                 .setCreateInfo(star::Allocator::AllocationBuilder()
                                    .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
                                    .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
                                    .build(),
                                vk::ImageCreateInfo()
                                    .setExtent(vk::Extent3D()
-                                                  .setWidth(static_cast<int>(this->displaySize->width))
-                                                  .setHeight(static_cast<int>(this->displaySize->height))
+                                                  .setWidth(static_cast<int>(screensize.width))
+                                                  .setHeight(static_cast<int>(screensize.height))
                                                   .setDepth(1))
                                    .setPQueueFamilyIndices(&indices[0])
                                    .setQueueFamilyIndexCount(2)
@@ -308,11 +308,11 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &device, const
                 .setSamplerInfo(vk::SamplerCreateInfo()
                                     .setAnisotropyEnable(true)
                                     .setMaxAnisotropy(star::StarTextures::Texture::SelectAnisotropyLevel(
-                                        device.getDevice().getPhysicalDevice().getProperties()))
+                                        context.getDevice().getPhysicalDevice().getProperties()))
                                     .setMagFilter(star::StarTextures::Texture::SelectTextureFiltering(
-                                        device.getDevice().getPhysicalDevice().getProperties()))
+                                        context.getDevice().getPhysicalDevice().getProperties()))
                                     .setMinFilter(star::StarTextures::Texture::SelectTextureFiltering(
-                                        device.getDevice().getPhysicalDevice().getProperties()))
+                                        context.getDevice().getPhysicalDevice().getProperties()))
                                     .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
                                     .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                                     .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
@@ -334,21 +334,22 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &device, const
     for (uint8_t i = 0; i < numFramesInFlight; i++)
     {
         this->aabbInfoBuffers.emplace_back(
-            star::ManagerRenderResource::addRequest(m_deviceID, std::make_unique<AABBController>(this->aabbBounds)));
+            star::ManagerRenderResource::addRequest(context.getDeviceID(), std::make_unique<AABBController>(this->aabbBounds)));
 
         this->fogControlShaderInfo.emplace_back(star::ManagerRenderResource::addRequest(
-            m_deviceID, std::make_unique<FogControlInfoController>(i, m_fogControlInfo)));
+            context.getDeviceID(), std::make_unique<FogControlInfoController>(i, m_fogControlInfo)));
     }
 
-    commandBuffer = device.getManagerCommandBuffer().submit(star::core::device::managers::ManagerCommandBuffer::Request{
-        .recordBufferCallback =
-            std::bind(&VolumeRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
-        .order = star::Command_Buffer_Order::before_render_pass,
-        .orderIndex = star::Command_Buffer_Order_Index::second,
-        .type = star::Queue_Type::Tcompute,
-        .waitStage = vk::PipelineStageFlagBits::eComputeShader,
-        .willBeSubmittedEachFrame = true,
-        .recordOnce = false});
+    commandBuffer =
+        context.getManagerCommandBuffer().submit(star::core::device::managers::ManagerCommandBuffer::Request{
+            .recordBufferCallback =
+                std::bind(&VolumeRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
+            .order = star::Command_Buffer_Order::before_render_pass,
+            .orderIndex = star::Command_Buffer_Order_Index::second,
+            .type = star::Queue_Type::Tcompute,
+            .waitStage = vk::PipelineStageFlagBits::eComputeShader,
+            .willBeSubmittedEachFrame = true,
+            .recordOnce = false});
 }
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)

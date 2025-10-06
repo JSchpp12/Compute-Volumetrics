@@ -4,9 +4,8 @@
 #include "ManagerController_RenderResource_VertInfo.hpp"
 #include "ManagerRenderResource.hpp"
 
-Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-               const size_t &numFramesInFlight, std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth,
-               const uint32_t &screenHeight,
+Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
+               std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
                std::vector<star::Handle> sceneCameraInfos, std::vector<star::Handle> lightInfos,
@@ -103,20 +102,19 @@ void Volume::loadModel(star::core::device::DeviceContext &context, const std::st
 
     this->grid = openvdb::gridPtrCast<openvdb::FloatGrid>(baseGrid);
 
-    openvdb::GridClass gridClass = baseGrid->getGridClass(); 
-    switch(gridClass){
-        case openvdb::GridClass::GRID_LEVEL_SET:
-        {
-            std::cout << "Grid type: Level_Set" << std::endl; 
-            break; 
-        }
-        case openvdb::GridClass::GRID_FOG_VOLUME:
-        {
-            std::cout << "Grid type: Fog " << std::endl;
-            break;
-        }
-        default:
-        throw std::runtime_error("Unsupported OpenVDB volume class type"); 
+    openvdb::GridClass gridClass = baseGrid->getGridClass();
+    switch (gridClass)
+    {
+    case openvdb::GridClass::GRID_LEVEL_SET: {
+        std::cout << "Grid type: Level_Set" << std::endl;
+        break;
+    }
+    case openvdb::GridClass::GRID_FOG_VOLUME: {
+        std::cout << "Grid type: Fog " << std::endl;
+        break;
+    }
+    default:
+        throw std::runtime_error("Unsupported OpenVDB volume class type");
     }
 
     // std::cout << "Type: " << baseGrid->type() << std::endl;
