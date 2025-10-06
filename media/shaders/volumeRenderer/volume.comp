@@ -56,11 +56,11 @@ addCamInfo;
 layout(std430, set = 1, binding = 1) buffer PNanoVDBBuffer{
     uint pnanovdb_buf_data[];
 };
-layout(r32f, set = 1, binding = 2) uniform readonly image2D randomValueTexture;
+layout(r32f, set = 1, binding = 2) uniform readonly image2D randomTexture;
 
-layout(rgba8, set = 2, binding = 0) uniform readonly image2D inputSceneColor;
+layout(set = 2, binding = 0, rgba8) uniform readonly image2D inputSceneColor;
 layout(set = 2, binding = 1) uniform sampler2D inputSceneDepth;
-layout(rgba8, set = 2, binding = 2) uniform writeonly image2D outputImage;
+layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
 
 layout(set = 3, binding = 0) uniform InstanceModelMatrix
 {
@@ -132,11 +132,11 @@ float rand(vec2 co){
 
 vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
                   const mat4 inverseModelMatrix, const float volumeUniformScale, float sigmaAbsorption, float sigmaScattering, float lightPropertyDir_g,
-                  float mainStepSize, const float lightStepSize, const float cutOffDistance)
+                  float mainStepSize, const float lightStepSize, const float cutOffDistance, const float randomValue)
 { 
     lightPropertyDir_g = -0.2; 
     mainStepSize = 0.2; 
-    sigmaAbsorption = 1000; 
+    sigmaAbsorption = 100; 
     sigmaScattering = 0.5; 
 
     pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
@@ -155,7 +155,7 @@ vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
     vec3 resultingRadiance = vec3(0.0); 
     for (int i = 0; i < fittedNumSteps; i++){
         // setting to middle
-        const float t = t0 + mainStepSize * (i + middleStepSizeDist);
+        const float t = (t0 + mainStepSize * (i + middleStepSizeDist)) + randomValue;
 		const vec3 pos = ray.origin.xyz + t * ray.direction.xyz; 
         // const float densityP = gridReadAt(grid, acc, type, pos);
 
@@ -173,8 +173,6 @@ vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
             float tau = 0.0; 
             if (rayBoxIntersect(grid, rayToLight, lt0, lt1)){ 
                 //check if light is within the bounds of the volume and clamp to that distance rather than going all the way through
-
-
                 float lightAttenuation = exp(-lt1 * sigmaAbsorption);
 
                 // const float cosTheta = clamp(dot(ray.invDirection.xyz, rayToLight.direction.xyz), -1.0, 1.0); 
@@ -198,6 +196,7 @@ void main()
     ivec2 targetPixel = getTargetPixelCoords(); 
     pnanovdb_grid_handle_t grid = makeNanoGrid(0);
     const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]);
+    const float randomValue = imageLoad(randomTexture, targetPixel).r;
     
     float targetPixelInputDepth = texelFetch(inputSceneDepth, targetPixel, 0).r;
     const float linearDepth = linearizeDepth(targetPixelInputDepth, addCamInfo.nearClipDist, addCamInfo.farClipDist); 
@@ -227,7 +226,8 @@ void main()
             fogInfo.marchedFog_lightPropertyDirG, 
             fogInfo.marchedFog_stepSizeDist,
             fogInfo.marchedFog_stepSizeDist_light,
-            linearDepth
+            linearDepth,
+            randomValue
         );
     }
 
