@@ -23,14 +23,13 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     // camera->setForwardVector(glm::vec3{0.0, 0.0, 0.0} - camera->getPosition());
     // camera->setPosition(glm::vec3{-305.11, 93.597, 161.739});
 
-    camera->setMovementSpeed(100); 
+    camera->setMovementSpeed(100);
     camera->setPosition(glm::vec3{10.0, 10.0, 10.0});
     const auto dirTowardsCenter = glm::normalize(glm::vec3{0.0, 0.0, 0.0} - camera->getPosition());
     camera->setForwardVector(dirTowardsCenter);
 
-    const glm::vec3 lightPos = glm::vec3{50.0f, 30.0f, 0.0f} - glm::vec3{0.0f, -20.0f, 0.0f}; 
-    m_mainLight =
-        std::make_shared<star::Light>(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0});
+    const glm::vec3 lightPos = glm::vec3{50.0f, 30.0f, 0.0f} + glm::vec3{0.0f, 50.0f, 0.0f};
+    m_mainLight = std::make_shared<star::Light>(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0});
 
     uint8_t numInFlight;
     {
@@ -70,12 +69,13 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
                                                         presentationRenderer, additionals);
     }
 
-    m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.3;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 0.8;
-    m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.01;
-    m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0.05;
-    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.8f); 
+    m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.3f;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 2.0f;
+    m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.01f;
+    m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0.99f;
+    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.0f);
+    m_volume->setFogType(VolumeRenderer::FogType::nano_surface); 
 
     // std::cout << "Application Controls" << std::endl;
     // std::cout << "B - Modify fog properties" << std::endl;
@@ -339,8 +339,7 @@ std::shared_ptr<OffscreenRenderer> Application::CreateOffscreenRenderer(star::co
     auto h_i = horse->createInstance();
     h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
 
-    std::vector<std::shared_ptr<star::StarObject>> objects{// terrain
-                                                           horse};
+    std::vector<std::shared_ptr<star::StarObject>> objects{horse};
     std::vector<std::shared_ptr<star::Light>> lights{mainLight};
 
     return std::make_shared<OffscreenRenderer>(context, numFramesInFlight, objects, lights, camera);

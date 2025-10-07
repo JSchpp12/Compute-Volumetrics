@@ -3,7 +3,6 @@
     "nlohmann-json",
     "stb",
     "blosc",
-    "gdal",
     "glm",
     "vulkan-memory-allocator",
     "tbb",

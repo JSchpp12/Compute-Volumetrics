@@ -1,7 +1,6 @@
 #pragma once
 
 #include "AABBInfo.hpp"
-#include "CommandBufferModifier.hpp"
 #include "CopyDepthTextureToBuffer.hpp"
 #include "DescriptorModifier.hpp"
 #include "FogInfo.hpp"

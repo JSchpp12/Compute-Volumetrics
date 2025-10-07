@@ -213,7 +213,6 @@ void main()
 
     float t0 = 0;
     float t1 = 0;
-
     if (rayBoxIntersect(grid, localRay, t0, t1) && t0 < linearDepth){
         resultingColor = forwardMarch(grid,
             resultingColor, 
