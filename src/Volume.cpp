@@ -339,10 +339,18 @@ std::vector<std::unique_ptr<star::StarMesh>> Volume::loadMeshes(star::core::devi
 
     auto newMeshes = std::vector<std::unique_ptr<star::StarMesh>>();
 
+    const auto vertSemaphore = context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false)); 
     star::Handle vertBuffer = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), std::make_unique<star::ManagerController::RenderResource::VertInfo>(*verts));
+        context.getDeviceID(), 
+        context.getSemaphoreManager().get(vertSemaphore)->semaphore,
+        std::make_unique<star::ManagerController::RenderResource::VertInfo>(*verts));
+
+    const auto indSemaphore = context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false)); 
+
     star::Handle indBuffer = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), std::make_unique<star::ManagerController::RenderResource::IndicesInfo>(*inds));
+        context.getDeviceID(), 
+        context.getSemaphoreManager().get(indSemaphore)->semaphore,
+        std::make_unique<star::ManagerController::RenderResource::IndicesInfo>(*inds));
 
     newMeshes.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(
         vertBuffer, indBuffer, *verts, *inds, m_meshMaterials.at(0), this->aabbBounds[0], this->aabbBounds[1], false)));

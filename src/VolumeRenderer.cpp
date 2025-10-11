@@ -235,23 +235,36 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
 void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &screensize,
                                 const uint8_t &numFramesInFlight)
 {
+    const auto camSemaphore =
+        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
+
     this->cameraShaderInfo = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), std::make_unique<CameraInfoController>(camera), true);
+        context.getDeviceID(), context.getSemaphoreManager().get(camSemaphore)->semaphore,
+        std::make_unique<CameraInfoController>(camera), true);
 
-    this->vdbInfoSDF =
-        star::ManagerRenderResource::addRequest(context.getDeviceID(),
-                                                std::make_unique<VDBInfoController>(std::make_unique<LevelSetData>(
-                                                    m_vdbFilePath, openvdb::GridClass::GRID_LEVEL_SET)),
-                                                true);
+    const auto vdbSemaphore =
+        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
-    this->vdbInfoFog =
-        star::ManagerRenderResource::addRequest(context.getDeviceID(),
-                                                std::make_unique<VDBInfoController>(std::make_unique<LevelSetData>(
-                                                    m_vdbFilePath, openvdb::GridClass::GRID_FOG_VOLUME)),
-                                                true);
+    this->vdbInfoSDF = star::ManagerRenderResource::addRequest(
+        context.getDeviceID(), context.getSemaphoreManager().get(vdbSemaphore)->semaphore,
+        std::make_unique<VDBInfoController>(
+            std::make_unique<LevelSetData>(m_vdbFilePath, openvdb::GridClass::GRID_LEVEL_SET)),
+        true);
+    const auto vdbFogSemaphore =
+        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
+
+    this->vdbInfoFog = star::ManagerRenderResource::addRequest(
+        context.getDeviceID(), context.getSemaphoreManager().get(vdbFogSemaphore)->semaphore,
+        std::make_unique<VDBInfoController>(
+            std::make_unique<LevelSetData>(m_vdbFilePath, openvdb::GridClass::GRID_FOG_VOLUME)),
+        true);
+
+    const auto randomSemaphore =
+        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     this->randomValueTexture = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), std::make_unique<RandomValueTextureController>(screensize.width, screensize.height));
+        context.getDeviceID(), context.getSemaphoreManager().get(randomSemaphore)->semaphore,
+        std::make_unique<RandomValueTextureController>(screensize.width, screensize.height));
 
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
@@ -333,23 +346,31 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
     for (uint8_t i = 0; i < numFramesInFlight; i++)
     {
-        this->aabbInfoBuffers.emplace_back(
-            star::ManagerRenderResource::addRequest(context.getDeviceID(), std::make_unique<AABBController>(this->aabbBounds)));
+        const auto aabbSemaphore =
+            context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
+
+        this->aabbInfoBuffers.emplace_back(star::ManagerRenderResource::addRequest(
+            context.getDeviceID(), context.getSemaphoreManager().get(aabbSemaphore)->semaphore,
+            std::make_unique<AABBController>(this->aabbBounds)));
+
+        const auto fogShaderInfoSemaphore =
+            context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
         this->fogControlShaderInfo.emplace_back(star::ManagerRenderResource::addRequest(
-            context.getDeviceID(), std::make_unique<FogControlInfoController>(i, m_fogControlInfo)));
+            context.getDeviceID(), context.getSemaphoreManager().get(fogShaderInfoSemaphore)->semaphore,
+
+            std::make_unique<FogControlInfoController>(i, m_fogControlInfo)));
     }
 
-    commandBuffer =
-        context.getManagerCommandBuffer().submit(star::core::device::managers::ManagerCommandBuffer::Request{
-            .recordBufferCallback =
-                std::bind(&VolumeRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
-            .order = star::Command_Buffer_Order::before_render_pass,
-            .orderIndex = star::Command_Buffer_Order_Index::second,
-            .type = star::Queue_Type::Tcompute,
-            .waitStage = vk::PipelineStageFlagBits::eComputeShader,
-            .willBeSubmittedEachFrame = true,
-            .recordOnce = false});
+    commandBuffer = context.getManagerCommandBuffer().submit(star::core::device::manager::ManagerCommandBuffer::Request{
+        .recordBufferCallback =
+            std::bind(&VolumeRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
+        .order = star::Command_Buffer_Order::before_render_pass,
+        .orderIndex = star::Command_Buffer_Order_Index::second,
+        .type = star::Queue_Type::Tcompute,
+        .waitStage = vk::PipelineStageFlagBits::eComputeShader,
+        .willBeSubmittedEachFrame = true,
+        .recordOnce = false});
 }
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
@@ -483,29 +504,29 @@ std::unique_ptr<star::StarShaderInfo> VolumeRenderer::buildShaderInfo(star::core
     {
         shaderInfoBuilder.startOnFrameIndex(i)
             .startSet()
-            .add(this->globalInfoBuffers.at(i), false)
-            .add(this->sceneLightInfoBuffers.at(i), false)
-            .add(this->sceneLightList.at(i), false)
+            .add(this->globalInfoBuffers.at(i))
+            .add(this->sceneLightInfoBuffers.at(i))
+            .add(this->sceneLightList.at(i))
             .startSet()
-            .add(this->cameraShaderInfo, false);
+            .add(this->cameraShaderInfo);
         if (useSDF)
         {
-            shaderInfoBuilder.add(this->vdbInfoSDF, false);
+            shaderInfoBuilder.add(this->vdbInfoSDF);
         }
         else
         {
-            shaderInfoBuilder.add(this->vdbInfoFog, false);
+            shaderInfoBuilder.add(this->vdbInfoFog);
         }
-        shaderInfoBuilder.add(this->randomValueTexture, vk::ImageLayout::eGeneral, vk::Format::eR32Sfloat, false); 
+        shaderInfoBuilder.add(this->randomValueTexture, vk::ImageLayout::eGeneral, vk::Format::eR32Sfloat);
 
         shaderInfoBuilder.startSet()
-            .add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
-            .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal, false)
-            .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm, false)
+            .add(*this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
+            .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal)
+            .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
             .startSet()
-            .add(this->instanceModelInfo.at(i), false)
-            .add(this->aabbInfoBuffers.at(i), false)
-            .add(this->fogControlShaderInfo.at(i), false);
+            .add(this->instanceModelInfo.at(i))
+            .add(this->aabbInfoBuffers.at(i))
+            .add(this->fogControlShaderInfo.at(i), &context.getManagerRenderResource().get(context.getDeviceID(), fogControlShaderInfo.at(i)).resourceSemaphore);
     }
 
     return shaderInfoBuilder.build();

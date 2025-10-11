@@ -26,7 +26,7 @@ std::unique_ptr<star::StarShaderInfo> ScreenMaterial::buildShaderInfo(star::core
         
         builder.startOnFrameIndex(i); 
         builder.startSet(); 
-        builder.add(*m_computeOutputImages.at(i), vk::ImageLayout::eShaderReadOnlyOptimal, false);
+        builder.add(*m_computeOutputImages.at(i), vk::ImageLayout::eShaderReadOnlyOptimal);
     }
 
     return builder.build(); 

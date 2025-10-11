@@ -357,9 +357,9 @@ std::vector<std::shared_ptr<star::StarBuffers::Buffer>> OffscreenRenderer::creat
     return std::vector<std::shared_ptr<star::StarBuffers::Buffer>>();
 }
 
-star::core::device::managers::ManagerCommandBuffer::Request OffscreenRenderer::getCommandBufferRequest()
+star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::getCommandBufferRequest()
 {
-    return star::core::device::managers::ManagerCommandBuffer::Request{
+    return star::core::device::manager::ManagerCommandBuffer::Request{
         .recordBufferCallback =
             std::bind(&OffscreenRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
         .order = star::Command_Buffer_Order::before_render_pass,

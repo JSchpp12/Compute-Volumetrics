@@ -38,7 +38,7 @@ class OffscreenRenderer : public star::core::renderer::Renderer
     std::vector<std::shared_ptr<star::StarBuffers::Buffer>> createDepthBufferContainers(
         star::core::device::DeviceContext &device);
 
-    star::core::device::managers::ManagerCommandBuffer::Request getCommandBufferRequest() override;
+    star::core::device::manager::ManagerCommandBuffer::Request getCommandBufferRequest() override;
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
         const int &frameInFlightIndex) override;

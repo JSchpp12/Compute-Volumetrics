@@ -67,11 +67,21 @@ void TerrainChunk::load()
     loadGeomInfo(dataset, *this->verts, *this->inds, this->firstLine, this->lastLine);
 }
 
-std::unique_ptr<star::StarMesh> TerrainChunk::getMesh(star::core::device::DeviceContext &context, std::shared_ptr<star::StarMaterial> myMaterial)
+std::unique_ptr<star::StarMesh> TerrainChunk::getMesh(star::core::device::DeviceContext &context,
+                                                      std::shared_ptr<star::StarMaterial> myMaterial)
 {
-    star::Handle vertBuffer = context.getManagerRenderResource().addRequest(context.getDeviceID(),
+    const auto vertSemaphore =
+        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
+
+    star::Handle vertBuffer = context.getManagerRenderResource().addRequest(
+        context.getDeviceID(), context.getSemaphoreManager().get(vertSemaphore)->semaphore,
         std::make_unique<star::ManagerController::RenderResource::VertInfo>(*verts));
-    star::Handle indBuffer = context.getManagerRenderResource().addRequest(context.getDeviceID(),
+
+    const auto indSemaphore =
+        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
+
+    star::Handle indBuffer = context.getManagerRenderResource().addRequest(
+        context.getDeviceID(), context.getSemaphoreManager().get(indSemaphore)->semaphore,
         std::make_unique<star::ManagerController::RenderResource::IndicesInfo>(*inds));
     return std::make_unique<star::StarMesh>(vertBuffer, indBuffer, *verts, *inds, myMaterial, false);
 }
