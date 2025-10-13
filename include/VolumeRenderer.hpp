@@ -45,6 +45,8 @@ class VolumeRenderer : private star::DescriptorModifier
 
     void cleanupRender(star::core::device::DeviceContext &device);
 
+    std::set<vk::Semaphore> getDependentSemaphores(const uint8_t &frameInFlightIndex);
+
     // star::core::renderer::RenderingContext buildRenderingContext(star::core::device::DeviceContext &context);
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> &getRenderToImages()

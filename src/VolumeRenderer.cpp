@@ -365,6 +365,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     commandBuffer = context.getManagerCommandBuffer().submit(star::core::device::manager::ManagerCommandBuffer::Request{
         .recordBufferCallback =
             std::bind(&VolumeRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
+        .getDependentSemaphores = std::bind(&VolumeRenderer::getDependentSemaphores, this, std::placeholders::_1),
         .order = star::Command_Buffer_Order::before_render_pass,
         .orderIndex = star::Command_Buffer_Order_Index::second,
         .type = star::Queue_Type::Tcompute,
@@ -387,6 +388,13 @@ void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
     }
 
     context.getDevice().getVulkanDevice().destroyPipelineLayout(*this->computePipelineLayout);
+}
+
+std::set<vk::Semaphore> VolumeRenderer::getDependentSemaphores(const uint8_t &frameInFlightIndex){
+    if (this->currentFogType == FogType::marched){
+        return this->VolumeShaderInfo->getDependentSemaphores(frameInFlightIndex); 
+    }
+    return this->SDFShaderInfo->getDependentSemaphores(frameInFlightIndex);
 }
 
 std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescriptorRequests(

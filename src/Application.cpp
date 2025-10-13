@@ -37,7 +37,7 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         star::CastHelpers::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
     }
 
-    auto offscreenRenderer = CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight);
+    // auto offscreenRenderer = CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight);
 
     {
         const uint32_t width = window.getExtent().width;
@@ -48,18 +48,25 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         size_t fNumFramesInFlight = 0;
         star::CastHelpers::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
-        std::string vdbPath = mediaDirectoryPath + "volumes/dragon.vdb";
-        m_volume = std::make_shared<Volume>(
-            context, vdbPath, fNumFramesInFlight, camera, width, height, offscreenRenderer->getRenderToColorImages(),
-            offscreenRenderer->getRenderToDepthImages(), offscreenRenderer->getCameraInfoBuffers(),
-            offscreenRenderer->getLightInfoBuffers(), offscreenRenderer->getLightListBuffers());
+        // std::string vdbPath = mediaDirectoryPath + "volumes/dragon.vdb";
+        // m_volume = std::make_shared<Volume>(
+        //     context, vdbPath, fNumFramesInFlight, camera, width, height, offscreenRenderer->getRenderToColorImages(),
+        //     offscreenRenderer->getRenderToDepthImages(), offscreenRenderer->getCameraInfoBuffers(),
+        //     offscreenRenderer->getLightInfoBuffers(), offscreenRenderer->getLightListBuffers());
 
-        auto &s_i = m_volume->createInstance();
-        s_i.setPosition(glm::vec3{50.0, 30.0, 0.0});
-        s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
-        std::vector<std::shared_ptr<StarObject>> objects{m_volume};
+        // auto &s_i = m_volume->createInstance();
+        // s_i.setPosition(glm::vec3{50.0, 30.0, 0.0});
+        // s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
+        // std::vector<std::shared_ptr<StarObject>> objects{m_volume};
+        auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+        auto horse = std::make_shared<star::BasicObject>(horsePath);
+        auto h_i = horse->createInstance();
+        h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
 
-        std::vector<std::shared_ptr<star::core::renderer::Renderer>> additionals{offscreenRenderer};
+        std::vector<std::shared_ptr<star::StarObject>> objects{horse};
+
+        // std::vector<std::shared_ptr<star::core::renderer::Renderer>> additionals{offscreenRenderer};
+        std::vector<std::shared_ptr<star::core::renderer::Renderer>> additionals{};
         std::shared_ptr<star::core::renderer::SwapChainRenderer> presentationRenderer =
             std::make_shared<star::core::renderer::SwapChainRenderer>(
                 context, numFramesInFlight, objects, std::vector<std::shared_ptr<star::Light>>{m_mainLight}, camera,
@@ -69,13 +76,13 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
                                                         presentationRenderer, additionals);
     }
 
-    m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.3f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 2.0f;
-    m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.01f;
-    m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0.99f;
-    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.0f);
-    m_volume->setFogType(VolumeRenderer::FogType::nano_surface); 
+    // m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
+    // m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.3f;
+    // m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 2.0f;
+    // m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.01f;
+    // m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0.99f;
+    // m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.0f);
+    // m_volume->setFogType(VolumeRenderer::FogType::nano_surface); 
 
     // std::cout << "Application Controls" << std::endl;
     // std::cout << "B - Modify fog properties" << std::endl;
@@ -172,85 +179,85 @@ void Application::onKeyRelease(int key, int scancode, int mods)
             }
         }
 
-        switch (selectedMode)
-        {
-        case (1):
-            m_volume->getFogControlInfo().linearInfo.nearDist = PromptForFloat("Select visibility");
-            break;
-        case (2):
-            m_volume->getFogControlInfo().linearInfo.farDist = PromptForFloat("Select distance");
-            break;
-        case (3):
-            m_volume->getFogControlInfo().expFogInfo.density = PromptForFloat("Select density");
-            break;
-        case (4):
-            m_volume->getFogControlInfo().marchedInfo.defaultDensity = PromptForFloat("Select density");
-            break;
-        case (5):
-            m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = PromptForFloat("Select sigma");
-            break;
-        case (6):
-            m_volume->getFogControlInfo().marchedInfo.sigmaScattering = PromptForFloat("Select sigma");
-            break;
-        case (7):
-            m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(PromptForFloat("Select light prop", true));
-            break;
-        case (8):
-            m_volume->getFogControlInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size");
-            break;
-        case (9):
-            m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = PromptForFloat("Select step size light");
-            break;
-        default:
-            std::cout << "Unknown option" << std::endl;
-        }
+        // switch (selectedMode)
+        // {
+        // case (1):
+        //     m_volume->getFogControlInfo().linearInfo.nearDist = PromptForFloat("Select visibility");
+        //     break;
+        // case (2):
+        //     m_volume->getFogControlInfo().linearInfo.farDist = PromptForFloat("Select distance");
+        //     break;
+        // case (3):
+        //     m_volume->getFogControlInfo().expFogInfo.density = PromptForFloat("Select density");
+        //     break;
+        // case (4):
+        //     m_volume->getFogControlInfo().marchedInfo.defaultDensity = PromptForFloat("Select density");
+        //     break;
+        // case (5):
+        //     m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = PromptForFloat("Select sigma");
+        //     break;
+        // case (6):
+        //     m_volume->getFogControlInfo().marchedInfo.sigmaScattering = PromptForFloat("Select sigma");
+        //     break;
+        // case (7):
+        //     m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(PromptForFloat("Select light prop", true));
+        //     break;
+        // case (8):
+        //     m_volume->getFogControlInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size");
+        //     break;
+        // case (9):
+        //     m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = PromptForFloat("Select step size light");
+//         //     break;
+//         // default:
+//         //     std::cout << "Unknown option" << std::endl;
+//         // }
     }
 
-    if (key == star::KEY::L)
-    {
-        std::cout << "Setting fog type to: Linear" << std::endl;
-        m_volume->setFogType(VolumeRenderer::FogType::linear);
-    }
+//     if (key == star::KEY::L)
+//     {
+//         std::cout << "Setting fog type to: Linear" << std::endl;
+//         m_volume->setFogType(VolumeRenderer::FogType::linear);
+//     }
 
-    if (key == star::KEY::K)
-    {
-        std::cout << "Setting fog type to: Ray Marched" << std::endl;
-        m_volume->setFogType(VolumeRenderer::FogType::marched);
-    }
+//     if (key == star::KEY::K)
+//     {
+//         std::cout << "Setting fog type to: Ray Marched" << std::endl;
+//         m_volume->setFogType(VolumeRenderer::FogType::marched);
+//     }
 
-    if (key == star::KEY::J)
-    {
-        std::cout << "Setting fog type to: Exponential" << std::endl;
-        m_volume->setFogType(VolumeRenderer::FogType::exp);
-    }
+//     if (key == star::KEY::J)
+//     {
+//         std::cout << "Setting fog type to: Exponential" << std::endl;
+//         m_volume->setFogType(VolumeRenderer::FogType::exp);
+//     }
 
-    if (key == star::KEY::H)
-    {
-        std::cout << "Setting fog type to: Nano Bounding Box" << std::endl;
-        m_volume->setFogType(VolumeRenderer::FogType::nano_boundingBox);
-    }
+//     if (key == star::KEY::H)
+//     {
+//         std::cout << "Setting fog type to: Nano Bounding Box" << std::endl;
+//         m_volume->setFogType(VolumeRenderer::FogType::nano_boundingBox);
+//     }
 
-    if (key == star::KEY::G)
-    {
-        std::cout << "Setting fog type to: NANO Surface" << std::endl;
-        m_volume->setFogType(VolumeRenderer::FogType::nano_surface);
-    }
+//     if (key == star::KEY::G)
+//     {
+//         std::cout << "Setting fog type to: NANO Surface" << std::endl;
+//         m_volume->setFogType(VolumeRenderer::FogType::nano_surface);
+//     }
 
-    if (key == star::KEY::P)
-    {
-        auto pos = m_volume->getInstance(0).getPosition();
-        pos.x += 10;
-        pos.y += 10;
-        m_volume->getInstance(0).setPosition(pos);
-    }
-    if (key == star::KEY::O)
-    {
-        m_volume->getInstance(0).setScale(m_volume->getInstance(0).getScale() + 1.0f);
-    }
-    if (key == star::KEY::I)
-    {
-        m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90);
-    }
+//     if (key == star::KEY::P)
+//     {
+//         auto pos = m_volume->getInstance(0).getPosition();
+//         pos.x += 10;
+//         pos.y += 10;
+//         m_volume->getInstance(0).setPosition(pos);
+//     }
+//     if (key == star::KEY::O)
+//     {
+//         m_volume->getInstance(0).setScale(m_volume->getInstance(0).getScale() + 1.0f);
+//     }
+//     if (key == star::KEY::I)
+//     {
+//         m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90);
+//     }
 }
 
 void Application::onMouseMovement(double xpos, double ypos)
