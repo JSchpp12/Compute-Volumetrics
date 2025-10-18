@@ -1,12 +1,12 @@
-#include "VDBInfo.hpp"
+#include "VDBTransfer.hpp"
 
 #include "FileHelpers.hpp"
 
-void VDBRequest::prep(){
+void VDBTransfer::prep(){
     m_volumeData->prep(); 
 }
 
-std::unique_ptr<star::StarBuffers::Buffer> VDBRequest::createStagingBuffer(vk::Device &device,
+std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createStagingBuffer(vk::Device &device,
                                                                            VmaAllocator &allocator) const
 {
     return star::StarBuffers::Buffer::Builder(allocator)
@@ -25,7 +25,7 @@ std::unique_ptr<star::StarBuffers::Buffer> VDBRequest::createStagingBuffer(vk::D
         .build();
 }
 
-std::unique_ptr<star::StarBuffers::Buffer> VDBRequest::createFinal(
+std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createFinal(
     vk::Device &device, VmaAllocator &allocator, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
     uint32_t numInds = 1;
@@ -54,16 +54,7 @@ std::unique_ptr<star::StarBuffers::Buffer> VDBRequest::createFinal(
         .build();
 }
 
-void VDBRequest::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const
+void VDBTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const
 {
     m_volumeData->writeDataToBuffer(buffer);
-}
-
-std::unique_ptr<star::TransferRequest::Buffer> VDBInfoController::createTransferRequest(
-    star::core::device::StarDevice &device)
-{
-    assert(m_volumeData && "Volume data has already been given away"); 
-
-    return std::make_unique<VDBRequest>(device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
-                                        std::move(m_volumeData));
 }

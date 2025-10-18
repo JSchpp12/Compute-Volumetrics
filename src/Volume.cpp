@@ -1,8 +1,8 @@
 #include "Volume.hpp"
 
-#include "ManagerController_RenderResource_IndicesInfo.hpp"
-#include "ManagerController_RenderResource_VertInfo.hpp"
 #include "ManagerRenderResource.hpp"
+#include "TransferRequest_IndicesInfo.hpp"
+#include "TransferRequest_VertInfo.hpp"
 
 Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
                std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
@@ -206,11 +206,11 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
                                          .setLayerCount(1))}));
 }
 
-void Volume::frameUpdate(star::core::device::DeviceContext &context)
+void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex, const star::Handle &targetCommandBuffer)
 {
     this->volumeRenderer->frameUpdate(context);
 
-    star::StarObject::frameUpdate(context);
+    star::StarObject::frameUpdate(context, frameInFlightIndex, targetCommandBuffer);
 }
 
 void Volume::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
@@ -279,7 +279,7 @@ void Volume::initVolume(star::core::device::DeviceContext &context, std::string 
     }
 
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
-        vdbFilePath, m_fogControlInfo, this->camera, this->instanceModelInfos, offscreenRenderToColorImages,
+        vdbFilePath, m_fogControlInfo, this->camera, m_infoManagerInstanceModel.get(), offscreenRenderToColorImages,
         offscreenRenderToDepthImages, globalInfos, lightInfos, lightList, this->aabbBounds);
 }
 
@@ -314,46 +314,44 @@ std::vector<std::unique_ptr<star::StarMesh>> Volume::loadMeshes(star::core::devi
 {
     std::vector<std::unique_ptr<star::StarMesh>> meshes;
 
-    std::unique_ptr<std::vector<star::Vertex>> verts =
-        std::unique_ptr<std::vector<star::Vertex>>(new std::vector<star::Vertex>{
-            star::Vertex{glm::vec3{-1.0f, -1.0f, 0.0f}, // position
-                         glm::vec3{0.0f, 1.0f, 0.0f},   // normal - posy
-                         glm::vec3{0.0f, 1.0f, 0.0f},   // color
-                         glm::vec2{0.0f, 0.0f}},
-            star::Vertex{glm::vec3{1.0f, -1.0f, 0.0f}, // position
-                         glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
-                         glm::vec3{0.0f, 1.0f, 0.0f},  // color
-                         glm::vec2{1.0f, 0.0f}},
-            star::Vertex{glm::vec3{1.0f, 1.0f, 0.0f}, // position
-                         glm::vec3{0.0f, 1.0f, 0.0f}, // normal - posy
-                         glm::vec3{1.0f, 0.0f, 0.0f}, // color
-                         glm::vec2{1.0f, 1.0f}},
-            star::Vertex{glm::vec3{-1.0f, 1.0f, 0.0f}, // position
-                         glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
-                         glm::vec3{0.0f, 1.0f, 0.0f},  // color
-                         glm::vec2{0.0f, 1.0f}},
-        });
+    auto verts = std::vector<star::Vertex>{star::Vertex{glm::vec3{-1.0f, -1.0f, 0.0f}, // position
+                                                        glm::vec3{0.0f, 1.0f, 0.0f},   // normal - posy
+                                                        glm::vec3{0.0f, 1.0f, 0.0f},   // color
+                                                        glm::vec2{0.0f, 0.0f}},
+                                           star::Vertex{glm::vec3{1.0f, -1.0f, 0.0f}, // position
+                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
+                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // color
+                                                        glm::vec2{1.0f, 0.0f}},
+                                           star::Vertex{glm::vec3{1.0f, 1.0f, 0.0f}, // position
+                                                        glm::vec3{0.0f, 1.0f, 0.0f}, // normal - posy
+                                                        glm::vec3{1.0f, 0.0f, 0.0f}, // color
+                                                        glm::vec2{1.0f, 1.0f}},
+                                           star::Vertex{glm::vec3{-1.0f, 1.0f, 0.0f}, // position
+                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
+                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // color
+                                                        glm::vec2{0.0f, 1.0f}}};
 
-    std::unique_ptr<std::vector<uint32_t>> inds =
-        std::unique_ptr<std::vector<uint32_t>>(new std::vector<uint32_t>{0, 3, 2, 0, 2, 1});
+    std::vector<uint32_t> inds = std::vector<uint32_t>{0, 3, 2, 0, 2, 1};
 
     auto newMeshes = std::vector<std::unique_ptr<star::StarMesh>>();
 
-    const auto vertSemaphore = context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false)); 
+    const auto vertSemaphore =
+        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
     star::Handle vertBuffer = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), 
-        context.getSemaphoreManager().get(vertSemaphore)->semaphore,
-        std::make_unique<star::ManagerController::RenderResource::VertInfo>(*verts));
+        context.getDeviceID(), context.getSemaphoreManager().get(vertSemaphore)->semaphore,
+        std::make_unique<star::TransferRequest::VertInfo>(
+            context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex(), verts));
 
-    const auto indSemaphore = context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false)); 
+    const auto indSemaphore =
+        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     star::Handle indBuffer = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), 
-        context.getSemaphoreManager().get(indSemaphore)->semaphore,
-        std::make_unique<star::ManagerController::RenderResource::IndicesInfo>(*inds));
+        context.getDeviceID(), context.getSemaphoreManager().get(indSemaphore)->semaphore,
+        std::make_unique<star::TransferRequest::IndicesInfo>(
+            context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex(), inds));
 
-    newMeshes.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(
-        vertBuffer, indBuffer, *verts, *inds, m_meshMaterials.at(0), this->aabbBounds[0], this->aabbBounds[1], false)));
+    newMeshes.emplace_back(std::make_unique<star::StarMesh>(vertBuffer, indBuffer, verts, inds, m_meshMaterials.at(0),
+                                                            this->aabbBounds[0], this->aabbBounds[1], false));
 
     return newMeshes;
 }

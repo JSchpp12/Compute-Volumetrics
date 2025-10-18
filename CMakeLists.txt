@@ -26,14 +26,14 @@ add_subdirectory("extern/starlight")
 
 set(${PROJECT_NAME}_SOURCES
 	"src/main.cpp"
-	"src/VDBInfo.cpp"
+	"src/VDBTransfer.cpp"
+	"src/AABBTransfer.cpp"
  	"src/Application.cpp"
 	"src/Volume.cpp"
 	"src/Terrain.cpp"
 	"src/VolumeRenderer.cpp"
 	"src/OffscreenRenderer.cpp"
 	"src/ScreenMaterial.cpp"
-	"src/AABBInfo.cpp"
 	"src/CameraInfo.cpp"
 	"src/Screen.cpp"
 	"src/VolumeSampler.cpp"
@@ -55,13 +55,13 @@ set(${PROJECT_NAME}_SOURCES
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/Application.hpp"
-	"include/VDBInfo.hpp"
+	"include/VDBTransfer.hpp"
+	"include/AABBTransfer.hpp"
 	"include/Volume.hpp"
 	"include/Terrain.hpp"
 	"include/VolumeRenderer.hpp"
 	"include/OffscreenRenderer.hpp"
 	"include/ScreenMaterial.hpp"
-	"include/AABBInfo.hpp"
 	"include/CameraInfo.hpp"
 	"include/Screen.hpp"
 	"include/VolumeSampler.hpp"

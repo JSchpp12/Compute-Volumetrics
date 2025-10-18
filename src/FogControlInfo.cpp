@@ -1,13 +1,7 @@
 #include "FogControlInfo.hpp"
 
-FogControlInfoTransfer::FogControlInfoTransfer(const FogInfo::FinalizedInfo &fogInfo,
-                                               const uint32_t &computeQueueFamilyIndex)
-    : fogInfo(fogInfo), computeQueueFamilyIndex(computeQueueFamilyIndex)
-{
-}
-
 std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createStagingBuffer(vk::Device &device,
-                                                                              VmaAllocator &allocator) const
+                                                                                       VmaAllocator &allocator) const
 {
     return star::StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
@@ -63,27 +57,17 @@ void FogControlInfoTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &b
     buffer.unmap();
 }
 
-FogControlInfoController::FogControlInfoController(const uint8_t &getFrameInFlightIndexToUpdateOn,
-                                                   const std::shared_ptr<FogInfo> currentFogInfo)
-    : star::ManagerController::RenderResource::Buffer(getFrameInFlightIndexToUpdateOn), currentFogInfo(currentFogInfo)
-{
-}
-
-std::unique_ptr<star::TransferRequest::Buffer> FogControlInfoController::createTransferRequest(star::core::device::StarDevice &device)
+std::unique_ptr<star::TransferRequest::Buffer> FogInfoController::createTransferRequest(
+    star::core::device::StarDevice &device, const uint8_t &frameInFlightIndex)
 {
     this->lastFogInfo = *this->currentFogInfo;
 
     return std::make_unique<FogControlInfoTransfer>(
-        this->currentFogInfo->getInfo(), device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex());
+        this->currentFogInfo->getInfo(),
+        device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex());
 }
 
-bool FogControlInfoController::isValid(const uint8_t &currentFrameInFlightIndex) const
+bool FogInfoController::needsUpdated(const uint8_t &currentFrameInFlightIndex) const
 {
-    if (!this->star::ManagerController::RenderResource::Buffer::isValid(currentFrameInFlightIndex) &&
-        *this->currentFogInfo != lastFogInfo)
-    {
-        return false;
-    }
-
-    return true;
+    return *currentFogInfo != lastFogInfo; 
 }

@@ -7,30 +7,42 @@
 class FogControlInfoTransfer : public star::TransferRequest::Buffer
 {
   public:
-    FogControlInfoTransfer(const FogInfo::FinalizedInfo &fogInfo, const uint32_t &computeQueueFamilyIndex);
+    FogControlInfoTransfer(const FogInfo::FinalizedInfo &fogInfo, const uint32_t &computeQueueFamilyIndex)
+        : fogInfo(fogInfo), computeQueueFamilyIndex(computeQueueFamilyIndex)
+    {
+    }
     ~FogControlInfoTransfer() = default;
 
-    std::unique_ptr<star::StarBuffers::Buffer> createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const override;
+    std::unique_ptr<star::StarBuffers::Buffer> createStagingBuffer(vk::Device &device,
+                                                                   VmaAllocator &allocator) const override;
 
-    std::unique_ptr<star::StarBuffers::Buffer> createFinal(vk::Device &device, VmaAllocator &allocator,
-                                                  const std::vector<uint32_t> &transferQueueFamilyIndex) const override;
+    std::unique_ptr<star::StarBuffers::Buffer> createFinal(
+        vk::Device &device, VmaAllocator &allocator,
+        const std::vector<uint32_t> &transferQueueFamilyIndex) const override;
 
     void writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const override;
 
   private:
-    const uint32_t computeQueueFamilyIndex;
     const FogInfo::FinalizedInfo fogInfo;
+    const uint32_t computeQueueFamilyIndex;
 };
 
-class FogControlInfoController : public star::ManagerController::RenderResource::Buffer
+class FogInfoController : public star::ManagerController::RenderResource::Buffer
 {
   public:
-    FogControlInfoController(const uint8_t &frameInFlightIndexToUpdateOn,
-                             const std::shared_ptr<FogInfo> currentFogInfo);
+    FogInfoController() = default;
 
-    std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::core::device::StarDevice &device) override;
+    virtual ~FogInfoController() = default;
 
-    bool isValid(const uint8_t &currentFrameInFlightIndex) const override;
+    FogInfoController(std::shared_ptr<FogInfo> currentFogInfo)
+        : currentFogInfo(std::move(currentFogInfo))
+    {
+    }
+
+    std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::core::device::StarDevice &device,
+                                                                         const uint8_t &frameInFlightIndex) override;
+
+    bool needsUpdated(const uint8_t &currentFrameInFlightIndex) const override;
 
   private:
     const std::shared_ptr<FogInfo> currentFogInfo = std::shared_ptr<FogInfo>();

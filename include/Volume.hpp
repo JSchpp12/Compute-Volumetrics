@@ -113,7 +113,7 @@ class Volume : public star::StarObject
 
     virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
 
-    virtual void frameUpdate(star::core::device::DeviceContext &context) override;
+    virtual void frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex, const star::Handle &targetCommandBuffer) override;
 
     void setFogType(const VolumeRenderer::FogType &fogType)
     {

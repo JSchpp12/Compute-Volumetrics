@@ -7,10 +7,10 @@
 
 #include <string>
 
-class VDBRequest : public star::TransferRequest::Buffer
+class VDBTransfer : public star::TransferRequest::Buffer
 {
   public:
-    VDBRequest(uint8_t computeQueueIndex, std::unique_ptr<VolumeDataBase> volumeData)
+    VDBTransfer(uint8_t computeQueueIndex, std::unique_ptr<VolumeDataBase> volumeData)
         : m_computeQueueIndex(std::move(computeQueueIndex)), m_volumeData(std::move(volumeData))
     {
       assert(m_volumeData && "Sanity check to ensure volume data is valid"); 
@@ -18,7 +18,7 @@ class VDBRequest : public star::TransferRequest::Buffer
 
     virtual void prep() override; 
 
-    virtual ~VDBRequest() = default;
+    virtual ~VDBTransfer() = default;
 
     std::unique_ptr<star::StarBuffers::Buffer> createStagingBuffer(vk::Device &device,
                                                                    VmaAllocator &allocator) const override;
@@ -32,20 +32,4 @@ class VDBRequest : public star::TransferRequest::Buffer
   private:
     uint8_t m_computeQueueIndex;
     std::unique_ptr<VolumeDataBase> m_volumeData = nullptr; 
-};
-
-class VDBInfoController : public star::ManagerController::RenderResource::Buffer
-{
-  public:
-    VDBInfoController(std::unique_ptr<VolumeDataBase> volumeData)
-        : m_volumeData(std::move(volumeData))
-    {
-    }
-
-    std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(
-        star::core::device::StarDevice &device) override;
-
-  private:
-  std::unique_ptr<VolumeDataBase> m_volumeData; 
-
 };

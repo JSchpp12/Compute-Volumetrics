@@ -1,29 +1,30 @@
 #include "VolumeRenderer.hpp"
 
+#include "AABBTransfer.hpp"
 #include "CameraInfo.hpp"
 #include "ConfigFile.hpp"
 #include "FogControlInfo.hpp"
 #include "ManagerRenderResource.hpp"
-#include "RandomValueTextureController.hpp"
-#include "VDBInfo.hpp"
+#include "RandomValueTexture.hpp"
+#include "VDBTransfer.hpp"
 
 #include "FogData.hpp"
 #include "LevelSetData.hpp"
 
 VolumeRenderer::VolumeRenderer(std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
                                const std::shared_ptr<star::StarCamera> camera,
-                               const std::vector<star::Handle> &instanceModelInfo,
+                               const star::ManagerController::RenderResource::Buffer *instanceManagerInfo,
                                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
                                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
                                const std::vector<star::Handle> &globalInfoBuffers,
                                const std::vector<star::Handle> &sceneLightInfoBuffers,
                                const std::vector<star::Handle> &sceneLightList,
                                const std::array<glm::vec4, 2> &aabbBounds)
-    : m_vdbFilePath(std::move(vdbFilePath)), m_fogControlInfo(fogControlInfo),
+    : m_vdbFilePath(std::move(vdbFilePath)), m_fogController(fogControlInfo),
       offscreenRenderToColors(offscreenRenderToColors), offscreenRenderToDepths(offscreenRenderToDepths),
       globalInfoBuffers(globalInfoBuffers), sceneLightInfoBuffers(sceneLightInfoBuffers),
-      sceneLightList(sceneLightList), aabbBounds(aabbBounds), camera(camera), instanceModelInfo(instanceModelInfo),
-      volumeTexture(volumeTexture)
+      sceneLightList(sceneLightList), aabbBounds(aabbBounds), camera(camera),
+      m_instanceManagerInfo(instanceManagerInfo), volumeTexture(volumeTexture)
 {
 }
 
@@ -240,14 +241,18 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
     this->cameraShaderInfo = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(camSemaphore)->semaphore,
-        std::make_unique<CameraInfoController>(camera), true);
+        std::make_unique<CameraInfo>(
+            camera, context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
+            context.getDevice().getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment),
+        true);
 
     const auto vdbSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     this->vdbInfoSDF = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(vdbSemaphore)->semaphore,
-        std::make_unique<VDBInfoController>(
+        std::make_unique<VDBTransfer>(
+            context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
             std::make_unique<LevelSetData>(m_vdbFilePath, openvdb::GridClass::GRID_LEVEL_SET)),
         true);
     const auto vdbFogSemaphore =
@@ -255,7 +260,8 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
     this->vdbInfoFog = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(vdbFogSemaphore)->semaphore,
-        std::make_unique<VDBInfoController>(
+        std::make_unique<VDBTransfer>(
+            context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
             std::make_unique<LevelSetData>(m_vdbFilePath, openvdb::GridClass::GRID_FOG_VOLUME)),
         true);
 
@@ -264,7 +270,10 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
     this->randomValueTexture = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(randomSemaphore)->semaphore,
-        std::make_unique<RandomValueTextureController>(screensize.width, screensize.height));
+        std::make_unique<RandomValueTexture>(
+            screensize.width, screensize.height,
+            context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(), 
+        context.getDevice().getPhysicalDevice().getProperties()));
 
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
@@ -344,6 +353,12 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
         }
     }
 
+    // this->fogControlShaderInfo.emplace_back(star::ManagerRenderResource::addRequest(
+    //     context.getDeviceID(), context.getSemaphoreManager().get(fogShaderInfoSemaphore)->semaphore,
+    //     std::make_unique<FogControlInfoController>(i, m_fogControlInfo)));
+
+    m_fogController.prepRender(context, numFramesInFlight);
+
     for (uint8_t i = 0; i < numFramesInFlight; i++)
     {
         const auto aabbSemaphore =
@@ -351,21 +366,17 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
         this->aabbInfoBuffers.emplace_back(star::ManagerRenderResource::addRequest(
             context.getDeviceID(), context.getSemaphoreManager().get(aabbSemaphore)->semaphore,
-            std::make_unique<AABBController>(this->aabbBounds)));
+            std::make_unique<AABBTransfer>(
+                context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex(),
+                aabbBounds)));
 
         const auto fogShaderInfoSemaphore =
             context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
-
-        this->fogControlShaderInfo.emplace_back(star::ManagerRenderResource::addRequest(
-            context.getDeviceID(), context.getSemaphoreManager().get(fogShaderInfoSemaphore)->semaphore,
-
-            std::make_unique<FogControlInfoController>(i, m_fogControlInfo)));
     }
 
     commandBuffer = context.getManagerCommandBuffer().submit(star::core::device::manager::ManagerCommandBuffer::Request{
         .recordBufferCallback =
             std::bind(&VolumeRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
-        .getDependentSemaphores = std::bind(&VolumeRenderer::getDependentSemaphores, this, std::placeholders::_1),
         .order = star::Command_Buffer_Order::before_render_pass,
         .orderIndex = star::Command_Buffer_Order_Index::second,
         .type = star::Queue_Type::Tcompute,
@@ -388,13 +399,6 @@ void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
     }
 
     context.getDevice().getVulkanDevice().destroyPipelineLayout(*this->computePipelineLayout);
-}
-
-std::set<vk::Semaphore> VolumeRenderer::getDependentSemaphores(const uint8_t &frameInFlightIndex){
-    if (this->currentFogType == FogType::marched){
-        return this->VolumeShaderInfo->getDependentSemaphores(frameInFlightIndex); 
-    }
-    return this->SDFShaderInfo->getDependentSemaphores(frameInFlightIndex);
 }
 
 std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescriptorRequests(
@@ -532,9 +536,12 @@ std::unique_ptr<star::StarShaderInfo> VolumeRenderer::buildShaderInfo(star::core
             .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal)
             .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
             .startSet()
-            .add(this->instanceModelInfo.at(i))
+            .add(m_instanceManagerInfo->getHandle(i))
             .add(this->aabbInfoBuffers.at(i))
-            .add(this->fogControlShaderInfo.at(i), &context.getManagerRenderResource().get(context.getDeviceID(), fogControlShaderInfo.at(i)).resourceSemaphore);
+            .add(m_fogController.getHandle(i),
+                 &context.getManagerRenderResource()
+                      .get<star::StarBuffers::Buffer>(context.getDeviceID(), m_fogController.getHandle(i))
+                      ->resourceSemaphore);
     }
 
     return shaderInfoBuilder.build();

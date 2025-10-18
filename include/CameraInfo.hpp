@@ -21,18 +21,19 @@ class CameraInfo : public star::TransferRequest::Buffer
 
         CameraData() = default;
 
-        CameraData(const glm::mat4 &inverseProjMatrix, const glm::vec2 &resolution, const float &aspectRatio,
-                   const float &farClipDist, const float &nearClipDist, const double &scale)
-            : inverseProjMatrix(inverseProjMatrix), resolution(resolution), aspectRatio(aspectRatio),
-              farClipDist(farClipDist), nearClipDist(nearClipDist), scale(scale)
+        CameraData(glm::mat4 inverseProjMatrix, glm::vec2 resolution, float aspectRatio, float farClipDist,
+                   float nearClipDist, double scale)
+            : inverseProjMatrix(std::move(inverseProjMatrix)), resolution(std::move(resolution)),
+              aspectRatio(std::move(aspectRatio)), farClipDist(std::move(farClipDist)),
+              nearClipDist(std::move(nearClipDist)), scale(std::move(scale))
         {
         }
     };
 
     CameraInfo(const std::shared_ptr<star::StarCamera> camera, const uint32_t &computeQueueFamilyIndex,
                const vk::DeviceSize &minUniformBufferOffsetAlignment)
-        : computeQueueFamilyIndex(computeQueueFamilyIndex),
-          minUniformBufferOffsetAlignment(minUniformBufferOffsetAlignment), camera(camera)
+        : camera(camera), computeQueueFamilyIndex(computeQueueFamilyIndex),
+          minUniformBufferOffsetAlignment(minUniformBufferOffsetAlignment)
     {
     }
 
@@ -46,19 +47,7 @@ class CameraInfo : public star::TransferRequest::Buffer
     void writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const override;
 
   protected:
+    const std::shared_ptr<star::StarCamera> camera = nullptr;
     const uint32_t computeQueueFamilyIndex;
     const vk::DeviceSize minUniformBufferOffsetAlignment;
-    const std::shared_ptr<star::StarCamera> camera = nullptr;
-};
-
-class CameraInfoController : public star::ManagerController::RenderResource::Buffer
-{
-  public:
-    CameraInfoController(const std::shared_ptr<star::StarCamera> camera) : camera(camera) {};
-
-  protected:
-    const std::shared_ptr<star::StarCamera> camera = nullptr;
-
-    std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(
-        star::core::device::StarDevice &device) override;
 };

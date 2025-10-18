@@ -1,4 +1,4 @@
-#include "AABBInfo.hpp"
+#include "AABBTransfer.hpp"
 
 std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const
 {
@@ -15,7 +15,6 @@ std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createStagingBuffer(vk:
             "AABBInfo_SRC")
         .setInstanceCount(2)
         .setInstanceSize(sizeof(glm::mat4))
-        .setMinOffsetAlignment(this->minUniformBufferOffsetAlignment)
         .build();
 }
 
@@ -59,11 +58,4 @@ void AABBTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) con
     }
 
     buffer.unmap();
-}
-
-std::unique_ptr<star::TransferRequest::Buffer> AABBController::createTransferRequest(star::core::device::StarDevice &device)
-{
-    return std::make_unique<AABBTransfer>(
-        this->aabbBounds, device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
-        device.getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment);
 }

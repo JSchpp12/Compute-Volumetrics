@@ -1,6 +1,5 @@
 #pragma once
 
-#include "AABBInfo.hpp"
 #include "CopyDepthTextureToBuffer.hpp"
 #include "DescriptorModifier.hpp"
 #include "FogInfo.hpp"
@@ -11,6 +10,8 @@
 #include "StarObjectInstance.hpp"
 #include "StarShaderInfo.hpp"
 #include "core/renderer/RenderingContext.hpp"
+#include "FogControlInfo.hpp"
+#include "ManagerController_RenderResource_Buffer.hpp"
 
 #include <memory>
 #include <vector>
@@ -30,7 +31,7 @@ class VolumeRenderer : private star::DescriptorModifier
     };
 
     VolumeRenderer(std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
-                   const std::shared_ptr<star::StarCamera> camera, const std::vector<star::Handle> &instanceModelInfo,
+                   const std::shared_ptr<star::StarCamera> camera, const star::ManagerController::RenderResource::Buffer *instanceManagerInfo,
                    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
                    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
                    const std::vector<star::Handle> &globalInfoBuffers, const std::vector<star::Handle> &globalLightList,
@@ -45,9 +46,7 @@ class VolumeRenderer : private star::DescriptorModifier
 
     void cleanupRender(star::core::device::DeviceContext &device);
 
-    std::set<vk::Semaphore> getDependentSemaphores(const uint8_t &frameInFlightIndex);
-
-    // star::core::renderer::RenderingContext buildRenderingContext(star::core::device::DeviceContext &context);
+    // star::core::renderer::RenderingContext buildRenderingConte    std::vector<star::Handle> fogControlShaderInfo;xt(star::core::device::DeviceContext &context);
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> &getRenderToImages()
     {
@@ -66,21 +65,18 @@ class VolumeRenderer : private star::DescriptorModifier
     std::string m_vdbFilePath;
     std::unique_ptr<star::core::renderer::RenderingContext> m_renderingContext = nullptr;
     bool isReady = false;
-    std::shared_ptr<FogInfo> m_fogControlInfo;
     bool isFirstPass = true;
     const star::Handle volumeTexture;
-    const std::vector<star::Handle> &instanceModelInfo;
+    const star::ManagerController::RenderResource::Buffer *m_instanceManagerInfo = nullptr;
     const std::array<glm::vec4, 2> &aabbBounds;
     const std::shared_ptr<star::StarCamera> camera = nullptr;
     glm::uvec2 workgroupSize = glm::uvec2();
     star::Handle cameraShaderInfo, commandBuffer, vdbInfoSDF, vdbInfoFog, randomValueTexture;
-    std::vector<star::Handle> fogControlShaderInfo;
     std::vector<star::Handle> sceneLightInfoBuffers, sceneLightList;
+    FogInfoController m_fogController;
     std::unique_ptr<star::StarShaderInfo> SDFShaderInfo, VolumeShaderInfo;
-    std::vector<star::Handle> globalInfoBuffers = std::vector<star::Handle>();
-    std::vector<star::Handle> aabbInfoBuffers;
-    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors = nullptr;
-    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths = nullptr;
+    std::vector<star::Handle> globalInfoBuffers, aabbInfoBuffers;
+    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors = nullptr, *offscreenRenderToDepths = nullptr;
     std::unique_ptr<uint32_t> graphicsQueueFamilyIndex, computeQueueFamilyIndex;
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =

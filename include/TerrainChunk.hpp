@@ -132,8 +132,8 @@ class TerrainChunk
         void initGDALBuffer(GDALDataset *dataset);
     };
 
-    std::unique_ptr<std::vector<star::Vertex>> verts;
-    std::unique_ptr<std::vector<uint32_t>> inds;
+    std::vector<star::Vertex> verts;
+    std::vector<uint32_t> inds;
     std::unique_ptr<star::StarBuffers::Buffer> indBuffer, vertBuffer;
     std::unique_ptr<star::StarMesh> mesh;
     std::string textureFile, fullHeightFile;

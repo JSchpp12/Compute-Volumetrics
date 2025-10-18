@@ -8,6 +8,8 @@
 #include "ManagerController_RenderResource_IndicesInfo.hpp"
 #include "ManagerController_RenderResource_TextureFile.hpp"
 #include "ManagerController_RenderResource_VertInfo.hpp"
+#include "TransferRequest_VertInfo.hpp"
+#include "TransferRequest_IndicesInfo.hpp"
 #include "ManagerRenderResource.hpp"
 #include "MathHelpers.hpp"
 #include "TextureMaterial.hpp"
@@ -58,32 +60,31 @@ double TerrainChunk::getCenterHeightFromGDAL(const std::string &geoTiff, const g
 
 void TerrainChunk::load()
 {
-    this->verts = std::make_unique<std::vector<star::Vertex>>();
-    this->inds = std::make_unique<std::vector<uint32_t>>();
-
     TerrainDataset dataset = TerrainDataset(this->fullHeightFile, this->northEast, this->southEast, this->southWest,
                                             this->northWest, this->center, this->offset);
 
-    loadGeomInfo(dataset, *this->verts, *this->inds, this->firstLine, this->lastLine);
+    loadGeomInfo(dataset, verts, inds, this->firstLine, this->lastLine);
 }
 
 std::unique_ptr<star::StarMesh> TerrainChunk::getMesh(star::core::device::DeviceContext &context,
                                                       std::shared_ptr<star::StarMaterial> myMaterial)
 {
+    const auto graphicsIndex = context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex(); 
+
     const auto vertSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     star::Handle vertBuffer = context.getManagerRenderResource().addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(vertSemaphore)->semaphore,
-        std::make_unique<star::ManagerController::RenderResource::VertInfo>(*verts));
+        std::make_unique<star::TransferRequest::VertInfo>(graphicsIndex, verts));
 
     const auto indSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     star::Handle indBuffer = context.getManagerRenderResource().addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(indSemaphore)->semaphore,
-        std::make_unique<star::ManagerController::RenderResource::IndicesInfo>(*inds));
-    return std::make_unique<star::StarMesh>(vertBuffer, indBuffer, *verts, *inds, myMaterial, false);
+        std::make_unique<star::TransferRequest::IndicesInfo>(graphicsIndex, inds));
+    return std::make_unique<star::StarMesh>(vertBuffer, indBuffer, verts, inds, myMaterial, false);
 }
 
 std::string &TerrainChunk::getTextureFile()
