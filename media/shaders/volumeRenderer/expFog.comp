@@ -58,16 +58,20 @@ layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
 
 layout(set = 3, binding = 0) uniform InstanceModelMatrix
 {
-    mat4 modelMatrix[1024];
+    mat4 instanceModelMatrix[1024];
 };
 
-layout(set = 3, binding = 1) uniform aabbInfo
+layout(set = 3, binding = 1) uniform InstanceInverseModelMatrix{
+    mat4 instanceInverseMatrix[1024];
+};
+
+layout(set = 3, binding = 2) uniform aabbInfo
 {
     vec4 bounds[2];
 }
 aabb;
 
-layout(set = 3, binding = 2) uniform FogControllerInfo
+layout(set = 3, binding = 3) uniform FogControllerInfo
 {
     float linearFog_nearDistance;
     float linearFog_farDistance;
@@ -78,6 +82,8 @@ layout(set = 3, binding = 2) uniform FogControllerInfo
     float marchedFog_lightPropertyDirG;
     float marchedFog_stepSizeDist;
     float marchedFog_stepSizeDist_light;
+    uint marchedFog_levelSet_maxNumSteps;
+    uint gridType;
 }
 fogInfo;
 

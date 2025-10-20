@@ -86,6 +86,10 @@ layout(set = 3, binding = 2) uniform FogControllerInfo
 }
 fogInfo;
 
+layout(set = 3, binding = 3) uniform InstanceInverseModelMatrix{
+    mat4 instanceInverseMatrix[1024]; 
+};
+
 #include "PNanoVDB.h"
 #include "ray_helpers.comp"
 #include "volume_helpers.comp"

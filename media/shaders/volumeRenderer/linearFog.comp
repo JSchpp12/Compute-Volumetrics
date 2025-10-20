@@ -62,6 +62,8 @@ layout(set = 3, binding = 0) uniform InstanceModelMatrix
     mat4 modelMatrix[1024];
 };
 
+layout(set = 3, binding = 1) 
+
 layout(set = 3, binding = 1) uniform aabbInfo
 {
     vec4 bounds[2];
