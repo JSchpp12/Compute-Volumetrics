@@ -67,7 +67,7 @@ std::unique_ptr<star::TransferRequest::Buffer> FogInfoController::createTransfer
         device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex());
 }
 
-bool FogInfoController::needsUpdated(const uint8_t &currentFrameInFlightIndex) const
+bool FogInfoController::doesFrameInFlightDataNeedUpdated(const uint8_t &currentFrameInFlightIndex) const
 {
     return *currentFogInfo != lastFogInfo; 
 }

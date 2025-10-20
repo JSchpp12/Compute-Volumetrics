@@ -18,7 +18,7 @@ OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context,
 {
 }
 
-void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
+void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex, const uint64_t &frameIndex)
 {
     // need to transition the image from general to color attachment
     // also get ownership back
@@ -85,7 +85,7 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
         commandBuffer.beginRendering(renderInfo);
     }
 
-    this->recordRenderingCalls(commandBuffer, frameInFlightIndex);
+    this->recordRenderingCalls(commandBuffer, frameInFlightIndex, frameIndex);
 
     commandBuffer.endRendering();
 
@@ -361,7 +361,7 @@ star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::ge
 {
     return star::core::device::manager::ManagerCommandBuffer::Request{
         .recordBufferCallback =
-            std::bind(&OffscreenRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
+            std::bind(&OffscreenRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
         .order = star::Command_Buffer_Order::before_render_pass,
         .orderIndex = star::Command_Buffer_Order_Index::first,
         .waitStage = vk::PipelineStageFlagBits::eEarlyFragmentTests,

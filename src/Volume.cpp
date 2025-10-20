@@ -8,8 +8,9 @@ Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePa
                std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
-               std::vector<star::Handle> sceneCameraInfos, std::vector<star::Handle> lightInfos,
-               std::vector<star::Handle> lightList)
+               const star::ManagerController::RenderResource::Buffer &sceneCameraInfos,
+               const star::ManagerController::RenderResource::Buffer &lightInfos,
+               const star::ManagerController::RenderResource::Buffer &lightList)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
       camera(camera), screenDimensions(screenWidth, screenHeight),
       offscreenRenderToColorImages(offscreenRenderToColorImages),
@@ -69,7 +70,6 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
 
 void Volume::loadModel(star::core::device::DeviceContext &context, const std::string &filePath)
 {
-
     if (!star::file_helpers::FileExists(filePath))
     {
         throw std::runtime_error("Provided file does not exist" + filePath);
@@ -206,9 +206,10 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
                                          .setLayerCount(1))}));
 }
 
-void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex, const star::Handle &targetCommandBuffer)
+void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
+                         const star::Handle &targetCommandBuffer)
 {
-    this->volumeRenderer->frameUpdate(context);
+    this->volumeRenderer->frameUpdate(context, frameInFlightIndex);
 
     star::StarObject::frameUpdate(context, frameInFlightIndex, targetCommandBuffer);
 }
@@ -261,33 +262,23 @@ bool Volume::isRenderReady(star::core::device::DeviceContext &context)
 }
 
 void Volume::initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-                        std::vector<star::Handle> &globalInfos, std::vector<star::Handle> &lightInfos,
-                        std::vector<star::Handle> &lightList)
+                        const star::ManagerController::RenderResource::Buffer &sceneCameraInfos,
+                        const star::ManagerController::RenderResource::Buffer &lightInfos,
+                        const star::ManagerController::RenderResource::Buffer &lightList)
 {
     loadModel(context, vdbFilePath);
 
-    std::vector<std::vector<star::Color>> colors;
-    colors.resize(this->screenDimensions.y);
-    for (int y = 0; y < this->screenDimensions.y; y++)
-    {
-        colors[y].resize(this->screenDimensions.x);
-        for (int x = 0; x < this->screenDimensions.x; x++)
-        {
-            if (x == this->screenDimensions.x / 2)
-                colors[y][x] = star::Color(1.0f, 1.0f, 1.0f, 1.0f);
-        }
-    }
-
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
-        vdbFilePath, m_fogControlInfo, this->camera, m_infoManagerInstanceModel.get(), offscreenRenderToColorImages,
-        offscreenRenderToDepthImages, globalInfos, lightInfos, lightList, this->aabbBounds);
+        m_instanceInfo.m_infoManagerInstanceModel, m_instanceInfo.m_infoManagerInstanceNormal, sceneCameraInfos,
+        lightInfos, lightList, vdbFilePath, m_fogControlInfo, this->camera, offscreenRenderToColorImages,
+        offscreenRenderToDepthImages, this->aabbBounds);
 }
 
 void Volume::updateGridTransforms()
 {
     openvdb::FloatGrid::Ptr newGrid = this->grid->copy();
     newGrid->setTransform(this->grid->transformPtr());
-    openvdb::Mat4R transform = getTransform(this->instances.front()->getDisplayMatrix());
+    openvdb::Mat4R transform = getTransform(m_instanceInfo.m_instances->front().getDisplayMatrix());
 
     openvdb::tools::GridTransformer transformer(transform);
 

@@ -83,8 +83,9 @@ class Volume : public star::StarObject
            std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
-           std::vector<star::Handle> sceneCameraInfos, std::vector<star::Handle> lightInfos,
-           std::vector<star::Handle> lightList);
+           const star::ManagerController::RenderResource::Buffer &sceneCameraInfos,
+           const star::ManagerController::RenderResource::Buffer &lightInfos,
+           const star::ManagerController::RenderResource::Buffer &lightList);
 
     // star::Handle buildPipeline(star::core::device::DeviceContext &device,
     //                                                   vk::Extent2D swapChainExtent, vk::PipelineLayout
@@ -113,7 +114,8 @@ class Volume : public star::StarObject
 
     virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
 
-    virtual void frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex, const star::Handle &targetCommandBuffer) override;
+    virtual void frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
+                             const star::Handle &targetCommandBuffer) override;
 
     void setFogType(const VolumeRenderer::FogType &fogType)
     {
@@ -144,8 +146,9 @@ class Volume : public star::StarObject
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
     void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-                    std::vector<star::Handle> &globalInfos, std::vector<star::Handle> &lightInfos,
-                    std::vector<star::Handle> &lightList);
+           const star::ManagerController::RenderResource::Buffer &sceneCameraInfos,
+           const star::ManagerController::RenderResource::Buffer &lightInfos,
+           const star::ManagerController::RenderResource::Buffer &lightList);
 
     void loadModel(star::core::device::DeviceContext &context, const std::string &filePath);
 

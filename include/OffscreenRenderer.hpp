@@ -13,7 +13,7 @@ class OffscreenRenderer : public star::core::renderer::Renderer
                       std::vector<std::shared_ptr<star::StarObject>> objects,
                       std::vector<std::shared_ptr<star::Light>> lights, std::shared_ptr<star::StarCamera> camera);
 
-    virtual void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
+    virtual void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex, const uint64_t &frameIndex) override;
 
     virtual void initResources(star::core::device::DeviceContext &device, const int &numFramesInFlight,
                                const vk::Extent2D &screensize) override;

@@ -11,20 +11,22 @@
 #include "FogData.hpp"
 #include "LevelSetData.hpp"
 
-VolumeRenderer::VolumeRenderer(std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
+VolumeRenderer::VolumeRenderer(const star::ManagerController::RenderResource::Buffer &instanceManagerInfo,
+                               const star::ManagerController::RenderResource::Buffer &instanceNormalInfo,
+                               const star::ManagerController::RenderResource::Buffer &globalInfoBuffers,
+                               const star::ManagerController::RenderResource::Buffer &sceneLightInfoBuffers,
+                               const star::ManagerController::RenderResource::Buffer &sceneLightList,
+                               std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
                                const std::shared_ptr<star::StarCamera> camera,
-                               const star::ManagerController::RenderResource::Buffer *instanceManagerInfo,
                                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
                                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
-                               const std::vector<star::Handle> &globalInfoBuffers,
-                               const std::vector<star::Handle> &sceneLightInfoBuffers,
-                               const std::vector<star::Handle> &sceneLightList,
                                const std::array<glm::vec4, 2> &aabbBounds)
-    : m_vdbFilePath(std::move(vdbFilePath)), m_fogController(fogControlInfo),
-      offscreenRenderToColors(offscreenRenderToColors), offscreenRenderToDepths(offscreenRenderToDepths),
-      globalInfoBuffers(globalInfoBuffers), sceneLightInfoBuffers(sceneLightInfoBuffers),
-      sceneLightList(sceneLightList), aabbBounds(aabbBounds), camera(camera),
-      m_instanceManagerInfo(instanceManagerInfo), volumeTexture(volumeTexture)
+    : m_infoManagerInstanceModel(instanceManagerInfo), m_infoManagerInstanceNormal(instanceNormalInfo),
+      m_infoManagerGlobalCamera(globalInfoBuffers), m_infoManagerSceneLightInfo(sceneLightInfoBuffers),
+      m_infoManagerSceneLightList(sceneLightList), m_vdbFilePath(std::move(vdbFilePath)),
+      m_fogController(fogControlInfo), offscreenRenderToColors(offscreenRenderToColors),
+      offscreenRenderToDepths(offscreenRenderToDepths), aabbBounds(aabbBounds), camera(camera),
+      volumeTexture(volumeTexture)
 {
 }
 
@@ -47,36 +49,16 @@ bool VolumeRenderer::isRenderReady(star::core::device::DeviceContext &context)
     return isReady;
 }
 
-void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context)
+void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)
 {
-    switch (this->currentFogType)
-    {
-    case (FogType::marched):
-        m_renderingContext = std::make_unique<star::core::renderer::RenderingContext>(
-            context.getPipelineManager().get(this->marchedPipeline)->request.pipeline);
-        break;
-    case (FogType::linear):
-        m_renderingContext = std::make_unique<star::core::renderer::RenderingContext>(
-            context.getPipelineManager().get(this->linearPipeline)->request.pipeline);
-        break;
-    case (FogType::exp):
-        m_renderingContext = std::make_unique<star::core::renderer::RenderingContext>(
-            context.getPipelineManager().get(this->expPipeline)->request.pipeline);
-        break;
-    case (FogType::nano_boundingBox):
-        m_renderingContext = std::make_unique<star::core::renderer::RenderingContext>(
-            context.getPipelineManager().get(this->nanoVDBPipeline_hitBoundingBox)->request.pipeline);
-        break;
-    case (FogType::nano_surface):
-        m_renderingContext = std::make_unique<star::core::renderer::RenderingContext>(
-            context.getPipelineManager().get(this->nanoVDBPipeline_surface)->request.pipeline);
-        break;
-    default:
-        throw std::runtime_error("Unsupported type");
-    }
+    m_renderingContext = buildRenderingContext(context);
+
+    updateDependentData(context, frameInFlightIndex);
+    gatherDependentSemaphores(context, frameInFlightIndex);
 }
 
-void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
+void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
+                                         const uint64_t &frameIndex)
 {
     std::vector<vk::ImageMemoryBarrier2> prepareImages = std::vector<vk::ImageMemoryBarrier2>{
         vk::ImageMemoryBarrier2()
@@ -159,7 +141,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
 
     if (isReady)
     {
-        this->m_renderingContext->pipeline.bind(commandBuffer);
+        m_renderingContext.pipeline->bind(commandBuffer);
 
         std::vector<vk::DescriptorSet> sets;
         if (this->currentFogType == FogType::marched)
@@ -272,8 +254,8 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
         context.getDeviceID(), context.getSemaphoreManager().get(randomSemaphore)->semaphore,
         std::make_unique<RandomValueTexture>(
             screensize.width, screensize.height,
-            context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(), 
-        context.getDevice().getPhysicalDevice().getProperties()));
+            context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
+            context.getDevice().getPhysicalDevice().getProperties()));
 
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
@@ -353,10 +335,6 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
         }
     }
 
-    // this->fogControlShaderInfo.emplace_back(star::ManagerRenderResource::addRequest(
-    //     context.getDeviceID(), context.getSemaphoreManager().get(fogShaderInfoSemaphore)->semaphore,
-    //     std::make_unique<FogControlInfoController>(i, m_fogControlInfo)));
-
     m_fogController.prepRender(context, numFramesInFlight);
 
     for (uint8_t i = 0; i < numFramesInFlight; i++)
@@ -374,15 +352,17 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
             context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
     }
 
-    commandBuffer = context.getManagerCommandBuffer().submit(star::core::device::manager::ManagerCommandBuffer::Request{
-        .recordBufferCallback =
-            std::bind(&VolumeRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2),
-        .order = star::Command_Buffer_Order::before_render_pass,
-        .orderIndex = star::Command_Buffer_Order_Index::second,
-        .type = star::Queue_Type::Tcompute,
-        .waitStage = vk::PipelineStageFlagBits::eComputeShader,
-        .willBeSubmittedEachFrame = true,
-        .recordOnce = false});
+    commandBuffer = context.getManagerCommandBuffer().submit(
+        star::core::device::manager::ManagerCommandBuffer::Request{
+            .recordBufferCallback = std::bind(&VolumeRenderer::recordCommandBuffer, this, std::placeholders::_1,
+                                              std::placeholders::_2, std::placeholders::_3),
+            .order = star::Command_Buffer_Order::before_render_pass,
+            .orderIndex = star::Command_Buffer_Order_Index::second,
+            .type = star::Queue_Type::Tcompute,
+            .waitStage = vk::PipelineStageFlagBits::eComputeShader,
+            .willBeSubmittedEachFrame = true,
+            .recordOnce = false},
+        context.getCurrentFrameIndex());
 }
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
@@ -516,9 +496,9 @@ std::unique_ptr<star::StarShaderInfo> VolumeRenderer::buildShaderInfo(star::core
     {
         shaderInfoBuilder.startOnFrameIndex(i)
             .startSet()
-            .add(this->globalInfoBuffers.at(i))
-            .add(this->sceneLightInfoBuffers.at(i))
-            .add(this->sceneLightList.at(i))
+            .add(m_infoManagerGlobalCamera.getHandle(i))
+            .add(m_infoManagerSceneLightInfo.getHandle(i))
+            .add(m_infoManagerSceneLightList.getHandle(i))
             .startSet()
             .add(this->cameraShaderInfo);
         if (useSDF)
@@ -536,15 +516,112 @@ std::unique_ptr<star::StarShaderInfo> VolumeRenderer::buildShaderInfo(star::core
             .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal)
             .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
             .startSet()
-            .add(m_instanceManagerInfo->getHandle(i))
+            .add(m_infoManagerInstanceModel.getHandle(i))
             .add(this->aabbInfoBuffers.at(i))
             .add(m_fogController.getHandle(i),
                  &context.getManagerRenderResource()
                       .get<star::StarBuffers::Buffer>(context.getDeviceID(), m_fogController.getHandle(i))
-                      ->resourceSemaphore);
+                      ->resourceSemaphore)
+            .add(m_infoManagerInstanceNormal.getHandle(i));
     }
 
     return shaderInfoBuilder.build();
+}
+
+void VolumeRenderer::gatherDependentSemaphores(star::core::device::DeviceContext &context,
+                                               const uint8_t &frameInFlightIndex) const
+{
+    auto &commandContainer = context.getManagerCommandBuffer().m_manager.get(commandBuffer);
+
+    if (m_infoManagerInstanceModel.willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    {
+        commandContainer.oneTimeWaitSemaphores.insert(
+            std::make_pair(context.getManagerRenderResource()
+                               .get<star::StarBuffers::Buffer>(context.getDeviceID(),
+                                                               m_infoManagerInstanceModel.getHandle(frameInFlightIndex))
+                               ->resourceSemaphore,
+                           vk::PipelineStageFlagBits::eComputeShader));
+    }
+
+    if (m_infoManagerInstanceNormal.willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    {
+
+        commandContainer.oneTimeWaitSemaphores.insert(
+            std::make_pair(context.getManagerRenderResource()
+                               .get<star::StarBuffers::Buffer>(
+                                   context.getDeviceID(), m_infoManagerInstanceNormal.getHandle(frameInFlightIndex))
+                               ->resourceSemaphore,
+                           vk::PipelineStageFlagBits::eComputeShader));
+    }
+
+    if (m_infoManagerGlobalCamera.willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    {
+        commandContainer.oneTimeWaitSemaphores.insert(
+            std::make_pair(context.getManagerRenderResource()
+                               .get<star::StarBuffers::Buffer>(context.getDeviceID(),
+                                                               m_infoManagerGlobalCamera.getHandle(frameInFlightIndex))
+                               ->resourceSemaphore,
+                           vk::PipelineStageFlagBits::eComputeShader));
+    }
+
+    if (m_infoManagerSceneLightInfo.willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    {
+        commandContainer.oneTimeWaitSemaphores.insert(
+            std::make_pair(context.getManagerRenderResource()
+                               .get<star::StarBuffers::Buffer>(
+                                   context.getDeviceID(), m_infoManagerSceneLightInfo.getHandle(frameInFlightIndex))
+                               ->resourceSemaphore,
+                           vk::PipelineStageFlagBits::eComputeShader));
+    }
+
+    if (m_infoManagerSceneLightList.willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    {
+        commandContainer.oneTimeWaitSemaphores.insert(
+            std::make_pair(context.getManagerRenderResource()
+                               .get<star::StarBuffers::Buffer>(
+                                   context.getDeviceID(), m_infoManagerSceneLightList.getHandle(frameInFlightIndex))
+                               ->resourceSemaphore,
+                           vk::PipelineStageFlagBits::eComputeShader));
+    }
+}
+
+void VolumeRenderer::updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)
+{
+    vk::Semaphore dataSemaphore = VK_NULL_HANDLE;
+
+    if (m_fogController.submitUpdateIfNeeded(context, frameInFlightIndex, dataSemaphore))
+    {
+        context.getManagerCommandBuffer()
+            .m_manager.get(commandBuffer)
+            .oneTimeWaitSemaphores.insert(
+                std::make_pair(std::move(dataSemaphore), vk::PipelineStageFlagBits::eComputeShader));
+    }
+}
+
+star::core::renderer::RenderingContext VolumeRenderer::buildRenderingContext(star::core::device::DeviceContext &context)
+{
+    switch (this->currentFogType)
+    {
+    case (FogType::marched):
+        return {.pipeline = &context.getPipelineManager().get(this->marchedPipeline)->request.pipeline};
+        break;
+    case (FogType::linear):
+        return {.pipeline = &context.getPipelineManager().get(this->linearPipeline)->request.pipeline};
+        break;
+    case (FogType::exp):
+        return {.pipeline = &context.getPipelineManager().get(this->expPipeline)->request.pipeline};
+        break;
+    case (FogType::nano_boundingBox):
+        return {.pipeline = &context.getPipelineManager().get(this->nanoVDBPipeline_hitBoundingBox)->request.pipeline};
+        break;
+    case (FogType::nano_surface):
+        return {.pipeline = &context.getPipelineManager().get(this->nanoVDBPipeline_surface)->request.pipeline};
+        break;
+    default:
+        throw std::runtime_error("Unsupported type");
+    }
+
+    return star::core::renderer::RenderingContext{};
 }
 
 glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize)
