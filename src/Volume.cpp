@@ -162,7 +162,7 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
     grid->setGridClass(openvdb::GridClass::GRID_FOG_VOLUME);
 }
 
-void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
+void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex, const uint64_t &frameIndex)
 {
     commandBuffer.pipelineBarrier2(
         vk::DependencyInfo().setImageMemoryBarriers(vk::ArrayProxyNoTemporaries<const vk::ImageMemoryBarrier2>{

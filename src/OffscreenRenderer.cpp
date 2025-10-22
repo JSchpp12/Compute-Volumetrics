@@ -66,7 +66,7 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
     vk::Viewport viewport = this->prepareRenderingViewport();
     commandBuffer.setViewport(0, viewport);
 
-    this->recordPreRenderingCalls(commandBuffer, frameInFlightIndex);
+    this->recordPreRenderPassCommands(commandBuffer, frameInFlightIndex, frameIndex);
 
     {
         // dynamic rendering used...so dont need all that extra stuff
