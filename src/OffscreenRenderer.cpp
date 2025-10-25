@@ -5,14 +5,6 @@
 OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
                                      std::vector<std::shared_ptr<star::StarObject>> objects,
                                      std::vector<std::shared_ptr<star::Light>> lights,
-                                     std::vector<star::Handle> &cameraInfos)
-    : star::core::renderer::Renderer(context, numFramesInFlight, lights, cameraInfos, objects)
-{
-}
-
-OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
-                                     std::vector<std::shared_ptr<star::StarObject>> objects,
-                                     std::vector<std::shared_ptr<star::Light>> lights,
                                      std::shared_ptr<star::StarCamera> camera)
     : star::core::renderer::Renderer(context, numFramesInFlight, lights, camera, objects)
 {

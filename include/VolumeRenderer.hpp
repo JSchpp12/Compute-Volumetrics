@@ -50,7 +50,8 @@ class VolumeRenderer : private star::DescriptorModifier
 
     void cleanupRender(star::core::device::DeviceContext &device);
 
-    void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t&frameInFlightIndex, const uint64_t &frameIndex);
+    void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
+                             const uint64_t &frameIndex);
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> &getRenderToImages()
     {
@@ -100,12 +101,14 @@ class VolumeRenderer : private star::DescriptorModifier
 
     void createDescriptors(star::core::device::DeviceContext &context, const int &numFramesInFlight) override;
 
-    void gatherDependentSemaphores(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex) const;
+    void recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer, const uint8_t &frameinFlightIndex,
+                                             const uint64_t &frameIndex);
+
+    void gatherDependentExternalDataOrderingInfo(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
 
     void updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
 
-    star::core::renderer::RenderingContext buildRenderingContext(
-        star::core::device::DeviceContext &context);
+    star::core::renderer::RenderingContext buildRenderingContext(star::core::device::DeviceContext &context);
 
     static glm::uvec2 CalculateWorkGroupSize(const vk::Extent2D &screenSize);
 };

@@ -131,8 +131,8 @@ vec4 getWorldOrigin(){
 
 bool rayBoxIntersect(Ray ray, inout float t0, inout float t1){
 	vec4 traAABBBounds[2] = vec4[2](
-		vec4(modelMatrix[0] * aabb.bounds[0]), 
-		vec4(modelMatrix[0] * aabb.bounds[1])
+		vec4(instanceModelMatrix[0] * aabb.bounds[0]), 
+		vec4(instanceModelMatrix[0] * aabb.bounds[1])
 	);
 
 	float tmin = -(1.0 / 0.0); 

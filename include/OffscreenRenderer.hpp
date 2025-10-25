@@ -5,9 +5,6 @@
 class OffscreenRenderer : public star::core::renderer::Renderer
 {
   public:
-    OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
-                      std::vector<std::shared_ptr<star::StarObject>> objects,
-                      std::vector<std::shared_ptr<star::Light>> lights, std::vector<star::Handle> &cameraInfo);
 
     OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
                       std::vector<std::shared_ptr<star::StarObject>> objects,

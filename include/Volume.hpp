@@ -92,6 +92,7 @@ class Volume : public star::StarObject
     //                                                   pipelineLayout, star::core::renderer::RenderingTargetInfo
     //                                                   renderInfo) override;
 
+    // star::core::renderer::RenderingContext buildRenderingContext(star::core::device::DeviceContext &context) override;
     /// <summary>
     /// Expensive, only call when necessary.
     /// </summary>
@@ -130,7 +131,6 @@ class Volume : public star::StarObject
 
   protected:
     std::shared_ptr<star::StarCamera> camera = nullptr;
-    star::Handle cameraShaderInfo = star::Handle();
     std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr;
     std::array<glm::vec4, 2> aabbBounds;
     std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages = nullptr;
@@ -191,6 +191,8 @@ class Volume : public star::StarObject
             return star::Ray{origin, normDir};
         }
     };
+
+    void updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex, const star::Handle &targetCommandBuffer) override;
 
     static float calcExp(const float &stepSize, const float &sigma);
 

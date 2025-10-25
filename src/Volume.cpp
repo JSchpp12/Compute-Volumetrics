@@ -162,7 +162,8 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
     grid->setGridClass(openvdb::GridClass::GRID_FOG_VOLUME);
 }
 
-void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex, const uint64_t &frameIndex)
+void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
+                                         const uint64_t &frameIndex)
 {
     commandBuffer.pipelineBarrier2(
         vk::DependencyInfo().setImageMemoryBarriers(vk::ArrayProxyNoTemporaries<const vk::ImageMemoryBarrier2>{
@@ -209,9 +210,9 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
 void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
                          const star::Handle &targetCommandBuffer)
 {
-    this->volumeRenderer->frameUpdate(context, frameInFlightIndex);
-
     star::StarObject::frameUpdate(context, frameInFlightIndex, targetCommandBuffer);
+
+    this->volumeRenderer->frameUpdate(context, frameInFlightIndex);
 }
 
 void Volume::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
@@ -274,6 +275,13 @@ void Volume::initVolume(star::core::device::DeviceContext &context, std::string 
         offscreenRenderToDepthImages, this->aabbBounds);
 }
 
+// star::core::renderer::RenderingContext Volume::buildRenderingContext(star::core::device::DeviceContext &context)
+// {
+//     auto context = star::StarObject::buildRenderingContext(context);
+
+//     return star::core::renderer::RenderingContext();
+// }
+
 void Volume::updateGridTransforms()
 {
     openvdb::FloatGrid::Ptr newGrid = this->grid->copy();
@@ -286,6 +294,14 @@ void Volume::updateGridTransforms()
 
     this->grid = newGrid;
     this->grid->pruneGrid();
+}
+
+void Volume::updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
+                                 const star::Handle &targetCommandBuffer)
+{
+    star::StarObject::updateDependentData(context, frameInFlightIndex, targetCommandBuffer);
+
+    
 }
 
 float Volume::calcExp(const float &stepSize, const float &sigma)
