@@ -11,11 +11,11 @@
 #include "FogData.hpp"
 #include "LevelSetData.hpp"
 
-VolumeRenderer::VolumeRenderer(const star::ManagerController::RenderResource::Buffer &instanceManagerInfo,
-                               const star::ManagerController::RenderResource::Buffer &instanceNormalInfo,
-                               const star::ManagerController::RenderResource::Buffer &globalInfoBuffers,
-                               const star::ManagerController::RenderResource::Buffer &sceneLightInfoBuffers,
-                               const star::ManagerController::RenderResource::Buffer &sceneLightList,
+VolumeRenderer::VolumeRenderer(std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
+                               std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceNormalInfo,
+                               std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers,
+                               std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
+                               std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightList,
                                std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
                                const std::shared_ptr<star::StarCamera> camera,
                                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
@@ -500,9 +500,9 @@ std::unique_ptr<star::StarShaderInfo> VolumeRenderer::buildShaderInfo(star::core
     {
         shaderInfoBuilder.startOnFrameIndex(i)
             .startSet()
-            .add(m_infoManagerGlobalCamera.getHandle(i))
-            .add(m_infoManagerSceneLightInfo.getHandle(i))
-            .add(m_infoManagerSceneLightList.getHandle(i))
+            .add(m_infoManagerGlobalCamera->getHandle(i))
+            .add(m_infoManagerSceneLightInfo->getHandle(i))
+            .add(m_infoManagerSceneLightList->getHandle(i))
             .startSet()
             .add(this->cameraShaderInfo);
         if (useSDF)
@@ -520,13 +520,13 @@ std::unique_ptr<star::StarShaderInfo> VolumeRenderer::buildShaderInfo(star::core
             .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal)
             .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
             .startSet()
-            .add(m_infoManagerInstanceModel.getHandle(i))
+            .add(m_infoManagerInstanceModel->getHandle(i))
             .add(this->aabbInfoBuffers.at(i))
             .add(m_fogController.getHandle(i),
                  &context.getManagerRenderResource()
                       .get<star::StarBuffers::Buffer>(context.getDeviceID(), m_fogController.getHandle(i))
                       ->resourceSemaphore)
-            .add(m_infoManagerInstanceNormal.getHandle(i));
+            .add(m_infoManagerInstanceNormal->getHandle(i));
     }
 
     return shaderInfoBuilder.build();
@@ -535,78 +535,82 @@ std::unique_ptr<star::StarShaderInfo> VolumeRenderer::buildShaderInfo(star::core
 void VolumeRenderer::recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer,
                                                          const uint8_t &frameInFlightIndex, const uint64_t &frameIndex)
 {
-    
 }
 
 void VolumeRenderer::gatherDependentExternalDataOrderingInfo(star::core::device::DeviceContext &context,
-                                               const uint8_t &frameInFlightIndex)
+                                                             const uint8_t &frameInFlightIndex)
 {
     auto &commandContainer = context.getManagerCommandBuffer().m_manager.get(commandBuffer);
 
-    if (m_infoManagerInstanceModel.willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    if (m_infoManagerInstanceModel->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
     {
         commandContainer.oneTimeWaitSemaphoreInfo.insert(
-            m_infoManagerInstanceModel.getHandle(frameInFlightIndex),
+            m_infoManagerInstanceModel->getHandle(frameInFlightIndex),
             context.getManagerRenderResource()
                 .get<star::StarBuffers::Buffer>(context.getDeviceID(),
-                                                m_infoManagerInstanceModel.getHandle(frameInFlightIndex))
+                                                m_infoManagerInstanceModel->getHandle(frameInFlightIndex))
                 ->resourceSemaphore,
             vk::PipelineStageFlagBits::eComputeShader);
 
-        m_renderingContext.addBufferToRenderingContext(context, m_infoManagerInstanceModel.getHandle(frameInFlightIndex)); 
+        m_renderingContext.addBufferToRenderingContext(context,
+                                                       m_infoManagerInstanceModel->getHandle(frameInFlightIndex));
     }
 
-    if (m_infoManagerInstanceNormal.willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    if (m_infoManagerInstanceNormal->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
     {
 
         commandContainer.oneTimeWaitSemaphoreInfo.insert(
-            m_infoManagerInstanceNormal.getHandle(frameInFlightIndex),
+            m_infoManagerInstanceNormal->getHandle(frameInFlightIndex),
             context.getManagerRenderResource()
                 .get<star::StarBuffers::Buffer>(context.getDeviceID(),
-                                                m_infoManagerInstanceNormal.getHandle(frameInFlightIndex))
+                                                m_infoManagerInstanceNormal->getHandle(frameInFlightIndex))
                 ->resourceSemaphore,
             vk::PipelineStageFlagBits::eComputeShader);
 
-        m_renderingContext.addBufferToRenderingContext(context, m_infoManagerInstanceNormal.getHandle(frameInFlightIndex)); 
+        m_renderingContext.addBufferToRenderingContext(context,
+                                                       m_infoManagerInstanceNormal->getHandle(frameInFlightIndex));
     }
 
-    if (m_infoManagerGlobalCamera.willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    if (m_infoManagerGlobalCamera->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
     {
         commandContainer.oneTimeWaitSemaphoreInfo.insert(
-            m_infoManagerGlobalCamera.getHandle(frameInFlightIndex),
+            m_infoManagerGlobalCamera->getHandle(frameInFlightIndex),
             context.getManagerRenderResource()
                 .get<star::StarBuffers::Buffer>(context.getDeviceID(),
-                                                m_infoManagerGlobalCamera.getHandle(frameInFlightIndex))
+                                                m_infoManagerGlobalCamera->getHandle(frameInFlightIndex))
                 ->resourceSemaphore,
             vk::PipelineStageFlagBits::eComputeShader);
 
-        m_renderingContext.addBufferToRenderingContext(context, m_infoManagerGlobalCamera.getHandle(frameInFlightIndex));
+        m_renderingContext.addBufferToRenderingContext(context,
+                                                       m_infoManagerGlobalCamera->getHandle(frameInFlightIndex));
     }
 
-    if (m_infoManagerSceneLightInfo.willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    if (m_infoManagerSceneLightInfo->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
     {
         commandContainer.oneTimeWaitSemaphoreInfo.insert(
-            m_infoManagerSceneLightInfo.getHandle(frameInFlightIndex),
+            m_infoManagerSceneLightInfo->getHandle(frameInFlightIndex),
             context.getManagerRenderResource()
                 .get<star::StarBuffers::Buffer>(context.getDeviceID(),
-                                                m_infoManagerSceneLightInfo.getHandle(frameInFlightIndex))
+                                                m_infoManagerSceneLightInfo->getHandle(frameInFlightIndex))
                 ->resourceSemaphore,
             vk::PipelineStageFlagBits::eComputeShader);
 
-        m_renderingContext.addBufferToRenderingContext(context, m_infoManagerSceneLightInfo.getHandle(frameInFlightIndex)); 
+        m_renderingContext.addBufferToRenderingContext(context,
+                                                       m_infoManagerSceneLightInfo->getHandle(frameInFlightIndex));
     }
 
-    if (m_infoManagerSceneLightList.willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    if (m_infoManagerSceneLightList->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
     {
         commandContainer.oneTimeWaitSemaphoreInfo.insert(
-            m_infoManagerSceneLightList.getHandle(frameInFlightIndex),
+            m_infoManagerSceneLightList->getHandle(frameInFlightIndex),
             context.getManagerRenderResource()
                 .get<star::StarBuffers::Buffer>(context.getDeviceID(),
-                                                m_infoManagerSceneLightList.getHandle(frameInFlightIndex))
+                                                m_infoManagerSceneLightList->getHandle(frameInFlightIndex))
                 ->resourceSemaphore,
             vk::PipelineStageFlagBits::eComputeShader);
 
-        m_renderingContext.addBufferToRenderingContext(context, m_infoManagerSceneLightList.getHandle(frameInFlightIndex));
+        m_renderingContext.addBufferToRenderingContext(context,
+                                                       m_infoManagerSceneLightList->getHandle(frameInFlightIndex));
     }
 }
 

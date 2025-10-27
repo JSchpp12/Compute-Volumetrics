@@ -8,9 +8,9 @@ Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePa
                std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
-               const star::ManagerController::RenderResource::Buffer &sceneCameraInfos,
-               const star::ManagerController::RenderResource::Buffer &lightInfos,
-               const star::ManagerController::RenderResource::Buffer &lightList)
+               std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
+               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
+               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
       camera(camera), screenDimensions(screenWidth, screenHeight),
       offscreenRenderToColorImages(offscreenRenderToColorImages),
@@ -18,7 +18,8 @@ Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePa
       m_fogControlInfo(std::make_shared<FogInfo>(FogInfo::LinearFogInfo(0.001f, 100.0f), FogInfo::ExpFogInfo(0.5f),
                                                  FogInfo::MarchedFogInfo(0.002f, 0.3f, 0.3f, 0.2f, 0.1f, 5.0f)))
 {
-    initVolume(context, std::move(vdbFilePath), sceneCameraInfos, lightInfos, lightList);
+    initVolume(context, std::move(vdbFilePath), std::move(sceneCameraInfos), std::move(lightInfos),
+               std::move(lightList));
 }
 
 std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
@@ -263,16 +264,16 @@ bool Volume::isRenderReady(star::core::device::DeviceContext &context)
 }
 
 void Volume::initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-                        const star::ManagerController::RenderResource::Buffer &sceneCameraInfos,
-                        const star::ManagerController::RenderResource::Buffer &lightInfos,
-                        const star::ManagerController::RenderResource::Buffer &lightList)
+                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
+                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
+                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList)
 {
     loadModel(context, vdbFilePath);
 
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
-        m_instanceInfo.m_infoManagerInstanceModel, m_instanceInfo.m_infoManagerInstanceNormal, sceneCameraInfos,
-        lightInfos, lightList, vdbFilePath, m_fogControlInfo, this->camera, offscreenRenderToColorImages,
-        offscreenRenderToDepthImages, this->aabbBounds);
+        m_instanceInfo.m_infoManagerInstanceModel, m_instanceInfo.m_infoManagerInstanceNormal,
+        std::move(sceneCameraInfos), std::move(lightInfos), std::move(lightList), vdbFilePath, m_fogControlInfo,
+        this->camera, offscreenRenderToColorImages, offscreenRenderToDepthImages, this->aabbBounds);
 }
 
 // star::core::renderer::RenderingContext Volume::buildRenderingContext(star::core::device::DeviceContext &context)
@@ -300,8 +301,6 @@ void Volume::updateDependentData(star::core::device::DeviceContext &context, con
                                  const star::Handle &targetCommandBuffer)
 {
     star::StarObject::updateDependentData(context, frameInFlightIndex, targetCommandBuffer);
-
-    
 }
 
 float Volume::calcExp(const float &stepSize, const float &sigma)

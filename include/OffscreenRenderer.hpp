@@ -5,12 +5,12 @@
 class OffscreenRenderer : public star::core::renderer::Renderer
 {
   public:
-
     OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
                       std::vector<std::shared_ptr<star::StarObject>> objects,
-                      std::vector<std::shared_ptr<star::Light>> lights, std::shared_ptr<star::StarCamera> camera);
+                      std::shared_ptr<std::vector<star::Light>> lights, std::shared_ptr<star::StarCamera> camera);
 
-    virtual void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex, const uint64_t &frameIndex) override;
+    virtual void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
+                                     const uint64_t &frameIndex) override;
 
     virtual void initResources(star::core::device::DeviceContext &device, const int &numFramesInFlight,
                                const vk::Extent2D &screensize) override;
@@ -27,13 +27,10 @@ class OffscreenRenderer : public star::core::renderer::Renderer
     std::vector<std::shared_ptr<star::StarBuffers::Buffer>> depthInfoStorageBuffers;
 
     std::vector<std::unique_ptr<star::StarTextures::Texture>> createRenderToImages(
-        star::core::device::DeviceContext &device, const int &numFramesInFlight) override;
+        star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight) override;
 
     std::vector<std::unique_ptr<star::StarTextures::Texture>> createRenderToDepthImages(
-        star::core::device::DeviceContext &device, const int &numFramesInFlight) override;
-
-    std::vector<std::shared_ptr<star::StarBuffers::Buffer>> createDepthBufferContainers(
-        star::core::device::DeviceContext &device);
+        star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight) override;
 
     star::core::device::manager::ManagerCommandBuffer::Request getCommandBufferRequest() override;
 

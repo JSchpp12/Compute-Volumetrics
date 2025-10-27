@@ -83,9 +83,9 @@ class Volume : public star::StarObject
            std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
-           const star::ManagerController::RenderResource::Buffer &sceneCameraInfos,
-           const star::ManagerController::RenderResource::Buffer &lightInfos,
-           const star::ManagerController::RenderResource::Buffer &lightList);
+           std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
+           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
+           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList);
 
     // star::Handle buildPipeline(star::core::device::DeviceContext &device,
     //                                                   vk::Extent2D swapChainExtent, vk::PipelineLayout
@@ -146,9 +146,9 @@ class Volume : public star::StarObject
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
     void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-           const star::ManagerController::RenderResource::Buffer &sceneCameraInfos,
-           const star::ManagerController::RenderResource::Buffer &lightInfos,
-           const star::ManagerController::RenderResource::Buffer &lightList);
+           std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
+           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
+           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList);
 
     void loadModel(star::core::device::DeviceContext &context, const std::string &filePath);
 

@@ -4,13 +4,14 @@
 
 OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
                                      std::vector<std::shared_ptr<star::StarObject>> objects,
-                                     std::vector<std::shared_ptr<star::Light>> lights,
+                                     std::shared_ptr<std::vector<star::Light>> lights,
                                      std::shared_ptr<star::StarCamera> camera)
-    : star::core::renderer::Renderer(context, numFramesInFlight, lights, camera, objects)
+    : star::core::renderer::Renderer(context, numFramesInFlight, std::move(lights), camera, objects)
 {
 }
 
-void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex, const uint64_t &frameIndex)
+void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
+                                            const uint64_t &frameIndex)
 {
     // need to transition the image from general to color attachment
     // also get ownership back
@@ -55,7 +56,7 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
         commandBuffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(backFromCompute));
     }
 
-    vk::Viewport viewport = this->prepareRenderingViewport();
+    vk::Viewport viewport = this->prepareRenderingViewport(m_renderingContext.targetResolution);
     commandBuffer.setViewport(0, viewport);
 
     this->recordPreRenderPassCommands(commandBuffer, frameInFlightIndex, frameIndex);
@@ -67,7 +68,7 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
         vk::RenderingAttachmentInfo depthAttachmentInfo =
             prepareDynamicRenderingInfoDepthAttachment(frameInFlightIndex);
 
-        auto renderArea = vk::Rect2D{vk::Offset2D{}, *this->swapChainExtent};
+        auto renderArea = vk::Rect2D{vk::Offset2D{}, m_renderingContext.targetResolution};
         vk::RenderingInfoKHR renderInfo{};
         renderInfo.renderArea = renderArea;
         renderInfo.layerCount = 1;
@@ -157,12 +158,19 @@ void OffscreenRenderer::initResources(star::core::device::DeviceContext &device,
 }
 
 std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToImages(
-    star::core::device::DeviceContext &device, const int &numFramesInFlight)
+    star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight)
 {
     std::vector<std::unique_ptr<star::StarTextures::Texture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTextures::Texture>>();
 
     vk::Format colorFormat = getColorAttachmentFormat(device);
+
+    int width, height;
+    {
+        const auto &resolution = device.getRenderingSurface().getResolution();
+        star::CastHelpers::SafeCast<vk::DeviceSize, int>(resolution.width, width);
+        star::CastHelpers::SafeCast<vk::DeviceSize, int>(resolution.height, height);
+    }
 
     auto builder =
         star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(),
@@ -172,10 +180,7 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
                                .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
                                .build(),
                            vk::ImageCreateInfo()
-                               .setExtent(vk::Extent3D()
-                                              .setWidth(static_cast<int>(this->swapChainExtent->width))
-                                              .setHeight(static_cast<int>(this->swapChainExtent->height))
-                                              .setDepth(1))
+                               .setExtent(vk::Extent3D().setWidth(width).setHeight(height).setDepth(1))
                                .setSharingMode(vk::SharingMode::eExclusive)
                                .setArrayLayers(1)
                                .setUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage)
@@ -248,12 +253,19 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
 }
 
 std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToDepthImages(
-    star::core::device::DeviceContext &device, const int &numFramesInFlight)
+    star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight)
 {
     std::vector<std::unique_ptr<star::StarTextures::Texture>> newRenderToImages =
         std::vector<std::unique_ptr<star::StarTextures::Texture>>();
 
     const vk::Format depthFormat = this->getDepthAttachmentFormat(device);
+
+    int width, height;
+    {
+        const auto &resolution = device.getRenderingSurface().getResolution();
+        star::CastHelpers::SafeCast<vk::DeviceSize, int>(resolution.width, width);
+        star::CastHelpers::SafeCast<vk::DeviceSize, int>(resolution.height, height);
+    }
 
     auto builder =
         star::StarTextures::Texture::Builder(device.getDevice().getVulkanDevice(),
@@ -264,10 +276,7 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
                     .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
                     .build(),
                 vk::ImageCreateInfo()
-                    .setExtent(vk::Extent3D()
-                                   .setWidth(static_cast<int>(this->swapChainExtent->width))
-                                   .setHeight(static_cast<int>(this->swapChainExtent->height))
-                                   .setDepth(1))
+                    .setExtent(vk::Extent3D().setWidth(width).setHeight(height).setDepth(1))
                     .setArrayLayers(1)
                     .setSharingMode(vk::SharingMode::eExclusive)
                     .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled)
@@ -343,17 +352,11 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
     return newRenderToImages;
 }
 
-std::vector<std::shared_ptr<star::StarBuffers::Buffer>> OffscreenRenderer::createDepthBufferContainers(
-    star::core::device::DeviceContext &device)
-{
-    return std::vector<std::shared_ptr<star::StarBuffers::Buffer>>();
-}
-
 star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::getCommandBufferRequest()
 {
     return star::core::device::manager::ManagerCommandBuffer::Request{
-        .recordBufferCallback =
-            std::bind(&OffscreenRenderer::recordCommandBuffer, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
+        .recordBufferCallback = std::bind(&OffscreenRenderer::recordCommandBuffer, this, std::placeholders::_1,
+                                          std::placeholders::_2, std::placeholders::_3),
         .order = star::Command_Buffer_Order::before_render_pass,
         .orderIndex = star::Command_Buffer_Order_Index::first,
         .waitStage = vk::PipelineStageFlagBits::eEarlyFragmentTests,

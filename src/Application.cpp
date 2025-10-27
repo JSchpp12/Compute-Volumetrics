@@ -29,7 +29,9 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     camera->setForwardVector(dirTowardsCenter);
 
     const glm::vec3 lightPos = glm::vec3{50.0f, 30.0f, 0.0f} + glm::vec3{0.0f, 50.0f, 0.0f};
-    m_mainLight = std::make_shared<star::Light>(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0});
+
+    m_mainLight = std::make_shared<std::vector<star::Light>>(
+        std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0})});
 
     uint8_t numInFlight;
     {
@@ -37,7 +39,7 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         star::CastHelpers::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
     }
 
-    auto offscreenRenderer = CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight);
+    // auto offscreenRenderer = CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight);
 
     {
         const uint32_t width = window.getExtent().width;
@@ -48,35 +50,40 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         size_t fNumFramesInFlight = 0;
         star::CastHelpers::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
-        std::string vdbPath = mediaDirectoryPath + "volumes/dragon.vdb";
-        m_volume = std::make_shared<Volume>(
-            context, vdbPath, fNumFramesInFlight, camera, width, height, offscreenRenderer->getRenderToColorImages(),
-            offscreenRenderer->getRenderToDepthImages(), offscreenRenderer->getCameraInfoBuffers(),
-            offscreenRenderer->getLightInfoBuffers(), offscreenRenderer->getLightListBuffers());
+        auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+        auto horse = std::make_shared<star::BasicObject>(horsePath);
+        auto h_i = horse->createInstance();
+        h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
+        std::vector<std::shared_ptr<StarObject>> objects{horse};
 
-        auto &s_i = m_volume->createInstance();
-        s_i.setPosition(glm::vec3{50.0, 30.0, 0.0});
-        s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
-        std::vector<std::shared_ptr<StarObject>> objects{m_volume};
+        // std::string vdbPath = mediaDirectoryPath + "volumes/dragon.vdb";
+        // m_volume = std::make_shared<Volume>(
+        //     context, vdbPath, fNumFramesInFlight, camera, width, height, offscreenRenderer->getRenderToColorImages(),
+        //     offscreenRenderer->getRenderToDepthImages(), offscreenRenderer->getCameraInfoBuffers(),
+        //     offscreenRenderer->getLightInfoBuffers(), offscreenRenderer->getLightListBuffers());
 
-        std::vector<std::shared_ptr<star::core::renderer::Renderer>> additionals{offscreenRenderer};
+        // auto &s_i = m_volume->createInstance();
+        // s_i.setPosition(glm::vec3{50.0, 30.0, 0.0});
+        // s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
+        // std::vector<std::shared_ptr<StarObject>> objects{m_volume};
+
+        std::vector<std::shared_ptr<star::core::renderer::RendererBase>> additionals{};
 
         std::shared_ptr<star::core::renderer::SwapChainRenderer> presentationRenderer =
-            std::make_shared<star::core::renderer::SwapChainRenderer>(
-                context, numFramesInFlight, objects, std::vector<std::shared_ptr<star::Light>>{m_mainLight}, camera,
-                window);
+            std::make_shared<star::core::renderer::SwapChainRenderer>(context, numFramesInFlight, objects, m_mainLight,
+                                                                      camera, window);
 
         m_mainScene = std::make_shared<star::StarScene>(context.getDeviceID(), numFramesInFlight, camera,
-                                                        presentationRenderer, additionals);
+                                                        presentationRenderer, std::move(additionals));
     }
 
-    m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.3f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 2.0f;
-    m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.01f;
-    m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0.99f;
-    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.0f);
-    m_volume->setFogType(VolumeRenderer::FogType::nano_boundingBox); 
+    // m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
+    // m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.3f;
+    // m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 2.0f;
+    // m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.01f;
+    // m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0.99f;
+    // m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.0f);
+    // m_volume->setFogType(VolumeRenderer::FogType::nano_boundingBox);
 
     // std::cout << "Application Controls" << std::endl;
     // std::cout << "B - Modify fog properties" << std::endl;
@@ -327,7 +334,7 @@ int Application::ProcessIntInput()
 std::shared_ptr<OffscreenRenderer> Application::CreateOffscreenRenderer(star::core::device::DeviceContext &context,
                                                                         const uint8_t &numFramesInFlight,
                                                                         std::shared_ptr<star::BasicCamera> camera,
-                                                                        std::shared_ptr<star::Light> mainLight)
+                                                                        std::shared_ptr<std::vector<star::Light>> mainLight)
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
@@ -341,7 +348,6 @@ std::shared_ptr<OffscreenRenderer> Application::CreateOffscreenRenderer(star::co
     h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
 
     std::vector<std::shared_ptr<star::StarObject>> objects{horse};
-    std::vector<std::shared_ptr<star::Light>> lights{mainLight};
 
-    return std::make_shared<OffscreenRenderer>(context, numFramesInFlight, objects, lights, camera);
+    return std::make_shared<OffscreenRenderer>(context, numFramesInFlight, objects, std::move(mainLight), camera);
 }

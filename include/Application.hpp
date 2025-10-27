@@ -34,7 +34,7 @@ class Application : public star::StarApplication
 
     star::StarObjectInstance *testObject = nullptr;
     std::shared_ptr<Volume> m_volume = nullptr;
-    std::shared_ptr<star::Light> m_mainLight = nullptr;
+    std::shared_ptr<std::vector<star::Light>> m_mainLight;
 
     void onKeyRelease(int key, int scancode, int mods) override;
     void onMouseMovement(double xpos, double ypos) override;
@@ -53,5 +53,5 @@ class Application : public star::StarApplication
     static std::shared_ptr<OffscreenRenderer> CreateOffscreenRenderer(star::core::device::DeviceContext &context,
                                                                       const uint8_t &numFramesInFlight,
                                                                       std::shared_ptr<star::BasicCamera> camera,
-                                                                      std::shared_ptr<star::Light> mainLight);
+                                                                      std::shared_ptr<std::vector<star::Light>> mainLight);
 };

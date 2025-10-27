@@ -30,11 +30,11 @@ class VolumeRenderer : private star::DescriptorModifier
         nano_surface
     };
 
-    VolumeRenderer(const star::ManagerController::RenderResource::Buffer &instanceManagerInfo,
-                   const star::ManagerController::RenderResource::Buffer &instanceNormalInfo,
-                   const star::ManagerController::RenderResource::Buffer &globalInfoBuffers,
-                   const star::ManagerController::RenderResource::Buffer &globalLightList,
-                   const star::ManagerController::RenderResource::Buffer &sceneLightInfoBuffers,
+    VolumeRenderer(std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
+                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceNormalInfo,
+                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers,
+                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalLightList,
+                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
                    std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
                    const std::shared_ptr<star::StarCamera> camera,
                    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
@@ -67,8 +67,9 @@ class VolumeRenderer : private star::DescriptorModifier
     }
 
   private:
-    const star::ManagerController::RenderResource::Buffer &m_infoManagerInstanceModel, &m_infoManagerInstanceNormal,
-        &m_infoManagerGlobalCamera, &m_infoManagerSceneLightInfo, &m_infoManagerSceneLightList;
+    std::shared_ptr<star::ManagerController::RenderResource::Buffer> m_infoManagerInstanceModel,
+        m_infoManagerInstanceNormal, m_infoManagerGlobalCamera, m_infoManagerSceneLightInfo,
+        m_infoManagerSceneLightList;
     std::string m_vdbFilePath;
     star::core::renderer::RenderingContext m_renderingContext = star::core::renderer::RenderingContext();
     bool isReady = false;
@@ -104,7 +105,8 @@ class VolumeRenderer : private star::DescriptorModifier
     void recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer, const uint8_t &frameinFlightIndex,
                                              const uint64_t &frameIndex);
 
-    void gatherDependentExternalDataOrderingInfo(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
+    void gatherDependentExternalDataOrderingInfo(star::core::device::DeviceContext &context,
+                                                 const uint8_t &frameInFlightIndex);
 
     void updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
 
