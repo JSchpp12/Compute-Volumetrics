@@ -191,9 +191,7 @@ class Volume : public star::StarObject
             return star::Ray{origin, normDir};
         }
     };
-
-    void updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex, const star::Handle &targetCommandBuffer) override;
-
+    
     static float calcExp(const float &stepSize, const float &sigma);
 
     static float henyeyGreensteinPhase(const glm::vec3 &viewDirection, const glm::vec3 &lightDirection,

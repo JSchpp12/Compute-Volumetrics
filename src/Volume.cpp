@@ -213,7 +213,10 @@ void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8
 {
     star::StarObject::frameUpdate(context, frameInFlightIndex, targetCommandBuffer);
 
-    this->volumeRenderer->frameUpdate(context, frameInFlightIndex);
+    if (isReady)
+    {
+        this->volumeRenderer->frameUpdate(context, frameInFlightIndex);
+    }
 }
 
 void Volume::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
@@ -295,12 +298,6 @@ void Volume::updateGridTransforms()
 
     this->grid = newGrid;
     this->grid->pruneGrid();
-}
-
-void Volume::updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
-                                 const star::Handle &targetCommandBuffer)
-{
-    star::StarObject::updateDependentData(context, frameInFlightIndex, targetCommandBuffer);
 }
 
 float Volume::calcExp(const float &stepSize, const float &sigma)

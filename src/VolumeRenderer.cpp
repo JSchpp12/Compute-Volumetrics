@@ -376,9 +376,9 @@ void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
     this->VolumeShaderInfo->cleanupRender(context.getDevice());
     this->VolumeShaderInfo.reset();
 
-    for (auto &computeWriteToImage : this->computeWriteToImages)
+    for (size_t i = 0; i < computeWriteToImages.size(); i++)
     {
-        computeWriteToImage.reset();
+        computeWriteToImages[i]->cleanupRender(context.getDevice().getVulkanDevice());
     }
 
     context.getDevice().getVulkanDevice().destroyPipelineLayout(*this->computePipelineLayout);
@@ -540,78 +540,78 @@ void VolumeRenderer::recordDependentDataPipelineBarriers(vk::CommandBuffer &comm
 void VolumeRenderer::gatherDependentExternalDataOrderingInfo(star::core::device::DeviceContext &context,
                                                              const uint8_t &frameInFlightIndex)
 {
-    auto &commandContainer = context.getManagerCommandBuffer().m_manager.get(commandBuffer);
+    // auto &commandContainer = context.getManagerCommandBuffer().m_manager.get(commandBuffer);
 
-    if (m_infoManagerInstanceModel->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
-    {
-        commandContainer.oneTimeWaitSemaphoreInfo.insert(
-            m_infoManagerInstanceModel->getHandle(frameInFlightIndex),
-            context.getManagerRenderResource()
-                .get<star::StarBuffers::Buffer>(context.getDeviceID(),
-                                                m_infoManagerInstanceModel->getHandle(frameInFlightIndex))
-                ->resourceSemaphore,
-            vk::PipelineStageFlagBits::eComputeShader);
+    // if (m_infoManagerInstanceModel->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    // {
+    //     commandContainer.oneTimeWaitSemaphoreInfo.insert(
+    //         m_infoManagerInstanceModel->getHandle(frameInFlightIndex),
+    //         context.getManagerRenderResource()
+    //             .get<star::StarBuffers::Buffer>(context.getDeviceID(),
+    //                                             m_infoManagerInstanceModel->getHandle(frameInFlightIndex))
+    //             ->resourceSemaphore,
+    //         vk::PipelineStageFlagBits::eComputeShader);
 
-        m_renderingContext.addBufferToRenderingContext(context,
-                                                       m_infoManagerInstanceModel->getHandle(frameInFlightIndex));
-    }
+    //     m_renderingContext.addBufferToRenderingContext(context,
+    //                                                    m_infoManagerInstanceModel->getHandle(frameInFlightIndex));
+    // }
 
-    if (m_infoManagerInstanceNormal->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
-    {
+    // if (m_infoManagerInstanceNormal->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    // {
 
-        commandContainer.oneTimeWaitSemaphoreInfo.insert(
-            m_infoManagerInstanceNormal->getHandle(frameInFlightIndex),
-            context.getManagerRenderResource()
-                .get<star::StarBuffers::Buffer>(context.getDeviceID(),
-                                                m_infoManagerInstanceNormal->getHandle(frameInFlightIndex))
-                ->resourceSemaphore,
-            vk::PipelineStageFlagBits::eComputeShader);
+    //     commandContainer.oneTimeWaitSemaphoreInfo.insert(
+    //         m_infoManagerInstanceNormal->getHandle(frameInFlightIndex),
+    //         context.getManagerRenderResource()
+    //             .get<star::StarBuffers::Buffer>(context.getDeviceID(),
+    //                                             m_infoManagerInstanceNormal->getHandle(frameInFlightIndex))
+    //             ->resourceSemaphore,
+    //         vk::PipelineStageFlagBits::eComputeShader);
 
-        m_renderingContext.addBufferToRenderingContext(context,
-                                                       m_infoManagerInstanceNormal->getHandle(frameInFlightIndex));
-    }
+    //     m_renderingContext.addBufferToRenderingContext(context,
+    //                                                    m_infoManagerInstanceNormal->getHandle(frameInFlightIndex));
+    // }
 
-    if (m_infoManagerGlobalCamera->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
-    {
-        commandContainer.oneTimeWaitSemaphoreInfo.insert(
-            m_infoManagerGlobalCamera->getHandle(frameInFlightIndex),
-            context.getManagerRenderResource()
-                .get<star::StarBuffers::Buffer>(context.getDeviceID(),
-                                                m_infoManagerGlobalCamera->getHandle(frameInFlightIndex))
-                ->resourceSemaphore,
-            vk::PipelineStageFlagBits::eComputeShader);
+    // if (m_infoManagerGlobalCamera->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    // {
+    //     commandContainer.oneTimeWaitSemaphoreInfo.insert(
+    //         m_infoManagerGlobalCamera->getHandle(frameInFlightIndex),
+    //         context.getManagerRenderResource()
+    //             .get<star::StarBuffers::Buffer>(context.getDeviceID(),
+    //                                             m_infoManagerGlobalCamera->getHandle(frameInFlightIndex))
+    //             ->resourceSemaphore,
+    //         vk::PipelineStageFlagBits::eComputeShader);
 
-        m_renderingContext.addBufferToRenderingContext(context,
-                                                       m_infoManagerGlobalCamera->getHandle(frameInFlightIndex));
-    }
+    //     m_renderingContext.addBufferToRenderingContext(context,
+    //                                                    m_infoManagerGlobalCamera->getHandle(frameInFlightIndex));
+    // }
 
-    if (m_infoManagerSceneLightInfo->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
-    {
-        commandContainer.oneTimeWaitSemaphoreInfo.insert(
-            m_infoManagerSceneLightInfo->getHandle(frameInFlightIndex),
-            context.getManagerRenderResource()
-                .get<star::StarBuffers::Buffer>(context.getDeviceID(),
-                                                m_infoManagerSceneLightInfo->getHandle(frameInFlightIndex))
-                ->resourceSemaphore,
-            vk::PipelineStageFlagBits::eComputeShader);
+    // if (m_infoManagerSceneLightInfo->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    // {
+    //     commandContainer.oneTimeWaitSemaphoreInfo.insert(
+    //         m_infoManagerSceneLightInfo->getHandle(frameInFlightIndex),
+    //         context.getManagerRenderResource()
+    //             .get<star::StarBuffers::Buffer>(context.getDeviceID(),
+    //                                             m_infoManagerSceneLightInfo->getHandle(frameInFlightIndex))
+    //             ->resourceSemaphore,
+    //         vk::PipelineStageFlagBits::eComputeShader);
 
-        m_renderingContext.addBufferToRenderingContext(context,
-                                                       m_infoManagerSceneLightInfo->getHandle(frameInFlightIndex));
-    }
+    //     m_renderingContext.addBufferToRenderingContext(context,
+    //                                                    m_infoManagerSceneLightInfo->getHandle(frameInFlightIndex));
+    // }
 
-    if (m_infoManagerSceneLightList->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
-    {
-        commandContainer.oneTimeWaitSemaphoreInfo.insert(
-            m_infoManagerSceneLightList->getHandle(frameInFlightIndex),
-            context.getManagerRenderResource()
-                .get<star::StarBuffers::Buffer>(context.getDeviceID(),
-                                                m_infoManagerSceneLightList->getHandle(frameInFlightIndex))
-                ->resourceSemaphore,
-            vk::PipelineStageFlagBits::eComputeShader);
+    // if (m_infoManagerSceneLightList->willBeUpdatedThisFrame(context.getCurrentFrameIndex(), frameInFlightIndex))
+    // {
+    //     commandContainer.oneTimeWaitSemaphoreInfo.insert(
+    //         m_infoManagerSceneLightList->getHandle(frameInFlightIndex),
+    //         context.getManagerRenderResource()
+    //             .get<star::StarBuffers::Buffer>(context.getDeviceID(),
+    //                                             m_infoManagerSceneLightList->getHandle(frameInFlightIndex))
+    //             ->resourceSemaphore,
+    //         vk::PipelineStageFlagBits::eComputeShader);
 
-        m_renderingContext.addBufferToRenderingContext(context,
-                                                       m_infoManagerSceneLightList->getHandle(frameInFlightIndex));
-    }
+    //     m_renderingContext.addBufferToRenderingContext(context,
+    //                                                    m_infoManagerSceneLightList->getHandle(frameInFlightIndex));
+    // }
 }
 
 void VolumeRenderer::updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)

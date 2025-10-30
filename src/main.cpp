@@ -7,7 +7,8 @@ int main()
 {
     star::ConfigFile::load("./StarEngine.cfg");
 
-    auto engine = star::StarEngine(std::make_unique<Application>());
+    auto application = Application(); 
+    auto engine = star::StarEngine(application);
 
     engine.run();
 }
