@@ -366,14 +366,12 @@ star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::ge
 
 vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(const int &frameInFlightIndex)
 {
-    vk::RenderingAttachmentInfoKHR depthAttachmentInfo{};
-    depthAttachmentInfo.imageView = this->renderToDepthImages[frameInFlightIndex]->getImageView();
-    depthAttachmentInfo.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-    depthAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
-    depthAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
-    depthAttachmentInfo.clearValue = vk::ClearValue{vk::ClearDepthStencilValue{1.0f}};
-
-    return depthAttachmentInfo;
+    return vk::RenderingAttachmentInfoKHR()
+        .setImageView(this->renderToDepthImages[frameInFlightIndex]->getImageView())
+        .setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+        .setLoadOp(vk::AttachmentLoadOp::eClear)
+        .setStoreOp(vk::AttachmentStoreOp::eStore)
+        .setClearValue(vk::ClearValue().setDepthStencil(vk::ClearDepthStencilValue{1.0f}));
 }
 
 vk::Format OffscreenRenderer::getColorAttachmentFormat(star::core::device::DeviceContext &device) const
@@ -402,33 +400,4 @@ vk::Format OffscreenRenderer::getDepthAttachmentFormat(star::core::device::Devic
     }
 
     return selectedFormat;
-}
-
-vk::ImageMemoryBarrier2 OffscreenRenderer::createMemoryBarrierPrepForDepthCopy(const vk::Image &depthImage)
-{
-    vk::ImageMemoryBarrier2 memBar;
-    memBar.sType = vk::StructureType::eImageMemoryBarrier2;
-    memBar.srcStageMask =
-        vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests;
-    memBar.srcAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
-    memBar.dstStageMask = vk::PipelineStageFlagBits2::eCopy;
-    memBar.dstAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentRead;
-    memBar.image = depthImage;
-    memBar.oldLayout = vk::ImageLayout::eDepthAttachmentOptimal;
-    memBar.newLayout = vk::ImageLayout::eTransferSrcOptimal;
-    memBar.subresourceRange.baseArrayLayer = 0;
-    memBar.subresourceRange.baseMipLevel = 0;
-    memBar.subresourceRange.layerCount = 1;
-    memBar.subresourceRange.levelCount = 1;
-    memBar.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
-
-    // vk::MemoryBarrier2 memBar;
-    // memBar.sType = vk::StructureType::eMemoryBarrier2;
-    // memBar.srcStageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests |
-    // vk::PipelineStageFlagBits2::eLateFragmentTests; memBar.srcAccessMask =
-    // vk::AccessFlagBits2::eDepthStencilAttachmentWrite; memBar.dstStageMask =
-    // vk::PipelineStageFlagBits2::eTransfer; memBar.dstAccessMask =
-    // vk::AccessFlagBits2::eTransferRead;
-
-    return memBar;
 }

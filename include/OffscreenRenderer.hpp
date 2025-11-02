@@ -36,6 +36,4 @@ class OffscreenRenderer : public star::core::renderer::Renderer
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
         const int &frameInFlightIndex) override;
-
-    static vk::ImageMemoryBarrier2 createMemoryBarrierPrepForDepthCopy(const vk::Image &depthImage);
 };

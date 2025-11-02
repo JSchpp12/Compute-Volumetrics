@@ -70,18 +70,18 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         std::vector<std::shared_ptr<star::core::renderer::RendererBase>> additionals{offscreenRenderer};
 
         std::shared_ptr<star::core::renderer::SwapChainRenderer> presentationRenderer =
-            std::make_shared<star::core::renderer::SwapChainRenderer>(context, numFramesInFlight, objects,
-                                                                      m_mainLight, camera, window);
+            std::make_shared<star::core::renderer::SwapChainRenderer>(context, numFramesInFlight, objects, m_mainLight,
+                                                                      camera, window);
 
         m_mainScene = std::make_shared<star::StarScene>(context.getDeviceID(), numFramesInFlight, camera,
                                                         presentationRenderer, std::move(additionals));
     }
 
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.3f;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 1.5f;
     m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 2.0f;
     m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.0001f;
-    m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 0.99f;
+    m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 1.4f;
     m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.0f);
     m_volume->setFogType(VolumeRenderer::FogType::nano_boundingBox);
 
