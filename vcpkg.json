@@ -12,6 +12,7 @@
     "boost-lockfree",
     "boost-container",
     "boost-filesystem",
+    "boost-log",
     {
       "name": "ktx",
       "features": ["vulkan"]
