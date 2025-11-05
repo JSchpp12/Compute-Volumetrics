@@ -1,8 +1,8 @@
-#include "AABBInfo.hpp"
+#include "AABBTransfer.hpp"
 
-std::unique_ptr<star::StarBuffer> AABBTransfer::createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const
+std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const
 {
-    return star::StarBuffer::Builder(allocator)
+    return star::StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)
@@ -15,11 +15,10 @@ std::unique_ptr<star::StarBuffer> AABBTransfer::createStagingBuffer(vk::Device &
             "AABBInfo_SRC")
         .setInstanceCount(2)
         .setInstanceSize(sizeof(glm::mat4))
-        .setMinOffsetAlignment(this->minUniformBufferOffsetAlignment)
         .build();
 }
 
-std::unique_ptr<star::StarBuffer> AABBTransfer::createFinal(vk::Device &device, VmaAllocator &allocator,
+std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createFinal(vk::Device &device, VmaAllocator &allocator,
                                                             const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
     std::vector<uint32_t> indices = {
@@ -29,7 +28,7 @@ std::unique_ptr<star::StarBuffer> AABBTransfer::createFinal(vk::Device &device, 
     for (const auto &index : transferQueueFamilyIndex)
         indices.push_back(index);
 
-    return star::StarBuffer::Builder(allocator)
+    return star::StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
@@ -47,22 +46,16 @@ std::unique_ptr<star::StarBuffer> AABBTransfer::createFinal(vk::Device &device, 
         .build();
 }
 
-void AABBTransfer::writeDataToStageBuffer(star::StarBuffer &buffer) const
+void AABBTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const
 {
-    buffer.map();
+    void *mapped = nullptr;
+    buffer.map(&mapped);
 
     std::array<glm::vec4, 2> rawaabbBounds = this->aabbBounds;
     for (int i = 0; i < 2; i++)
     {
-        buffer.writeToIndex(&rawaabbBounds[i], i);
+        buffer.writeToIndex(&rawaabbBounds[i], mapped, i);
     }
 
     buffer.unmap();
-}
-
-std::unique_ptr<star::TransferRequest::Buffer> AABBController::createTransferRequest(star::StarDevice &device)
-{
-    return std::make_unique<AABBTransfer>(
-        this->aabbBounds, device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(),
-        device.getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment);
 }

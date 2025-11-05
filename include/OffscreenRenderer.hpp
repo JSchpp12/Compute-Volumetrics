@@ -1,49 +1,39 @@
 #pragma once
 
-#include "SceneRenderer.hpp"
+#include "core/renderer/Renderer.hpp"
 
-class OffscreenRenderer : public star::SceneRenderer
+class OffscreenRenderer : public star::core::renderer::Renderer
 {
   public:
-    OffscreenRenderer(std::shared_ptr<star::StarScene> scene);
+    OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
+                      std::vector<std::shared_ptr<star::StarObject>> objects,
+                      std::shared_ptr<std::vector<star::Light>> lights, std::shared_ptr<star::StarCamera> camera);
 
-    virtual void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
+    virtual void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
+                                     const uint64_t &frameIndex) override;
 
-    virtual void initResources(star::StarDevice &device, const int &numFramesInFlight,
+    virtual void initResources(star::core::device::DeviceContext &device, const int &numFramesInFlight,
                                const vk::Extent2D &screensize) override;
 
-    virtual vk::Format getColorAttachmentFormat(star::StarDevice &device) const override; 
+    virtual vk::Format getColorAttachmentFormat(star::core::device::DeviceContext &device) const override;
 
-    virtual vk::Format getDepthAttachmentFormat(star::StarDevice &device) const override; 
+    virtual vk::Format getDepthAttachmentFormat(star::core::device::DeviceContext &device) const override;
 
   private:
     std::unique_ptr<uint32_t> graphicsQueueFamilyIndex, computeQueueFamilyIndex;
     bool isFirstPass = true;
     uint32_t firstFramePassCounter = 0;
 
-    std::vector<std::shared_ptr<star::StarBuffer>> depthInfoStorageBuffers;
+    std::vector<std::shared_ptr<star::StarBuffers::Buffer>> depthInfoStorageBuffers;
 
-    std::vector<std::unique_ptr<star::StarTexture>> createRenderToImages(star::StarDevice &device,
-                                                                         const int &numFramesInFlight) override;
+    std::vector<std::unique_ptr<star::StarTextures::Texture>> createRenderToImages(
+        star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight) override;
 
-    std::vector<std::unique_ptr<star::StarTexture>> createRenderToDepthImages(star::StarDevice &device,
-                                                                              const int &numFramesInFlight) override;
+    std::vector<std::unique_ptr<star::StarTextures::Texture>> createRenderToDepthImages(
+        star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight) override;
 
-    std::vector<std::shared_ptr<star::StarBuffer>> createDepthBufferContainers(star::StarDevice &device);
-    // Inherited via SceneRenderer
+    star::core::device::manager::ManagerCommandBuffer::Request getCommandBufferRequest() override;
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
         const int &frameInFlightIndex) override;
-
-    star::Command_Buffer_Order_Index getCommandBufferOrderIndex() override;
-
-    star::Command_Buffer_Order getCommandBufferOrder() override;
-
-    vk::PipelineStageFlags getWaitStages() override;
-
-    bool getWillBeSubmittedEachFrame() override;
-
-    bool getWillBeRecordedOnce() override;
-
-    static vk::ImageMemoryBarrier2 createMemoryBarrierPrepForDepthCopy(const vk::Image &depthImage);
 };

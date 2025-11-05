@@ -1,18 +1,18 @@
-#pragma once
+// #pragma once
 
-#include <vector>
+// #include <vector>
 
-#include "CommandBufferModifier.hpp"
-#include "StarBuffer.hpp"
-#include "StarTexture.hpp"
+// #include "CommandBufferModifier.hpp"
+// #include "StarBuffer.hpp"
+// #include "StarTextures/Texture.hpp"
 
-class CopyDepthTextureToBuffer : private star::CommandBufferModifier
-{
-  public:
-    CopyDepthTextureToBuffer(std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepths,
-                             std::vector<std::unique_ptr<star::StarBuffer>> *buffersForDepthInfo);
+// class CopyDepthTextureToBuffer : private star::CommandBufferModifier
+// {
+//   public:
+//     CopyDepthTextureToBuffer(std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
+//                              std::vector<std::unique_ptr<star::StarBuffer>> *buffersForDepthInfo);
 
-  private:
-    std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepths = nullptr;
-    std::vector<std::unique_ptr<star::StarBuffer>> *buffersForDepthInfo = nullptr;
-};
+//   private:
+//     std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths = nullptr;
+//     std::vector<std::unique_ptr<star::StarBuffer>> *buffersForDepthInfo = nullptr;
+// };

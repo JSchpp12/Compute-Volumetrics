@@ -1,8 +1,9 @@
 #include "CameraInfo.hpp"
 
-std::unique_ptr<star::StarBuffer> CameraInfo::createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const
+std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createStagingBuffer(vk::Device &device,
+                                                                           VmaAllocator &allocator) const
 {
-    return star::StarBuffer::Builder(allocator)
+    return star::StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)
@@ -18,14 +19,18 @@ std::unique_ptr<star::StarBuffer> CameraInfo::createStagingBuffer(vk::Device &de
         .build();
 }
 
-std::unique_ptr<star::StarBuffer> CameraInfo::createFinal(vk::Device &device, VmaAllocator &allocator,
-                                                          const std::vector<uint32_t> &transferQueueFamilyIndex) const
+std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createFinal(
+    vk::Device &device, VmaAllocator &allocator, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
+    uint32_t numInds = 1;
     std::vector<uint32_t> indices = {this->computeQueueFamilyIndex};
     for (const auto &index : transferQueueFamilyIndex)
+    {
         indices.push_back(index);
+        numInds++;
+    }
 
-    return star::StarBuffer::Builder(allocator)
+    return star::StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
@@ -33,7 +38,7 @@ std::unique_ptr<star::StarBuffer> CameraInfo::createFinal(vk::Device &device, Vm
                 .build(),
             vk::BufferCreateInfo()
                 .setSharingMode(vk::SharingMode::eConcurrent)
-                .setQueueFamilyIndexCount(indices.size())
+                .setQueueFamilyIndexCount(numInds)
                 .setPQueueFamilyIndices(indices.data())
                 .setSize(sizeof(CameraData))
                 .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer),
@@ -43,9 +48,10 @@ std::unique_ptr<star::StarBuffer> CameraInfo::createFinal(vk::Device &device, Vm
         .build();
 }
 
-void CameraInfo::writeDataToStageBuffer(star::StarBuffer &buffer) const
+void CameraInfo::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const
 {
-    buffer.map();
+    void *mapped = nullptr;
+    buffer.map(&mapped);
 
     auto data = CameraData{glm::inverse(camera->getProjectionMatrix()),
                            glm::vec2(camera->getResolution()),
@@ -54,14 +60,15 @@ void CameraInfo::writeDataToStageBuffer(star::StarBuffer &buffer) const
                            camera->getNearClippingDistance(),
                            tan(camera->getVerticalFieldOfView(true))};
 
-    buffer.writeToIndex(&data, 0);
+    buffer.writeToIndex(&data, mapped, 0);
 
     buffer.unmap();
 }
 
-std::unique_ptr<star::TransferRequest::Buffer> CameraInfoController::createTransferRequest(star::StarDevice &device)
-{
-    return std::make_unique<CameraInfo>(
-        this->camera, device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex(),
-        device.getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment);
-}
+// std::unique_ptr<star::TransferRequest::Buffer> CameraInfoController::createTransferRequest(
+//     star::core::device::StarDevice &device, const uint8_t &frameInFlightIndex)
+// {
+//     return std::make_unique<CameraInfo>(
+//         this->camera, device.getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
+//         device.getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment);
+// }

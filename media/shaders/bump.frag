@@ -44,19 +44,21 @@ struct Light{
 	//settings.y = type
 	uvec4 settings; 
 };
-
 layout(binding = 0, set = 0) uniform GlobalUniformBufferObject {
 	mat4 proj;
 	mat4 view;  
 	mat4 inverseView; 
-	uint numLights; 
 	uint renderSettings;
 } globalUbo; 
 
-layout(binding = 1, set = 0) buffer globalLightBuffer{
-    Light lights[];
-};
+layout(binding = 1, set = 0) uniform SceneLightInfo{
+	uint numLights; 
+} sceneLightInfo; 
 
+layout(binding = 2, set = 0) readonly buffer globalLightBuffer{
+	Light lights[];
+ };
+ 
 layout(binding = 0, set = 2) uniform sampler2D textureSampler; 
 layout(binding = 1, set = 2) uniform sampler2D normalMapSampler; 
 
@@ -111,7 +113,7 @@ void main() {
 
     bool isTest = false; 
 
-    for (int i = 0; i < globalUbo.numLights; i++){
+    for (int i = 0; i < lightInfo.numLights; i++){
         //check if the current light object is a spotlight
         isSpot = ((lights[i].settings.y & lightChecker.spot) != 0);
         isDirectional = ((lights[i].settings.y & lightChecker.directional) != 0);

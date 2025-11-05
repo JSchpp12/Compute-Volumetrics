@@ -49,11 +49,14 @@ layout(binding = 0, set = 0) uniform GlobalUniformBufferObject {
 	mat4 proj;
 	mat4 view;  
 	mat4 inverseView; 
-	uint numLights; 
 	uint renderSettings;
 } globalUbo; 
 
-layout(binding = 1, set = 0) readonly buffer globalLightBuffer{
+layout(binding = 1, set = 0) uniform SceneLightInfo{
+	uint numLights; 
+} sceneLightInfo; 
+
+layout(binding = 2, set = 0) readonly buffer globalLightBuffer{
 	Light lights[];
  };
 
@@ -108,8 +111,8 @@ void main() {
 	}else{
 		vec3 totalSurfaceColor = vec3(0.0);
 
-		if ((globalUbo.numLights) != 0){
-			for (int i = 0; i < globalUbo.numLights; i++){
+		if ((sceneLightInfo.numLights) != 0){
+			for (int i = 0; i < sceneLightInfo.numLights; i++){
 				//check if the current light object is a spotlight
 				isSpot = ((lights[i].settings.y & lightChecker.spot) != 0);
 				isDirectional = ((lights[i].settings.y & lightChecker.directional) != 0);

@@ -10,7 +10,7 @@ TerrainInfoFile::TerrainInfoFile(const std::string &pathToFile)
 
 void TerrainInfoFile::loadFromFile(const std::string &pathToFile)
 {
-    if (!star::FileHelpers::FileExists(pathToFile))
+    if (!star::file_helpers::FileExists(pathToFile))
         throw std::runtime_error("Terrain info file does not exist: " + pathToFile);
 
     std::ifstream i(pathToFile);

@@ -16,9 +16,29 @@ The following are required in order to build this project:
 - Compiler with c++ 20 support 
 - Vulkan SDK Version: 1.4.313.0
 - Dedicated GPU (NVIDIA Recommended)
+- CUDA (might be removed in future)
 
 Python Libraries
-- Pillow
+- pillow 
+- rasterio 
+- beautifulsoup4
+
+```cmd
+python -m pip install pillow rasterio beautifulsoup4
+```
+
+### Additional Linux Setup
+
+The following packages are required from the distribution package manager: 
+- pkg-config
+- autoconf
+- Linux Kernel Headers (linux-headers OR linux-libc-dev)
+- bison
+- flex
+- libtool
+
+The following are required for display:
+- libwayland
 
 ## Setup
 
@@ -27,6 +47,10 @@ Clone this repository:
 ```cmd
 git clone --recurse-submodules https://github.com/JSchpp12/Compute-Volumetrics
 ```
+
+Prepare terrains: 
+
+Navigate to the Terrain Stitcher submodule. Select and download a terrain from the releases category. These can be quite large and is suggested you use something like GitHub CLI. Process the terrain following the directions in that project. Place the processed terrain files in the media/terrains directory. 
 
 ### Project Setup
 

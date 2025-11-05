@@ -1,0 +1,85 @@
+pnanovdb_buf_t nanoVDBBuffer; 
+
+//make sure to include ray_helpers.comp in parent
+
+Ray transformWorldRayToGridLocal(const in Ray worldRay, const in mat4 inverseModelMatrix){
+    vec3 direction = mat3(inverseModelMatrix) * worldRay.direction.xyz; // do NOT normalize
+    vec3 inverseDirection = 1.0 / direction;
+
+    return Ray(vec4((inverseModelMatrix * worldRay.origin).xyz, 1.0),
+               vec4(direction, 0.0),
+               vec4(inverseDirection, 0.0),
+               bool[3](inverseDirection.x < 0.0, inverseDirection.y < 0.0, inverseDirection.z < 0.0));
+}
+
+Ray createGridLocalRay(vec3 origin, vec3 viewDirection, const in mat4 inverseModelMatrix){
+    origin = mat3(inverseModelMatrix) * origin;
+    viewDirection = mat3(inverseModelMatrix) * viewDirection.xyz;
+    return createRay(origin, viewDirection);
+}
+
+pnanovdb_grid_handle_t makeNanoGrid(uint baseByteOffset) {
+    pnanovdb_grid_handle_t h; 
+    h.address.byte_offset = baseByteOffset; 
+    return h;
+}
+
+float gridReadAt(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccessor_t acc,in pnanovdb_grid_type_t type, const in vec3 position){
+    pnanovdb_vec3_t indexCoord = pnanovdb_grid_world_to_indexf(nanoVDBBuffer, grid, position.xyz); 
+    pnanovdb_coord_t ijk; 
+    ijk.x = int(floor(indexCoord.x)); 
+    ijk.y = int(floor(indexCoord.y));
+    ijk.z = int(floor(indexCoord.z)); 
+
+    pnanovdb_address_t address = pnanovdb_readaccessor_get_value_address(type,
+                            nanoVDBBuffer, acc, ijk);
+    return float(pnanovdb_read_float(nanoVDBBuffer, address)); 
+}
+
+bool rayBoxIntersect(in pnanovdb_grid_handle_t grid, in Ray gridRay, inout float t0, inout float t1)
+{
+    vec4 bounds[2];
+    bounds[0] = vec4(
+        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 0)),
+        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 1)),
+        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 2)),
+        1.0
+    );
+    bounds[1] = vec4(
+        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 3)),
+        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 4)), 
+        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 5)),
+        1.0
+    );
+
+    float tmin = -(1.0 / 0.0);
+    float tmax = (1.0 / 0.0);
+    float txmin = 0, txmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
+
+    txmin = (bounds[int(gridRay.signed[0])].x - gridRay.origin.x) * gridRay.invDirection.x;
+    txmax = (bounds[int(!gridRay.signed[0])].x - gridRay.origin.x) * gridRay.invDirection.x;
+
+    tmin = min(txmin, txmax);
+    tmax = max(txmin, txmax);
+
+    tymin = (bounds[int(gridRay.signed[1])].y - gridRay.origin.y) * gridRay.invDirection.y;
+    tymax = (bounds[int(!gridRay.signed[1])].y - gridRay.origin.y) * gridRay.invDirection.y;
+
+    tmin = max(tmin, min(tymin, tymax));
+    tmax = min(tmax, max(tymin, tymax));
+
+    tzmin = (bounds[int(gridRay.signed[2])].z - gridRay.origin.z) * gridRay.invDirection.z;
+    tzmax = (bounds[int(!gridRay.signed[2])].z - gridRay.origin.z) * gridRay.invDirection.z;
+
+    tmin = max(tmin, min(tzmin, tzmax));
+    tmax = min(tmax, max(tzmin, tzmax));
+
+    t0 = max(0.0, tmin);
+    t1 = max(0.0, tmax);
+
+    return tmax >= max(0.0, tmin);
+}
+
+float extractUniformVolumeScale(const mat4 modelMatrix){
+    return (length(modelMatrix[0].xyz) + length(modelMatrix[1].xyz) + length(modelMatrix[2].xyz)) / 3.0f; 
+}

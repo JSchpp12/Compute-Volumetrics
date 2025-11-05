@@ -1,6 +1,8 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.26)
 
 project("starlightapp")
+
+option(HEADLESS "Build without presentation support" OFF)
 
 cmake_policy(SET CMP0071 NEW)
 cmake_policy(SET CMP0076 NEW)
@@ -24,13 +26,14 @@ add_subdirectory("extern/starlight")
 
 set(${PROJECT_NAME}_SOURCES
 	"src/main.cpp"
+	"src/VDBTransfer.cpp"
+	"src/AABBTransfer.cpp"
  	"src/Application.cpp"
 	"src/Volume.cpp"
 	"src/Terrain.cpp"
 	"src/VolumeRenderer.cpp"
 	"src/OffscreenRenderer.cpp"
 	"src/ScreenMaterial.cpp"
-	"src/AABBInfo.cpp"
 	"src/CameraInfo.cpp"
 	"src/Screen.cpp"
 	"src/VolumeSampler.cpp"
@@ -43,16 +46,22 @@ set(${PROJECT_NAME}_SOURCES
 	"src/FogControlInfo.cpp"
 	"src/CopyDepthTextureToBuffer.cpp"
 	"src/FogInfo.cpp"
+	"src/VolumeDataBase.cpp"
+	"src/FogData.cpp"
+	"src/LevelSetData.cpp"
+	"src/RandomValueTexture.cpp"
+	"src/RandomValueTextureController.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/Application.hpp"
+	"include/VDBTransfer.hpp"
+	"include/AABBTransfer.hpp"
 	"include/Volume.hpp"
 	"include/Terrain.hpp"
 	"include/VolumeRenderer.hpp"
 	"include/OffscreenRenderer.hpp"
 	"include/ScreenMaterial.hpp"
-	"include/AABBInfo.hpp"
 	"include/CameraInfo.hpp"
 	"include/Screen.hpp"
 	"include/VolumeSampler.hpp"
@@ -65,6 +74,11 @@ set(${PROJECT_NAME}_HEADERS
 	"include/FogControlInfo.hpp"
 	"include/CopyDepthTextureToBuffer.hpp"
 	"include/FogInfo.hpp"
+	"include/VolumeDataBase.hpp"
+	"include/FogData.hpp"
+	"include/LevelSetData.hpp"
+	"include/RandomValueTexture.hpp"
+	"include/RandomValueTextureController.hpp"
 )
 
 set(${PROJECT_NAME}_INCLUDE_DIRS
@@ -85,17 +99,17 @@ if (WIN32)
 			starlight
 			OpenVDB::openvdb
 			GDAL::GDAL
-			nlohmann_json::nlohmann_json
 	)
 else()
 	find_package(Blosc CONFIG REQUIRED)
+
+	target_compile_options(${PROJECT_NAME} PRIVATE -frtti -fexceptions)
 
 	target_link_libraries(${PROJECT_NAME}
 		PRIVATE 
 			starlight
 			OpenVDB::openvdb
 			GDAL::GDAL
-			nlohmann_json::nlohmann_json
 			blosc_static
 	)
 endif()
@@ -187,3 +201,9 @@ add_custom_target(
 add_custom_target(format_cpp_files
     DEPENDS ${FORMAT_STAMP}
 )
+
+if (NOT ${HEADLESS})
+    target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_PRESENTATION "NANOVDB_USE_OPENVDB")
+else()
+	target_compile_definitions(${PROJECT_NAME} PRIVATE "NANOVDB_USE_OPENVDB")
+endif()

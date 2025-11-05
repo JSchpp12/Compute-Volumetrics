@@ -16,8 +16,16 @@ layout(binding = 0, set = 0) uniform GlobalUniformBufferObject {
 	mat4 proj;
 	mat4 view;  
 	mat4 inverseView; 
-	int numLights;
+	uint renderSettings;
 } globalUbo; 
+
+layout(binding = 1, set = 0) uniform SceneLightInfo{
+	uint numLights; 
+} sceneLightInfo; 
+
+layout(binding = 2, set = 0) readonly buffer globalLightBuffer{
+	Light lights[];
+ };
 
 layout(binding = 0, set = 1) uniform instanceModelMatrix{
 	mat4 modelMatrix[1024]; 

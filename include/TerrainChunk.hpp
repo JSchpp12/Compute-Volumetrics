@@ -8,8 +8,8 @@
 #include <memory>
 #include <string>
 
-#include "StarBuffer.hpp"
-#include "StarDevice.hpp"
+#include "StarBuffers/Buffer.hpp"
+#include "device/StarDevice.hpp"
 #include "StarMesh.hpp"
 
 class TerrainChunk
@@ -22,18 +22,18 @@ class TerrainChunk
     /// @brief Load meshes from the provided files
     void load();
 
-    std::unique_ptr<star::StarMesh> getMesh();
+    std::unique_ptr<star::StarMesh> getMesh(star::core::device::DeviceContext &context, std::shared_ptr<star::StarMaterial> myMaterial);
 
     std::string &getTextureFile();
 
-    star::StarBuffer &getIndexBuffer()
+    star::StarBuffers::Buffer &getIndexBuffer()
     {
         assert(this->indBuffer && "Index buffer has not been initialized. Make sure to call load() "
                                   "first.");
         return *this->indBuffer;
     }
 
-    star::StarBuffer &getVertexBuffer()
+    star::StarBuffers::Buffer &getVertexBuffer()
     {
         assert(this->vertBuffer && "Vertex buffer has not been initialized. Make sure to call load() "
                                    "first.");
@@ -132,9 +132,9 @@ class TerrainChunk
         void initGDALBuffer(GDALDataset *dataset);
     };
 
-    std::unique_ptr<std::vector<star::Vertex>> verts;
-    std::unique_ptr<std::vector<uint32_t>> inds;
-    std::unique_ptr<star::StarBuffer> indBuffer, vertBuffer;
+    std::vector<star::Vertex> verts;
+    std::vector<uint32_t> inds;
+    std::unique_ptr<star::StarBuffers::Buffer> indBuffer, vertBuffer;
     std::unique_ptr<star::StarMesh> mesh;
     std::string textureFile, fullHeightFile;
     const glm::dvec2 northEast, southEast, southWest, northWest, center;

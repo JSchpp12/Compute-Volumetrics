@@ -1,39 +1,25 @@
 #include "Volume.hpp"
 
-#include "ManagerController_RenderResource_IndicesInfo.hpp"
-#include "ManagerController_RenderResource_VertInfo.hpp"
 #include "ManagerRenderResource.hpp"
-#include "SampledVolumeTexture.hpp"
+#include "TransferRequest_IndicesInfo.hpp"
+#include "TransferRequest_VertInfo.hpp"
 
-Volume::Volume(std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
-               std::vector<std::unique_ptr<star::Light>> &lightList,
-               std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToColorImages,
-               std::vector<std::unique_ptr<star::StarTexture>> *offscreenRenderToDepthImages,
-               std::vector<star::Handle> &globalInfos, std::vector<star::Handle> &lightInfos)
-    : camera(camera), screenDimensions(screenWidth, screenHeight), lightList(lightList),
+Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
+               std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
+               std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
+               std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
+               std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
+               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
+               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList)
+    : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
+      camera(camera), screenDimensions(screenWidth, screenHeight),
       offscreenRenderToColorImages(offscreenRenderToColorImages),
-      offscreenRenderToDepthImages(offscreenRenderToDepthImages), StarObject()
+      offscreenRenderToDepthImages(offscreenRenderToDepthImages),
+      m_fogControlInfo(std::make_shared<FogInfo>(FogInfo::LinearFogInfo(0.001f, 100.0f), FogInfo::ExpFogInfo(0.5f),
+                                                 FogInfo::MarchedFogInfo(0.002f, 0.3f, 0.3f, 0.2f, 0.1f, 5.0f)))
 {
-    openvdb::initialize();
-    loadModel();
-
-    std::vector<std::vector<star::Color>> colors;
-    colors.resize(this->screenDimensions.y);
-    for (int y = 0; y < this->screenDimensions.y; y++)
-    {
-        colors[y].resize(this->screenDimensions.x);
-        for (int x = 0; x < this->screenDimensions.x; x++)
-        {
-            if (x == this->screenDimensions.x / 2)
-                colors[y][x] = star::Color(1.0f, 1.0f, 1.0f, 1.0f);
-        }
-    }
-
-    this->volumeRenderer = std::make_unique<VolumeRenderer>(
-        this->camera, this->instanceModelInfos, offscreenRenderToColorImages, offscreenRenderToDepthImages, globalInfos,
-        lightInfos, this->sampledTexture, this->aabbBounds);
-
-    loadGeometry();
+    initVolume(context, std::move(vdbFilePath), std::move(sceneCameraInfos), std::move(lightInfos),
+               std::move(lightList));
 }
 
 std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
@@ -53,107 +39,44 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
     return shaders;
 }
 
-void Volume::renderVolume(const double &fov_radians, const glm::vec3 &camPosition, const glm::mat4 &camDispMatrix,
-                          const glm::mat4 &camProjMat)
+// star::Handle Volume::buildPipeline(star::core::device::DeviceContext &device,
+//                                                           vk::Extent2D swapChainExtent,
+//                                                           vk::PipelineLayout pipelineLayout,
+//                                                           star::RenderingTargetInfo renderingInfo)
+// {
+//     star::StarGraphicsPipeline::PipelineConfigSettings settings;
+//     star::StarGraphicsPipeline::defaultPipelineConfigInfo(settings, swapChainExtent, pipelineLayout, renderingInfo);
+
+//     // enable alpha blending
+//     settings.colorBlendAttachment.blendEnable = VK_TRUE;
+//     settings.colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+//     settings.colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+//     settings.colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+//     settings.colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+//     settings.colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+//     settings.colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
+
+//     settings.colorBlendInfo.logicOpEnable = VK_FALSE;
+//     settings.colorBlendInfo.logicOp = vk::LogicOp::eCopy;
+
+//     auto graphicsShaders = this->getShaders();
+
+//     auto newPipeline =
+//         std::make_unique<star::StarGraphicsPipeline>(graphicsShaders.at(star::Shader_Stage::vertex),
+//                                                      graphicsShaders.at(star::Shader_Stage::fragment));
+//     newPipeline->init(device, pipelineLayout);
+
+//     return newPipeline;
+// }
+
+void Volume::loadModel(star::core::device::DeviceContext &context, const std::string &filePath)
 {
-    RayCamera camera(glm::vec2{1280, 720}, fov_radians, camDispMatrix, camProjMat);
-
-    std::array<glm::vec3, 2> bbounds = this->meshes.front()->getBoundingBoxCoords();
-    {
-        const auto position = this->instances.front()->getPosition();
-        const auto scale = this->instances.front()->getScale();
-
-        bbounds[0] = bbounds[0] * scale + position;
-        bbounds[1] = bbounds[1] * scale + position;
-    }
-
-    {
-        int curX = 0, curY = 0;
-        std::array<std::unique_ptr<std::jthread>, NUM_THREADS> threads;
-        int numPerThread = std::floor((this->screenDimensions.x * this->screenDimensions.y) / NUM_THREADS);
-
-        for (auto &thread : threads)
-        {
-            // create work for each thread
-            std::vector<std::optional<std::pair<std::pair<size_t, size_t>, star::Color *>>> coordWork(numPerThread);
-
-            int curIndex = 0;
-
-            for (int i = 0; i < numPerThread; i++)
-            {
-                coordWork[curIndex] = std::make_optional(std::make_pair(std::pair<int, int>(curX, curY), nullptr));
-
-                if (curX == this->screenDimensions.x - 1 && curY < this->screenDimensions.y - 1)
-                {
-                    curX = 0;
-                    curY++;
-                }
-                else if (curX == this->screenDimensions.x - 1)
-                {
-                    break;
-                }
-                else
-                {
-                    curX++;
-                }
-
-                curIndex++;
-            }
-
-            // create thread
-            thread = std::make_unique<std::jthread>(
-                Volume::calculateColor, std::ref(this->lightList), std::ref(this->stepSize),
-                std::ref(this->stepSize_light), std::ref(this->russianRouletteCutoff), std::ref(this->sigma_absorbtion),
-                std::ref(this->sigma_scattering), std::ref(this->lightPropertyDir_g), std::ref(this->volDensity),
-                std::ref(bbounds), this->grid, camera, coordWork, this->rayMarchToAABB, this->rayMarchToVolumeBoundry);
-        }
-    }
-    std::cout << "Done" << std::endl;
-
-    // this->screenTexture->updateGPU();
-
-    this->udpdateVolumeRender = false;
-    this->isVisible = true;
-}
-
-std::unique_ptr<star::StarPipeline> Volume::buildPipeline(star::StarDevice &device, vk::Extent2D swapChainExtent,
-                                                          vk::PipelineLayout pipelineLayout,
-                                                          star::RenderingTargetInfo renderingInfo)
-{
-    star::StarGraphicsPipeline::PipelineConfigSettings settings;
-    star::StarGraphicsPipeline::defaultPipelineConfigInfo(settings, swapChainExtent, pipelineLayout, renderingInfo);
-
-    // enable alpha blending
-    settings.colorBlendAttachment.blendEnable = VK_TRUE;
-    settings.colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-    settings.colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
-    settings.colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
-    settings.colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
-    settings.colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
-    settings.colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
-
-    settings.colorBlendInfo.logicOpEnable = VK_FALSE;
-    settings.colorBlendInfo.logicOp = vk::LogicOp::eCopy;
-
-    auto graphicsShaders = this->getShaders();
-
-    auto newPipeline =
-        std::make_unique<star::StarGraphicsPipeline>(device, settings, graphicsShaders.at(star::Shader_Stage::vertex),
-                                                     graphicsShaders.at(star::Shader_Stage::fragment));
-    newPipeline->init();
-
-    return newPipeline;
-}
-
-void Volume::loadModel()
-{
-    const std::string filePath(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) +
-                               "volumes/sphere.vdb");
-
-    if (!star::FileHelpers::FileExists(filePath))
+    if (!star::file_helpers::FileExists(filePath))
     {
         throw std::runtime_error("Provided file does not exist" + filePath);
     }
+
+    openvdb::initialize();
 
     openvdb::GridBase::Ptr baseGrid{};
 
@@ -167,7 +90,7 @@ void Volume::loadModel()
         std::cout << "Available Grids in file:" << std::endl;
         std::cout << nameIter.gridName() << std::endl;
 
-        if (nameIter.gridName() == "ls_sphere")
+        if (!baseGrid)
         {
             baseGrid = file.readGrid(nameIter.gridName());
         }
@@ -180,13 +103,28 @@ void Volume::loadModel()
 
     this->grid = openvdb::gridPtrCast<openvdb::FloatGrid>(baseGrid);
 
-    std::cout << "Type: " << baseGrid->type() << std::endl;
-
-    if (this->grid->getGridClass() == openvdb::GridClass::GRID_LEVEL_SET)
+    openvdb::GridClass gridClass = baseGrid->getGridClass();
+    switch (gridClass)
     {
-        // need to convert to fog volume
-        convertToFog(this->grid);
+    case openvdb::GridClass::GRID_LEVEL_SET: {
+        std::cout << "Grid type: Level_Set" << std::endl;
+        break;
     }
+    case openvdb::GridClass::GRID_FOG_VOLUME: {
+        std::cout << "Grid type: Fog " << std::endl;
+        break;
+    }
+    default:
+        throw std::runtime_error("Unsupported OpenVDB volume class type");
+    }
+
+    // std::cout << "Type: " << baseGrid->type() << std::endl;
+
+    // if (this->grid->getGridClass() == openvdb::GridClass::GRID_LEVEL_SET)
+    // {
+    //     // need to convert to fog volume
+    //     convertToFog(this->grid);
+    // }
 
     openvdb::math::CoordBBox bbox = this->grid->evalActiveVoxelBoundingBox();
     openvdb::math::Coord &bmin = bbox.min();
@@ -194,86 +132,6 @@ void Volume::loadModel()
 
     this->aabbBounds[0] = glm::vec4{bmin.x(), bmin.y(), bmin.z(), 1.0};
     this->aabbBounds[1] = glm::vec4{bmax.x(), bmax.y(), bmax.z(), 1.0};
-
-    auto gridAccessor = grid->getConstAccessor();
-    openvdb::math::CoordBBox bounds;
-    gridAccessor.tree().getIndexRange(bounds);
-
-    size_t step_size = 200;
-    {
-        openvdb::math::Coord min = bounds.min();
-        {
-            int x = static_cast<int>(min.x()) / static_cast<int>(step_size);
-            int y = static_cast<int>(min.y()) / static_cast<int>(step_size);
-            int z = static_cast<int>(min.z()) / static_cast<int>(step_size);
-            min = openvdb::math::Coord(x, y, z);
-        }
-
-        openvdb::math::Coord max = bounds.max();
-        {
-            int x = static_cast<int>(max.x()) / static_cast<int>(step_size);
-            int y = static_cast<int>(max.y()) / static_cast<int>(step_size);
-            int z = static_cast<int>(max.z()) / static_cast<int>(step_size);
-            max = openvdb::math::Coord(x, y, z);
-        }
-
-        bounds = openvdb::math::CoordBBox(min, max);
-    }
-
-    auto sampledBoundrySize = bounds.extents().asVec3i();
-    std::unique_ptr<std::vector<std::vector<std::vector<float>>>> sampledGridData =
-        std::unique_ptr<std::vector<std::vector<std::vector<float>>>>(new std::vector(
-            sampledBoundrySize.x(),
-            std::vector<std::vector<float>>(sampledBoundrySize.y(), std::vector<float>(sampledBoundrySize.z(), 0.0f))));
-
-    std::cout << "Sampling grid with step size of: " << step_size << std::endl;
-    size_t halfTotalSteps = sampledGridData->size() / 2;
-    ProcessVolume processor = ProcessVolume(this->grid.get(), *sampledGridData, step_size, halfTotalSteps);
-    oneapi::tbb::parallel_for(bounds, processor);
-
-    this->sampledTexture =
-        star::ManagerRenderResource::addRequest(std::make_unique<SampledVolumeController>(std::move(sampledGridData)));
-    std::cout << "Done" << std::endl;
-}
-
-void Volume::loadGeometry()
-{
-    std::unique_ptr<std::vector<star::Vertex>> verts =
-        std::unique_ptr<std::vector<star::Vertex>>(new std::vector<star::Vertex>{
-            star::Vertex{glm::vec3{-1.0f, -1.0f, 0.0f}, // position
-                         glm::vec3{0.0f, 1.0f, 0.0f},   // normal - posy
-                         glm::vec3{0.0f, 1.0f, 0.0f},   // color
-                         glm::vec2{0.0f, 0.0f}},
-            star::Vertex{glm::vec3{1.0f, -1.0f, 0.0f}, // position
-                         glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
-                         glm::vec3{0.0f, 1.0f, 0.0f},  // color
-                         glm::vec2{1.0f, 0.0f}},
-            star::Vertex{glm::vec3{1.0f, 1.0f, 0.0f}, // position
-                         glm::vec3{0.0f, 1.0f, 0.0f}, // normal - posy
-                         glm::vec3{1.0f, 0.0f, 0.0f}, // color
-                         glm::vec2{1.0f, 1.0f}},
-            star::Vertex{glm::vec3{-1.0f, 1.0f, 0.0f}, // position
-                         glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
-                         glm::vec3{0.0f, 1.0f, 0.0f},  // color
-                         glm::vec2{0.0f, 1.0f}},
-        });
-
-    std::unique_ptr<std::vector<uint32_t>> inds =
-        std::unique_ptr<std::vector<uint32_t>>(new std::vector<uint32_t>{0, 3, 2, 0, 2, 1});
-
-    std::unique_ptr<ScreenMaterial> material =
-        std::unique_ptr<ScreenMaterial>(std::make_unique<ScreenMaterial>(this->volumeRenderer->getRenderToImages()));
-    auto newMeshes = std::vector<std::unique_ptr<star::StarMesh>>();
-
-    star::Handle vertBuffer = star::ManagerRenderResource::addRequest(
-        std::make_unique<star::ManagerController::RenderResource::VertInfo>(*verts));
-    star::Handle indBuffer = star::ManagerRenderResource::addRequest(
-        std::make_unique<star::ManagerController::RenderResource::IndicesInfo>(*inds));
-
-    newMeshes.emplace_back(std::unique_ptr<star::StarMesh>(new star::StarMesh(
-        vertBuffer, indBuffer, *verts, *inds, std::move(material), this->aabbBounds[0], this->aabbBounds[1], false)));
-
-    this->meshes = std::move(newMeshes);
 }
 
 void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
@@ -305,7 +163,8 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
     grid->setGridClass(openvdb::GridClass::GRID_FOG_VOLUME);
 }
 
-void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
+void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
+                                         const uint64_t &frameIndex)
 {
     commandBuffer.pipelineBarrier2(
         vk::DependencyInfo().setImageMemoryBarriers(vk::ArrayProxyNoTemporaries<const vk::ImageMemoryBarrier2>{
@@ -349,29 +208,89 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
                                          .setLayerCount(1))}));
 }
 
-void Volume::prepRender(star::StarDevice &device, vk::Extent2D swapChainExtent, vk::PipelineLayout pipelineLayout,
-                        star::RenderingTargetInfo renderingInfo, int numSwapChainImages,
-                        star::StarShaderInfo::Builder fullEngineBuilder)
+void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
+                         const star::Handle &targetCommandBuffer)
 {
-    RecordQueueFamilyInfo(device, this->computeQueueFamily, this->graphicsQueueFamily);
+    star::StarObject::frameUpdate(context, frameInFlightIndex, targetCommandBuffer);
 
-    this->star::StarObject::prepRender(device, swapChainExtent, pipelineLayout, renderingInfo, numSwapChainImages,
-                                       fullEngineBuilder);
+    if (isReady)
+    {
+        this->volumeRenderer->frameUpdate(context, frameInFlightIndex);
+    }
 }
 
-void Volume::prepRender(star::StarDevice &device, int numSwapChainImages, star::StarPipeline &sharedPipeline,
-                        star::StarShaderInfo::Builder fullEngineBuilder)
+void Volume::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
+                        const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder,
+                        vk::PipelineLayout pipelineLayout, star::core::renderer::RenderingTargetInfo renderingInfo)
 {
-    RecordQueueFamilyInfo(device, this->computeQueueFamily, this->graphicsQueueFamily);
+    volumeRenderer->prepRender(context, swapChainExtent, numSwapChainImages);
 
-    this->star::StarObject::prepRender(device, numSwapChainImages, sharedPipeline, fullEngineBuilder);
+    for (size_t i = 0; i < this->volumeRenderer->getRenderToImages().size(); i++)
+    {
+        static_cast<ScreenMaterial *>(m_meshMaterials[0].get())
+            ->addComputeWriteToImage(this->volumeRenderer->getRenderToImages()[i]);
+    }
+
+    RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
+
+    this->star::StarObject::prepRender(context, swapChainExtent, numSwapChainImages, fullEngineBuilder, pipelineLayout,
+                                       renderingInfo);
 }
+
+void Volume::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
+                        const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder,
+                        star::Handle sharedPipeline)
+{
+    volumeRenderer->prepRender(context, swapChainExtent, numSwapChainImages);
+
+    for (size_t i = 0; i < this->volumeRenderer->getRenderToImages().size(); i++)
+    {
+        static_cast<ScreenMaterial *>(m_meshMaterials[0].get())
+            ->addComputeWriteToImage(this->volumeRenderer->getRenderToImages()[i]);
+    }
+
+    RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
+
+    this->star::StarObject::prepRender(context, swapChainExtent, numSwapChainImages, fullEngineBuilder, sharedPipeline);
+}
+
+void Volume::cleanupRender(star::core::device::DeviceContext &context)
+{
+    volumeRenderer->cleanupRender(context);
+
+    star::StarObject::cleanupRender(context);
+}
+
+bool Volume::isRenderReady(star::core::device::DeviceContext &context)
+{
+    return star::StarObject::isRenderReady(context) && this->volumeRenderer->isRenderReady(context);
+}
+
+void Volume::initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
+                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
+                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
+                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList)
+{
+    loadModel(context, vdbFilePath);
+
+    this->volumeRenderer = std::make_unique<VolumeRenderer>(
+        m_instanceInfo.m_infoManagerInstanceModel, m_instanceInfo.m_infoManagerInstanceNormal,
+        std::move(sceneCameraInfos), std::move(lightInfos), std::move(lightList), vdbFilePath, m_fogControlInfo,
+        this->camera, offscreenRenderToColorImages, offscreenRenderToDepthImages, this->aabbBounds);
+}
+
+// star::core::renderer::RenderingContext Volume::buildRenderingContext(star::core::device::DeviceContext &context)
+// {
+//     auto context = star::StarObject::buildRenderingContext(context);
+
+//     return star::core::renderer::RenderingContext();
+// }
 
 void Volume::updateGridTransforms()
 {
     openvdb::FloatGrid::Ptr newGrid = this->grid->copy();
     newGrid->setTransform(this->grid->transformPtr());
-    openvdb::Mat4R transform = getTransform(this->instances.front()->getDisplayMatrix());
+    openvdb::Mat4R transform = getTransform(m_instanceInfo.m_instances->front().getDisplayMatrix());
 
     openvdb::tools::GridTransformer transformer(transform);
 
@@ -394,174 +313,50 @@ float Volume::henyeyGreensteinPhase(const glm::vec3 &viewDirection, const glm::v
     return 1.0f / (4.0f * glm::pi<float>()) * (1.0f - gValue * gValue) / denom;
 }
 
-void Volume::calculateColor(
-    const std::vector<std::unique_ptr<star::Light>> &lightList, const float &stepSize, const float &stepSize_light,
-    const int &russianRouletteCutoff, const float &sigma_absorbtion, const float &sigma_scattering,
-    const float &lightPropertyDir_g, const float &volDensity, const std::array<glm::vec3, 2> &aabbBounds,
-    openvdb::FloatGrid::Ptr grid, RayCamera camera,
-    std::vector<std::optional<std::pair<std::pair<size_t, size_t>, star::Color *>>> coordColorWork,
-    bool marchToaabbIntersection, bool marchToVolBoundry)
+std::vector<std::unique_ptr<star::StarMesh>> Volume::loadMeshes(star::core::device::DeviceContext &context)
 {
-    for (auto &work : coordColorWork)
-    {
-        if (work.has_value())
-        {
-            float t0 = 0, t1 = 0;
-            auto ray = camera.getRayForPixel(work->first.first, work->first.second);
-            star::Color newCol{};
+    std::vector<std::unique_ptr<star::StarMesh>> meshes;
 
-            if (rayBoxIntersect(ray, aabbBounds, t0, t1))
-                if (marchToaabbIntersection)
-                    newCol = star::Color(1.0f, 0.0f, 0.0f, 1.0f);
-                else if (marchToVolBoundry)
-                    newCol = forwardMarchToVolumeActiveBoundry(stepSize, ray, aabbBounds, grid, t0, t1);
-                else
-                    newCol =
-                        forwardMarch(lightList, stepSize, stepSize_light, russianRouletteCutoff, sigma_absorbtion,
-                                     sigma_scattering, lightPropertyDir_g, volDensity, ray, grid, aabbBounds, t0, t1);
-            else
-                newCol = star::Color(0.0f, 0.0f, 0.0f, 0.0f);
+    auto verts = std::vector<star::Vertex>{star::Vertex{glm::vec3{-1.0f, -1.0f, 0.0f}, // position
+                                                        glm::vec3{0.0f, 1.0f, 0.0f},   // normal - posy
+                                                        glm::vec3{0.0f, 1.0f, 0.0f},   // color
+                                                        glm::vec2{0.0f, 0.0f}},
+                                           star::Vertex{glm::vec3{1.0f, -1.0f, 0.0f}, // position
+                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
+                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // color
+                                                        glm::vec2{1.0f, 0.0f}},
+                                           star::Vertex{glm::vec3{1.0f, 1.0f, 0.0f}, // position
+                                                        glm::vec3{0.0f, 1.0f, 0.0f}, // normal - posy
+                                                        glm::vec3{1.0f, 0.0f, 0.0f}, // color
+                                                        glm::vec2{1.0f, 1.0f}},
+                                           star::Vertex{glm::vec3{-1.0f, 1.0f, 0.0f}, // position
+                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
+                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // color
+                                                        glm::vec2{0.0f, 1.0f}}};
 
-            *work->second = newCol;
-        }
-    }
-}
+    std::vector<uint32_t> inds = std::vector<uint32_t>{0, 3, 2, 0, 2, 1};
 
-bool Volume::rayBoxIntersect(const star::Ray &ray, const std::array<glm::vec3, 2> &aabbBounds, float &t0, float &t1)
-{
-    float tmin = -INFINITY, tmax = INFINITY, txmin = 0, txmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
+    auto newMeshes = std::vector<std::unique_ptr<star::StarMesh>>();
 
-    txmin = (aabbBounds[ray.sign[0]].x - ray.org.x) * ray.invDir.x;
-    txmax = (aabbBounds[!ray.sign[0]].x - ray.org.x) * ray.invDir.x;
+    const auto vertSemaphore =
+        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
+    star::Handle vertBuffer = star::ManagerRenderResource::addRequest(
+        context.getDeviceID(), context.getSemaphoreManager().get(vertSemaphore)->semaphore,
+        std::make_unique<star::TransferRequest::VertInfo>(
+            context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex(), verts));
 
-    tmin = std::min(txmin, txmax);
-    tmax = std::max(txmin, txmax);
+    const auto indSemaphore =
+        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
-    tymin = (aabbBounds[ray.sign[1]].y - ray.org.y) * ray.invDir.y;
-    tymax = (aabbBounds[!ray.sign[1]].y - ray.org.y) * ray.invDir.y;
+    star::Handle indBuffer = star::ManagerRenderResource::addRequest(
+        context.getDeviceID(), context.getSemaphoreManager().get(indSemaphore)->semaphore,
+        std::make_unique<star::TransferRequest::IndicesInfo>(
+            context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex(), inds));
 
-    tmin = std::max(tmin, std::min(tymin, tymax));
-    tmax = std::min(tmax, std::max(tymin, tymax));
+    newMeshes.emplace_back(std::make_unique<star::StarMesh>(vertBuffer, indBuffer, verts, inds, m_meshMaterials.at(0),
+                                                            this->aabbBounds[0], this->aabbBounds[1], false));
 
-    tzmin = (aabbBounds[ray.sign[2]].z - ray.org.z) * ray.invDir.z;
-    tzmax = (aabbBounds[!ray.sign[2]].z - ray.org.z) * ray.invDir.z;
-
-    tmin = std::max(tmin, std::min(tzmin, tzmax));
-    tmax = std::min(tmax, std::max(tzmin, tzmax));
-
-    t0 = tmin;
-    t1 = tmax;
-
-    return tmax >= std::max(0.0f, tmin);
-}
-
-star::Color Volume::forwardMarch(const std::vector<std::unique_ptr<star::Light>> &lightList, const float &stepSize,
-                                 const float &stepSize_light, const int &russianRouletteCutoff,
-                                 const float &sigma_absorbtion, const float &sigma_scattering,
-                                 const float &lightPropertyDir_g, const float &volDensity, const star::Ray &ray,
-                                 openvdb::FloatGrid::Ptr grid, const std::array<glm::vec3, 2> &aabbHit, const float &t0,
-                                 const float &t1)
-{
-    int numSteps = static_cast<int>(std::ceil((t1 - t0) / stepSize));
-    float fittedStepSize = (t1 - t0) / numSteps;
-    float transparency = 1.0f;
-    star::Color backColor{};
-    star::Color resultingColor{};
-
-    auto gridAccessor = grid->getConstAccessor();
-    openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler> sampler(
-        gridAccessor, grid->transform());
-
-    for (int i = 0; i < numSteps; ++i)
-    {
-        float randJitter = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
-        float t = t0 + fittedStepSize * (i + 0.5f);
-        glm::vec3 position = ray.org + (t / ray.invDir);
-        openvdb::Vec3R oPosition(position.x, position.y, position.z);
-        openvdb::FloatGrid::ValueType sampledDensity = sampler.wsSample(oPosition);
-        float beerExpTrans = std::exp(-fittedStepSize * sampledDensity * (sigma_absorbtion + sigma_scattering));
-        transparency *= beerExpTrans;
-
-        for (const auto &light : lightList)
-        {
-            // in-scattering
-            star::Ray lightRay{position, glm::normalize(light->getPosition() - position)};
-
-            float lt0 = 0, lt1 = 0;
-            if (rayBoxIntersect(lightRay, aabbHit, lt0, lt1))
-            {
-                int numLightSteps = static_cast<int>(std::ceil((lt1 - lt0) / stepSize_light));
-                float fittedLightStepSize = (lt1 - lt0) / static_cast<float>(numLightSteps);
-
-                float sumLightSampleDensities = 0.0f;
-                for (int lightStep = 0; lightStep < numLightSteps; lightStep++)
-                {
-                    float tLight = fittedLightStepSize * (lightStep + 0.5);
-                    glm::vec3 lightTracePosition = lightRay.org + (tLight / lightRay.invDir);
-
-                    openvdb::FloatGrid::ValueType sampledValue = sampler.wsSample(
-                        openvdb::Vec3R(lightTracePosition.x, lightTracePosition.y, lightTracePosition.z));
-                    sumLightSampleDensities += sampledValue;
-                }
-
-                float lightAtten = std::exp(-sumLightSampleDensities * -lt1 * (sigma_absorbtion + sigma_scattering));
-                float phaseResult = lightAtten * henyeyGreensteinPhase(position, lightRay.dir, lightPropertyDir_g) *
-                                    volDensity * fittedLightStepSize;
-
-                resultingColor.setR(resultingColor.getR() + (light->getAmbient().r * phaseResult));
-                resultingColor.setG(resultingColor.getG() + (light->getAmbient().g * phaseResult));
-                resultingColor.setB(resultingColor.getB() + (light->getAmbient().b * phaseResult));
-                resultingColor.setA(resultingColor.getA() + (light->getAmbient().a * phaseResult));
-            }
-        }
-
-        resultingColor.setR(resultingColor.getR() * transparency);
-        resultingColor.setG(resultingColor.getG() * transparency);
-        resultingColor.setB(resultingColor.getB() * transparency);
-        resultingColor.setA(resultingColor.getA() * transparency);
-
-        // russian roulette cutoff
-        if ((transparency < 1e-3) && (randJitter > 1.0f / russianRouletteCutoff))
-            break;
-        else if (transparency < 1e-3)
-            transparency *= russianRouletteCutoff;
-    }
-
-    resultingColor.setR(backColor.getR() * transparency + resultingColor.getR());
-    resultingColor.setG(backColor.getG() * transparency + resultingColor.getG());
-    resultingColor.setB(backColor.getB() * transparency + resultingColor.getB());
-    resultingColor.setA(backColor.getA() * transparency + resultingColor.getA());
-    return resultingColor;
-}
-
-star::Color Volume::forwardMarchToVolumeActiveBoundry(const float &stepSize, const star::Ray &ray,
-                                                      const std::array<glm::vec3, 2> &aabbHit,
-                                                      openvdb::FloatGrid::Ptr grid, const float &t0, const float &t1)
-{
-    int numSteps = static_cast<int>(std::ceil((t1 - t0) / stepSize));
-    float fittedStepSize = (t1 - t0) / numSteps;
-    star::Color resultingColor{};
-
-    auto gridAccessor = grid->getConstAccessor();
-    openvdb::tools::GridSampler<openvdb::FloatGrid::ConstAccessor, openvdb::tools::BoxSampler> sampler(
-        gridAccessor, grid->transform());
-
-    for (int i = 0; i < numSteps; ++i)
-    {
-        float t = t0 + fittedStepSize * (i + 0.5f);
-        glm::vec3 position = ray.org + (t / ray.invDir);
-        openvdb::Vec3R oPosition(position.x, position.y, position.z);
-        openvdb::FloatGrid::ValueType sampledDensity = sampler.wsSample(oPosition);
-
-        if (sampledDensity > 0.0f && sampledDensity < 1.0f)
-        {
-            resultingColor.setR(1.0f);
-            resultingColor.setA(1.0f);
-            break;
-        }
-    }
-
-    return resultingColor;
+    return newMeshes;
 }
 
 openvdb::Mat4R Volume::getTransform(const glm::mat4 &objectDisplayMat)
@@ -579,9 +374,11 @@ openvdb::Mat4R Volume::getTransform(const glm::mat4 &objectDisplayMat)
     return openvdb::Mat4R(rawData.get());
 }
 
-void Volume::RecordQueueFamilyInfo(star::StarDevice &device, uint32_t &computeQueueFamilyIndex,
+void Volume::RecordQueueFamilyInfo(star::core::device::DeviceContext &device, uint32_t &computeQueueFamilyIndex,
                                    uint32_t &graphicsQueueFamilyIndex)
 {
-    computeQueueFamilyIndex = device.getQueueFamily(star::Queue_Type::Tcompute).getQueueFamilyIndex();
-    graphicsQueueFamilyIndex = device.getQueueFamily(star::Queue_Type::Tgraphics).getQueueFamilyIndex();
+    computeQueueFamilyIndex =
+        device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
+    graphicsQueueFamilyIndex =
+        device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex();
 }

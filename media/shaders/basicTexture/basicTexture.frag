@@ -45,18 +45,21 @@ struct Light{
 	uvec4 settings; 
 };
 
-layout(binding = 0, set = 0) uniform GlobalUniformBufferObject {
-	mat4 proj;
-	mat4 view;  
-	mat4 inverseView; 
-	uint numLights; 
-	uint renderSettings;
-} globalUbo; 
+layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
+{
+    mat4 proj;
+    mat4 view;
+    mat4 inverseView;
+} globalUbo;
 
- layout(binding = 1, set = 0) readonly buffer globalLightBuffer{
-	Light lights[];
- };
+layout(set = 0, binding = 1) uniform GlobalLightInfo{
+    int numLights;
+} lightInfo; 
 
+layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer{
+    Light lights[];
+ } lightList;
+ 
 layout(binding = 0, set = 2) uniform sampler2D textureSampler; 
 
 //TODO: move struct init to a different place - not good idea to do this for every fragment

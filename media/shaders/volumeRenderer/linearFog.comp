@@ -24,16 +24,20 @@ struct Light{
 	uvec4 settings; 
 };
 
+
 layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
 {
     mat4 proj;
     mat4 view;
     mat4 inverseView;
-    int numLights;
 }
 globalUbo;
 
-layout(set = 0, binding = 1) readonly buffer GlobalLightBuffer{
+layout(set = 0, binding = 1) uniform GlobalLightInfo{
+    int numLights;
+} lightInfo; 
+
+layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer{
     Light lights[];
 };
 
@@ -58,6 +62,8 @@ layout(set = 3, binding = 0) uniform InstanceModelMatrix
     mat4 modelMatrix[1024];
 };
 
+layout(set = 3, binding = 1) 
+
 layout(set = 3, binding = 1) uniform aabbInfo
 {
     vec4 bounds[2];
@@ -73,7 +79,8 @@ layout(set = 3, binding = 2) uniform FogControllerInfo
     float marchedFog_sigmaAbsorption;
     float marchedFog_sigmaScattering;
     float marchedFog_lightPropertyDirG;
-    int marched_numMainSteps;
+    float marchedFog_stepSizeDist;
+    float marchedFog_stepSizeDist_light;
 }
 fogInfo;
 
@@ -84,45 +91,39 @@ struct Ray {
 	bool signed[3]; 
 };
 
-float distanceFromDepth(ivec2 coords, double depth){
-	vec4 screenPos = vec4(coords * 2.0 - 1.0, depth, 1.0); 
-	vec4 viewPos = addCamInfo.inverseProjMatrix * screenPos; 
-	viewPos /= viewPos.w; 
-	return length(viewPos.xyz); 
+Ray createRay(const vec4 origin, const vec4 direction)
+{
+    vec3 invDir = vec3(1.0 / direction.x, 1.0 / direction.y, 1.0 / direction.z);
+
+    return Ray(origin, direction, vec4(invDir, 0.0),
+               bool[3](bool(invDir.x < 0), bool(invDir.y < 0), bool(invDir.z < 0)));
 }
 
-Ray createRay(vec4 origin, vec4 direction){
-	vec3 invDir = vec3(
-		1.0 / direction.x, 
-		1.0 / direction.y,
-		1.0 / direction.z
-	);
-
-	return Ray(
-		origin, 
-		direction, 
-		vec4(invDir, 0.0),
-		bool[3](bool(invDir.x < 0), bool(invDir.y < 0), bool(invDir.z < 0))
-	);
-}
-
-Ray getRayForPixel(const ivec2 pixelCoords){
+vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const float ndz){
     // 1) Build NDC coordinates in [−1, +1]
     float ndcX = ((float(pixelCoords.x) + 0.5) / addCamInfo.cameraDimensions.x) * 2.0 - 1.0;
-    float ndcY = 1.0 - ((float(pixelCoords.y) + 0.5) / addCamInfo.cameraDimensions.y) * 2.0;
+    float ndcY = ((float(pixelCoords.y) + 0.5) / addCamInfo.cameraDimensions.y) * 2.0 - 1.0;
+
+    // Vulkan's Y axis is flipped compared to OpenGL
+    ndcY = -ndcY; 
 
     // 2) Reconstruct clip-space with Z = −1 (the near plane), W = 1
-    vec4 clip = vec4(ndcX, ndcY, -1.0, 1.0);
+    return vec4(ndcX, ndcY, ndz, 1.0);
+}
 
+vec4 getWorldPositionFromClip(const vec4 clipCoords){
     // 3) Go back to view-space:
-    vec4 viewPos = addCamInfo.inverseProjMatrix * clip;
-    viewPos /= viewPos.w;  // → actual (x, y, -nearDist, 1) in view‐space
+    vec4 viewPositionWorld = addCamInfo.inverseProjMatrix * clipCoords;
 
-    // 4) Rotate into world space (can ignore translation on the direction)
-    vec3 dir_world = normalize((globalUbo.inverseView * vec4(viewPos.xyz, 0.0)).xyz );
-    vec3 orig_world = (globalUbo.inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    return viewPositionWorld / viewPositionWorld.w; 
+}
 
-    return createRay(vec4(orig_world, 1.0), vec4(dir_world, 0.0));
+vec4 getWorldViewDirection(const vec4 viewPositionWorld){
+    return vec4(normalize((globalUbo.inverseView * vec4(viewPositionWorld.xyz, 0.0)).xyz), 0);
+}
+
+vec4 getWorldOrigin(){
+    return vec4((globalUbo.inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz, 1.0);
 }
 
 bool rayBoxIntersect(Ray ray, inout float t0, inout float t1){
@@ -166,16 +167,20 @@ ivec2 getTargetPixelCoords(){
     );
 }
 
-float linearizeDepth(const float depth, const float camNearClipDist, const float camFarClipDist){
+float linearizeDepth(const float depth, const float camNearClipDist, const float camFarClipDist)
+{
     /* convert depth value back to linear space -- based on proj matrix
     Source: http://www.songho.ca/opengl/gl_projectionmatrix.html
     Source2: https://learnopengl.com/Advanced-OpenGL/Depth-testing
     */
 
-   //openGL transorms depth from [0,1] to [-1, 1] -- inverse
-   const float z = depth * 2.0 - 1.0;
-   //inverse of applied depth function 
-   return (2.0 * camNearClipDist * camFarClipDist) / (camFarClipDist + camNearClipDist - z * (camFarClipDist - camNearClipDist));
+    // openGL transorms depth from [0,1] to [-1, 1] -- inverse
+    // const float z = depth * 2.0 - 1.0;
+    // // inverse of applied depth function
+    // return (2.0 * camNearClipDist * camFarClipDist) /
+    //        (camFarClipDist + camNearClipDist - z * (camFarClipDist - camNearClipDist));
+
+    return camNearClipDist * camFarClipDist / (camFarClipDist + depth * (camNearClipDist - camFarClipDist));
 }
 
 float calcFogAmt(const float depth, const float fogNearDist, const float fogFarDist){
@@ -204,13 +209,16 @@ void main(){
 		return; 
 		
     const ivec2 targetPixel = getTargetPixelCoords(); 
-
-	const Ray camRay = getRayForPixel(targetPixel); 
     float targetPixelInputDepth = texelFetch(inputSceneDepth, targetPixel, 0).r;
-    targetPixelInputDepth = linearizeDepth(targetPixelInputDepth, addCamInfo.nearClipDist, addCamInfo.farClipDist); 
+
+    const vec4 clipSpace = getClipSpaceCoordsFromPixel(targetPixel, targetPixelInputDepth); 
+    const vec4 viewPositionWorld = getWorldPositionFromClip(clipSpace);
+    const vec4 orgWorld = getWorldOrigin(); 
+    const vec4 viewDirectionWorld = getWorldViewDirection(viewPositionWorld); 
+    const float worldDepthDistance = length(viewPositionWorld.xyz - viewDirectionWorld.xyz); 
 
 	const vec4 targetPixelInputColor = vec4(imageLoad(inputSceneColor, targetPixel));
-    const float fogAmt = calcFogAmt(targetPixelInputDepth, fogInfo.linearFog_nearDistance, fogInfo.linearFog_farDistance);
+    const float fogAmt = calcFogAmt(worldDepthDistance, fogInfo.linearFog_nearDistance, fogInfo.linearFog_farDistance);
 
     const vec4 finalColor = mix(targetPixelInputColor, vec4(1.0, 1.0, 1.0, 1.0), fogAmt); 
     imageStore(outputImage, targetPixel, finalColor); 
