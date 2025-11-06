@@ -217,7 +217,7 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
 
     for (int i = 0; i < numFramesInFlight; i++)
     {
-        newRenderToImages.emplace_back(builder.build());
+        newRenderToImages.emplace_back(builder.buildUnique());
 
         auto oneTimeSetup = device.getDevice().beginSingleTimeCommands();
 
@@ -318,7 +318,7 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
 
     for (int i = 0; i < numFramesInFlight; i++)
     {
-        newRenderToImages.emplace_back(builder.build());
+        newRenderToImages.emplace_back(builder.buildUnique());
 
         auto oneTimeSetup = device.getDevice().beginSingleTimeCommands();
 

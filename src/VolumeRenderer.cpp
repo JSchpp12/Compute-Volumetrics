@@ -334,7 +334,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
         for (uint8_t i = 0; i < numFramesInFlight; i++)
         {
-            this->computeWriteToImages.emplace_back(builder.build());
+            this->computeWriteToImages.emplace_back(builder.buildUnique());
         }
     }
 
