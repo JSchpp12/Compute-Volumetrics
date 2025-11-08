@@ -37,7 +37,7 @@ class VolumeRenderer : private star::DescriptorModifier
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
                    std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
                    const std::shared_ptr<star::StarCamera> camera,
-                   std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors,
+                   std::vector<star::StarTextures::Texture> *offscreenRenderToColors,
                    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
                    const std::array<glm::vec4, 2> &aabbBounds);
 
@@ -82,8 +82,8 @@ class VolumeRenderer : private star::DescriptorModifier
     FogInfoController m_fogController;
     std::unique_ptr<star::StarShaderInfo> SDFShaderInfo, VolumeShaderInfo;
     std::vector<star::Handle> aabbInfoBuffers;
-    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColors = nullptr,
-                                                              *offscreenRenderToDepths = nullptr;
+    std::vector<star::StarTextures::Texture> *offscreenRenderToColors = nullptr;
+    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths = nullptr;
     std::unique_ptr<uint32_t> graphicsQueueFamilyIndex, computeQueueFamilyIndex;
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =

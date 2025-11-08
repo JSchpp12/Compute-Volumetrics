@@ -101,8 +101,7 @@ class FogInfo
 
     struct MarchedFogInfo
     {
-        float defaultDensity = 0.0f, sigmaAbsorption = 0.0f, sigmaScattering = 0.0f,
-              stepSizeDist = 0.0f, stepSizeDist_light = 0.0f;
+        float defaultDensity = 0.0f, stepSizeDist = 0.0f, stepSizeDist_light = 0.0f;
 
         MarchedFogInfo() = default;
 
@@ -145,20 +144,55 @@ class FogInfo
                    this->stepSizeDist_light != other.stepSizeDist_light;
         }
 
-        float getLightPropertyDirG() const{
+        float getLightPropertyDirG() const
+        {
             return lightPropertyDirG;
         }
-        void setLightPropertyDirG(const float &value){
-            if (value < -1.0f || value > 1.0f){
-                lightPropertyDirG = 0.0; 
+
+        void setLightPropertyDirG(const float &value)
+        {
+            if (value < -1.0f || value > 1.0f)
+            {
+                lightPropertyDirG = 0.0;
             }
 
-            lightPropertyDirG = value; 
+            lightPropertyDirG = value;
         }
 
-        private:
-        float lightPropertyDirG = 0.0f; 
+        void setSigmaAbsorption(const float &value)
+        {
+            if (validateSigmaTotal(value, sigmaScattering))
+            {
+                sigmaAbsorption = value;
+            }
+        }
 
+        float getSigmaAbsorption() const
+        {
+            return sigmaAbsorption;
+        }
+
+        void setSigmaScattering(const float &value)
+        {
+            if (validateSigmaTotal(sigmaAbsorption, value))
+            {
+                sigmaScattering = value;
+            }
+        }
+
+        float getSigmaScattering() const
+        {
+            return sigmaScattering;
+        }
+
+      private:
+        float lightPropertyDirG = 0.0f, sigmaAbsorption = 0.0f, sigmaScattering = 0.0f;
+
+        bool validateSigmaTotal(const float &sigmaAbsorption, const float &sigmaScattering) const
+        {
+            const float sigmaTotal = sigmaAbsorption + sigmaScattering;
+            return sigmaTotal <= 1.0f && sigmaTotal >= 0.0f;
+        }
     };
 
     LinearFogInfo linearInfo = LinearFogInfo();
@@ -204,12 +238,12 @@ class FogInfo
                              this->linearInfo.farDist,
                              this->expFogInfo.density,
                              this->marchedInfo.defaultDensity,
-                             this->marchedInfo.sigmaAbsorption,
-                             this->marchedInfo.sigmaScattering,
+                             this->marchedInfo.getSigmaAbsorption(),
+                             this->marchedInfo.getSigmaScattering(),
                              this->marchedInfo.getLightPropertyDirG(),
                              this->marchedInfo.stepSizeDist,
                              this->marchedInfo.stepSizeDist_light,
-                             uint32_t(1000), uint32_t(10)
-                             };
+                             uint32_t(1000),
+                             uint32_t(10)};
     }
 };

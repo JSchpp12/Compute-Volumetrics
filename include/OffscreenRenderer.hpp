@@ -26,7 +26,7 @@ class OffscreenRenderer : public star::core::renderer::Renderer
 
     std::vector<std::shared_ptr<star::StarBuffers::Buffer>> depthInfoStorageBuffers;
 
-    std::vector<std::unique_ptr<star::StarTextures::Texture>> createRenderToImages(
+    std::vector<star::StarTextures::Texture> createRenderToImages(
         star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight) override;
 
     std::vector<std::unique_ptr<star::StarTextures::Texture>> createRenderToDepthImages(

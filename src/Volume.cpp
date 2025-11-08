@@ -6,7 +6,7 @@
 
 Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
                std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
-               std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
+               std::vector<star::StarTextures::Texture> *offscreenRenderToColorImages,
                std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,

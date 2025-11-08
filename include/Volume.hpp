@@ -81,7 +81,7 @@ class Volume : public star::StarObject
     virtual ~Volume() = default;
     Volume(star::core::device::DeviceContext &context, std::string vdbPath, const size_t &numFramesInFlight,
            std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
-           std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages,
+           std::vector<star::StarTextures::Texture> *offscreenRenderToColorImages,
            std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
            std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
            std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
@@ -133,7 +133,7 @@ class Volume : public star::StarObject
     std::shared_ptr<star::StarCamera> camera = nullptr;
     std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr;
     std::array<glm::vec4, 2> aabbBounds;
-    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToColorImages = nullptr;
+    std::vector<star::StarTextures::Texture> *offscreenRenderToColorImages = nullptr;
     std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages = nullptr;
     std::shared_ptr<FogInfo> m_fogControlInfo = nullptr;
 

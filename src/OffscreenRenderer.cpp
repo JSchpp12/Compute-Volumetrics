@@ -23,7 +23,7 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
                 .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
                 .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
                 .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
-                .setImage(this->renderToImages.at(frameInFlightIndex)->getVulkanImage())
+                .setImage(this->renderToImages.at(frameInFlightIndex).getVulkanImage())
                 .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
                 .setSrcAccessMask(vk::AccessFlagBits2::eNone)
                 .setDstStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
@@ -87,7 +87,7 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
     {
         std::array<const vk::ImageMemoryBarrier2, 2> toCompute{
             vk::ImageMemoryBarrier2()
-                .setImage(this->renderToImages.at(frameInFlightIndex)->getVulkanImage())
+                .setImage(this->renderToImages.at(frameInFlightIndex).getVulkanImage())
                 .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
                 .setNewLayout(vk::ImageLayout::eGeneral)
                 .setSrcQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
@@ -157,11 +157,10 @@ void OffscreenRenderer::initResources(star::core::device::DeviceContext &device,
     star::core::renderer::Renderer::initResources(device, numFramesInFlight, screenSize);
 }
 
-std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToImages(
+std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages(
     star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight)
 {
-    std::vector<std::unique_ptr<star::StarTextures::Texture>> newRenderToImages =
-        std::vector<std::unique_ptr<star::StarTextures::Texture>>();
+    auto newRenderToImages = std::vector<star::StarTextures::Texture>();
 
     vk::Format colorFormat = getColorAttachmentFormat(device);
 
@@ -217,7 +216,7 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
 
     for (int i = 0; i < numFramesInFlight; i++)
     {
-        newRenderToImages.emplace_back(builder.buildUnique());
+        newRenderToImages.emplace_back(builder.build());
 
         auto oneTimeSetup = device.getDevice().beginSingleTimeCommands();
 
@@ -228,7 +227,7 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
         barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
         barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
 
-        barrier.image = newRenderToImages.back()->getVulkanImage();
+        barrier.image = newRenderToImages.back().getVulkanImage();
         barrier.srcAccessMask = vk::AccessFlagBits::eNone;
         barrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
 

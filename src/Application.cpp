@@ -50,20 +50,14 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         size_t fNumFramesInFlight = 0;
         star::CastHelpers::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
-        // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-        // auto horse = std::make_shared<star::BasicObject>(horsePath);
-        // auto h_i = horse->createInstance();
-        // h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
-        // std::vector<std::shared_ptr<StarObject>> objects{horse};
-
         std::string vdbPath = mediaDirectoryPath + "volumes/dragon.vdb";
         m_volume = std::make_shared<Volume>(
-            context, vdbPath, fNumFramesInFlight, camera, width, height, offscreenRenderer->getRenderToColorImages(),
+            context, vdbPath, fNumFramesInFlight, camera, width, height, &offscreenRenderer->getRenderToColorImages(),
             offscreenRenderer->getRenderToDepthImages(), offscreenRenderer->getCameraInfoBuffers(),
             offscreenRenderer->getLightInfoBuffers(), offscreenRenderer->getLightListBuffers());
 
         auto &s_i = m_volume->createInstance();
-        s_i.setPosition(glm::vec3{50.0, 30.0, 0.0});
+        s_i.setPosition(glm::vec3{50.0, 100.0, 0.0});
         s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
         std::vector<std::shared_ptr<StarObject>> objects{m_volume};
 
@@ -78,11 +72,11 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     }
 
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 1.5f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 2.0f;
-    m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = 0.0001f;
-    m_volume->getFogControlInfo().marchedInfo.sigmaScattering = 1.4f;
-    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.0f);
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 10.0f;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 20.0f;
+    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.01f);
+    m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.05f);
+    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.8f);
     m_volume->setFogType(VolumeRenderer::FogType::nano_boundingBox);
 
     // std::cout << "Application Controls" << std::endl;
@@ -134,6 +128,10 @@ void Application::onKeyRelease(int key, int scancode, int mods)
 
     if (key == star::KEY::SPACE)
     {
+        // auto camPosition = this->m_mainScene->getCamera()->getPosition();
+        // camPosition.z += 1.0f;
+        // this->m_mainScene->getCamera()->setPosition(camPosition);
+
         //     auto camPosition = this->scene->getCamera()->getPosition();
         //     auto camLookDirection = this->scene->getCamera()->getForwardVector();
 
@@ -195,10 +193,10 @@ void Application::onKeyRelease(int key, int scancode, int mods)
             m_volume->getFogControlInfo().marchedInfo.defaultDensity = PromptForFloat("Select density");
             break;
         case (5):
-            m_volume->getFogControlInfo().marchedInfo.sigmaAbsorption = PromptForFloat("Select sigma");
+            m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(PromptForFloat("Select sigma"));
             break;
         case (6):
-            m_volume->getFogControlInfo().marchedInfo.sigmaScattering = PromptForFloat("Select sigma");
+            m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(PromptForFloat("Select sigma"));
             break;
         case (7):
             m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(PromptForFloat("Select light prop", true));
