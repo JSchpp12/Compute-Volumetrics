@@ -16,7 +16,7 @@ std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createStagingBuffer(vk::D
             "CameraInfo_Src")
         .setInstanceCount(1)
         .setInstanceSize(sizeof(CameraData))
-        .build();
+        .buildUnique();
 }
 
 std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createFinal(
@@ -45,7 +45,7 @@ std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createFinal(
             "CameraInfo")
         .setInstanceCount(1)
         .setInstanceSize(sizeof(CameraData))
-        .build();
+        .buildUnique();
 }
 
 void CameraInfo::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const

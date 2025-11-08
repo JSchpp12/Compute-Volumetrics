@@ -22,7 +22,7 @@ std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createStagingBuffer(vk::
             "VDBInfo_SRC")
         .setInstanceCount(1)
         .setInstanceSize(m_volumeData->getSize())
-        .build();
+        .buildUnique();
 }
 
 std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createFinal(
@@ -51,7 +51,7 @@ std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createFinal(
             "VDBInfo")
         .setInstanceCount(1)
         .setInstanceSize(m_volumeData->getSize())
-        .build();
+        .buildUnique();
 }
 
 void VDBTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const

@@ -15,7 +15,7 @@ std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createStagingBuffer(vk:
             "AABBInfo_SRC")
         .setInstanceCount(2)
         .setInstanceSize(sizeof(glm::mat4))
-        .build();
+        .buildUnique();
 }
 
 std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createFinal(vk::Device &device, VmaAllocator &allocator,
@@ -43,7 +43,7 @@ std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createFinal(vk::Device 
             "AABBInfo")
         .setInstanceCount(2)
         .setInstanceSize(sizeof(glm::mat4))
-        .build();
+        .buildUnique();
 }
 
 void AABBTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const

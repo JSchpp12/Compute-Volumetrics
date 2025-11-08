@@ -16,7 +16,7 @@ std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createStaging
             "FogControlInfo_Src")
         .setInstanceCount(1)
         .setInstanceSize(sizeof(FogInfo::FinalizedInfo))
-        .build();
+        .buildUnique();
 }
 
 std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createFinal(
@@ -41,7 +41,7 @@ std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createFinal(
             "FogControlInfo")
         .setInstanceCount(1)
         .setInstanceSize(sizeof(FogInfo::FinalizedInfo))
-        .build();
+        .buildUnique();
 }
 
 void FogControlInfoTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const
