@@ -16,19 +16,14 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
                                                   const uint8_t &numFramesInFlight)
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-
+    const glm::vec3 camPos{-50.9314, 135.686, 25.9329};
+    const glm::vec3 volumePos{50.0, 100.0, 0.0};
+    const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
     std::shared_ptr<star::BasicCamera> camera = std::make_shared<star::BasicCamera>(
-        window.getExtent().width, window.getExtent().height, 90.0f, 0.1f, 20000.0f, 500.0f, 0.1f);
-    camera->setPosition(glm::vec3{4.0f, 0.0f, 0.0f});
-    camera->setForwardVector(glm::vec3{0.0, 0.0, 0.0} - camera->getPosition());
-    camera->setPosition(glm::vec3{-305.11, 93.597, 161.739});
+        window.getExtent().width, window.getExtent().height, 90.0f, 0.1f, 20000.0f, 100.0f, 0.1f);
+    camera->setPosition(camPos);
+    camera->setForwardVector(volumePos - camera->getPosition());
 
-    camera->setMovementSpeed(100);
-    camera->setPosition(glm::vec3{10.0, 10.0, 10.0});
-    const auto dirTowardsCenter = glm::normalize(glm::vec3{0.0, 0.0, 0.0} - camera->getPosition());
-    camera->setForwardVector(dirTowardsCenter);
-
-    const glm::vec3 lightPos = glm::vec3{50.0f, 30.0f, 0.0f} + glm::vec3{0.0f, 50.0f, 0.0f};
 
     m_mainLight = std::make_shared<std::vector<star::Light>>(
         std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0})});
@@ -57,8 +52,10 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
             offscreenRenderer->getLightInfoBuffers(), offscreenRenderer->getLightListBuffers());
 
         auto &s_i = m_volume->createInstance();
-        s_i.setPosition(glm::vec3{50.0, 100.0, 0.0});
+        s_i.setPosition(volumePos);
         s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
+        s_i.rotateRelative(star::Type::Axis::y, 90);
+
         std::vector<std::shared_ptr<StarObject>> objects{m_volume};
 
         std::vector<std::shared_ptr<star::core::renderer::RendererBase>> additionals{offscreenRenderer};
@@ -72,12 +69,12 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     }
 
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 10.0f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 20.0f;
-    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.01f);
-    m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.05f);
-    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.8f);
-    m_volume->setFogType(VolumeRenderer::FogType::nano_boundingBox);
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.10f;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 0.5f;
+    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.00001f);
+    m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.8f);
+    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.3f);
+    m_volume->setFogType(VolumeRenderer::FogType::marched);
 
     // std::cout << "Application Controls" << std::endl;
     // std::cout << "B - Modify fog properties" << std::endl;
@@ -145,8 +142,8 @@ void Application::onKeyRelease(int key, int scancode, int mods)
 
     if (key == star::KEY::T)
     {
-        // std::cout << this->scene->getCamera()->getPosition().x << "," << this->scene->getCamera()->getPosition().y
-        //           << "," << this->scene->getCamera()->getPosition().z << std::endl;
+        std::cout << m_mainScene->getCamera()->getPosition().x << "," << m_mainScene->getCamera()->getPosition().y
+                  << "," << m_mainScene->getCamera()->getPosition().z << std::endl;
     }
 
     if (key == star::KEY::B)
@@ -178,33 +175,54 @@ void Application::onKeyRelease(int key, int scancode, int mods)
             }
         }
 
+        std::ostringstream oss;
+        oss << "Current value: ";
+
         switch (selectedMode)
         {
         case (1):
+            oss << std::to_string(m_volume->getFogControlInfo().linearInfo.nearDist); 
+            std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().linearInfo.nearDist = PromptForFloat("Select visibility");
             break;
         case (2):
+            oss << std::to_string(m_volume->getFogControlInfo().linearInfo.farDist);
+            std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().linearInfo.farDist = PromptForFloat("Select distance");
             break;
         case (3):
+            oss << std::to_string(m_volume->getFogControlInfo().expFogInfo.density);
+            std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().expFogInfo.density = PromptForFloat("Select density");
             break;
         case (4):
+            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.defaultDensity);
+            std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().marchedInfo.defaultDensity = PromptForFloat("Select density");
             break;
         case (5):
+            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getSigmaAbsorption()); 
+            std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(PromptForFloat("Select sigma"));
             break;
         case (6):
+            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getSigmaScattering());
+            std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(PromptForFloat("Select sigma"));
             break;
         case (7):
+            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getLightPropertyDirG());
+            std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(PromptForFloat("Select light prop", true));
             break;
         case (8):
+            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.stepSizeDist);
+            std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size");
             break;
         case (9):
+            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light);
+            std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = PromptForFloat("Select step size light");
             break;
         default:
@@ -335,16 +353,16 @@ std::shared_ptr<OffscreenRenderer> Application::CreateOffscreenRenderer(
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    // auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-    // auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
-    // terrain->createInstance();
+    auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+    auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
+    terrain->createInstance();
 
-    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    auto horse = std::make_shared<star::BasicObject>(horsePath);
-    auto h_i = horse->createInstance();
-    h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
+    // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    // auto horse = std::make_shared<star::BasicObject>(horsePath);
+    // auto h_i = horse->createInstance();
+    // h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
 
-    std::vector<std::shared_ptr<star::StarObject>> objects{horse};
+    std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
 
     return std::make_shared<OffscreenRenderer>(context, numFramesInFlight, objects, std::move(mainLight), camera);
 }

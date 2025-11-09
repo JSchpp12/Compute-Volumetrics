@@ -1,13 +1,35 @@
 # Volumetric Rendering with Vulkan and OpenVDB
 
-## About
+This rendering application is the core of an ongoing research project which requires the creation of a rigerous dataset of terrain images with varying visibility distances. These images will then be used to train machine learning models to classify atmospheric visibility distance.
 
-This is a template for applications utilizing Starlight.
+
+<p float="left">
+  <img src="./assets/images/nano_volumetric_high.png" width="500" />
+  <img src="./assets/images/nano_SDF.png" width="500" /> 
+</p>
+
+## Research Goals
+
+### Abstract
+
+```abstract
+Weather significantly impacts the safe operation of aircraft, with fog being a notable concern for safety. A critical measurement that the Federal Aviation Administration (FAA) uses to classify flight-ready conditions is atmospheric visibility. Current technologies for visibility measurements are expensive. The FAA has identified the use of Machine Learning as a primary target in their FY24-28 National Research Plan, and Machine learning models, coupled with low-cost equipment, might provide a viable replacement for traditional estimators. However, public datasets of real world images containing accurate visibility estimations are sparse. Many works have turned to data augmentation or Synthetic Data Engineering as a solution, but synthetic data, when training a model for deployment on real world data, introduces domain shift which negatively impacts model performance.
+
+This research work comes in two phases. The first phase proposes to create a tool capable of generating synthetic foggy images of varying visual quality, from simple to photorealistic. Training models on varying quality of data and verifying on the highest quality of synthetic data, will show how visual quality relates to model performance. The second phase proposes to measure model performance when a mix of high quality synthetic data and real world data are used in training. This will demonstrate the ability of synthetic data to minimize the problem of domain shift.
+```
+
+### Overview
+
+The primary goal of this rendering application is in the creation of synthetic images of varying quality. From relatively simple rendering approachs (flat terrains and simple homoenous fog), to a more photorealistic approach (light transport simulation and real world elevation data). As such, there are several external data sources which are required. 
+
+#### Volumes
+
+![](./assets/images/march_bounding_box.png)
 
 ### [Early Demo](https://youtu.be/qZRzl9HPQ6Y)
 
 
-## Requirements
+## Development Requirements
 
 The following are required in order to build this project: 
 

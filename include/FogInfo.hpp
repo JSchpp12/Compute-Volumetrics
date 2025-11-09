@@ -161,10 +161,7 @@ class FogInfo
 
         void setSigmaAbsorption(const float &value)
         {
-            if (validateSigmaTotal(value, sigmaScattering))
-            {
-                sigmaAbsorption = value;
-            }
+            sigmaAbsorption = value;
         }
 
         float getSigmaAbsorption() const
@@ -174,10 +171,7 @@ class FogInfo
 
         void setSigmaScattering(const float &value)
         {
-            if (validateSigmaTotal(sigmaAbsorption, value))
-            {
-                sigmaScattering = value;
-            }
+            sigmaScattering = value; 
         }
 
         float getSigmaScattering() const
