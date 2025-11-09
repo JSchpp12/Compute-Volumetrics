@@ -4,8 +4,8 @@ This rendering application is the core of an ongoing research project which requ
 
 
 <p float="left">
-  <img src="./assets/images/nano_volumetric_high.png" width="500" />
-  <img src="./assets/images/nano_SDF.png" width="500" /> 
+  <img src="./assets/images/nano_volumetric_high.png" width="400" />
+  <img src="./assets/images/nano_SDF.png" width="400" /> 
 </p>
 
 ## Research Goals
