@@ -15,14 +15,14 @@ Weather significantly impacts the safe operation of aircraft, with fog being a n
 
 ### Technology Overview
 
-The primary goal of this rendering application is in the creation of synthetic images of varying quality. From relatively simple rendering approachs (flat terrains and simple homoenous fog), to a more photorealistic approach (light transport simulation and real world elevation data). As such, there are several external data sources which are required.
+The primary goal of this rendering application is in the creation of synthetic images of varying quality. From relatively simple rendering approachs (flat terrains and simple homoenous fog), to a more photorealistic approach (light transport simulation and real world elevation data). As such, there are several external data sources which are required. Each coresponds to a different visual quality for a given element. For example, terrains can be flat, or they can be created from real world elevation data. Or fog effects can be rendered using a simple shader based only on the depth buffer from the main render pass, or they can be rendered from OpenVDB volumes.
 
 #### Terrains
 
 <div align="center">
 <p float="left">
-  <img src="./assets/images/geotiff_sample.png" width="400" />
-  <img src="./assets/images/orthoimagery_sample.png" width="400" />
+  <img src="./assets/images/geotiff_sample.png" width="300" />
+  <img src="./assets/images/orthoimagery_sample.png" width="300" />
 </p>
 </div>
 
@@ -30,6 +30,20 @@ The primary goal of this rendering application is in the creation of synthetic i
   <img src="./assets/images/mesh_sample.png" width="400"/>
 </div>
 
+#### Fog
+
+Samples of uniform volumetric ray marched fog bodies:
+
+<div align="center">
+    <img src="./assets/images/march_light_fog_sample.png" width="350"/>
+    <img src="./assets/images/march_heavy_fog_sample.png" width="350"/>
+</div>
+
+Samples of traditional depth based fog rendering bodies:
+<div align="center">
+    <img src="./assets/images/linear.png" width="350"/>
+    <img src="./assets/images/exp.png" width="350"/>
+</div>
 
 ### [Early Demo](https://youtu.be/qZRzl9HPQ6Y)
 
