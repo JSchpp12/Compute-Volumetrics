@@ -22,6 +22,11 @@ find_package(OpenVDB CONFIG REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
+add_subdirectory("extern/StarlightCommon")
+# (Alternative: rely on user package registry since we called export(PACKAGE) in common)
+# set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
+set(StarlightCommon_DIR "${CMAKE_BINARY_DIR}/extern/StarlightCommon" CACHE PATH "")
+find_package(StarlightCommon REQUIRED)
 add_subdirectory("extern/starlight") 
 
 set(${PROJECT_NAME}_SOURCES
