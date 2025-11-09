@@ -27,6 +27,6 @@ if exist "%appBuilderDir%" (
 REM Configure and build
 cd /d "%wpath%\build\Release"
 cmake -DCMAKE_TOOLCHAIN_FILE="%wpath%\extern\vcpkg\scripts\buildsystems\vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release ../../
-cmake --build . -j6
+cmake --build . --config Release
 
 ENDLOCAL
