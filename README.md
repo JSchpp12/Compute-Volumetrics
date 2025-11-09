@@ -85,17 +85,17 @@ The following are required for display:
 
 ## Setup
 
-Clone this repository:
+### Preliminary Setups
+
+#### Clone
 
 ```cmd
 git clone --recurse-submodules https://github.com/JSchpp12/Compute-Volumetrics
 ```
 
-Prepare terrains:
+#### Prepare Terrains
 
 Navigate to the Terrain Stitcher submodule. Select and download a terrain from the releases category. These can be quite large and is suggested you use something like GitHub CLI. Process the terrain following the directions in that project. Place the processed terrain files in the media/terrains directory.
-
-### Project Setup
 
 #### StarlightAppBuilder
 
@@ -108,7 +108,7 @@ git submodule update
 
 Run coresponding bat/shell init script in extern/StarlightAppBuilder.
 
-#### Application Setup
+### Build
 
 Run the coresponding bat/shell build script located in the root of this project. For windows, this might be build_release.bat. VCPKG/CMake will handle the rest!
 
