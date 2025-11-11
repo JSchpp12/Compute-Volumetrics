@@ -1,6 +1,6 @@
 # Volumetric Rendering with Vulkan and OpenVDB
 
-This rendering application is the core of an ongoing research project which requires the creation of a rigerous dataset of terrain images with varying visibility distances. These images will then be used to train machine learning models to classify atmospheric visibility distance.
+This rendering application is the core of an ongoing research project which requires the creation of a rigorous dataset of terrain images with varying visibility distances. These images will then be used to train machine learning models to classify atmospheric visibility distance.
 
 <p float="left">
   <img src="./assets/images/nano_volumetric_high.png" width="400" />
@@ -15,7 +15,7 @@ Weather significantly impacts the safe operation of aircraft, with fog being a n
 
 ### Technology Overview
 
-The primary goal of this rendering application is in the creation of synthetic images of varying quality. From relatively simple rendering approachs (flat terrains and simple homoenous fog), to a more photorealistic approach (light transport simulation and real world elevation data). As such, there are several external data sources which are required. Each coresponds to a different visual quality for a given element. For example, terrains can be flat, or they can be created from real world elevation data. Or fog effects can be rendered using a simple shader based only on the depth buffer from the main render pass, or they can be rendered from OpenVDB volumes.
+The primary goal of this rendering application is in the creation of synthetic images of varying quality. From relatively simple rendering approaches (flat terrains and simple homogeneous fog), to a more photorealistic approach (light transport simulation and real world elevation data). As such, there are several external data sources which are required. Each corresponds to a different visual quality for a given element. For example, terrains can be flat, or they can be created from real world elevation data. Or fog effects can be rendered using a simple shader based only on the depth buffer from the main render pass, or they can be rendered from OpenVDB volumes.
 
 #### Terrains
 
@@ -106,11 +106,11 @@ git submodule init
 git submodule update
 ```
 
-Run coresponding bat/shell init script in extern/StarlightAppBuilder.
+Run corresponding bat/shell init script in extern/StarlightAppBuilder.
 
 ### Build
 
-Run the coresponding bat/shell build script located in the root of this project. For windows, this might be build_release.bat. VCPKG/CMake will handle the rest!
+Run the corresponding bat/shell build script located in the root of this project. For windows, this might be build_release.bat. VCPKG/CMake will handle the rest!
 
 ## Troubleshooting
 
