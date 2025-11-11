@@ -4,6 +4,7 @@
 #include "ConfigFile.hpp"
 #include "DebugHelpers.hpp"
 #include "Terrain.hpp"
+#include "event/TriggerScreenshot.hpp"
 
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
 
@@ -23,7 +24,6 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         window.getExtent().width, window.getExtent().height, 90.0f, 0.1f, 20000.0f, 100.0f, 0.1f);
     camera->setPosition(camPos);
     camera->setForwardVector(volumePos - camera->getPosition());
-
 
     m_mainLight = std::make_shared<std::vector<star::Light>>(
         std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0})});
@@ -125,6 +125,7 @@ void Application::onKeyRelease(int key, int scancode, int mods)
 
     if (key == star::KEY::SPACE)
     {
+        m_triggerScreenshot = true;
         // auto camPosition = this->m_mainScene->getCamera()->getPosition();
         // camPosition.z += 1.0f;
         // this->m_mainScene->getCamera()->setPosition(camPosition);
@@ -181,7 +182,7 @@ void Application::onKeyRelease(int key, int scancode, int mods)
         switch (selectedMode)
         {
         case (1):
-            oss << std::to_string(m_volume->getFogControlInfo().linearInfo.nearDist); 
+            oss << std::to_string(m_volume->getFogControlInfo().linearInfo.nearDist);
             std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().linearInfo.nearDist = PromptForFloat("Select visibility");
             break;
@@ -201,7 +202,7 @@ void Application::onKeyRelease(int key, int scancode, int mods)
             m_volume->getFogControlInfo().marchedInfo.defaultDensity = PromptForFloat("Select density");
             break;
         case (5):
-            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getSigmaAbsorption()); 
+            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getSigmaAbsorption());
             std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(PromptForFloat("Select sigma"));
             break;
@@ -289,8 +290,12 @@ void Application::onScroll(double xoffset, double yoffset)
 {
 }
 
-void Application::onWorldUpdate(const uint32_t &frameInFlightIndex)
+void Application::frameUpdate(star::core::SystemContext &context, const uint8_t &frameInFlightIndex)
 {
+    if (m_triggerScreenshot){
+        triggerScreenshot(context.getAllDevices().getData()[0]);
+        m_triggerScreenshot = false;
+    }
     // m_volume->renderVolume(glm::radians(this->scene.getCamera()->getFieldOfView()),
     // this->scene.getCamera()->getPosition(),
     // glm::inverse(this->scene.getCamera()->getViewMatrix()),
@@ -365,4 +370,9 @@ std::shared_ptr<OffscreenRenderer> Application::CreateOffscreenRenderer(
     std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
 
     return std::make_shared<OffscreenRenderer>(context, numFramesInFlight, objects, std::move(mainLight), camera);
+}
+
+void Application::triggerScreenshot(star::core::device::DeviceContext &context)
+{
+    context.getEventBus().emit(star::event::TriggerScreenshot{"Test"});
 }
