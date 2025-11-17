@@ -4,7 +4,6 @@
 
 #include "ConfigFile.hpp"
 #include "FileHelpers.hpp"
-#include "Handle.hpp"
 #include "ManagerController_RenderResource_IndicesInfo.hpp"
 #include "ManagerController_RenderResource_TextureFile.hpp"
 #include "ManagerController_RenderResource_VertInfo.hpp"

@@ -421,7 +421,7 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
                 star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
                 std::vector<star::Handle>{device.getShaderManager().submit(star::core::device::manager::ShaderRequest{
                     star::StarShader(compShaderPath, star::Shader_Stage::compute),
-                    std::make_unique<star::Compiler>("PNANOVDB_GLSL")})})});
+                    star::Compiler("PNANOVDB_GLSL")})})});
     }
 
     {
@@ -434,7 +434,7 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
                 star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
                 std::vector<star::Handle>{device.getShaderManager().submit(star::core::device::manager::ShaderRequest{
                     star::StarShader(compShaderPath, star::Shader_Stage::compute),
-                    std::make_unique<star::Compiler>("PNANOVDB_GLSL")})})});
+                    star::Compiler("PNANOVDB_GLSL")})})});
     }
 
     {
@@ -446,7 +446,7 @@ void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device
                 star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
                 std::vector<star::Handle>{device.getShaderManager().submit(star::core::device::manager::ShaderRequest{
                     star::StarShader(compShaderPath, star::Shader_Stage::compute),
-                    std::make_unique<star::Compiler>("PNANOVDB_GLSL")})})});
+                    star::Compiler("PNANOVDB_GLSL")})})});
     }
 
     std::string linearFogPath =
