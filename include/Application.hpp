@@ -35,6 +35,7 @@ class Application : public star::StarApplication
     star::StarObjectInstance *testObject = nullptr;
     std::shared_ptr<Volume> m_volume = nullptr;
     std::shared_ptr<std::vector<star::Light>> m_mainLight;
+    star::Handle m_screenshotRegistration;
     bool m_triggerScreenshot = false;
 
     void onKeyRelease(int key, int scancode, int mods) override;
@@ -55,5 +56,5 @@ class Application : public star::StarApplication
         star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
         std::shared_ptr<star::BasicCamera> camera, std::shared_ptr<std::vector<star::Light>> mainLight);
 
-    void triggerScreenshot(star::core::device::DeviceContext &context);
+    void triggerScreenshot(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
 };

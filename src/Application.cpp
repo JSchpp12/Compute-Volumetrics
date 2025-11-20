@@ -5,6 +5,7 @@
 #include "DebugHelpers.hpp"
 #include "Terrain.hpp"
 #include "event/TriggerScreenshot.hpp"
+#include "service/ScreenCapture.hpp"
 
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
 
@@ -69,8 +70,8 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     }
 
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 0.10f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 0.5f;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 3.0f;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 5.0f;
     m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.00001f);
     m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.8f);
     m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.3f);
@@ -292,8 +293,9 @@ void Application::onScroll(double xoffset, double yoffset)
 
 void Application::frameUpdate(star::core::SystemContext &context, const uint8_t &frameInFlightIndex)
 {
-    if (m_triggerScreenshot){
-        triggerScreenshot(context.getAllDevices().getData()[0]);
+    if (m_triggerScreenshot)
+    {
+        triggerScreenshot(context.getAllDevices().getData()[0], frameInFlightIndex);
         m_triggerScreenshot = false;
     }
     // m_volume->renderVolume(glm::radians(this->scene.getCamera()->getFieldOfView()),
@@ -372,7 +374,13 @@ std::shared_ptr<OffscreenRenderer> Application::CreateOffscreenRenderer(
     return std::make_shared<OffscreenRenderer>(context, numFramesInFlight, objects, std::move(mainLight), camera);
 }
 
-void Application::triggerScreenshot(star::core::device::DeviceContext &context)
+void Application::triggerScreenshot(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)
 {
-    context.getEventBus().emit(star::event::TriggerScreenshot{"Test"});
+    context.getEventBus().emit(star::event::TriggerScreenshot{
+        m_mainScene->getPresentationRenderer()->getRenderToColorImages().at(frameInFlightIndex),
+        m_mainScene->getPresentationRenderer()->getDoneSemaphores().at(frameInFlightIndex), 
+        m_mainScene->getPresentationRenderer()->getCommandBuffer(),
+        m_screenshotRegistration,
+        frameInFlightIndex,
+        "Test.png"});
 }
