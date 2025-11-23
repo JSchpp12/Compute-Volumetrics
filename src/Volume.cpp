@@ -1,5 +1,6 @@
 #include "Volume.hpp"
 
+#include "ConfigFile.hpp"
 #include "ManagerRenderResource.hpp"
 #include "TransferRequest_IndicesInfo.hpp"
 #include "TransferRequest_VertInfo.hpp"
@@ -274,23 +275,16 @@ void Volume::initVolume(star::core::device::DeviceContext &context, std::string 
     loadModel(context, vdbFilePath);
 
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
-        m_instanceInfo.m_infoManagerInstanceModel, m_instanceInfo.m_infoManagerInstanceNormal,
-        std::move(sceneCameraInfos), std::move(lightInfos), std::move(lightList), vdbFilePath, m_fogControlInfo,
-        this->camera, offscreenRenderToColorImages, offscreenRenderToDepthImages, this->aabbBounds);
+        m_instanceInfo.getControllerModel(), m_instanceInfo.getControllerNormal(), std::move(sceneCameraInfos),
+        std::move(lightInfos), std::move(lightList), vdbFilePath, m_fogControlInfo, this->camera,
+        offscreenRenderToColorImages, offscreenRenderToDepthImages, this->aabbBounds);
 }
-
-// star::core::renderer::RenderingContext Volume::buildRenderingContext(star::core::device::DeviceContext &context)
-// {
-//     auto context = star::StarObject::buildRenderingContext(context);
-
-//     return star::core::renderer::RenderingContext();
-// }
 
 void Volume::updateGridTransforms()
 {
     openvdb::FloatGrid::Ptr newGrid = this->grid->copy();
     newGrid->setTransform(this->grid->transformPtr());
-    openvdb::Mat4R transform = getTransform(m_instanceInfo.m_instances->front().getDisplayMatrix());
+    openvdb::Mat4R transform = getTransform(getInstance().getDisplayMatrix());
 
     openvdb::tools::GridTransformer transformer(transform);
 

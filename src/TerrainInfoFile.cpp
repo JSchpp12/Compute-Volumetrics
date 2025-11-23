@@ -1,7 +1,10 @@
 #include "TerrainInfoFile.hpp"
 
-#include <iostream>
+#include "ConfigFile.hpp"
+
 #include <nlohmann/json.hpp>
+
+#include <iostream>
 
 TerrainInfoFile::TerrainInfoFile(const std::string &pathToFile)
 {

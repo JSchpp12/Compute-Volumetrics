@@ -92,7 +92,6 @@ class Volume : public star::StarObject
     //                                                   pipelineLayout, star::core::renderer::RenderingTargetInfo
     //                                                   renderInfo) override;
 
-    // star::core::renderer::RenderingContext buildRenderingContext(star::core::device::DeviceContext &context) override;
     /// <summary>
     /// Expensive, only call when necessary.
     /// </summary>
