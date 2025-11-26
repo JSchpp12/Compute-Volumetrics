@@ -53,7 +53,7 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
             offscreenRenderer->getLightInfoBuffers(), offscreenRenderer->getLightListBuffers());
 
         auto &s_i = m_volume->createInstance();
-        s_i.setPosition(volumePos);
+        s_i.setPosition(camPos);
         s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
         s_i.rotateRelative(star::Type::Axis::y, 90);
 
