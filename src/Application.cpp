@@ -7,6 +7,7 @@
 #include "event/TriggerScreenshot.hpp"
 #include "service/ScreenCapture.hpp"
 
+#include "core/logging/LoggingFactory.hpp"
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
 
 #include <sstream>
@@ -17,12 +18,14 @@ using namespace star;
 std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &context, const StarWindow &window,
                                                   const uint8_t &numFramesInFlight)
 {
+    m_screenshotRegistrations.resize(numFramesInFlight);
+
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
     const glm::vec3 camPos{-50.9314, 135.686, 25.9329};
-    const glm::vec3 volumePos{50.0, 100.0, 0.0};
+    const glm::vec3 volumePos{50.0, 10.0, 0.0};
     const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
     std::shared_ptr<star::BasicCamera> camera = std::make_shared<star::BasicCamera>(
-        window.getExtent().width, window.getExtent().height, 90.0f, 0.1f, 20000.0f, 100.0f, 0.1f);
+        window.getExtent().width, window.getExtent().height, 90.0f, 1.0f, 20000.0f, 100.0f, 0.1f);
     camera->setPosition(camPos);
     camera->setForwardVector(volumePos - camera->getPosition());
 
@@ -126,7 +129,7 @@ void Application::onKeyRelease(int key, int scancode, int mods)
 
     if (key == star::KEY::SPACE)
     {
-        m_triggerScreenshot = true;
+        m_flipScreenshotState = true;
         // auto camPosition = this->m_mainScene->getCamera()->getPosition();
         // camPosition.z += 1.0f;
         // this->m_mainScene->getCamera()->setPosition(camPosition);
@@ -271,7 +274,8 @@ void Application::onKeyRelease(int key, int scancode, int mods)
     }
     if (key == star::KEY::O)
     {
-        m_volume->getInstance(0).setScale(m_volume->getInstance(0).getScale() + 1.0f);
+        glm::vec3 newScale = m_volume->getInstance(0).getScale() + 1.0f;
+        m_volume->getInstance(0).setScale(newScale);
     }
     if (key == star::KEY::I)
     {
@@ -293,10 +297,22 @@ void Application::onScroll(double xoffset, double yoffset)
 
 void Application::frameUpdate(star::core::SystemContext &context, const uint8_t &frameInFlightIndex)
 {
+    if (m_flipScreenshotState){
+        m_triggerScreenshot = !m_triggerScreenshot;
+        std::ostringstream oss;
+        if (m_triggerScreenshot){
+            oss << "Starting screen capture on frame: ";
+        }else{
+            oss << "Ending screen capture on frame: "; 
+        }
+        oss << context.getAllDevices().getData()[0].getCurrentFrameIndex();
+        star::core::logging::log(boost::log::trivial::info, oss.str()); 
+        
+        m_flipScreenshotState = false;
+    }
     if (m_triggerScreenshot)
     {
         triggerScreenshot(context.getAllDevices().getData()[0], frameInFlightIndex);
-        m_triggerScreenshot = false;
     }
     // m_volume->renderVolume(glm::radians(this->scene.getCamera()->getFieldOfView()),
     // this->scene.getCamera()->getPosition(),
@@ -376,11 +392,12 @@ std::shared_ptr<OffscreenRenderer> Application::CreateOffscreenRenderer(
 
 void Application::triggerScreenshot(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)
 {
+    std::ostringstream oss; 
+    oss << "Test" << std::to_string(context.getCurrentFrameIndex()); 
+    oss << ".png"; 
+
     context.getEventBus().emit(star::event::TriggerScreenshot{
         m_mainScene->getPresentationRenderer()->getRenderToColorImages().at(frameInFlightIndex),
-        m_mainScene->getPresentationRenderer()->getDoneSemaphores().at(frameInFlightIndex), 
-        m_mainScene->getPresentationRenderer()->getCommandBuffer(),
-        m_screenshotRegistration,
-        frameInFlightIndex,
-        "Test.png"});
+        m_mainScene->getPresentationRenderer()->getCommandBuffer(), m_screenshotRegistrations[frameInFlightIndex], frameInFlightIndex,
+        oss.str()});
 }
