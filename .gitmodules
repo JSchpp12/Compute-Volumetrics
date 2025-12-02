@@ -13,3 +13,6 @@
 [submodule "extern/StarlightCommon"]
 	path = extern/StarlightCommon
 	url = https://github.com/JSchpp12/StarlightCommon.git
+[submodule "extern/Starlight-Windowing"]
+	path = extern/Starlight-Windowing
+	url = https://github.com/JSchpp12/Starlight-Windowing.git
