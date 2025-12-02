@@ -21,10 +21,10 @@ enable_language(CXX)
 find_package(OpenVDB CONFIG REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
-set(StarlightCommon_DIR "${CMAKE_BINARY_DIR}/extern/StarlightCommon" CACHE PATH "")
+set(starlight_common_DIR "${CMAKE_BINARY_DIR}/extern/Starlight-Common" CACHE PATH "")
 
-add_subdirectory("extern/StarlightCommon")
-find_package(StarlightCommon REQUIRED)
+add_subdirectory("extern/Starlight-Common")
+find_package(starlight_common REQUIRED)
 add_subdirectory("extern/starlight") 
 
 set(${PROJECT_NAME}_SOURCES
