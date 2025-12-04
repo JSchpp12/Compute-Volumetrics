@@ -216,3 +216,7 @@ if (NOT ${HEADLESS})
 else()
 	target_compile_definitions(${PROJECT_NAME} PRIVATE "NANOVDB_USE_OPENVDB")
 endif()
+
+if (NOT ${HEADLESS})
+    target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_PRESENTATION)
+endif()
