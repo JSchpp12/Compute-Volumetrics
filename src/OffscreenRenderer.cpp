@@ -6,7 +6,7 @@ OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context,
                                      std::vector<std::shared_ptr<star::StarObject>> objects,
                                      std::shared_ptr<std::vector<star::Light>> lights,
                                      std::shared_ptr<star::StarCamera> camera)
-    : star::core::renderer::Renderer(context, numFramesInFlight, std::move(lights), camera, objects)
+    : star::core::renderer::DefaultRenderer(context, numFramesInFlight, std::move(lights), camera, objects)
 {
 }
 
@@ -154,7 +154,7 @@ void OffscreenRenderer::initResources(star::core::device::DeviceContext &device,
 
     this->firstFramePassCounter = uint32_t(numFramesInFlight);
 
-    star::core::renderer::Renderer::initResources(device, numFramesInFlight, screenSize);
+    star::core::renderer::DefaultRenderer::initResources(device, numFramesInFlight, screenSize);
 }
 
 std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages(

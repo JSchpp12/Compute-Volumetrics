@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core/renderer/Renderer.hpp"
+#include "core/renderer/DefaultRenderer.hpp"
 
-class OffscreenRenderer : public star::core::renderer::Renderer
+class OffscreenRenderer : public star::core::renderer::DefaultRenderer
 {
   public:
     OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
