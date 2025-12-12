@@ -9,11 +9,13 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
                       std::vector<std::shared_ptr<star::StarObject>> objects,
                       std::shared_ptr<std::vector<star::Light>> lights, std::shared_ptr<star::StarCamera> camera);
 
+    OffscreenRenderer(OffscreenRenderer &&other) = default;
+    OffscreenRenderer &operator=(OffscreenRenderer &&other) = default;
+
     virtual void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
                                      const uint64_t &frameIndex) override;
 
-    virtual void initResources(star::core::device::DeviceContext &device, const int &numFramesInFlight,
-                               const vk::Extent2D &screensize) override;
+    void prepRender(star::common::IDeviceContext &context, const uint8_t &numFramesInFlight) override;
 
     virtual vk::Format getColorAttachmentFormat(star::core::device::DeviceContext &device) const override;
 
@@ -29,11 +31,11 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
     std::vector<star::StarTextures::Texture> createRenderToImages(
         star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight) override;
 
-    std::vector<std::unique_ptr<star::StarTextures::Texture>> createRenderToDepthImages(
+    std::vector<star::StarTextures::Texture> createRenderToDepthImages(
         star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight) override;
 
     star::core::device::manager::ManagerCommandBuffer::Request getCommandBufferRequest() override;
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
-        const int &frameInFlightIndex) override;
+        const uint8_t &frameInFlightIndex) override;
 };

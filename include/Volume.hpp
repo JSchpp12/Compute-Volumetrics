@@ -7,7 +7,6 @@
 #include "GeometryHelpers.hpp"
 #include "Light.hpp"
 #include "Ray.hpp"
-#include "RenderResourceModifier.hpp"
 #include "RuntimeUpdateTexture.hpp"
 #include "ScreenMaterial.hpp"
 #include "StarCamera.hpp"
@@ -16,6 +15,7 @@
 #include "VertColorMaterial.hpp"
 #include "Vertex.hpp"
 #include "VolumeRenderer.hpp"
+#include "OffscreenRenderer.hpp"
 
 #include <openvdb/Grid.h>
 #include <openvdb/openvdb.h>
@@ -81,8 +81,7 @@ class Volume : public star::StarObject
     virtual ~Volume() = default;
     Volume(star::core::device::DeviceContext &context, std::string vdbPath, const size_t &numFramesInFlight,
            std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
-           std::vector<star::StarTextures::Texture> *offscreenRenderToColorImages,
-           std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
+           OffscreenRenderer *offscreenRenderer,
            std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
            std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
            std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList);
@@ -106,6 +105,10 @@ class Volume : public star::StarObject
                             const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder,
                             star::Handle sharedPipeline) override;
 
+    void init(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight); 
+    
+    virtual void init(star::core::device::DeviceContext &context) override;
+    
     virtual void cleanupRender(star::core::device::DeviceContext &context) override;
 
     virtual bool isRenderReady(star::core::device::DeviceContext &context) override;
@@ -132,10 +135,8 @@ class Volume : public star::StarObject
     std::shared_ptr<star::StarCamera> camera = nullptr;
     std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr;
     std::array<glm::vec4, 2> aabbBounds;
-    std::vector<star::StarTextures::Texture> *offscreenRenderToColorImages = nullptr;
-    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages = nullptr;
     std::shared_ptr<FogInfo> m_fogControlInfo = nullptr;
-
+    OffscreenRenderer *m_offscreenRenderer = nullptr;
     glm::vec2 screenDimensions{};
     openvdb::FloatGrid::Ptr grid{};
 

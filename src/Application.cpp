@@ -7,15 +7,16 @@
 #include "event/TriggerScreenshot.hpp"
 #include "service/ScreenCapture.hpp"
 
-#include "core/logging/LoggingFactory.hpp"
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
+#include "core/logging/LoggingFactory.hpp"
 
 #include <sstream>
+#include <starlight/common/Renderer.hpp>
 #include <string>
 
 using namespace star;
 
-std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &context, const StarWindow &window,
+std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &context, StarWindow &window,
                                                   const uint8_t &numFramesInFlight)
 {
     m_screenshotRegistrations.resize(numFramesInFlight);
@@ -35,25 +36,28 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     uint8_t numInFlight;
     {
         int framesInFlight = std::stoi(star::ConfigFile::getSetting(star::Config_Settings::frames_in_flight));
-        star::CastHelpers::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
+        star::common::helper::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
     }
 
-    auto offscreenRenderer = CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight);
-
     {
+        auto oRenderer = star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight));
+        auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
+
         const uint32_t width = window.getExtent().width;
         const uint32_t height = window.getExtent().height;
         std::vector<star::Handle> globalInfos(numInFlight);
         std::vector<star::Handle> lightInfos(numInFlight);
 
         size_t fNumFramesInFlight = 0;
-        star::CastHelpers::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
+        star::common::helper::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
         std::string vdbPath = mediaDirectoryPath + "volumes/dragon.vdb";
-        m_volume = std::make_shared<Volume>(
-            context, vdbPath, fNumFramesInFlight, camera, width, height, &offscreenRenderer->getRenderToColorImages(),
-            offscreenRenderer->getRenderToDepthImages(), offscreenRenderer->getCameraInfoBuffers(),
-            offscreenRenderer->getLightInfoBuffers(), offscreenRenderer->getLightListBuffers());
+        m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
+                                            offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
+                                            offscreenRenderer->getLightInfoBuffers(),
+                                            offscreenRenderer->getLightListBuffers());
+
+        m_volume->init(context, numFramesInFlight);
 
         auto &s_i = m_volume->createInstance();
         s_i.setPosition(camPos);
@@ -61,15 +65,12 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         s_i.rotateRelative(star::Type::Axis::y, 90);
 
         std::vector<std::shared_ptr<StarObject>> objects{m_volume};
-
-        std::vector<std::shared_ptr<star::core::renderer::RendererBase>> additionals{offscreenRenderer};
-
-        std::shared_ptr<star::core::renderer::SwapChainRenderer> presentationRenderer =
-            std::make_shared<star::core::renderer::SwapChainRenderer>(context, numFramesInFlight, objects, m_mainLight,
-                                                                      camera, window);
-
-        m_mainScene = std::make_shared<star::StarScene>(context.getDeviceID(), numFramesInFlight, camera,
-                                                        presentationRenderer, std::move(additionals));
+        std::vector<star::common::Renderer> additionals;
+        additionals.emplace_back(std::move(oRenderer));
+        star::common::Renderer sc{
+            star::core::renderer::SwapChainRenderer{context, numFramesInFlight, objects, m_mainLight, camera, window}};
+        m_mainScene = std::make_shared<star::StarScene>(context.getDeviceID(), numFramesInFlight, camera, std::move(sc),
+                                                        std::move(additionals));
     }
 
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
@@ -297,17 +298,21 @@ void Application::onScroll(double xoffset, double yoffset)
 
 void Application::frameUpdate(star::core::SystemContext &context, const uint8_t &frameInFlightIndex)
 {
-    if (m_flipScreenshotState){
+    if (m_flipScreenshotState)
+    {
         m_triggerScreenshot = !m_triggerScreenshot;
         std::ostringstream oss;
-        if (m_triggerScreenshot){
+        if (m_triggerScreenshot)
+        {
             oss << "Starting screen capture on frame: ";
-        }else{
-            oss << "Ending screen capture on frame: "; 
+        }
+        else
+        {
+            oss << "Ending screen capture on frame: ";
         }
         oss << context.getAllDevices().getData()[0].getCurrentFrameIndex();
-        star::core::logging::log(boost::log::trivial::info, oss.str()); 
-        
+        star::core::logging::log(boost::log::trivial::info, oss.str());
+
         m_flipScreenshotState = false;
     }
     if (m_triggerScreenshot)
@@ -370,34 +375,38 @@ int Application::ProcessIntInput()
     return selectedValue;
 }
 
-std::shared_ptr<OffscreenRenderer> Application::CreateOffscreenRenderer(
-    star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
-    std::shared_ptr<star::BasicCamera> camera, std::shared_ptr<std::vector<star::Light>> mainLight)
+OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::DeviceContext &context,
+                                                       const uint8_t &numFramesInFlight,
+                                                       std::shared_ptr<star::BasicCamera> camera,
+                                                       std::shared_ptr<std::vector<star::Light>> mainLight)
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-
     auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
     auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
+    terrain->init(context);
     terrain->createInstance();
+    std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
 
     // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
     // auto horse = std::make_shared<star::BasicObject>(horsePath);
     // auto h_i = horse->createInstance();
     // h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
+    // horse->init(context);
+    // std::vector<std::shared_ptr<star::StarObject>> objects{horse};
 
-    std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
-
-    return std::make_shared<OffscreenRenderer>(context, numFramesInFlight, objects, std::move(mainLight), camera);
+    return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
 
 void Application::triggerScreenshot(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)
 {
-    std::ostringstream oss; 
-    oss << "Test" << std::to_string(context.getCurrentFrameIndex()); 
-    oss << ".png"; 
+    std::ostringstream oss;
+    oss << "Test" << std::to_string(context.getCurrentFrameIndex());
+    oss << ".png";
 
-    context.getEventBus().emit(star::event::TriggerScreenshot{
-        m_mainScene->getPresentationRenderer()->getRenderToColorImages().at(frameInFlightIndex),
-        m_mainScene->getPresentationRenderer()->getCommandBuffer(), m_screenshotRegistrations[frameInFlightIndex], frameInFlightIndex,
-        oss.str()});
+    auto *render = m_mainScene->getPresentationRenderer().getRaw<star::core::renderer::SwapChainRenderer>();
+    auto targetTexture = context.getImageManager().get(render->getRenderToColorImages()[frameInFlightIndex])->texture;
+
+    context.getEventBus().emit(star::event::TriggerScreenshot{std::move(targetTexture), render->getCommandBuffer(),
+                                                              m_screenshotRegistrations[frameInFlightIndex],
+                                                              frameInFlightIndex, oss.str()});
 }

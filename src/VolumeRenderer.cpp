@@ -4,30 +4,79 @@
 #include "CameraInfo.hpp"
 #include "ConfigFile.hpp"
 #include "FogControlInfo.hpp"
+#include "LevelSetData.hpp"
 #include "ManagerRenderResource.hpp"
 #include "RandomValueTexture.hpp"
 #include "VDBTransfer.hpp"
+#include "VolumeRendererCreateDescriptorsPolicy.hpp"
+#include "core/device/managers/DescriptorPool.hpp"
+#include "event/EnginePhaseComplete.hpp"
+#include "wrappers/graphics/policies/CreateDescriptorsOnEventPolicy.hpp"
+#include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
 
-#include "FogData.hpp"
-#include "LevelSetData.hpp"
+#include <starlight/common/HandleTypeRegistry.hpp>
 
 VolumeRenderer::VolumeRenderer(std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceNormalInfo,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightList,
-                               std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
-                               const std::shared_ptr<star::StarCamera> camera,
-                               std::vector<star::StarTextures::Texture> *offscreenRenderToColors,
-                               std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
+                               OffscreenRenderer *offscreenRenderer, std::string vdbFilePath,
+                               std::shared_ptr<FogInfo> fogControlInfo, const std::shared_ptr<star::StarCamera> camera,
                                const std::array<glm::vec4, 2> &aabbBounds)
     : m_infoManagerInstanceModel(instanceManagerInfo), m_infoManagerInstanceNormal(instanceNormalInfo),
       m_infoManagerGlobalCamera(globalInfoBuffers), m_infoManagerSceneLightInfo(sceneLightInfoBuffers),
-      m_infoManagerSceneLightList(sceneLightList), m_vdbFilePath(std::move(vdbFilePath)),
-      m_fogController(fogControlInfo), offscreenRenderToColors(offscreenRenderToColors),
-      offscreenRenderToDepths(offscreenRenderToDepths), aabbBounds(aabbBounds), camera(camera),
+      m_infoManagerSceneLightList(sceneLightList), m_offscreenRenderer(offscreenRenderer),
+      m_vdbFilePath(std::move(vdbFilePath)), m_fogController(fogControlInfo), aabbBounds(aabbBounds), camera(camera),
       volumeTexture(volumeTexture)
 {
+}
+
+void VolumeRenderer::init(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight)
+{
+    using registry = star::common::HandleTypeRegistry;
+
+    auto submitter = std::make_shared<star::wrappers::graphics::policies::SubmitDescriptorRequestsPolicy>(
+        getDescriptorRequests(numFramesInFlight));
+
+    submitter->init(context.getEventBus());
+
+    if (!registry::instance().contains(star::event::GetEnginePhaseCompleteLoadTypeName))
+    {
+        registry::instance().registerType(star::event::GetEnginePhaseCompleteLoadTypeName);
+    }
+    auto trigger =
+        star::wrappers::graphics::policies::CreateDescriptorsOnEventPolicy<
+            VolumeRendererCreateDescriptorsPolicy>::Builder(context.getEventBus())
+            .setEventType(registry::instance().getTypeGuaranteedExist(star::event::GetEnginePhaseCompleteLoadTypeName))
+            .setPolicy(VolumeRendererCreateDescriptorsPolicy{&context.getDeviceID(),
+                                                             &m_fogController,
+                                                             &aabbInfoBuffers,
+                                                             &m_offscreenRenderer->getRenderToColorImages(),
+                                                             &m_offscreenRenderer->getRenderToDepthImages(),
+                                                             &computeWriteToImages,
+                                                             &nanoVDBPipeline_hitBoundingBox,
+                                                             &nanoVDBPipeline_surface,
+                                                             &marchedPipeline,
+                                                             &linearPipeline,
+                                                             &expPipeline,
+                                                             &cameraShaderInfo,
+                                                             &vdbInfoSDF,
+                                                             &vdbInfoFog,
+                                                             &randomValueTexture,
+                                                             &SDFShaderInfo,
+                                                             &VolumeShaderInfo,
+                                                             &computePipelineLayout,
+                                                             m_infoManagerInstanceModel,
+                                                             m_infoManagerInstanceNormal,
+                                                             m_infoManagerGlobalCamera,
+                                                             m_infoManagerSceneLightInfo,
+                                                             m_infoManagerSceneLightList,
+                                                             &context.getDevice(),
+                                                             &context.getGraphicsManagers(),
+                                                             &context.getManagerRenderResource(),
+                                                             numFramesInFlight})
+            .buildShared();
 }
 
 bool VolumeRenderer::isRenderReady(star::core::device::DeviceContext &context)
@@ -51,7 +100,7 @@ bool VolumeRenderer::isRenderReady(star::core::device::DeviceContext &context)
 
 void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)
 {
-    m_renderingContext = buildRenderingContext(context);
+    updateRenderingContext(context, frameInFlightIndex);
 
     if (isRenderReady(context))
     {
@@ -63,9 +112,14 @@ void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context, con
 void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
                                          const uint64_t &frameIndex)
 {
+    star::StarTextures::Texture *colorTex =
+        m_renderingContext.recordDependentImage.get(m_offscreenRenderer->getRenderToColorImages()[frameInFlightIndex]);
+    star::StarTextures::Texture *depthTex =
+        m_renderingContext.recordDependentImage.get(m_offscreenRenderer->getRenderToDepthImages()[frameInFlightIndex]);
+
     std::vector<vk::ImageMemoryBarrier2> prepareImages = std::vector<vk::ImageMemoryBarrier2>{
         vk::ImageMemoryBarrier2()
-            .setImage(this->offscreenRenderToColors->at(frameInFlightIndex).getVulkanImage())
+            .setImage(colorTex->getVulkanImage())
             .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
             .setNewLayout(vk::ImageLayout::eGeneral)
             .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
@@ -83,7 +137,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
                                      .setLayerCount(1)
                                      .setAspectMask(vk::ImageAspectFlagBits::eColor)),
         vk::ImageMemoryBarrier2()
-            .setImage(this->offscreenRenderToDepths->at(frameInFlightIndex)->getVulkanImage())
+            .setImage(depthTex->getVulkanImage())
             .setOldLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
             .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
             .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
@@ -104,7 +158,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     if (this->isFirstPass)
     {
         prepareImages.push_back(vk::ImageMemoryBarrier2()
-                                    .setImage(this->computeWriteToImages.at(frameInFlightIndex)->getVulkanImage())
+                                    .setImage(this->computeWriteToImages[frameInFlightIndex]->getVulkanImage())
                                     .setOldLayout(vk::ImageLayout::eUndefined)
                                     .setNewLayout(vk::ImageLayout::eGeneral)
                                     .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
@@ -123,7 +177,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     else
     {
         prepareImages.push_back(vk::ImageMemoryBarrier2()
-                                    .setImage(this->computeWriteToImages.at(frameInFlightIndex)->getVulkanImage())
+                                    .setImage(this->computeWriteToImages[frameInFlightIndex]->getVulkanImage())
                                     .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                                     .setNewLayout(vk::ImageLayout::eGeneral)
                                     .setSrcQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
@@ -164,7 +218,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     // give render to image back to graphics queue
     std::array<vk::ImageMemoryBarrier2, 3> backToGraphics{
         vk::ImageMemoryBarrier2()
-            .setImage(this->offscreenRenderToColors->at(frameInFlightIndex).getVulkanImage())
+            .setImage(colorTex->getVulkanImage())
             .setOldLayout(vk::ImageLayout::eGeneral)
             .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
             .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
@@ -180,7 +234,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
                                      .setBaseArrayLayer(0)
                                      .setLayerCount(1)),
         vk::ImageMemoryBarrier2()
-            .setImage(this->offscreenRenderToDepths->at(frameInFlightIndex)->getVulkanImage())
+            .setImage(depthTex->getVulkanImage())
             .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
             .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
             .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
@@ -197,7 +251,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
                                      .setBaseArrayLayer(0)
                                      .setLayerCount(1)),
         vk::ImageMemoryBarrier2()
-            .setImage(this->computeWriteToImages.at(frameInFlightIndex)->getVulkanImage())
+            .setImage(this->computeWriteToImages[frameInFlightIndex]->getVulkanImage())
             .setOldLayout(vk::ImageLayout::eGeneral)
             .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
             .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
@@ -334,7 +388,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
         for (uint8_t i = 0; i < numFramesInFlight; i++)
         {
-            this->computeWriteToImages.emplace_back(builder.buildUnique());
+            this->computeWriteToImages.emplace_back(builder.buildShared());
         }
     }
 
@@ -366,6 +420,14 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
             .willBeSubmittedEachFrame = true,
             .recordOnce = false},
         context.getCurrentFrameIndex());
+
+    for (size_t i = 0; i < static_cast<size_t>(numFramesInFlight); i++)
+    {
+        auto &ch = m_offscreenRenderer->getRenderToColorImages()[i];
+        m_renderingContext.recordDependentImage.manualInsert(ch, &context.getImageManager().get(ch)->texture);
+        auto &dh = m_offscreenRenderer->getRenderToDepthImages()[i];
+        m_renderingContext.recordDependentImage.manualInsert(dh, &context.getImageManager().get(dh)->texture);
+    }
 }
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
@@ -384,152 +446,18 @@ void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
     context.getDevice().getVulkanDevice().destroyPipelineLayout(*this->computePipelineLayout);
 }
 
-std::vector<std::pair<vk::DescriptorType, const int>> VolumeRenderer::getDescriptorRequests(
+void VolumeRenderer::registerListenForEngineInitDone(star::common::EventBus &eventBus)
+{
+}
+
+std::vector<std::pair<vk::DescriptorType, const uint32_t>> VolumeRenderer::getDescriptorRequests(
     const int &numFramesInFlight)
 {
-    return std::vector<std::pair<vk::DescriptorType, const int>>{
-        std::make_pair(vk::DescriptorType::eStorageImage, 1 + (3 * numFramesInFlight)),
-        std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + (4 * numFramesInFlight)),
-        std::make_pair(vk::DescriptorType::eStorageBuffer, 2),
-        std::make_pair(vk::DescriptorType::eCombinedImageSampler, 1)};
-}
-
-void VolumeRenderer::createDescriptors(star::core::device::DeviceContext &device, const int &numFramesInFlight)
-{
-    this->SDFShaderInfo = buildShaderInfo(device, numFramesInFlight, true);
-    this->VolumeShaderInfo = buildShaderInfo(device, numFramesInFlight, false);
-
-    {
-        auto sets = this->SDFShaderInfo->getDescriptorSetLayouts();
-        vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
-        pipelineLayoutInfo.sType = vk::StructureType::ePipelineLayoutCreateInfo;
-        pipelineLayoutInfo.pSetLayouts = sets.data();
-        pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(sets.size());
-        pipelineLayoutInfo.pushConstantRangeCount = 0;
-        pipelineLayoutInfo.pPushConstantRanges = nullptr;
-
-        this->computePipelineLayout = std::make_unique<vk::PipelineLayout>(
-            device.getDevice().getVulkanDevice().createPipelineLayout(pipelineLayoutInfo));
-    }
-
-    {
-        std::string compShaderPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) +
-                                     "shaders/volumeRenderer/nanoVDBHitBoundingBox.comp";
-
-        this->nanoVDBPipeline_hitBoundingBox =
-            device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{star::StarPipeline(
-                star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
-                std::vector<star::Handle>{device.getShaderManager().submit(star::core::device::manager::ShaderRequest{
-                    star::StarShader(compShaderPath, star::Shader_Stage::compute),
-                    star::Compiler("PNANOVDB_GLSL")})})});
-    }
-
-    {
-
-        std::string compShaderPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) +
-                                     "shaders/volumeRenderer/nanoVDBSurface.comp";
-
-        this->nanoVDBPipeline_surface =
-            device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{star::StarPipeline(
-                star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
-                std::vector<star::Handle>{device.getShaderManager().submit(star::core::device::manager::ShaderRequest{
-                    star::StarShader(compShaderPath, star::Shader_Stage::compute),
-                    star::Compiler("PNANOVDB_GLSL")})})});
-    }
-
-    {
-        std::string compShaderPath =
-            star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/volume.comp";
-
-        this->marchedPipeline =
-            device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{star::StarPipeline(
-                star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
-                std::vector<star::Handle>{device.getShaderManager().submit(star::core::device::manager::ShaderRequest{
-                    star::StarShader(compShaderPath, star::Shader_Stage::compute),
-                    star::Compiler("PNANOVDB_GLSL")})})});
-    }
-
-    std::string linearFogPath =
-        star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/linearFog.comp";
-    auto linearCompShader = star::StarShader(linearFogPath, star::Shader_Stage::compute);
-    this->linearPipeline = device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{
-        star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
-                           std::vector<star::Handle>{device.getShaderManager().submit(
-                               star::StarShader(linearFogPath, star::Shader_Stage::compute))})});
-
-    const std::string expFogPath =
-        star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/expFog.comp";
-    auto expCompShader = star::StarShader(expFogPath, star::Shader_Stage::compute);
-
-    this->expPipeline = device.getPipelineManager().submit(star::core::device::manager::PipelineRequest{
-        star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), *this->computePipelineLayout,
-                           std::vector<star::Handle>{device.getShaderManager().submit(
-                               star::StarShader(expFogPath, star::Shader_Stage::compute))})});
-}
-
-std::unique_ptr<star::StarShaderInfo> VolumeRenderer::buildShaderInfo(star::core::device::DeviceContext &context,
-                                                                      const uint8_t &numFramesInFlight,
-                                                                      const bool &useSDF) const
-{
-    auto shaderInfoBuilder =
-        star::StarShaderInfo::Builder(context.getDeviceID(), context.getDevice(), numFramesInFlight)
-            .addSetLayout(star::StarDescriptorSetLayout::Builder()
-                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .build(context.getDevice()))
-            .addSetLayout(star::StarDescriptorSetLayout::Builder()
-                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                              .build(context.getDevice()))
-            .addSetLayout(
-                star::StarDescriptorSetLayout::Builder()
-                    .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                    .addBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
-                    .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                    .build(context.getDevice()))
-            .addSetLayout(star::StarDescriptorSetLayout::Builder()
-                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .build(context.getDevice()));
-
-    for (uint8_t i = 0; i < numFramesInFlight; i++)
-    {
-        shaderInfoBuilder.startOnFrameIndex(i)
-            .startSet()
-            .add(m_infoManagerGlobalCamera->getHandle(i))
-            .add(m_infoManagerSceneLightInfo->getHandle(i))
-            .add(m_infoManagerSceneLightList->getHandle(i))
-            .startSet()
-            .add(this->cameraShaderInfo);
-        if (useSDF)
-        {
-            shaderInfoBuilder.add(this->vdbInfoSDF);
-        }
-        else
-        {
-            shaderInfoBuilder.add(this->vdbInfoFog);
-        }
-        shaderInfoBuilder.add(this->randomValueTexture, vk::ImageLayout::eGeneral, vk::Format::eR32Sfloat);
-
-        shaderInfoBuilder.startSet()
-            .add(this->offscreenRenderToColors->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
-            .add(*this->offscreenRenderToDepths->at(i), vk::ImageLayout::eShaderReadOnlyOptimal)
-            .add(*this->computeWriteToImages.at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
-            .startSet()
-            .add(m_infoManagerInstanceModel->getHandle(i))
-            .add(this->aabbInfoBuffers.at(i))
-            .add(m_fogController.getHandle(i),
-                 &context.getManagerRenderResource()
-                      .get<star::StarBuffers::Buffer>(context.getDeviceID(), m_fogController.getHandle(i))
-                      ->resourceSemaphore)
-            .add(m_infoManagerInstanceNormal->getHandle(i));
-    }
-
-    return shaderInfoBuilder.build();
+    return std::vector<std::pair<vk::DescriptorType, const uint32_t>>{
+        std::make_pair(vk::DescriptorType::eStorageImage, 1 + (3 * numFramesInFlight * 50)),
+        std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + (4 * numFramesInFlight * 50)),
+        std::make_pair(vk::DescriptorType::eStorageBuffer, 4 * numFramesInFlight * 15),
+        std::make_pair(vk::DescriptorType::eCombinedImageSampler, 900)};
 }
 
 void VolumeRenderer::recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer,
@@ -557,30 +485,40 @@ void VolumeRenderer::updateDependentData(star::core::device::DeviceContext &cont
     }
 }
 
-star::core::renderer::RenderingContext VolumeRenderer::buildRenderingContext(star::core::device::DeviceContext &context)
+void VolumeRenderer::updateRenderingContext(star::core::device::DeviceContext &context,
+                                            const uint8_t &frameInFlightIndex)
 {
+    // star::core::renderer::RenderingContext rContext;
     switch (this->currentFogType)
     {
     case (FogType::marched):
-        return {.pipeline = &context.getPipelineManager().get(this->marchedPipeline)->request.pipeline};
+        m_renderingContext.pipeline = &context.getPipelineManager().get(this->marchedPipeline)->request.pipeline;
         break;
     case (FogType::linear):
-        return {.pipeline = &context.getPipelineManager().get(this->linearPipeline)->request.pipeline};
+        m_renderingContext.pipeline = &context.getPipelineManager().get(this->linearPipeline)->request.pipeline;
         break;
     case (FogType::exp):
-        return {.pipeline = &context.getPipelineManager().get(this->expPipeline)->request.pipeline};
+        m_renderingContext.pipeline = &context.getPipelineManager().get(this->expPipeline)->request.pipeline;
         break;
     case (FogType::nano_boundingBox):
-        return {.pipeline = &context.getPipelineManager().get(this->nanoVDBPipeline_hitBoundingBox)->request.pipeline};
+        m_renderingContext.pipeline =
+            &context.getPipelineManager().get(this->nanoVDBPipeline_hitBoundingBox)->request.pipeline;
         break;
     case (FogType::nano_surface):
-        return {.pipeline = &context.getPipelineManager().get(this->nanoVDBPipeline_surface)->request.pipeline};
+        m_renderingContext.pipeline =
+            &context.getPipelineManager().get(this->nanoVDBPipeline_surface)->request.pipeline;
         break;
     default:
         throw std::runtime_error("Unsupported type");
     }
 
-    return star::core::renderer::RenderingContext{};
+    // size_t index = static_cast<size_t>(frameInFlightIndex);
+    // auto *colorImage = &context.getImageManager().get(m_offscreenRenderer->getRenderToColorImages()[index])->texture;
+    // auto *depthImage = &context.getImageManager().get(m_offscreenRenderer->getRenderToDepthImages()[index])->texture;
+    // rContext.recordDependentImage.manualInsert(m_offscreenRenderer->getRenderToColorImages()[index], colorImage);
+    // rContext.recordDependentImage.manualInsert(m_offscreenRenderer->getRenderToDepthImages()[index], depthImage);
+
+    // return rContext;
 }
 
 glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize)

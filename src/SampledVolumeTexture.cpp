@@ -1,14 +1,14 @@
 // #include "SampledVolumeTexture.hpp"
 
-// #include "CastHelpers.hpp"
+// #include <starlight/common/helper/CastHelpers.hpp>
 
 // std::unique_ptr<star::StarBuffers::Buffer> SampledVolumeRequest::createStagingBuffer(vk::Device &device,
 //                                                                             VmaAllocator &allocator) const
 // {
 //     uint32_t width = 0;
-//     star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->size(), width);
+//     star::common::helper::SafeCast<size_t, uint32_t>(this->sampledData->size(), width);
 //     uint32_t height = 0;
-//     star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->at(0).size(), height);
+//     star::common::helper::SafeCast<size_t, uint32_t>(this->sampledData->at(0).size(), height);
 
 //     const vk::DeviceSize size = width * height * 1 * 4;
 
@@ -32,9 +32,9 @@
 //     vk::Device &device, VmaAllocator &allocator, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 // {
 //     uint32_t width = 0;
-//     star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->size(), width);
+//     star::common::helper::SafeCast<size_t, uint32_t>(this->sampledData->size(), width);
 //     uint32_t height = 0;
-//     star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->at(0).size(), height);
+//     star::common::helper::SafeCast<size_t, uint32_t>(this->sampledData->at(0).size(), height);
 
 //     std::vector<uint32_t> indices = {this->computeQueueFamilyIndex};
 //     for (const auto &index : transferQueueFamilyIndex)
@@ -105,8 +105,8 @@
 
 //     uint32_t width = 0, height = 0;
 
-//     if (!star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->size(), width) ||
-//         !star::CastHelpers::SafeCast<size_t, uint32_t>(this->sampledData->at(0).size(), height))
+//     if (!star::common::helper::SafeCast<size_t, uint32_t>(this->sampledData->size(), width) ||
+//         !star::common::helper::SafeCast<size_t, uint32_t>(this->sampledData->at(0).size(), height))
 //     {
 //     }
 

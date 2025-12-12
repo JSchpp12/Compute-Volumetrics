@@ -13,6 +13,10 @@ OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context,
 void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
                                             const uint64_t &frameIndex)
 {
+    size_t index = static_cast<size_t>(frameInFlightIndex);
+    star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderToImages[index]);
+    star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(m_renderToDepthImages[index]);
+
     // need to transition the image from general to color attachment
     // also get ownership back
     if (!this->isFirstPass)
@@ -23,7 +27,7 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
                 .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
                 .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
                 .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
-                .setImage(this->renderToImages.at(frameInFlightIndex).getVulkanImage())
+                .setImage(colorTex->getVulkanImage())
                 .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
                 .setSrcAccessMask(vk::AccessFlagBits2::eNone)
                 .setDstStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
@@ -39,7 +43,7 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
                 .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
                 .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
                 .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
-                .setImage(this->renderToDepthImages.at(frameInFlightIndex)->getVulkanImage())
+                .setImage(depthTex->getVulkanImage())
                 .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
                 .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
                 .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests |
@@ -87,7 +91,7 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
     {
         std::array<const vk::ImageMemoryBarrier2, 2> toCompute{
             vk::ImageMemoryBarrier2()
-                .setImage(this->renderToImages.at(frameInFlightIndex).getVulkanImage())
+                .setImage(colorTex->getVulkanImage())
                 .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
                 .setNewLayout(vk::ImageLayout::eGeneral)
                 .setSrcQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
@@ -103,7 +107,7 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
                                          .setBaseArrayLayer(0)
                                          .setLayerCount(1)),
             vk::ImageMemoryBarrier2()
-                .setImage(this->renderToDepthImages.at(frameInFlightIndex)->getVulkanImage())
+                .setImage(depthTex->getVulkanImage())
                 .setOldLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
                 .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                 .setSrcQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
@@ -137,26 +141,6 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
     }
 }
 
-void OffscreenRenderer::initResources(star::core::device::DeviceContext &device, const int &numFramesInFlight,
-                                      const vk::Extent2D &screenSize)
-{
-    {
-        this->graphicsQueueFamilyIndex = std::make_unique<uint32_t>(
-            device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
-        const uint32_t computeQueueIndex =
-            device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
-
-        if (*this->graphicsQueueFamilyIndex != computeQueueIndex)
-        {
-            this->computeQueueFamilyIndex = std::make_unique<uint32_t>(uint32_t(computeQueueIndex));
-        }
-    }
-
-    this->firstFramePassCounter = uint32_t(numFramesInFlight);
-
-    star::core::renderer::DefaultRenderer::initResources(device, numFramesInFlight, screenSize);
-}
-
 std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages(
     star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight)
 {
@@ -167,8 +151,8 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages
     int width, height;
     {
         const auto &resolution = device.getRenderingSurface().getResolution();
-        star::CastHelpers::SafeCast<vk::DeviceSize, int>(resolution.width, width);
-        star::CastHelpers::SafeCast<vk::DeviceSize, int>(resolution.height, height);
+        star::common::helper::SafeCast<vk::DeviceSize, int>(resolution.width, width);
+        star::common::helper::SafeCast<vk::DeviceSize, int>(resolution.height, height);
     }
 
     auto builder =
@@ -251,19 +235,18 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages
     return newRenderToImages;
 }
 
-std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::createRenderToDepthImages(
+std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToDepthImages(
     star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight)
 {
-    std::vector<std::unique_ptr<star::StarTextures::Texture>> newRenderToImages =
-        std::vector<std::unique_ptr<star::StarTextures::Texture>>();
+    std::vector<star::StarTextures::Texture> newRenderToImages;
 
     const vk::Format depthFormat = this->getDepthAttachmentFormat(device);
 
     int width, height;
     {
         const auto &resolution = device.getRenderingSurface().getResolution();
-        star::CastHelpers::SafeCast<vk::DeviceSize, int>(resolution.width, width);
-        star::CastHelpers::SafeCast<vk::DeviceSize, int>(resolution.height, height);
+        star::common::helper::SafeCast<vk::DeviceSize, int>(resolution.width, width);
+        star::common::helper::SafeCast<vk::DeviceSize, int>(resolution.height, height);
     }
 
     auto builder =
@@ -317,7 +300,7 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
 
     for (int i = 0; i < numFramesInFlight; i++)
     {
-        newRenderToImages.emplace_back(builder.buildUnique());
+        newRenderToImages.emplace_back(builder.build());
 
         auto oneTimeSetup = device.getDevice().beginSingleTimeCommands();
 
@@ -328,7 +311,7 @@ std::vector<std::unique_ptr<star::StarTextures::Texture>> OffscreenRenderer::cre
         barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
         barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
 
-        barrier.image = newRenderToImages.back()->getVulkanImage();
+        barrier.image = newRenderToImages.back().getVulkanImage();
         barrier.srcAccessMask = vk::AccessFlagBits::eNone;
         barrier.dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
 
@@ -363,10 +346,32 @@ star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::ge
         .recordOnce = false};
 }
 
-vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(const int &frameInFlightIndex)
+void OffscreenRenderer::prepRender(star::common::IDeviceContext &context, const uint8_t &numFramesInFlight)
 {
+    auto &c = static_cast<star::core::device::DeviceContext &>(context);
+    {
+        this->graphicsQueueFamilyIndex = std::make_unique<uint32_t>(
+            c.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
+        const uint32_t computeQueueIndex =
+            c.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
+
+        if (*this->graphicsQueueFamilyIndex != computeQueueIndex)
+        {
+            this->computeQueueFamilyIndex = std::make_unique<uint32_t>(uint32_t(computeQueueIndex));
+        }
+    }
+
+    this->firstFramePassCounter = uint32_t(numFramesInFlight);
+
+    star::core::renderer::DefaultRenderer::prepRender(context, numFramesInFlight);
+}
+
+vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(
+    const uint8_t &frameInFlightIndex)
+{
+    size_t i = static_cast<size_t>(frameInFlightIndex);
     return vk::RenderingAttachmentInfoKHR()
-        .setImageView(this->renderToDepthImages[frameInFlightIndex]->getImageView())
+        .setImageView(m_renderingContext.recordDependentImage.get(m_renderToDepthImages[i])->getImageView())
         .setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore)

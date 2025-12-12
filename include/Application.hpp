@@ -24,13 +24,11 @@ class Application : public star::StarApplication
 
     void onKeyPress(int key, int scancode, int mods) override;
 
-    std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context,
-                                               const star::StarWindow &window,
+    std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context, star::StarWindow &window,
                                                const uint8_t &numFramesInFlight) override;
 
   private:
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
-    std::shared_ptr<OffscreenRenderer> offscreenRenderer = nullptr;
 
     star::StarObjectInstance *testObject = nullptr;
     std::shared_ptr<Volume> m_volume = nullptr;
@@ -53,7 +51,7 @@ class Application : public star::StarApplication
 
     static int ProcessIntInput();
 
-    static std::shared_ptr<OffscreenRenderer> CreateOffscreenRenderer(
+    static OffscreenRenderer CreateOffscreenRenderer(
         star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
         std::shared_ptr<star::BasicCamera> camera, std::shared_ptr<std::vector<star::Light>> mainLight);
 

@@ -3,7 +3,6 @@
 #include <memory>
 #include <vector>
 
-#include "DescriptorModifier.hpp"
 #include "StarDescriptorBuilders.hpp"
 #include "StarMaterial.hpp"
 #include "StarShaderInfo.hpp"
@@ -23,5 +22,7 @@ class ScreenMaterial : public star::StarMaterial
     std::vector<std::shared_ptr<star::StarTextures::Texture>> m_computeOutputImages =
         std::vector<std::shared_ptr<star::StarTextures::Texture>>();
 
-    std::unique_ptr<star::StarShaderInfo> buildShaderInfo(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight, star::StarShaderInfo::Builder builder) override; 
+    std::unique_ptr<star::StarShaderInfo> buildShaderInfo(star::core::device::DeviceContext &context,
+                                                          const uint8_t &numFramesInFlight,
+                                                          star::StarShaderInfo::Builder builder) override;
 };

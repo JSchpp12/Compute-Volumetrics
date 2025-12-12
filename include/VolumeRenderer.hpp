@@ -1,24 +1,26 @@
 #pragma once
 
 #include "CopyDepthTextureToBuffer.hpp"
-#include "DescriptorModifier.hpp"
 #include "FogControlInfo.hpp"
 #include "FogInfo.hpp"
 #include "ManagerController_RenderResource_Buffer.hpp"
-#include "RenderResourceModifier.hpp"
 #include "StarBuffers/Buffer.hpp"
 #include "StarCamera.hpp"
 #include "StarComputePipeline.hpp"
 #include "StarObjectInstance.hpp"
 #include "StarShaderInfo.hpp"
+#include "VolumeRendererCreateDescriptorsPolicy.hpp"
 #include "core/renderer/RenderingContext.hpp"
+#include "OffscreenRenderer.hpp"
+
+#include <starlight/common/Handle.hpp>
 
 #include <memory>
 #include <vector>
 #include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 
-class VolumeRenderer : private star::DescriptorModifier
+class VolumeRenderer
 {
   public:
     enum FogType
@@ -35,11 +37,11 @@ class VolumeRenderer : private star::DescriptorModifier
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalLightList,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
+                   OffscreenRenderer *offscreenRenderer,
                    std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
-                   const std::shared_ptr<star::StarCamera> camera,
-                   std::vector<star::StarTextures::Texture> *offscreenRenderToColors,
-                   std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths,
-                   const std::array<glm::vec4, 2> &aabbBounds);
+                   const std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds);
+
+    void init(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight);
 
     bool isRenderReady(star::core::device::DeviceContext &context);
 
@@ -70,6 +72,7 @@ class VolumeRenderer : private star::DescriptorModifier
     std::shared_ptr<star::ManagerController::RenderResource::Buffer> m_infoManagerInstanceModel,
         m_infoManagerInstanceNormal, m_infoManagerGlobalCamera, m_infoManagerSceneLightInfo,
         m_infoManagerSceneLightList;
+    OffscreenRenderer *m_offscreenRenderer = nullptr;
     std::string m_vdbFilePath;
     star::core::renderer::RenderingContext m_renderingContext = star::core::renderer::RenderingContext();
     bool isReady = false;
@@ -82,8 +85,6 @@ class VolumeRenderer : private star::DescriptorModifier
     FogInfoController m_fogController;
     std::unique_ptr<star::StarShaderInfo> SDFShaderInfo, VolumeShaderInfo;
     std::vector<star::Handle> aabbInfoBuffers;
-    std::vector<star::StarTextures::Texture> *offscreenRenderToColors = nullptr;
-    std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepths = nullptr;
     std::unique_ptr<uint32_t> graphicsQueueFamilyIndex, computeQueueFamilyIndex;
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
@@ -95,12 +96,19 @@ class VolumeRenderer : private star::DescriptorModifier
 
     FogType currentFogType = FogType::marched;
 
-    std::vector<std::pair<vk::DescriptorType, const int>> getDescriptorRequests(const int &numFramesInFlight) override;
+    void registerListenForEngineInitDone(star::common::EventBus &eventBus);
 
-    std::unique_ptr<star::StarShaderInfo> buildShaderInfo(star::core::device::DeviceContext &context,
+    std::vector<std::pair<vk::DescriptorType, const uint32_t>> getDescriptorRequests(const int &numFramesInFlight);
+
+    std::unique_ptr<star::StarShaderInfo> buildShaderInfo(const star::Handle &deviceID,
+                                                          star::core::device::StarDevice &device,
+                                                          star::core::device::manager::DescriptorPool &poolManager,
+                                                          star::ManagerRenderResource &resourceManager,
                                                           const uint8_t &numFramesInFlight, const bool &useSDF) const;
 
-    void createDescriptors(star::core::device::DeviceContext &context, const int &numFramesInFlight) override;
+    void createDescriptors(const star::Handle &deviceID, star::core::device::StarDevice &device,
+                           star::core::device::manager::DescriptorPool &poolManager,
+                           star::ManagerRenderResource &resourceManager, const uint8_t &numFramesInFlight);
 
     void recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer, const uint8_t &frameinFlightIndex,
                                              const uint64_t &frameIndex);
@@ -110,7 +118,7 @@ class VolumeRenderer : private star::DescriptorModifier
 
     void updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
 
-    star::core::renderer::RenderingContext buildRenderingContext(star::core::device::DeviceContext &context);
+    void updateRenderingContext(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
 
     static glm::uvec2 CalculateWorkGroupSize(const vk::Extent2D &screenSize);
 };

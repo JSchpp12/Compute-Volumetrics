@@ -10,7 +10,7 @@ std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createStagingBuffer(vk:
                 .build(),
             vk::BufferCreateInfo()
                 .setSharingMode(vk::SharingMode::eExclusive)
-                .setSize(star::CastHelpers::size_t_to_unsigned_int(2 * sizeof(glm::mat4)))
+                .setSize(star::common::helper::size_t_to_unsigned_int(2 * sizeof(glm::mat4)))
                 .setUsage(vk::BufferUsageFlagBits::eTransferSrc),
             "AABBInfo_SRC")
         .setInstanceCount(2)

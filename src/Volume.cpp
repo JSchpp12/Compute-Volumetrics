@@ -7,20 +7,29 @@
 
 Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
                std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
-               std::vector<star::StarTextures::Texture> *offscreenRenderToColorImages,
-               std::vector<std::unique_ptr<star::StarTextures::Texture>> *offscreenRenderToDepthImages,
+               OffscreenRenderer *offscreenRenderer,
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
-      camera(camera), screenDimensions(screenWidth, screenHeight),
-      offscreenRenderToColorImages(offscreenRenderToColorImages),
-      offscreenRenderToDepthImages(offscreenRenderToDepthImages),
+      camera(camera), screenDimensions(screenWidth, screenHeight), m_offscreenRenderer(offscreenRenderer),
       m_fogControlInfo(std::make_shared<FogInfo>(FogInfo::LinearFogInfo(0.001f, 100.0f), FogInfo::ExpFogInfo(0.5f),
                                                  FogInfo::MarchedFogInfo(0.002f, 0.3f, 0.3f, 0.2f, 0.1f, 5.0f)))
 {
     initVolume(context, std::move(vdbFilePath), std::move(sceneCameraInfos), std::move(lightInfos),
                std::move(lightList));
+}
+
+void Volume::init(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight)
+{
+    init(context);
+
+    volumeRenderer->init(context, numFramesInFlight);
+}
+
+void Volume::init(star::core::device::DeviceContext &context)
+{
+    star::StarObject::init(context);
 }
 
 std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
@@ -234,8 +243,8 @@ void Volume::prepRender(star::core::device::DeviceContext &context, const vk::Ex
 
     RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
 
-    this->star::StarObject::prepRender(context, swapChainExtent, numSwapChainImages, fullEngineBuilder, pipelineLayout,
-                                       renderingInfo);
+    star::StarObject::prepRender(context, swapChainExtent, numSwapChainImages, fullEngineBuilder, pipelineLayout,
+                                 renderingInfo);
 }
 
 void Volume::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
@@ -276,8 +285,8 @@ void Volume::initVolume(star::core::device::DeviceContext &context, std::string 
 
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
         m_instanceInfo.getControllerModel(), m_instanceInfo.getControllerNormal(), std::move(sceneCameraInfos),
-        std::move(lightInfos), std::move(lightList), vdbFilePath, m_fogControlInfo, this->camera,
-        offscreenRenderToColorImages, offscreenRenderToDepthImages, this->aabbBounds);
+        std::move(lightList), std::move(lightInfos), m_offscreenRenderer, vdbFilePath, m_fogControlInfo, this->camera,
+        this->aabbBounds);
 }
 
 void Volume::updateGridTransforms()
