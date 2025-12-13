@@ -312,7 +312,7 @@ float Volume::henyeyGreensteinPhase(const glm::vec3 &viewDirection, const glm::v
                                     const float &gValue)
 {
     float cosTheta = glm::dot(viewDirection, lightDirection);
-    float denom = std::powf(1 + gValue * gValue - 2.0f * gValue * cosTheta, 1.5f);
+    float denom = std::pow(1 + gValue * gValue - 2.0f * gValue * cosTheta, 1.5f);
     return 1.0f / (4.0f * glm::pi<float>()) * (1.0f - gValue * gValue) / denom;
 }
 

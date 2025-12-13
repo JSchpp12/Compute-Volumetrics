@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.26)
 
-project("starlightapp")
+project(compute_volumetrics
+	DESCRIPTION "Rendering application to compute fog"
+	LANGUAGES C CXX
+)
 
 option(HEADLESS "Build without presentation support" OFF)
 
@@ -16,15 +19,13 @@ if (APPLE)
 	set(CMAKE_MACOSX_RPATH 1)
 endif()
 
-enable_language(CXX)
-
+find_package(Threads REQUIRED)
 find_package(OpenVDB CONFIG REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 set(starlight_common_DIR "${CMAKE_BINARY_DIR}/extern/Starlight-Common" CACHE PATH "")
-
 add_subdirectory("extern/Starlight-Common")
-find_package(starlight_common REQUIRED)
+add_subdirectory("extern/Starlight-Windowing")
 add_subdirectory("extern/starlight") 
 
 set(${PROJECT_NAME}_SOURCES
@@ -113,6 +114,8 @@ else()
 	target_link_libraries(${PROJECT_NAME}
 		PRIVATE 
 			starlight
+			starlight_windowing
+			starlight_common
 			OpenVDB::openvdb
 			GDAL::GDAL
 			blosc_static

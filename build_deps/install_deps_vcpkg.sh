@@ -1,17 +1,1 @@
-../extern/vcpkg/vcpkg install abseil
-../extern/vcpkg/vcpkg install nlohmann-json
-../extern/vcpkg/vcpkg install stb
-../extern/vcpkg/vcpkg install blosc
-../extern/vcpkg/vcpkg install glm
-../extern/vcpkg/vcpkg install vulkan-memory-allocator
-../extern/vcpkg/vcpkg install tbb
-../extern/vcpkg/vcpkg install basisu
-../extern/vcpkg/vcpkg install tinyobjloader
-../extern/vcpkg/vcpkg install boost-thread
-../extern/vcpkg/vcpkg install boost-lockfree
-../extern/vcpkg/vcpkg install boost-container
-../extern/vcpkg/vcpkg install boost-filesystem
-../extern/vcpkg/vcpkg install boost-log
-../extern/vcpkg/vcpkg install ktx[vulkan]
-../extern/vcpkg/vcpkg install gdal[png,geos]
-../extern/vcpkg/vcpkg install openvdb[nanovdb,nanovdb-tools]
+../extern/vcpkg/vcpkg install abseil nlohmann-json stb blosc glm vulkan-memory-allocator tbb basisu tinyobjloader boost-thread boost-lockfree boost-container boost-filesystem boost-log ktx[vulkan] gdal[png,geos] openvdb[nanovdb,nanovdb-tools]
