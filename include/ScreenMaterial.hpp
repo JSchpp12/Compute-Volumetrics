@@ -3,7 +3,8 @@
 #include <memory>
 #include <vector>
 
-#include "StarDescriptorBuilders.hpp"
+#include <starlight/wrappers/graphics/StarDescriptorBuilders.hpp>
+#include <starlight/virtual/StarMaterial.hpp>
 #include "StarMaterial.hpp"
 #include "StarShaderInfo.hpp"
 #include "StarTextures/Texture.hpp"

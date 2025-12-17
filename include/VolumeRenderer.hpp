@@ -13,7 +13,7 @@
 #include "core/renderer/RenderingContext.hpp"
 #include "OffscreenRenderer.hpp"
 
-#include <starlight/common/Handle.hpp>
+#include <star_common/Handle.hpp>
 
 #include <memory>
 #include <vector>

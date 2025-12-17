@@ -14,7 +14,7 @@
 #include "wrappers/graphics/policies/CreateDescriptorsOnEventPolicy.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
 
-#include <starlight/common/HandleTypeRegistry.hpp>
+#include <star_common/HandleTypeRegistry.hpp>
 
 VolumeRenderer::VolumeRenderer(std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceNormalInfo,

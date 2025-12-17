@@ -7,7 +7,7 @@
 #include "core/device/managers/GraphicsContainer.hpp"
 #include "managers/ManagerRenderResource.hpp"
 
-#include <starlight/common/Handle.hpp>
+#include <star_common/Handle.hpp>
 
 class VolumeRendererCreateDescriptorsPolicy
 {

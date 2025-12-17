@@ -1,11 +1,11 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <memory>
+#include <starlight/virtual/ManagerController_RenderResource_Buffer.hpp>
+#include <starlight/virtual/StarCamera.hpp>
+#include <starlight/virtual/TransferRequest_Buffer.hpp>
 
-#include "ManagerController_RenderResource_Buffer.hpp"
-#include "StarCamera.hpp"
-#include "TransferRequest_Buffer.hpp"
+#include <memory>
 
 class CameraInfo : public star::TransferRequest::Buffer
 {

@@ -2,9 +2,9 @@
 
 #include <glm/glm.hpp>
 
-#include "ManagerController_RenderResource_Buffer.hpp"
-#include "StarBuffers/Buffer.hpp"
-#include "TransferRequest_Buffer.hpp"
+#include <starlight/virtual/ManagerController_RenderResource_Buffer.hpp>
+#include <starlight/wrappers/graphics/StarBuffers/Buffer.hpp>
+#include <starlight/virtual/TransferRequest_Buffer.hpp>
 
 class AABBTransfer : public star::TransferRequest::Buffer
 {

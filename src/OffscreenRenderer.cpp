@@ -150,7 +150,7 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages
 
     int width, height;
     {
-        const auto &resolution = device.getRenderingSurface().getResolution();
+        const auto &resolution = device.getEngineResolution();
         star::common::helper::SafeCast<vk::DeviceSize, int>(resolution.width, width);
         star::common::helper::SafeCast<vk::DeviceSize, int>(resolution.height, height);
     }
@@ -244,7 +244,7 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToDepthI
 
     int width, height;
     {
-        const auto &resolution = device.getRenderingSurface().getResolution();
+        const auto &resolution = device.getEngineResolution();
         star::common::helper::SafeCast<vk::DeviceSize, int>(resolution.width, width);
         star::common::helper::SafeCast<vk::DeviceSize, int>(resolution.height, height);
     }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/renderer/DefaultRenderer.hpp"
+#include <starlight/core/renderer/DefaultRenderer.hpp>
 
 class OffscreenRenderer : public star::core::renderer::DefaultRenderer
 {

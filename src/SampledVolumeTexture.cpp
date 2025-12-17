@@ -1,6 +1,6 @@
 // #include "SampledVolumeTexture.hpp"
 
-// #include <starlight/common/helper/CastHelpers.hpp>
+// #include <star_common/helper/CastHelpers.hpp>
 
 // std::unique_ptr<star::StarBuffers::Buffer> SampledVolumeRequest::createStagingBuffer(vk::Device &device,
 //                                                                             VmaAllocator &allocator) const

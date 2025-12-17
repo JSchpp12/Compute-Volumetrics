@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ManagerController_RenderResource_Buffer.hpp"
-#include "TransferRequest_Buffer.hpp"
+#include <starlight/virtual/ManagerController_RenderResource_Buffer.hpp>
+#include <starlight/virtual/TransferRequest_Buffer.hpp>
 
 #include "VolumeDataBase.hpp"
 

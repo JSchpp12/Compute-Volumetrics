@@ -1,6 +1,7 @@
 #include "TerrainInfoFile.hpp"
 
-#include "ConfigFile.hpp"
+#include <starlight/common/ConfigFile.hpp>
+#include <starlight/common/helpers/FileHelpers.hpp>
 
 #include <nlohmann/json.hpp>
 

@@ -4,8 +4,6 @@
 #include <string>
 #include <vector>
 
-#include "FileHelpers.hpp"
-
 class TerrainInfoFile
 {
   public:

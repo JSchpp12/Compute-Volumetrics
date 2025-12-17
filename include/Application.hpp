@@ -1,14 +1,5 @@
 #pragma once
 
-#define GLM_ENABLE_EXPERIMENTAL
-#include <GLFW/glfw3.h>
-#include <openvdb/openvdb.h>
-#include <openvdb/tools/SignedFloodFill.h>
-
-#include <ctime>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/transform.hpp>
 #include <memory>
 
 #include "BasicCamera.hpp"
@@ -17,17 +8,28 @@
 #include "StarApplication.hpp"
 #include "Volume.hpp"
 
+#include <star_windowing/policy/WindowingContext.hpp>
+
 class Application : public star::StarApplication
 {
   public:
-    Application() = default;
+    explicit Application(std::shared_ptr<star::StarCamera> mainCamera) : m_mainCamera(mainCamera){};
 
-    void onKeyPress(int key, int scancode, int mods) override;
+    Application(std::shared_ptr<star::StarCamera> mainCamera, star::windowing::WindowingContext *winContext)
+        : m_mainCamera(mainCamera), m_winContext(winContext)
+    {
+    }
 
-    std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context, star::StarWindow &window,
+    void init() override
+    {
+    }
+
+    std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context,
                                                const uint8_t &numFramesInFlight) override;
 
   private:
+    std::shared_ptr<star::StarCamera> m_mainCamera;
+    star::windowing::WindowingContext *m_winContext = nullptr;
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
 
     star::StarObjectInstance *testObject = nullptr;
@@ -37,10 +39,10 @@ class Application : public star::StarApplication
     bool m_triggerScreenshot = false;
     bool m_flipScreenshotState = false;
 
-    void onKeyRelease(int key, int scancode, int mods) override;
-    void onMouseMovement(double xpos, double ypos) override;
-    void onMouseButtonAction(int button, int action, int mods) override;
-    void onScroll(double xoffset, double yoffset) override;
+    // void onKeyRelease(int key, int scancode, int mods) override;
+    // void onMouseMovement(double xpos, double ypos) override;
+    // void onMouseButtonAction(int button, int action, int mods) override;
+    // void onScroll(double xoffset, double yoffset) override;
     void frameUpdate(star::core::SystemContext &context, const uint8_t &frameInFlightIndex) override;
 
     static float PromptForFloat(const std::string &prompt, const bool &allowNegative = false);
@@ -51,9 +53,10 @@ class Application : public star::StarApplication
 
     static int ProcessIntInput();
 
-    static OffscreenRenderer CreateOffscreenRenderer(
-        star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
-        std::shared_ptr<star::BasicCamera> camera, std::shared_ptr<std::vector<star::Light>> mainLight);
+    static OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &context,
+                                                     const uint8_t &numFramesInFlight,
+                                                     std::shared_ptr<star::BasicCamera> camera,
+                                                     std::shared_ptr<std::vector<star::Light>> mainLight);
 
     void triggerScreenshot(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
 };

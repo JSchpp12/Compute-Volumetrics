@@ -25,8 +25,8 @@ find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 set(starlight_common_DIR "${CMAKE_BINARY_DIR}/extern/Starlight-Common" CACHE PATH "")
 add_subdirectory("extern/Starlight-Common")
-add_subdirectory("extern/Starlight-Windowing")
 add_subdirectory("extern/starlight") 
+add_subdirectory("extern/Starlight-Windowing")
 
 set(${PROJECT_NAME}_SOURCES
 	"src/main.cpp"
@@ -113,9 +113,7 @@ else()
 
 	target_link_libraries(${PROJECT_NAME}
 		PRIVATE 
-			starlight
 			starlight_windowing
-			starlight_common
 			OpenVDB::openvdb
 			GDAL::GDAL
 			blosc_static
