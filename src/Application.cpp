@@ -11,6 +11,7 @@
 #include "core/logging/LoggingFactory.hpp"
 
 #include <star_windowing/SwapChainRenderer.hpp>
+#include <star_windowing/InteractivityBus.hpp>
 
 #include <sstream>
 #include <string>
@@ -20,14 +21,18 @@ using namespace star;
 std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &context,
                                                   const uint8_t &numFramesInFlight)
 {
+    star::windowing::InteractivityBus::Init(&context.getEventBus(), m_winContext); 
+
     m_screenshotRegistrations.resize(numFramesInFlight);
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
     const glm::vec3 camPos{-50.9314, 135.686, 25.9329};
     const glm::vec3 volumePos{50.0, 10.0, 0.0};
     const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
-    std::shared_ptr<star::BasicCamera> camera = std::make_shared<star::BasicCamera>(
+    std::shared_ptr<star::windowing::BasicCamera> camera = std::make_shared<star::windowing::BasicCamera>(
         context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 1.0f, 20000.0f, 100.0f, 0.1f);
+    camera->init(context.getEventBus()); 
+    
     camera->setPosition(camPos);
     camera->setForwardVector(volumePos - camera->getPosition());
 
@@ -378,7 +383,7 @@ int Application::ProcessIntInput()
 
 OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::DeviceContext &context,
                                                        const uint8_t &numFramesInFlight,
-                                                       std::shared_ptr<star::BasicCamera> camera,
+                                                       std::shared_ptr<star::windowing::BasicCamera> camera,
                                                        std::shared_ptr<std::vector<star::Light>> mainLight)
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);

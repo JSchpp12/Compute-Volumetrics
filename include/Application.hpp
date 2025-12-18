@@ -2,13 +2,13 @@
 
 #include <memory>
 
-#include "BasicCamera.hpp"
 #include "Interactivity.hpp"
 #include "OffscreenRenderer.hpp"
 #include "StarApplication.hpp"
 #include "Volume.hpp"
 
-#include <star_windowing/policy/WindowingContext.hpp>
+#include <star_windowing/BasicCamera.hpp>
+#include <star_windowing/WindowingContext.hpp>
 
 class Application : public star::StarApplication
 {
@@ -55,7 +55,7 @@ class Application : public star::StarApplication
 
     static OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &context,
                                                      const uint8_t &numFramesInFlight,
-                                                     std::shared_ptr<star::BasicCamera> camera,
+                                                     std::shared_ptr<star::windowing::BasicCamera> camera,
                                                      std::shared_ptr<std::vector<star::Light>> mainLight);
 
     void triggerScreenshot(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
