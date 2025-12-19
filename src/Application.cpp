@@ -10,8 +10,8 @@
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
 #include "core/logging/LoggingFactory.hpp"
 
-#include <star_windowing/SwapChainRenderer.hpp>
 #include <star_windowing/InteractivityBus.hpp>
+#include <star_windowing/SwapChainRenderer.hpp>
 
 #include <sstream>
 #include <string>
@@ -21,7 +21,7 @@ using namespace star;
 std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &context,
                                                   const uint8_t &numFramesInFlight)
 {
-    star::windowing::InteractivityBus::Init(&context.getEventBus(), m_winContext); 
+    star::windowing::InteractivityBus::Init(&context.getEventBus(), m_winContext);
 
     m_screenshotRegistrations.resize(numFramesInFlight);
 
@@ -31,8 +31,8 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
     const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
     std::shared_ptr<star::windowing::BasicCamera> camera = std::make_shared<star::windowing::BasicCamera>(
         context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 1.0f, 20000.0f, 100.0f, 0.1f);
-    camera->init(context.getEventBus()); 
-    
+    camera->init(context.getEventBus());
+
     camera->setPosition(camPos);
     camera->setForwardVector(volumePos - camera->getPosition());
 
@@ -75,8 +75,7 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         additionals.emplace_back(std::move(oRenderer));
         star::common::Renderer sc{
             star::windowing::SwapChainRenderer{m_winContext, context, numFramesInFlight, objects, m_mainLight, camera}};
-        m_mainScene = std::make_shared<star::StarScene>(camera, std::move(sc),
-                                                        std::move(additionals));
+        m_mainScene = std::make_shared<star::StarScene>(std::move(camera), std::move(sc), std::move(additionals));
     }
 
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
@@ -225,8 +224,8 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
 //         case (7):
 //             oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getLightPropertyDirG());
 //             std::cout << oss.str() << std::endl;
-//             m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(PromptForFloat("Select light prop", true));
-//             break;
+//             m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(PromptForFloat("Select light prop",
+//             true)); break;
 //         case (8):
 //             oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.stepSizeDist);
 //             std::cout << oss.str() << std::endl;

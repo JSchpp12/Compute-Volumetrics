@@ -21,9 +21,8 @@ int runWindow(){
     win_init windowInit{winContext};
     win_loop windowLoop{winContext};
     win_exit windowExit{winContext};
-    std::shared_ptr<star::StarCamera> mainCamera; 
 
-    Application application{mainCamera, &winContext};
+    Application application{&winContext};
     auto engine = star::StarEngine<win_init, win_loop, win_exit>(std::move(windowInit), std::move(windowLoop),
                                                                 std::move(windowExit), application);
 

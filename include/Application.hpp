@@ -13,10 +13,8 @@
 class Application : public star::StarApplication
 {
   public:
-    explicit Application(std::shared_ptr<star::StarCamera> mainCamera) : m_mainCamera(mainCamera){};
-
-    Application(std::shared_ptr<star::StarCamera> mainCamera, star::windowing::WindowingContext *winContext)
-        : m_mainCamera(mainCamera), m_winContext(winContext)
+    explicit Application(star::windowing::WindowingContext *winContext)
+        :m_winContext(winContext)
     {
     }
 
@@ -28,7 +26,6 @@ class Application : public star::StarApplication
                                                const uint8_t &numFramesInFlight) override;
 
   private:
-    std::shared_ptr<star::StarCamera> m_mainCamera;
     star::windowing::WindowingContext *m_winContext = nullptr;
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
 
