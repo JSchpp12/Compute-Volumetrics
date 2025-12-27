@@ -56,6 +56,8 @@ set(${PROJECT_NAME}_SOURCES
 	"src/LevelSetData.cpp"
 	"src/RandomValueTexture.cpp"
 	"src/RandomValueTextureController.cpp"
+	"src/InteractiveMode.cpp"
+	"src/HeadlessMode.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -85,6 +87,8 @@ set(${PROJECT_NAME}_HEADERS
 	"include/LevelSetData.hpp"
 	"include/RandomValueTexture.hpp"
 	"include/RandomValueTextureController.hpp"
+	"include/InteractiveMode.hpp"
+	"include/HeadlessMode.hpp"
 )
 
 set(${PROJECT_NAME}_INCLUDE_DIRS
@@ -215,11 +219,13 @@ add_custom_target(format_cpp_files
 )
 
 if (NOT ${HEADLESS})
-    target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_PRESENTATION "NANOVDB_USE_OPENVDB")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE STAR_ENABLE_PRESENTATION "NANOVDB_USE_OPENVDB")
+	message("STAR - Enabling Presentation")
 else()
 	target_compile_definitions(${PROJECT_NAME} PRIVATE "NANOVDB_USE_OPENVDB")
+	message("STAR - Disable Presentation")
 endif()
 
 if (NOT ${HEADLESS})
-    target_compile_definitions(${PROJECT_NAME} PRIVATE ENABLE_PRESENTATION)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE STAR_ENABLE_PRESENTATION)
 endif()
