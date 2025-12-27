@@ -2,33 +2,26 @@
 
 #include <memory>
 
-#include "Interactivity.hpp"
 #include "OffscreenRenderer.hpp"
 #include "StarApplication.hpp"
 #include "Volume.hpp"
 
-#include <star_windowing/BasicCamera.hpp>
-#include <star_windowing/WindowingContext.hpp>
-#include <star_windowing/policy/HandleKeyPressPolicy.hpp>
-
-class Application : public star::StarApplication, private star::windowing::HandleKeyReleasePolicy<Application>
+class Application : public star::StarApplication
 {
   public:
-    explicit Application(star::windowing::WindowingContext *winContext)
-        : star::windowing::HandleKeyReleasePolicy<Application>(*this), m_winContext(winContext)
+    Application() = default;
+
+    virtual ~Application() = default;
+    virtual void init() override
     {
     }
 
-    void init() override
+    virtual std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context,
+                                                       const uint8_t &numFramesInFlight) override
     {
     }
 
-    std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context,
-                                               const uint8_t &numFramesInFlight) override;
-
-  private:
-    friend class star::windowing::HandleKeyReleasePolicy<Application>;
-    star::windowing::WindowingContext *m_winContext = nullptr;
+  protected:
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
 
     star::StarObjectInstance *testObject = nullptr;
@@ -51,13 +44,4 @@ class Application : public star::StarApplication, private star::windowing::Handl
     static float ProcessFloatInput(const bool &allowNegatives);
 
     static int ProcessIntInput();
-
-    static OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &context,
-                                                     const uint8_t &numFramesInFlight,
-                                                     std::shared_ptr<star::windowing::BasicCamera> camera,
-                                                     std::shared_ptr<std::vector<star::Light>> mainLight);
-
-    void triggerScreenshot(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
-
-    void onKeyRelease(const int &key, const int &scancode, const int &mods);
 };

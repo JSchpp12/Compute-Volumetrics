@@ -58,6 +58,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/RandomValueTextureController.cpp"
 	"src/InteractiveMode.cpp"
 	"src/HeadlessMode.cpp"
+	"src/InteractiveApplication.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -89,6 +90,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/RandomValueTextureController.hpp"
 	"include/InteractiveMode.hpp"
 	"include/HeadlessMode.hpp"
+	"include/InteractiveApplication.hpp"
 )
 
 set(${PROJECT_NAME}_INCLUDE_DIRS
