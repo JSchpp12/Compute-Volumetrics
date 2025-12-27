@@ -52,7 +52,7 @@ class VolumeRenderer
 
     void cleanupRender(star::core::device::DeviceContext &device);
 
-    void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
+    void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                              const uint64_t &frameIndex);
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> &getRenderToImages()

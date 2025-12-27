@@ -9,12 +9,13 @@
 
 #include <star_windowing/BasicCamera.hpp>
 #include <star_windowing/WindowingContext.hpp>
+#include <star_windowing/policy/HandleKeyPressPolicy.hpp>
 
-class Application : public star::StarApplication
+class Application : public star::StarApplication, private star::windowing::HandleKeyReleasePolicy<Application>
 {
   public:
     explicit Application(star::windowing::WindowingContext *winContext)
-        :m_winContext(winContext)
+        : star::windowing::HandleKeyReleasePolicy<Application>(*this), m_winContext(winContext)
     {
     }
 
@@ -26,6 +27,7 @@ class Application : public star::StarApplication
                                                const uint8_t &numFramesInFlight) override;
 
   private:
+    friend class star::windowing::HandleKeyReleasePolicy<Application>;
     star::windowing::WindowingContext *m_winContext = nullptr;
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
 
@@ -56,4 +58,6 @@ class Application : public star::StarApplication
                                                      std::shared_ptr<std::vector<star::Light>> mainLight);
 
     void triggerScreenshot(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
+
+    void onKeyRelease(const int &key, const int &scancode, const int &mods);
 };

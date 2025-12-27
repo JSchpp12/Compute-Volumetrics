@@ -12,6 +12,7 @@
 
 #include <star_windowing/InteractivityBus.hpp>
 #include <star_windowing/SwapChainRenderer.hpp>
+#include <star_windowing/event/RequestSwapChainFromService.hpp>
 
 #include <sstream>
 #include <string>
@@ -21,6 +22,8 @@ using namespace star;
 std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &context,
                                                   const uint8_t &numFramesInFlight)
 {
+    star::windowing::HandleKeyReleasePolicy<Application>::init(context.getEventBus());
+
     star::windowing::InteractivityBus::Init(&context.getEventBus(), m_winContext);
 
     m_screenshotRegistrations.resize(numFramesInFlight);
@@ -73,8 +76,13 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
         std::vector<std::shared_ptr<StarObject>> objects{m_volume};
         std::vector<star::common::Renderer> additionals;
         additionals.emplace_back(std::move(oRenderer));
-        star::common::Renderer sc{
-            star::windowing::SwapChainRenderer{m_winContext, context, numFramesInFlight, objects, m_mainLight, camera}};
+
+        vk::SwapchainKHR swapchain{VK_NULL_HANDLE};
+
+        context.getEventBus().emit(star::windowing::event::RequestSwapChainFromService{swapchain});
+
+        star::common::Renderer sc{star::windowing::SwapChainRenderer{m_winContext, std::move(swapchain), context,
+                                                                     numFramesInFlight, objects, m_mainLight, camera}};
         m_mainScene = std::make_shared<star::StarScene>(std::move(camera), std::move(sc), std::move(additionals));
     }
 
@@ -301,6 +309,13 @@ std::shared_ptr<StarScene> Application::loadScene(core::device::DeviceContext &c
 // {
 // }
 
+void Application::onKeyRelease(const int &key, const int &scancode, const int &mods)
+{
+    if (key == GLFW_KEY_SPACE)
+    {
+        m_flipScreenshotState = true;
+    }
+}
 void Application::frameUpdate(star::core::SystemContext &context, const uint8_t &frameInFlightIndex)
 {
     if (m_flipScreenshotState)
@@ -315,7 +330,7 @@ void Application::frameUpdate(star::core::SystemContext &context, const uint8_t 
         {
             oss << "Ending screen capture on frame: ";
         }
-        oss << context.getAllDevices().getData()[0].getCurrentFrameIndex();
+        oss << context.getAllDevices().getData()[0].getFrameTracker().getCurrent().getGlobalFrameCounter();
         star::core::logging::log(boost::log::trivial::info, oss.str());
 
         m_flipScreenshotState = false;
@@ -405,7 +420,7 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
 void Application::triggerScreenshot(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)
 {
     std::ostringstream oss;
-    oss << "Test" << std::to_string(context.getCurrentFrameIndex());
+    oss << "Test" << std::to_string(context.getFrameTracker().getCurrent().getGlobalFrameCounter());
     oss << ".png";
 
     auto *render = m_mainScene->getPrimaryRenderer().getRaw<star::windowing::SwapChainRenderer>();
@@ -413,5 +428,5 @@ void Application::triggerScreenshot(star::core::device::DeviceContext &context, 
 
     context.getEventBus().emit(star::event::TriggerScreenshot{std::move(targetTexture), render->getCommandBuffer(),
                                                               m_screenshotRegistrations[frameInFlightIndex],
-                                                              frameInFlightIndex, oss.str()});
+                                                              frameInFlightIndex, oss.str(), true});
 }

@@ -109,13 +109,13 @@ void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context, con
     }
 }
 
-void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
+void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                                          const uint64_t &frameIndex)
 {
     star::StarTextures::Texture *colorTex =
-        m_renderingContext.recordDependentImage.get(m_offscreenRenderer->getRenderToColorImages()[frameInFlightIndex]);
+        m_renderingContext.recordDependentImage.get(m_offscreenRenderer->getRenderToColorImages()[frameTracker.getCurrent().getFrameInFlightIndex()]);
     star::StarTextures::Texture *depthTex =
-        m_renderingContext.recordDependentImage.get(m_offscreenRenderer->getRenderToDepthImages()[frameInFlightIndex]);
+        m_renderingContext.recordDependentImage.get(m_offscreenRenderer->getRenderToDepthImages()[frameTracker.getCurrent().getFrameInFlightIndex()]);
 
     std::vector<vk::ImageMemoryBarrier2> prepareImages = std::vector<vk::ImageMemoryBarrier2>{
         vk::ImageMemoryBarrier2()
@@ -158,7 +158,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     if (this->isFirstPass)
     {
         prepareImages.push_back(vk::ImageMemoryBarrier2()
-                                    .setImage(this->computeWriteToImages[frameInFlightIndex]->getVulkanImage())
+                                    .setImage(this->computeWriteToImages[frameTracker.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
                                     .setOldLayout(vk::ImageLayout::eUndefined)
                                     .setNewLayout(vk::ImageLayout::eGeneral)
                                     .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
@@ -177,7 +177,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
     else
     {
         prepareImages.push_back(vk::ImageMemoryBarrier2()
-                                    .setImage(this->computeWriteToImages[frameInFlightIndex]->getVulkanImage())
+                                    .setImage(this->computeWriteToImages[frameTracker.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
                                     .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                                     .setNewLayout(vk::ImageLayout::eGeneral)
                                     .setSrcQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
@@ -203,11 +203,11 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
         std::vector<vk::DescriptorSet> sets;
         if (this->currentFogType == FogType::marched)
         {
-            sets = this->VolumeShaderInfo->getDescriptors(frameInFlightIndex);
+            sets = this->VolumeShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex());
         }
         else
         {
-            sets = this->SDFShaderInfo->getDescriptors(frameInFlightIndex);
+            sets = this->SDFShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex());
         }
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0,
                                          static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
@@ -251,7 +251,7 @@ void VolumeRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const
                                      .setBaseArrayLayer(0)
                                      .setLayerCount(1)),
         vk::ImageMemoryBarrier2()
-            .setImage(this->computeWriteToImages[frameInFlightIndex]->getVulkanImage())
+            .setImage(this->computeWriteToImages[frameTracker.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
             .setOldLayout(vk::ImageLayout::eGeneral)
             .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
             .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
@@ -419,7 +419,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
             .waitStage = vk::PipelineStageFlagBits::eComputeShader,
             .willBeSubmittedEachFrame = true,
             .recordOnce = false},
-        context.getCurrentFrameIndex());
+        context.getFrameTracker().getSetup().getNumFramesInFlight());
 
     for (size_t i = 0; i < static_cast<size_t>(numFramesInFlight); i++)
     {

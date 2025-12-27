@@ -10,10 +10,10 @@ OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context,
 {
 }
 
-void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
-                                            const uint64_t &frameIndex)
+void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer,
+                                            const star::common::FrameTracker &frameTracker, const uint64_t &frameIndex)
 {
-    size_t index = static_cast<size_t>(frameInFlightIndex);
+    size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
     star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderToImages[index]);
     star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(m_renderToDepthImages[index]);
 
@@ -63,14 +63,14 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
     vk::Viewport viewport = this->prepareRenderingViewport(m_renderingContext.targetResolution);
     commandBuffer.setViewport(0, viewport);
 
-    this->recordPreRenderPassCommands(commandBuffer, frameInFlightIndex, frameIndex);
+    this->recordPreRenderPassCommands(commandBuffer, frameTracker.getCurrent().getFrameInFlightIndex(), frameIndex);
 
     {
         // dynamic rendering used...so dont need all that extra stuff
         vk::RenderingAttachmentInfo colorAttachmentInfo =
-            prepareDynamicRenderingInfoColorAttachment(frameInFlightIndex);
+            prepareDynamicRenderingInfoColorAttachment(frameTracker);
         vk::RenderingAttachmentInfo depthAttachmentInfo =
-            prepareDynamicRenderingInfoDepthAttachment(frameInFlightIndex);
+            prepareDynamicRenderingInfoDepthAttachment(frameTracker);
 
         auto renderArea = vk::Rect2D{vk::Offset2D{}, m_renderingContext.targetResolution};
         vk::RenderingInfoKHR renderInfo{};
@@ -82,7 +82,7 @@ void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer, co
         commandBuffer.beginRendering(renderInfo);
     }
 
-    this->recordRenderingCalls(commandBuffer, frameInFlightIndex, frameIndex);
+    this->recordRenderingCalls(commandBuffer, frameTracker.getCurrent().getFrameInFlightIndex(), frameIndex);
 
     commandBuffer.endRendering();
 
@@ -346,7 +346,7 @@ star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::ge
         .recordOnce = false};
 }
 
-void OffscreenRenderer::prepRender(star::common::IDeviceContext &context, const uint8_t &numFramesInFlight)
+void OffscreenRenderer::prepRender(star::common::IDeviceContext &context)
 {
     auto &c = static_cast<star::core::device::DeviceContext &>(context);
     {
@@ -361,15 +361,15 @@ void OffscreenRenderer::prepRender(star::common::IDeviceContext &context, const 
         }
     }
 
-    this->firstFramePassCounter = uint32_t(numFramesInFlight);
+    this->firstFramePassCounter = uint32_t(c.getFrameTracker().getSetup().getNumFramesInFlight());
 
-    star::core::renderer::DefaultRenderer::prepRender(context, numFramesInFlight);
+    star::core::renderer::DefaultRenderer::prepRender(context);
 }
 
 vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(
-    const uint8_t &frameInFlightIndex)
+    const star::common::FrameTracker &frameTracker)
 {
-    size_t i = static_cast<size_t>(frameInFlightIndex);
+    size_t i = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
     return vk::RenderingAttachmentInfoKHR()
         .setImageView(m_renderingContext.recordDependentImage.get(m_renderToDepthImages[i])->getImageView())
         .setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)

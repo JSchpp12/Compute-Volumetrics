@@ -12,10 +12,10 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
     OffscreenRenderer(OffscreenRenderer &&other) = default;
     OffscreenRenderer &operator=(OffscreenRenderer &&other) = default;
 
-    virtual void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
+    virtual void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                                      const uint64_t &frameIndex) override;
 
-    void prepRender(star::common::IDeviceContext &context, const uint8_t &numFramesInFlight) override;
+    void prepRender(star::common::IDeviceContext &context) override;
 
     virtual vk::Format getColorAttachmentFormat(star::core::device::DeviceContext &device) const override;
 
@@ -37,5 +37,5 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
     star::core::device::manager::ManagerCommandBuffer::Request getCommandBufferRequest() override;
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
-        const uint8_t &frameInFlightIndex) override;
+        const star::common::FrameTracker &frameTracker) override;
 };
