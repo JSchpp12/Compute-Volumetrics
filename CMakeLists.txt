@@ -24,11 +24,10 @@ find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 set(starlight_common_DIR "${CMAKE_BINARY_DIR}/extern/Starlight-Common" CACHE PATH "")
 add_subdirectory("extern/Starlight-Common")
+add_subdirectory("extern/starlight")
 
-if (NOT ${HEADLESS})
+if (NOT HEADLESS)
 	add_subdirectory("extern/Starlight-Windowing")
-else()
-	add_subdirectory("extern/starlight")
 endif()
 
 set(${PROJECT_NAME}_SOURCES
@@ -111,7 +110,7 @@ if (WIN32)
 
 	target_link_libraries(${PROJECT_NAME}
 		PRIVATE 
-			starlight
+			Starlight::starlight
 			OpenVDB::openvdb
 			GDAL::GDAL
 	)
@@ -119,10 +118,10 @@ else()
 	find_package(Blosc CONFIG REQUIRED)
 
 	target_compile_options(${PROJECT_NAME} PRIVATE -frtti -fexceptions)
-	if (${HEADLESS})
+	if (HEADLESS)
 		target_link_libraries(${PROJECT_NAME}
 			PRIVATE 
-				starlight
+				Starlight::starlight
 				OpenVDB::openvdb
 				GDAL::GDAL
 				blosc_static
