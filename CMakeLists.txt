@@ -11,8 +11,7 @@ cmake_policy(SET CMP0071 NEW)
 cmake_policy(SET CMP0076 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0079 NEW)
-
-set(CMAKE_CXX_STANDARD 20) 
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (APPLE)
@@ -25,8 +24,12 @@ find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 set(starlight_common_DIR "${CMAKE_BINARY_DIR}/extern/Starlight-Common" CACHE PATH "")
 add_subdirectory("extern/Starlight-Common")
-add_subdirectory("extern/starlight") 
-add_subdirectory("extern/Starlight-Windowing")
+
+if (NOT ${HEADLESS})
+	add_subdirectory("extern/Starlight-Windowing")
+else()
+	add_subdirectory("extern/starlight")
+endif()
 
 set(${PROJECT_NAME}_SOURCES
 	"src/main.cpp"
@@ -116,14 +119,24 @@ else()
 	find_package(Blosc CONFIG REQUIRED)
 
 	target_compile_options(${PROJECT_NAME} PRIVATE -frtti -fexceptions)
+	if (${HEADLESS})
+		target_link_libraries(${PROJECT_NAME}
+			PRIVATE 
+				starlight
+				OpenVDB::openvdb
+				GDAL::GDAL
+				blosc_static
+		)
+	else()
+		target_link_libraries(${PROJECT_NAME}
+			PRIVATE 
+				starlight_windowing
+				OpenVDB::openvdb
+				GDAL::GDAL
+				blosc_static
+		)
+	endif()
 
-	target_link_libraries(${PROJECT_NAME}
-		PRIVATE 
-			starlight_windowing
-			OpenVDB::openvdb
-			GDAL::GDAL
-			blosc_static
-	)
 endif()
 
 set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/StarlightAppBuilder/")
