@@ -1,12 +1,14 @@
 #include "InteractiveApplication.hpp"
 
+#ifdef STAR_ENABLE_PRESENTATION
+
 #include "Terrain.hpp"
-#include <starlight/event/TriggerScreenshot.hpp>
 #include <star_windowing/InteractivityBus.hpp>
 #include <star_windowing/SwapChainRenderer.hpp>
 #include <star_windowing/event/RequestSwapChainFromService.hpp>
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/objects/BasicObject.hpp>
+#include <starlight/event/TriggerScreenshot.hpp>
 
 OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
                                           std::shared_ptr<star::windowing::BasicCamera> camera,
@@ -59,12 +61,178 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     {
         m_flipScreenshotState = true;
     }
+
+    const float MILES_TO_METERS = 1609.35;
+
+    // if (key == GLFW_KEY_P)
+    // {
+    //     auto time = std::time(nullptr);
+    //     auto tm = *std::localtime(&time);
+    //     std::ostringstream oss;
+    //     oss << std::put_time(&tm, "%Y-%m-%d-%H-%M-%S") << ".png";
+    //     auto stringName = oss.str();
+    //     star::StarEngine::takeScreenshot(stringName);
+    // }
+
+    // if (key == GLFW_KEY_SPACE)
+    // {
+    //     m_flipScreenshotState = true;
+    //     auto camPosition = this->m_mainScene->getCamera()->getPosition();
+    //     camPosition.z += 1.0f;
+    //     this->m_mainScene->getCamera()->setPosition(camPosition);
+
+    //     // auto camPosition = this->scene->getCamera()->getPosition();
+    //     // auto camLookDirection = this->scene->getCamera()->getForwardVector();
+
+    //     this->testObject->setPosition(glm::vec3{camPosition.x, camPosition.y, camPosition.z + 10});
+
+    //     // this->testObject->setPosition(
+    //     //     glm::vec3{camPosition.x + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.x))),
+    //     //               camPosition.y + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.y))),
+    //     //               camPosition.z + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.z)))});
+    // }
+
+    if (key == GLFW_KEY_T)
+    {
+        std::cout << m_mainScene->getCamera()->getPosition().x << "," << m_mainScene->getCamera()->getPosition().y
+                  << "," << m_mainScene->getCamera()->getPosition().z << std::endl;
+    }
+
+    if (key == GLFW_KEY_B)
+    {
+        std::cout << "Select fog property to change" << std::endl;
+        std::cout << "1 - LinearFog: Fog Near Distance" << std::endl;
+        std::cout << "2 - LinearFog: Fog Far Distance" << std::endl;
+        std::cout << "3 - ExpFog: Fog Density" << std::endl;
+        std::cout << "4 - MarchedFog: Default Density" << std::endl;
+        std::cout << "5 - MarchedFog: Sigma Absorption" << std::endl;
+        std::cout << "6 - MarchedFog: Sigma Scattering" << std::endl;
+        std::cout << "7 - MarchedFog: Light PropertyDirG" << std::endl;
+        std::cout << "8 - MarchedFog: Step Size" << std::endl;
+        std::cout << "9 - MarchedFog: Step Size Light" << std::endl;
+
+        int selectedMode;
+
+        {
+            std::string inputOption = std::string();
+            std::getline(std::cin, inputOption);
+            try
+            {
+                selectedMode = std::stoi(inputOption);
+            }
+            catch (const std::exception &ex)
+            {
+                std::cout << "Invalid option" << std::endl;
+                return;
+            }
+        }
+
+        std::ostringstream oss;
+        oss << "Current value: ";
+
+        switch (selectedMode)
+        {
+        case (1):
+            oss << std::to_string(m_volume->getFogControlInfo().linearInfo.nearDist);
+            std::cout << oss.str() << std::endl;
+            m_volume->getFogControlInfo().linearInfo.nearDist = PromptForFloat("Select visibility");
+            break;
+        case (2):
+            oss << std::to_string(m_volume->getFogControlInfo().linearInfo.farDist);
+            std::cout << oss.str() << std::endl;
+            m_volume->getFogControlInfo().linearInfo.farDist = PromptForFloat("Select distance");
+            break;
+        case (3):
+            oss << std::to_string(m_volume->getFogControlInfo().expFogInfo.density);
+            std::cout << oss.str() << std::endl;
+            m_volume->getFogControlInfo().expFogInfo.density = PromptForFloat("Select density");
+            break;
+        case (4):
+            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.defaultDensity);
+            std::cout << oss.str() << std::endl;
+            m_volume->getFogControlInfo().marchedInfo.defaultDensity = PromptForFloat("Select density");
+            break;
+        case (5):
+            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getSigmaAbsorption());
+            std::cout << oss.str() << std::endl;
+            m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(PromptForFloat("Select sigma"));
+            break;
+        case (6):
+            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getSigmaScattering());
+            std::cout << oss.str() << std::endl;
+            m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(PromptForFloat("Select sigma"));
+            break;
+        case (7):
+            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getLightPropertyDirG());
+            std::cout << oss.str() << std::endl;
+            m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(PromptForFloat("Select light prop", true));
+            break;
+        case (8):
+            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.stepSizeDist);
+            std::cout << oss.str() << std::endl;
+            m_volume->getFogControlInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size");
+            break;
+        case (9):
+            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light);
+            std::cout << oss.str() << std::endl;
+            m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = PromptForFloat("Select step size light");
+            break;
+        default:
+            std::cout << "Unknown option" << std::endl;
+        }
+    }
+
+    if (key == GLFW_KEY_L)
+    {
+        std::cout << "Setting fog type to: Linear" << std::endl;
+        m_volume->setFogType(VolumeRenderer::FogType::linear);
+    }
+
+    if (key == GLFW_KEY_K)
+    {
+        std::cout << "Setting fog type to: Ray Marched" << std::endl;
+        m_volume->setFogType(VolumeRenderer::FogType::marched);
+    }
+
+    if (key == GLFW_KEY_J)
+    {
+        std::cout << "Setting fog type to: Exponential" << std::endl;
+        m_volume->setFogType(VolumeRenderer::FogType::exp);
+    }
+
+    if (key == GLFW_KEY_H)
+    {
+        std::cout << "Setting fog type to: Nano Bounding Box" << std::endl;
+        m_volume->setFogType(VolumeRenderer::FogType::nano_boundingBox);
+    }
+
+    if (key == GLFW_KEY_G)
+    {
+        std::cout << "Setting fog type to: NANO Surface" << std::endl;
+        m_volume->setFogType(VolumeRenderer::FogType::nano_surface);
+    }
+
+    if (key == GLFW_KEY_P)
+    {
+        auto pos = m_volume->getInstance(0).getPosition();
+        pos.x += 10;
+        pos.y += 10;
+        m_volume->getInstance(0).setPosition(pos);
+    }
+    if (key == GLFW_KEY_O)
+    {
+        glm::vec3 newScale = m_volume->getInstance(0).getScale() + 1.0f;
+        m_volume->getInstance(0).setScale(newScale);
+    }
+    if (key == GLFW_KEY_I)
+    {
+        m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90);
+    }
 }
 std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::device::DeviceContext &context,
                                                                    const uint8_t &numFramesInFlight)
 {
     star::windowing::HandleKeyReleasePolicy<InteractiveApplication>::init(context.getEventBus());
-
     star::windowing::InteractivityBus::Init(&context.getEventBus(), m_winContext);
 
     m_screenshotRegistrations.resize(numFramesInFlight);
@@ -159,3 +327,5 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
                                                               m_screenshotRegistrations[frameInFlightIndex],
                                                               frameInFlightIndex, oss.str(), true});
 }
+
+#endif

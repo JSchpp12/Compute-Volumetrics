@@ -1,15 +1,41 @@
 #include "Application.hpp"
 
+#include "Terrain.hpp"
+
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/objects/BasicObject.hpp>
+#include <starlight/core/renderer/DefaultRenderer.hpp>
+#include <starlight/virtual/StarCamera.hpp>
 
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
+#include "OffscreenRenderer.hpp"
 #include "core/logging/LoggingFactory.hpp"
 
 #include <sstream>
 #include <string>
 
 using namespace star;
+
+OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
+                                          std::shared_ptr<star::StarCamera> camera,
+                                          std::shared_ptr<std::vector<star::Light>> mainLight)
+{
+    auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
+    auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+    auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
+    terrain->init(context);
+    terrain->createInstance();
+    std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
+
+    // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    // auto horse = std::make_shared<star::BasicObject>(horsePath);
+    // auto h_i = horse->createInstance();
+    // h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
+    // horse->init(context);
+    // std::vector<std::shared_ptr<star::StarObject>> objects{horse};
+
+    return {context, numFramesInFlight, objects, std::move(mainLight), camera};
+}
 
 // void Application::onKeyPress(int key, int scancode, int mods)
 // {
@@ -36,172 +62,7 @@ using namespace star;
 
 // void Application::onKeyRelease(int key, int scancode, int mods)
 // {
-//     // const float MILES_TO_METERS = 1609.35;
 
-//     // if (key == star::KEY::P)
-//     // {
-//     //     auto time = std::time(nullptr);
-//     //     auto tm = *std::localtime(&time);
-//     //     std::ostringstream oss;
-//     //     oss << std::put_time(&tm, "%Y-%m-%d-%H-%M-%S") << ".png";
-//     //     auto stringName = oss.str();
-//     //     star::StarEngine::takeScreenshot(stringName);
-//     // }
-
-//     if (key == star::KEY::SPACE)
-//     {
-//         m_flipScreenshotState = true;
-//         // auto camPosition = this->m_mainScene->getCamera()->getPosition();
-//         // camPosition.z += 1.0f;
-//         // this->m_mainScene->getCamera()->setPosition(camPosition);
-
-//         //     auto camPosition = this->scene->getCamera()->getPosition();
-//         //     auto camLookDirection = this->scene->getCamera()->getForwardVector();
-
-//         //     this->testObject->setPosition(glm::vec3{camPosition.x, camPosition.y, camPosition.z + 10});
-
-//         // this->testObject->setPosition(glm::vec3{
-//         //     camPosition.x + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.x))),
-//         //     camPosition.y + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.y))),
-//         //     camPosition.z + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.z)))});
-//     }
-
-//     if (key == star::KEY::T)
-//     {
-//         std::cout << m_mainScene->getCamera()->getPosition().x << "," << m_mainScene->getCamera()->getPosition().y
-//                   << "," << m_mainScene->getCamera()->getPosition().z << std::endl;
-//     }
-
-//     if (key == star::KEY::B)
-//     {
-//         std::cout << "Select fog property to change" << std::endl;
-//         std::cout << "1 - LinearFog: Fog Near Distance" << std::endl;
-//         std::cout << "2 - LinearFog: Fog Far Distance" << std::endl;
-//         std::cout << "3 - ExpFog: Fog Density" << std::endl;
-//         std::cout << "4 - MarchedFog: Default Density" << std::endl;
-//         std::cout << "5 - MarchedFog: Sigma Absorption" << std::endl;
-//         std::cout << "6 - MarchedFog: Sigma Scattering" << std::endl;
-//         std::cout << "7 - MarchedFog: Light PropertyDirG" << std::endl;
-//         std::cout << "8 - MarchedFog: Step Size" << std::endl;
-//         std::cout << "9 - MarchedFog: Step Size Light" << std::endl;
-
-//         int selectedMode;
-
-//         {
-//             std::string inputOption = std::string();
-//             std::getline(std::cin, inputOption);
-//             try
-//             {
-//                 selectedMode = std::stoi(inputOption);
-//             }
-//             catch (const std::exception &ex)
-//             {
-//                 std::cout << "Invalid option" << std::endl;
-//                 return;
-//             }
-//         }
-
-//         std::ostringstream oss;
-//         oss << "Current value: ";
-
-//         switch (selectedMode)
-//         {
-//         case (1):
-//             oss << std::to_string(m_volume->getFogControlInfo().linearInfo.nearDist);
-//             std::cout << oss.str() << std::endl;
-//             m_volume->getFogControlInfo().linearInfo.nearDist = PromptForFloat("Select visibility");
-//             break;
-//         case (2):
-//             oss << std::to_string(m_volume->getFogControlInfo().linearInfo.farDist);
-//             std::cout << oss.str() << std::endl;
-//             m_volume->getFogControlInfo().linearInfo.farDist = PromptForFloat("Select distance");
-//             break;
-//         case (3):
-//             oss << std::to_string(m_volume->getFogControlInfo().expFogInfo.density);
-//             std::cout << oss.str() << std::endl;
-//             m_volume->getFogControlInfo().expFogInfo.density = PromptForFloat("Select density");
-//             break;
-//         case (4):
-//             oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.defaultDensity);
-//             std::cout << oss.str() << std::endl;
-//             m_volume->getFogControlInfo().marchedInfo.defaultDensity = PromptForFloat("Select density");
-//             break;
-//         case (5):
-//             oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getSigmaAbsorption());
-//             std::cout << oss.str() << std::endl;
-//             m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(PromptForFloat("Select sigma"));
-//             break;
-//         case (6):
-//             oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getSigmaScattering());
-//             std::cout << oss.str() << std::endl;
-//             m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(PromptForFloat("Select sigma"));
-//             break;
-//         case (7):
-//             oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getLightPropertyDirG());
-//             std::cout << oss.str() << std::endl;
-//             m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(PromptForFloat("Select light prop",
-//             true)); break;
-//         case (8):
-//             oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.stepSizeDist);
-//             std::cout << oss.str() << std::endl;
-//             m_volume->getFogControlInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size");
-//             break;
-//         case (9):
-//             oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light);
-//             std::cout << oss.str() << std::endl;
-//             m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = PromptForFloat("Select step size light");
-//             break;
-//         default:
-//             std::cout << "Unknown option" << std::endl;
-//         }
-//     }
-
-//     if (key == star::KEY::L)
-//     {
-//         std::cout << "Setting fog type to: Linear" << std::endl;
-//         m_volume->setFogType(VolumeRenderer::FogType::linear);
-//     }
-
-//     if (key == star::KEY::K)
-//     {
-//         std::cout << "Setting fog type to: Ray Marched" << std::endl;
-//         m_volume->setFogType(VolumeRenderer::FogType::marched);
-//     }
-
-//     if (key == star::KEY::J)
-//     {
-//         std::cout << "Setting fog type to: Exponential" << std::endl;
-//         m_volume->setFogType(VolumeRenderer::FogType::exp);
-//     }
-
-//     if (key == star::KEY::H)
-//     {
-//         std::cout << "Setting fog type to: Nano Bounding Box" << std::endl;
-//         m_volume->setFogType(VolumeRenderer::FogType::nano_boundingBox);
-//     }
-
-//     if (key == star::KEY::G)
-//     {
-//         std::cout << "Setting fog type to: NANO Surface" << std::endl;
-//         m_volume->setFogType(VolumeRenderer::FogType::nano_surface);
-//     }
-
-//     if (key == star::KEY::P)
-//     {
-//         auto pos = m_volume->getInstance(0).getPosition();
-//         pos.x += 10;
-//         pos.y += 10;
-//         m_volume->getInstance(0).setPosition(pos);
-//     }
-//     if (key == star::KEY::O)
-//     {
-//         glm::vec3 newScale = m_volume->getInstance(0).getScale() + 1.0f;
-//         m_volume->getInstance(0).setScale(newScale);
-//     }
-//     if (key == star::KEY::I)
-//     {
-//         m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90);
-//     }
 // }
 
 // void Application::onMouseMovement(double xpos, double ypos)
@@ -215,6 +76,71 @@ using namespace star;
 // void Application::onScroll(double xoffset, double yoffset)
 // {
 // }
+
+std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::DeviceContext &context,
+                                                        const uint8_t &numFramesInFlight)
+{
+    auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
+    const glm::vec3 camPos{-50.9314, 135.686, 25.9329};
+    const glm::vec3 volumePos{50.0, 10.0, 0.0};
+    const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
+    std::shared_ptr<star::StarCamera> camera = std::make_shared<star::StarCamera>(
+        context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 1.0f, 20000.0f);
+
+    camera->setPosition(camPos);
+    camera->setForwardVector(volumePos - camera->getPosition());
+
+    m_mainLight = std::make_shared<std::vector<star::Light>>(
+        std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0})});
+
+    uint8_t numInFlight;
+    {
+        int framesInFlight = std::stoi(star::ConfigFile::getSetting(star::Config_Settings::frames_in_flight));
+        star::common::helper::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
+    }
+
+    {
+        auto oRenderer = star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight));
+        auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
+
+        const uint32_t width = context.getEngineResolution().width;
+        const uint32_t height = context.getEngineResolution().height;
+        std::vector<star::Handle> globalInfos(numInFlight);
+        std::vector<star::Handle> lightInfos(numInFlight);
+
+        size_t fNumFramesInFlight = 0;
+        star::common::helper::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
+
+        std::string vdbPath = mediaDirectoryPath + "volumes/dragon.vdb";
+        m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
+                                            offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
+                                            offscreenRenderer->getLightInfoBuffers(),
+                                            offscreenRenderer->getLightListBuffers());
+
+        m_volume->init(context, numFramesInFlight);
+
+        auto &s_i = m_volume->createInstance();
+        s_i.setPosition(camPos);
+        s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
+        s_i.rotateRelative(star::Type::Axis::y, 90);
+
+        std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
+        std::vector<star::common::Renderer> additionals;
+        additionals.emplace_back(std::move(oRenderer));
+
+        star::common::Renderer sc{OffscreenRenderer{context, numFramesInFlight, objects, m_mainLight, camera}};
+        m_mainScene = std::make_shared<star::StarScene>(std::move(camera), std::move(sc), std::move(additionals));
+    }
+
+    m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 3.0f;
+    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 5.0f;
+    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.00001f);
+    m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.8f);
+    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.3f);
+    m_volume->setFogType(VolumeRenderer::FogType::marched);
+    return std::shared_ptr<star::StarScene>();
+}
 
 void Application::frameUpdate(star::core::SystemContext &context, const uint8_t &frameInFlightIndex)
 {

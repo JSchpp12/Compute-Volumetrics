@@ -3,9 +3,10 @@
 #ifndef STAR_ENABLE_PRESENTATION
 #include "Application.hpp"
 
+#include <starlight/StarEngine.hpp>
 #include <starlight/policy/DefaultEngineInitPolicy.hpp>
-#include <starlight/policy/EngineExitAfterNumberOfFrames.hpp>
 #include <starlight/policy/DefaultEngineLoopPolicy.hpp>
+#include <starlight/policy/EngineExitAfterNumberOfFrames.hpp>
 
 int HeadlessMode::run()
 {
@@ -14,7 +15,9 @@ int HeadlessMode::run()
     using exit = star::policy::EngineExitAfterNumberOfFrames;
 
     Application application;
-    auto engine = star::StarEngine<init, loop, exit>({}, {}, {}, std::move(application));
+    auto engine = star::StarEngine<init, loop, exit>(init{}, loop{}, exit{10000}, application);
+    engine.run();
+
     return 0;
 }
 #endif

@@ -28,11 +28,11 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
 
     std::vector<std::shared_ptr<star::StarBuffers::Buffer>> depthInfoStorageBuffers;
 
-    std::vector<star::StarTextures::Texture> createRenderToImages(
-        star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight) override;
+    std::vector<star::StarTextures::Texture> createRenderToImages(star::core::device::DeviceContext &device,
+                                                                  const uint8_t &numFramesInFlight) override;
 
-    std::vector<star::StarTextures::Texture> createRenderToDepthImages(
-        star::core::device::DeviceContext &device, const uint8_t &numFramesInFlight) override;
+    std::vector<star::StarTextures::Texture> createRenderToDepthImages(star::core::device::DeviceContext &device,
+                                                                       const uint8_t &numFramesInFlight) override;
 
     star::core::device::manager::ManagerCommandBuffer::Request getCommandBufferRequest() override;
 

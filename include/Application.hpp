@@ -17,9 +17,7 @@ class Application : public star::StarApplication
     }
 
     virtual std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context,
-                                                       const uint8_t &numFramesInFlight) override
-    {
-    }
+                                                       const uint8_t &numFramesInFlight) override;
 
   protected:
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
