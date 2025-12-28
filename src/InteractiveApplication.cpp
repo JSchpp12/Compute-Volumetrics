@@ -298,7 +298,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
     m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 3.0f;
     m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 5.0f;
-    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.00001f);
+    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.0000001f);
     m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.8f);
     m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.3f);
     m_volume->setFogType(VolumeRenderer::FogType::marched);

@@ -125,9 +125,9 @@ bool checkForThreadOutsideOfTarget()
     return true;
 }
 
-float applyHenyeyGreensteinPhase(const float cosTheta, const float gValue){
-    const float denom = 1.0 + gValue * gValue - 2.0 * gValue * cosTheta;
-    return (1.0 / (4.0 * PI)) * (1.0 - gValue * gValue) / sqrt(denom); 
+float applyHenyeyGreensteinPhase(const float cosTheta, const float g){
+    float denom = 1.0 + g*g - 2.0*g*cosTheta;
+    return (1.0 / (4.0 * PI)) * (1.0 - g*g) / pow(denom, 1.5);
 }
 
 vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,

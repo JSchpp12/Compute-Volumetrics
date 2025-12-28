@@ -7,6 +7,7 @@
 #include <starlight/core/renderer/DefaultRenderer.hpp>
 #include <starlight/virtual/StarCamera.hpp>
 
+#include "HeadlessMainRenderer.hpp"
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
 #include "OffscreenRenderer.hpp"
 #include "core/logging/LoggingFactory.hpp"
@@ -92,6 +93,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
     m_mainLight = std::make_shared<std::vector<star::Light>>(
         std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0})});
+    m_mainLight->at(0).ambient = glm::vec4{1.0, 1.0, 1.0, 1.0};
 
     uint8_t numInFlight;
     {
@@ -139,7 +141,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.8f);
     m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.3f);
     m_volume->setFogType(VolumeRenderer::FogType::marched);
-    return std::shared_ptr<star::StarScene>();
+    return m_mainScene;
 }
 
 void Application::frameUpdate(star::core::SystemContext &context, const uint8_t &frameInFlightIndex)
