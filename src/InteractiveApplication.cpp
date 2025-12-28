@@ -295,13 +295,17 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
         m_mainScene = std::make_shared<star::StarScene>(std::move(camera), std::move(sc), std::move(additionals));
     }
 
+
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
     m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 3.0f;
     m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 5.0f;
-    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.0000001f);
+    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.00001f);
     m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.8f);
     m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.3f);
     m_volume->setFogType(VolumeRenderer::FogType::marched);
+    m_volume->getFogControlInfo().linearInfo.nearDist = 0.01f;
+    m_volume->getFogControlInfo().linearInfo.farDist = 1000.0f;
+    m_volume->getFogControlInfo().expFogInfo.density = 0.6f;
 
     // std::cout << "Application Controls" << std::endl;
     // std::cout << "B - Modify fog properties" << std::endl;
