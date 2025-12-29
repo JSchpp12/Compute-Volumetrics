@@ -110,12 +110,22 @@ target_include_directories(${PROJECT_NAME}
 if (WIN32)
 	cmake_policy(SET CMP0091 NEW)
 
-	target_link_libraries(${PROJECT_NAME}
+	if (HEADLESS)
+		target_link_libraries(${PROJECT_NAME}
 		PRIVATE 
 			Starlight::starlight
 			OpenVDB::openvdb
 			GDAL::GDAL
 	)
+	else()
+		target_link_libraries(${PROJECT_NAME}
+		PRIVATE
+			Starlight::windowing
+			OpenVDB::openvdb
+			GDAL::GDAL
+		)
+	endif()
+
 else()
 	find_package(Blosc CONFIG REQUIRED)
 

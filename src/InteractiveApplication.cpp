@@ -9,6 +9,7 @@
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/objects/BasicObject.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
+#include <star_windowing/BasicCamera.hpp>
 
 OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
                                           std::shared_ptr<star::windowing::BasicCamera> camera,
@@ -222,7 +223,11 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     }
     if (key == GLFW_KEY_O)
     {
-        glm::vec3 newScale = m_volume->getInstance(0).getScale() + 1.0f;
+        glm::vec3 newScale = static_cast<const star::StarObject *>(m_volume.get())->getInstance(0).getScale();
+        newScale.x += 1.0f;
+        newScale.y += 1.0f;
+        newScale.z += 1.0f;
+
         m_volume->getInstance(0).setScale(newScale);
     }
     if (key == GLFW_KEY_I)
@@ -262,8 +267,8 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
         auto oRenderer = star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight));
         auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
-        const uint32_t width = context.getEngineResolution().width;
-        const uint32_t height = context.getEngineResolution().height;
+        const uint32_t &width = context.getEngineResolution().width;
+        const uint32_t &height = context.getEngineResolution().height;
         std::vector<star::Handle> globalInfos(numInFlight);
         std::vector<star::Handle> lightInfos(numInFlight);
 

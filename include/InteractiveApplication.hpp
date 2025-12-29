@@ -3,9 +3,8 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "Application.hpp"
-#include <star_windowing/BasicCamera.hpp>
 #include <star_windowing/WindowingContext.hpp>
-#include <star_windowing/policy/HandleKeyPressPolicy.hpp>
+#include <star_windowing/policy/HandleKeyReleasePolicy.hpp>
 
 class InteractiveApplication : public Application,
                                private star::windowing::HandleKeyReleasePolicy<InteractiveApplication>
