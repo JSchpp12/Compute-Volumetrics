@@ -1,5 +1,6 @@
 #include "LevelSetData.hpp"
 
+#include <starlight/core/Exceptions.hpp>
 #include <openvdb/openvdb.h>
 #include <openvdb/tools/LevelSetUtil.h>
 
@@ -12,7 +13,8 @@ void LevelSetData::convertVolumeFormat(openvdb::SharedPtr<openvdb::FloatGrid> &b
         throw std::runtime_error("Unsupported grid class");
     }
 
-    if (baseGrid->getGridClass() != m_requestedGridClass)
+    const auto gridClass = baseGrid->getGridClass();
+    if (gridClass != m_requestedGridClass)
     {
         if (m_requestedGridClass == openvdb::GridClass::GRID_FOG_VOLUME)
         {
@@ -22,7 +24,7 @@ void LevelSetData::convertVolumeFormat(openvdb::SharedPtr<openvdb::FloatGrid> &b
         }
         else
         {
-            throw std::runtime_error("Cant convert");
+            STAR_THROW("Failed to convert SDF to fog body");
         }
     } 
 }

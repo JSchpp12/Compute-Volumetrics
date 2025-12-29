@@ -4,6 +4,8 @@
 #include "ManagerRenderResource.hpp"
 #include "TransferRequest_IndicesInfo.hpp"
 #include "TransferRequest_VertInfo.hpp"
+#include <starlight/core/Exceptions.hpp>
+#include <starlight/core/logging/LoggingFactory.hpp>
 
 Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
                std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
@@ -94,11 +96,12 @@ void Volume::loadModel(star::core::device::DeviceContext &context, const std::st
 
     file.open();
 
-    std::cout << "OpenVDB File Info:" << std::endl;
+    std::ostringstream oss;
+    oss << "OpenVDB File Info:" << std::endl;
     for (openvdb::io::File::NameIterator nameIter = file.beginName(); nameIter != file.endName(); ++nameIter)
     {
-        std::cout << "Available Grids in file:" << std::endl;
-        std::cout << nameIter.gridName() << std::endl;
+        oss << "Available Grids in file:" << std::endl;
+        oss << nameIter.gridName() << std::endl;
 
         if (!baseGrid)
         {
@@ -106,7 +109,7 @@ void Volume::loadModel(star::core::device::DeviceContext &context, const std::st
         }
         else
         {
-            std::cout << "Skipping extra grid: " << nameIter.gridName();
+            oss << "Skipping extra grid: " << nameIter.gridName() << std::endl;
         }
     }
     file.close();
@@ -117,16 +120,18 @@ void Volume::loadModel(star::core::device::DeviceContext &context, const std::st
     switch (gridClass)
     {
     case openvdb::GridClass::GRID_LEVEL_SET: {
-        std::cout << "Grid type: Level_Set" << std::endl;
+        oss << "Grid type: Level_Set" << std::endl;
         break;
     }
     case openvdb::GridClass::GRID_FOG_VOLUME: {
-        std::cout << "Grid type: Fog " << std::endl;
+        oss << "Grid type: Fog " << std::endl;
         break;
     }
     default:
-        throw std::runtime_error("Unsupported OpenVDB volume class type");
+        STAR_THROW("Unsupported OpenVDB volume class type");
     }
+
+    star::core::logging::info(oss.str());
 
     // std::cout << "Type: " << baseGrid->type() << std::endl;
 

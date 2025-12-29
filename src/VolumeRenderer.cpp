@@ -5,6 +5,7 @@
 #include "ConfigFile.hpp"
 #include "FogControlInfo.hpp"
 #include "LevelSetData.hpp"
+#include "FogData.hpp"
 #include "ManagerRenderResource.hpp"
 #include "RandomValueTexture.hpp"
 #include "VDBTransfer.hpp"
