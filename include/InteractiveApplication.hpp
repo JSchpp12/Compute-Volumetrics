@@ -24,7 +24,7 @@ class InteractiveApplication : public Application,
     {
     }
 
-    virtual void frameUpdate(star::core::SystemContext &context, const uint8_t &frameInFlightIndex) override;
+    virtual void frameUpdate(star::core::SystemContext &context) override;
 
   private:
     friend class star::windowing::HandleKeyReleasePolicy<InteractiveApplication>;
@@ -32,7 +32,7 @@ class InteractiveApplication : public Application,
 
     void onKeyRelease(const int &key, const int &scancode, const int &mods);
     
-    virtual void triggerScreenshot(star::core::device::DeviceContext &context, const uint8_t &frameinFlightIndex);
+    virtual void triggerScreenshot(star::core::device::DeviceContext &context, const star::common::FrameTracker &frameTracker);
 };
 
 #endif

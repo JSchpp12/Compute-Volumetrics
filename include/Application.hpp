@@ -33,7 +33,7 @@ class Application : public star::StarApplication
     // void onMouseMovement(double xpos, double ypos) override;
     // void onMouseButtonAction(int button, int action, int mods) override;
     // void onScroll(double xoffset, double yoffset) override;
-    void frameUpdate(star::core::SystemContext &context, const uint8_t &frameInFlightIndex) override;
+    void frameUpdate(star::core::SystemContext &context) override;
 
     static float PromptForFloat(const std::string &prompt, const bool &allowNegative = false);
 

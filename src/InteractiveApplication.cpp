@@ -30,7 +30,8 @@ OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &con
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
-void InteractiveApplication::frameUpdate(star::core::SystemContext &context, const uint8_t &frameInFlightIndex)
+
+void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
     if (m_flipScreenshotState)
     {
@@ -51,7 +52,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context, con
     }
     if (m_triggerScreenshot)
     {
-        triggerScreenshot(context.getAllDevices().getData()[0], frameInFlightIndex);
+        triggerScreenshot(context.getAllDevices().getData()[0], context.getAllDevices().getData()[0].getFrameTracker());
     }
 }
 
@@ -235,7 +236,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     star::windowing::HandleKeyReleasePolicy<InteractiveApplication>::init(context.getEventBus());
     star::windowing::InteractivityBus::Init(&context.getEventBus(), m_winContext);
 
-    m_screenshotRegistrations.resize(numFramesInFlight);
+    m_screenshotRegistrations.resize(context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
     const glm::vec3 camPos{-50.9314, 135.686, 25.9329};
@@ -295,7 +296,6 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
         m_mainScene = std::make_shared<star::StarScene>(std::move(camera), std::move(sc), std::move(additionals));
     }
 
-
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
     m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 3.0f;
     m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 5.0f;
@@ -318,18 +318,18 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
 }
 
 void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext &context,
-                                               const uint8_t &frameInFlightIndex)
+                                               const star::common::FrameTracker &frameTracker)
 {
     std::ostringstream oss;
     oss << "Test" << std::to_string(context.getFrameTracker().getCurrent().getGlobalFrameCounter());
     oss << ".png";
 
+    size_t index = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());
     auto *render = m_mainScene->getPrimaryRenderer().getRaw<star::windowing::SwapChainRenderer>();
-    auto targetTexture = context.getImageManager().get(render->getRenderToColorImages()[frameInFlightIndex])->texture;
+    auto targetTexture = context.getImageManager().get(render->getRenderToColorImages()[index])->texture;
 
     context.getEventBus().emit(star::event::TriggerScreenshot{std::move(targetTexture), render->getCommandBuffer(),
-                                                              m_screenshotRegistrations[frameInFlightIndex],
-                                                              frameInFlightIndex, oss.str(), true});
+                                                              m_screenshotRegistrations[index], oss.str()});
 }
 
 #endif

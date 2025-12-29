@@ -147,7 +147,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     return m_mainScene;
 }
 
-void Application::frameUpdate(star::core::SystemContext &context, const uint8_t &frameInFlightIndex)
+void Application::frameUpdate(star::core::SystemContext &context)
 {
 
     // m_volume->renderVolume(glm::radians(this->scene.getCamera()->getFieldOfView()),
