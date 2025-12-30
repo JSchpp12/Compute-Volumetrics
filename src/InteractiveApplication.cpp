@@ -234,6 +234,14 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     {
         m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90);
     }
+    if (key == GLFW_KEY_U)
+    {
+        m_volume->getInstance(0).rotateGlobal(star::Type::Axis::z, 90);
+    }
+    if (key == GLFW_KEY_Y)
+    {
+        m_volume->getInstance(0).rotateGlobal(star::Type::Axis::x, 90);
+    }
 }
 std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::device::DeviceContext &context,
                                                                    const uint8_t &numFramesInFlight)
@@ -275,7 +283,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
         size_t fNumFramesInFlight = 0;
         star::common::helper::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
-        std::string vdbPath = mediaDirectoryPath + "volumes/dragon.vdb";
+        std::string vdbPath = mediaDirectoryPath + "volumes/fluid_data_0135.vdb";
         m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
                                             offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
                                             offscreenRenderer->getLightInfoBuffers(),

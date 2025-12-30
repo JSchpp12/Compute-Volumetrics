@@ -4,8 +4,8 @@
 
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/objects/BasicObject.hpp>
-#include <starlight/core/renderer/DefaultRenderer.hpp>
 #include <starlight/virtual/StarCamera.hpp>
+#include <starlight/core/renderer/HeadlessRenderer.hpp>
 
 #include "HeadlessMainRenderer.hpp"
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
@@ -113,7 +113,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         size_t fNumFramesInFlight = 0;
         star::common::helper::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
-        std::string vdbPath = mediaDirectoryPath + "volumes/dragon.vdb";
+        std::string vdbPath = mediaDirectoryPath + "volumes/fluid_data_0135.vdb";
         m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
                                             offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
                                             offscreenRenderer->getLightInfoBuffers(),

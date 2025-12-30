@@ -85,7 +85,9 @@ void Volume::loadModel(star::core::device::DeviceContext &context, const std::st
 {
     if (!star::file_helpers::FileExists(filePath))
     {
-        throw std::runtime_error("Provided file does not exist" + filePath);
+        std::ostringstream oss; 
+        oss << "VDB File does not exist: " << filePath << std::endl;
+        STAR_THROW(oss.str());
     }
 
     openvdb::initialize();

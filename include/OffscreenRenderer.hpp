@@ -10,7 +10,10 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
                       std::shared_ptr<std::vector<star::Light>> lights, std::shared_ptr<star::StarCamera> camera);
 
     OffscreenRenderer(OffscreenRenderer &&other) = default;
+    OffscreenRenderer(const OffscreenRenderer &) = delete;
     OffscreenRenderer &operator=(OffscreenRenderer &&other) = default;
+    OffscreenRenderer &operator=(const OffscreenRenderer &) = delete;
+    virtual ~OffscreenRenderer() = default;
 
     virtual void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                                      const uint64_t &frameIndex) override;

@@ -1,7 +1,7 @@
 #include "Terrain.hpp"
 
-#include "ConfigFile.hpp"
-#include "FileHelpers.hpp"
+#include <starlight/common/ConfigFile.hpp>
+#include <starlight/common/helpers/FileHelpers.hpp>
 #include "TerrainGrid.hpp"
 
 std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
@@ -13,7 +13,7 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
         star::Shader_Stage::vertex, star::StarShader(vertShaderPath, star::Shader_Stage::vertex)));
 
     std::string fragShaderPath =
-        star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "/shaders/basicTexture/basicTexture.frag";
+        star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "/shaders/default.frag";
     shaders.insert(std::pair<star::Shader_Stage, star::StarShader>(
         star::Shader_Stage::fragment, star::StarShader(fragShaderPath, star::Shader_Stage::fragment)));
 

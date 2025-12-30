@@ -289,11 +289,15 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     const auto vdbSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
+    //need to find a way to tell what type the volume is...
+    //dragon is level set 
+
+    //fog sim is fog
     this->vdbInfoSDF = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(vdbSemaphore)->semaphore,
         std::make_unique<VDBTransfer>(
             context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
-            std::make_unique<LevelSetData>(m_vdbFilePath, openvdb::GridClass::GRID_LEVEL_SET)),
+            std::make_unique<FogData>(m_vdbFilePath, openvdb::GridClass::GRID_LEVEL_SET)),
         nullptr, true);
     const auto vdbFogSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
@@ -302,7 +306,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
         context.getDeviceID(), context.getSemaphoreManager().get(vdbFogSemaphore)->semaphore,
         std::make_unique<VDBTransfer>(
             context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
-            std::make_unique<LevelSetData>(m_vdbFilePath, openvdb::GridClass::GRID_FOG_VOLUME)),
+            std::make_unique<FogData>(m_vdbFilePath, openvdb::GridClass::GRID_FOG_VOLUME)),
         nullptr, true);
 
     const auto randomSemaphore =
