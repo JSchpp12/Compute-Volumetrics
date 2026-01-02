@@ -15,7 +15,7 @@ int HeadlessMode::run()
     using exit = star::policy::EngineExitAfterNumberOfFrames;
 
     Application application;
-    auto engine = star::StarEngine<init, loop, exit>(init{}, loop{}, exit{10000}, application);
+    auto engine = star::StarEngine<init, loop, exit>(init{}, loop{}, exit{8000}, application);
     engine.run();
 
     return 0;

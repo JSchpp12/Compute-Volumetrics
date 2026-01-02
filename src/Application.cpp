@@ -2,15 +2,14 @@
 
 #include "Terrain.hpp"
 
-#include <starlight/common/ConfigFile.hpp>
-#include <starlight/common/objects/BasicObject.hpp>
-#include <starlight/virtual/StarCamera.hpp>
-#include <starlight/core/renderer/HeadlessRenderer.hpp>
-
-#include "HeadlessMainRenderer.hpp"
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
 #include "OffscreenRenderer.hpp"
-#include "core/logging/LoggingFactory.hpp"
+#include <starlight/common/ConfigFile.hpp>
+#include <starlight/common/objects/BasicObject.hpp>
+#include <starlight/core/logging/LoggingFactory.hpp>
+#include <starlight/core/renderer/HeadlessRenderer.hpp>
+#include <starlight/event/RegisterMainGraphicsRenderer.hpp>
+#include <starlight/virtual/StarCamera.hpp>
 
 #include <sstream>
 #include <string>
@@ -28,12 +27,12 @@ OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &con
     terrain->createInstance();
     std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
 
-    // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    // auto horse = std::make_shared<star::BasicObject>(horsePath);
-    // auto h_i = horse->createInstance();
-    // h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
-    // horse->init(context);
-    // std::vector<std::shared_ptr<star::StarObject>> objects{horse};
+     //auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+     //auto horse = std::make_shared<star::BasicObject>(horsePath);
+     //auto h_i = horse->createInstance();
+     //h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
+     //horse->init(context);
+     //std::vector<std::shared_ptr<star::StarObject>> objects{horse};
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
@@ -123,14 +122,18 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
         auto &s_i = m_volume->createInstance();
         s_i.setPosition(camPos);
-        s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
+        s_i.setScale(glm::vec3{3.0f, 3.0f, 3.0f});
         s_i.rotateRelative(star::Type::Axis::y, 90);
 
         std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
         std::vector<star::common::Renderer> additionals;
         additionals.emplace_back(std::move(oRenderer));
 
-        star::common::Renderer sc{OffscreenRenderer{context, numFramesInFlight, objects, m_mainLight, camera}};
+        star::common::Renderer sc{
+            star::core::renderer::HeadlessRenderer{context, numFramesInFlight, objects, m_mainLight, camera}};
+
+        auto *renderer = sc.getRaw<star::core::renderer::HeadlessRenderer>();
+        context.getEventBus().emit(star::event::RegisterMainGraphicsRenderer{renderer});
         m_mainScene = std::make_shared<star::StarScene>(std::move(camera), std::move(sc), std::move(additionals));
     }
 

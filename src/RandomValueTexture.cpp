@@ -6,7 +6,7 @@ std::unique_ptr<std::vector<float>> RandomValueTexture::loadTexture(const uint32
 {
     std::random_device rDevice; 
     std::mt19937 gen(rDevice()); 
-    std::uniform_real_distribution<float> dist(0.0f, 1.0f); 
+    std::uniform_real_distribution<float> dist(0.0f, 0.5f); 
 
     auto data = std::make_unique<std::vector<float>>(width * height);
 

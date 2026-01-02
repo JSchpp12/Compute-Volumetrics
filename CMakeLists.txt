@@ -61,7 +61,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/InteractiveMode.cpp"
 	"src/HeadlessMode.cpp"
 	"src/InteractiveApplication.cpp"
-	"src/HeadlessMainRenderer.cpp"
+	"src/VDBTransferFactory.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -94,7 +94,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/InteractiveMode.hpp"
 	"include/HeadlessMode.hpp"
 	"include/InteractiveApplication.hpp"
-	"include/HeadlessMainRenderer.hpp"
+	"include/VDBTransferFactory.hpp"
 )
 
 set(${PROJECT_NAME}_INCLUDE_DIRS

@@ -3,13 +3,13 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "Terrain.hpp"
+#include <star_windowing/BasicCamera.hpp>
 #include <star_windowing/InteractivityBus.hpp>
 #include <star_windowing/SwapChainRenderer.hpp>
 #include <star_windowing/event/RequestSwapChainFromService.hpp>
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/objects/BasicObject.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
-#include <star_windowing/BasicCamera.hpp>
 
 OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
                                           std::shared_ptr<star::windowing::BasicCamera> camera,
@@ -341,8 +341,8 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
     auto *render = m_mainScene->getPrimaryRenderer().getRaw<star::windowing::SwapChainRenderer>();
     auto targetTexture = context.getImageManager().get(render->getRenderToColorImages()[index])->texture;
 
-    context.getEventBus().emit(star::event::TriggerScreenshot{std::move(targetTexture), render->getCommandBuffer(),
-                                                              m_screenshotRegistrations[index], oss.str()});
+    context.getEventBus().emit(star::event::TriggerScreenshot{
+        std::move(targetTexture), oss.str(), render->getCommandBuffer(), m_screenshotRegistrations[index]});
 }
 
 #endif

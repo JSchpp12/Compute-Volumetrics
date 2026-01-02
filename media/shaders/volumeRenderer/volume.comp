@@ -132,7 +132,7 @@ float applyHenyeyGreensteinPhase(const float cosTheta, const float g){
 
 vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
                   const mat4 inverseModelMatrix, const float volumeUniformScale, float sigmaAbsorption, float sigmaScattering, float lightPropertyDir_g,
-                  float mainStepSize, float lightStepSize, const float cutOffDistance, const float jitterAmount)
+                  float mainStepSize, float lightStepSize, const float cutOffDistance, const float jitterAmount, const float defaultDensity)
 { 
     pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
     pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
@@ -142,7 +142,7 @@ vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
 
     // const float endDist = min(t1, cutOffDistance); 
     const int fittedNumSteps = max(1, int(ceil(t1 / mainStepSize)));
-    const float middleStepSizeDist = mainStepSize / 2.0; 
+    const float middleStepSizeDist = mainStepSize * 0.5; 
     const float sigmaT = sigmaAbsorption + sigmaScattering;
     const float jitter = jitterAmount * mainStepSize; 
     const float lJitter = jitterAmount * lightStepSize; 
@@ -156,14 +156,14 @@ vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
             break; 
 
 		const vec3 pos = ray.origin.xyz + (t * ray.direction.xyz); 
-        const float densityP = gridReadAt(grid, acc, type, pos);
+        // const float densityP = gridReadAt(grid, acc, type, pos);
+        const float densityP = defaultDensity;
         const float pTransmission = exp(-densityP * sigmaT * mainStepSize);
-        transmission *= pTransmission;
 
 		for (int j = 0; j < lightInfo.numLights; j++){
             //might need to check if light is within volume later
             const vec3 lightPos = (inverseModelMatrix * lightList.lights[j].position).xyz; 
-            const Ray rayToLight = createRay(pos, lightPos - pos);
+            const Ray rayToLight = createRay(pos, normalize(lightPos - pos));
 
             float lt0 = 0;
             float lt1 = 0;  
@@ -171,13 +171,13 @@ vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                 float lTau = 0.0;
 
                 const int fittedNumStepsLight = max(1, int(ceil(lt1 / lightStepSize)));
-                const float middleStepSizeDistLight = lightStepSize / 2.0;  
+                const float middleStepSizeDistLight = lightStepSize * 0.5;  
 
                 for (int k = 0; k < fittedNumStepsLight; k++){
                     const float lt = lt0 + (lightStepSize * k) + middleStepSizeDistLight + lJitter;
                     const vec3 lPos = pos + (lt * rayToLight.direction.xyz); 
-                    const float lDensity = gridReadAt(grid, acc, type, lPos); 
-
+                    // const float lDensity = gridReadAt(grid, acc, type, lPos); 
+                    const float lDensity = defaultDensity;
                     lTau += lDensity * sigmaT * lightStepSize;
                 } 
 
@@ -185,6 +185,7 @@ vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                 const float cosTheta = dot(-ray.direction.xyz, rayToLight.direction.xyz);
                 const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g); 
                 resultingRadiance += transmission * lightList.lights[j].ambient.rgb * lRayAttenuation * phase * sigmaScattering * densityP * mainStepSize; 
+                transmission *= pTransmission;
             }
 		} 
     }
@@ -231,7 +232,8 @@ void main()
             fogInfo.marchedFog_stepSizeDist,
             fogInfo.marchedFog_stepSizeDist_light,
             linearDepth,
-            randomValue
+            randomValue,
+            fogInfo.marchedFog_defaultDensity
         );
     }
 
