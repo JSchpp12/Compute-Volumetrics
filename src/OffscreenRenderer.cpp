@@ -10,7 +10,7 @@ OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context,
 {
 }
 
-void OffscreenRenderer::recordCommandBuffer(vk::CommandBuffer &commandBuffer,
+void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer,
                                             const star::common::FrameTracker &frameTracker, const uint64_t &frameIndex)
 {
     size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());

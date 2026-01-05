@@ -15,7 +15,7 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
     OffscreenRenderer &operator=(const OffscreenRenderer &) = delete;
     virtual ~OffscreenRenderer() = default;
 
-    virtual void recordCommandBuffer(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
+    virtual void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                                      const uint64_t &frameIndex) override;
 
     void prepRender(star::common::IDeviceContext &context) override;
