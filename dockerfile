@@ -9,7 +9,7 @@ RUN yum update -y && yum clean all \
     && yum install -y clang clang-tools-extra git git-lfs python3 python3-pip zip unzip autoconf autoconf-archive automake libtool pkg-config wget ninja-build bison flex \
     && yum clean all \ 
     && dnf config-manager --enable appstream \
-    && dnf install -y perl gcc-toolset-14-libatomic-devel glibc-devel libstdc++-devel \
+    && dnf install -y perl gcc-toolset-14-libatomic-devel glibc-devel libstdc++-devel gdb vulkan-loader \
     && dnf clean all \ 
     && python3 -m pip install --no-cache-dir pillow rasterio beautifulsoup4 shapely rtree pyproj
 
@@ -23,8 +23,8 @@ RUN set -eux \
 #vulkan SDK
 # Install Vulkan SDK 1.4.313.0 (Linux tarball from LunarG)
 ARG VULKAN_SDK_VERSION=1.4.313.0
-ENV VULKAN_SDK=/opt/VulkanSDK/${VULKAN_SDK_VERSION}
-ENV VULKAN_SDK_ROOT=${VULKAN_SDK}
+ENV VULKAN_SDK_ROOT=/opt/VulkanSDK/${VULKAN_SDK_VERSION}
+ENV VULKAN_SDK=${VULKAN_SDK_ROOT}/x86_64
 RUN set -eux \
     && mkdir -p /opt/VulkanSDK \
     && cd /opt/VulkanSDK \
@@ -32,10 +32,10 @@ RUN set -eux \
          https://sdk.lunarg.com/sdk/download/${VULKAN_SDK_VERSION}/linux/vulkansdk-linux-x86_64-${VULKAN_SDK_VERSION}.tar.xz \
     && tar -xf vulkansdk-linux-x86_64-${VULKAN_SDK_VERSION}.tar.xz \
     && rm vulkansdk-linux-x86_64-${VULKAN_SDK_VERSION}.tar.xz \
-    && chmod +x ${VULKAN_SDK}/setup-env.sh \
+    && chmod +x ${VULKAN_SDK_ROOT}/setup-env.sh \
     # Ensure the unversioned libvulkan.so exists for CMake's FindVulkan
-    && if [ -f "${VULKAN_SDK}/x86_64/lib/libvulkan.so.1" ] && [ ! -f "${VULKAN_SDK}/x86_64/lib/libvulkan.so" ]; then \
-         ln -s libvulkan.so.1 ${VULKAN_SDK}/x86_64/lib/libvulkan.so ; \
+    && if [ -f "${VULKAN_SDK_ROOT}/x86_64/lib/libvulkan.so.1" ] && [ ! -f "${VULKAN_SDK_ROOT}/x86_64/lib/libvulkan.so" ]; then \
+         ln -s libvulkan.so.1 ${VULKAN_SDK_ROOT}/x86_64/lib/libvulkan.so ; \
        fi
 
 #cuda
@@ -46,3 +46,8 @@ RUN set -eux \
     && dnf -y install cuda-toolkit \
     && echo 'export PATH=/usr/local/cuda/bin:$PATH' >> /etc/profile.d/cuda.sh \
     && echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}' >> /etc/profile.d/cuda.sh
+
+ENV VK_ADD_LAYER_PATH=$VULKAN_SDK/share/vulkan/explicit_layer.d${VK_ADD_LAYER_PATH:+:$VK_ADD_LAYER_PATH}
+ENV PATH=$VULKAN_SDK/bin:${PATH}
+ENV VK_ADD_LAYER_PATH=$VULKAN_SDK/share/vulkan/explicit_layer.d${VK_ADD_LAYER_PATH:+:$VK_ADD_LAYER_PATH}
+ENV LD_LIBRARY_PATH=$VULKAN_SDK/lib:${LD_LIBRARY_PATH}
