@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.26)
 
+include(GNUInstallDirs)
+
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
@@ -150,6 +152,18 @@ else()
 
 endif()
 
+if (NOT ${HEADLESS})
+    target_compile_definitions(${PROJECT_NAME} PRIVATE STAR_ENABLE_PRESENTATION "NANOVDB_USE_OPENVDB")
+	message("STAR - Enabling Presentation")
+else()
+	target_compile_definitions(${PROJECT_NAME} PRIVATE "NANOVDB_USE_OPENVDB")
+	message("STAR - Disable Presentation")
+endif()
+
+if (NOT ${HEADLESS})
+    target_compile_definitions(${PROJECT_NAME} PRIVATE STAR_ENABLE_PRESENTATION)
+endif()
+
 set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/StarlightAppBuilder/")
 set(PREP_MEDIA_CMD "${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py")
 set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
@@ -244,14 +258,21 @@ add_custom_target(format_cpp_files
     DEPENDS ${FORMAT_STAMP}
 )
 
-if (NOT ${HEADLESS})
-    target_compile_definitions(${PROJECT_NAME} PRIVATE STAR_ENABLE_PRESENTATION "NANOVDB_USE_OPENVDB")
-	message("STAR - Enabling Presentation")
-else()
-	target_compile_definitions(${PROJECT_NAME} PRIVATE "NANOVDB_USE_OPENVDB")
-	message("STAR - Disable Presentation")
-endif()
+#install
+install(TARGETS ${PROJECT_NAME}
+	RUNTIME DESTINATION .
+)
 
-if (NOT ${HEADLESS})
-    target_compile_definitions(${PROJECT_NAME} PRIVATE STAR_ENABLE_PRESENTATION)
-endif()
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/media
+	DESTINATION media
+)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/StarEngine.cfg
+	DESTINATION .
+)
+
+
+# CPack metadata
+set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+set(CPACK_PACKAGE_VERSION "1.0.0")
+include(CPack)
