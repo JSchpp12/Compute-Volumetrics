@@ -4,7 +4,7 @@
 
   "build": {
     "context": "..",
-    "dockerfile": "../dockerfile"
+    "dockerfile": "../dist/deps/rockyLinux_dockerfile"
   },
 
   "hostRequirements": {
@@ -25,7 +25,8 @@
       "extensions": [
         "ms-vscode.cpptools-extension-pack",
         "ms-vscode.cmake-tools",
-        "donjayamanne.python-extension-pack"
+        "donjayamanne.python-extension-pack",
+        "ms-azuretools.vscode-containers"
       ]
     }
   }
