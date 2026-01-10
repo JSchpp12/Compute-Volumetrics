@@ -6,5 +6,4 @@ if [[ -z "$VCPKG_ROOT" ]]; then
   exit 1
 fi
 
-cd ${VCPKG_ROOT}
-./vcpkg install glfw
+"$VCPKG_ROOT/vcpkg" install glfw3

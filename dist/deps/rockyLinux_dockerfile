@@ -50,3 +50,13 @@ ENV VK_ADD_LAYER_PATH=$VULKAN_SDK/share/vulkan/explicit_layer.d${VK_ADD_LAYER_PA
 ENV PATH=$VULKAN_SDK/bin:${PATH}
 ENV VK_ADD_LAYER_PATH=$VULKAN_SDK/share/vulkan/explicit_layer.d${VK_ADD_LAYER_PATH:+:$VK_ADD_LAYER_PATH}
 ENV LD_LIBRARY_PATH=$VULKAN_SDK/lib:${LD_LIBRARY_PATH}
+
+WORKDIR /vcpkg_working
+ENV VCPKG_ROOT=/vcpkg_working
+
+RUN git clone https://github.com/microsoft/vcpkg.git . \ 
+    && /bin/bash /vcpkg_working/bootstrap-vcpkg.sh 
+
+COPY scripts/install_deps_vcpkg.sh /tmp/install_deps_vcpkg.sh
+RUN chmod +x /tmp/install_deps_vcpkg.sh \ 
+    && /bin/bash /tmp/install_deps_vcpkg.sh

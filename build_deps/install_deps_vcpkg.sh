@@ -1,1 +1,0 @@
-../extern/vcpkg/vcpkg install abseil nlohmann-json stb blosc glm vulkan-memory-allocator tbb basisu tinyobjloader boost-thread boost-lockfree boost-container boost-filesystem boost-log ktx[vulkan] gdal[png,geos] openvdb[nanovdb,nanovdb-tools]
