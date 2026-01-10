@@ -1,7 +1,8 @@
-#!/bin/bash 
-set -e
+#!/bin/bash
+# Resolve script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PARENT_DIR="$(dirname "$SCRIPT_DIR")"
+# Project root assumed two levels up from this script; adjust if needed
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 mkdir -p dist/docker_working
 cd dist/docker_working
@@ -15,7 +16,6 @@ cd ../../extern/StarlightAppBuilder
 /bin/bash ./init.sh
 
 cd ../../dist
-
 export VCPKG_ROOT="${SCRIPT_DIR}/../../docker_working/vcpkg"
 /bin/bash ./deps/scripts/install_deps_vcpkg.sh
 
