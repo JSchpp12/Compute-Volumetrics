@@ -15,7 +15,7 @@ echo Parent directory: "%PARENT_DIR%"
 
 REM Build Docker image
 pushd deps
-@REM docker build -f rockyLinux_dockerfile -t starlight:rockyLinux .
+docker build -f rockyLinux_dockerfile -t starlight:rockyLinux .
 popd
 
 REM Run container
