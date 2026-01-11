@@ -15,7 +15,7 @@ cd docker_working
 echo "USING $VCPKG_ROOT"
 cmake -S ../../ -B ./build -G Ninja -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DHEADLESS=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_EXE_LINKER_FLAGS=-latomic -DCPACK_GENERATOR=TGZ
 cd build
-cmake --build . --target prepare_media
-cmake --build . --target package --config Release
+cmake --build . --config Release
+cpack .
 
 #then export out the package
