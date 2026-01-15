@@ -16,3 +16,6 @@
 [submodule "extern/Starlight-Windowing"]
 	path = extern/Starlight-Windowing
 	url = https://github.com/JSchpp12/Starlight-Windowing.git
+[submodule "extern/Volume-Sim"]
+	path = extern/Volume-Sim
+	url = https://github.com/JSchpp12/Volume-Sim.git
