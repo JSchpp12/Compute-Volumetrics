@@ -5,6 +5,7 @@
 #include "TransferRequest_IndicesInfo.hpp"
 #include "TransferRequest_VertInfo.hpp"
 #include <starlight/core/Exceptions.hpp>
+#include <starlight/core/helper/queue/QueueHelpers.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 
 Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
@@ -85,7 +86,7 @@ void Volume::loadModel(star::core::device::DeviceContext &context, const std::st
 {
     if (!star::file_helpers::FileExists(filePath))
     {
-        std::ostringstream oss; 
+        std::ostringstream oss;
         oss << "VDB File does not exist: " << filePath << std::endl;
         STAR_THROW(oss.str());
     }
@@ -352,16 +353,14 @@ std::vector<std::unique_ptr<star::StarMesh>> Volume::loadMeshes(star::core::devi
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
     star::Handle vertBuffer = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(vertSemaphore)->semaphore,
-        std::make_unique<star::TransferRequest::VertInfo>(
-            context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex(), verts));
+        std::make_unique<star::TransferRequest::VertInfo>(this->graphicsQueueFamily, verts));
 
     const auto indSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     star::Handle indBuffer = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(indSemaphore)->semaphore,
-        std::make_unique<star::TransferRequest::IndicesInfo>(
-            context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex(), inds));
+        std::make_unique<star::TransferRequest::IndicesInfo>(this->graphicsQueueFamily, inds));
 
     newMeshes.emplace_back(std::make_unique<star::StarMesh>(vertBuffer, indBuffer, verts, inds, m_meshMaterials.at(0),
                                                             this->aabbBounds[0], this->aabbBounds[1], false));
@@ -387,8 +386,26 @@ openvdb::Mat4R Volume::getTransform(const glm::mat4 &objectDisplayMat)
 void Volume::RecordQueueFamilyInfo(star::core::device::DeviceContext &device, uint32_t &computeQueueFamilyIndex,
                                    uint32_t &graphicsQueueFamilyIndex)
 {
-    computeQueueFamilyIndex =
-        device.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
-    graphicsQueueFamilyIndex =
-        device.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex();
+    {
+        const auto *cQueue = star::core::helper::GetEngineDefaultQueue(
+            device.getEventBus(), device.getGraphicsManagers().queueManager, star::Queue_Type::Tcompute);
+        if (cQueue == nullptr)
+        {
+            STAR_THROW("Failed to acquire default compute queue from context");
+        }
+
+        computeQueueFamilyIndex = cQueue->getParentQueueFamilyIndex();
+    }
+
+    {
+        const auto *gQueue = star::core::helper::GetEngineDefaultQueue(
+            device.getEventBus(), device.getGraphicsManagers().queueManager, star::Queue_Type::Tgraphics);
+
+        if (gQueue == nullptr)
+        {
+            STAR_THROW("Failed to acquire default graphics queue from context");
+        }
+
+        graphicsQueueFamilyIndex = gQueue->getParentQueueFamilyIndex();
+    }
 }

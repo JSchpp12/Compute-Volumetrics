@@ -1,21 +1,19 @@
 #include "TerrainChunk.hpp"
 
-#include <glm/gtc/matrix_transform.hpp>
-
 #include "ConfigFile.hpp"
 #include "FileHelpers.hpp"
-#include "ManagerController_RenderResource_IndicesInfo.hpp"
-#include "ManagerController_RenderResource_TextureFile.hpp"
-#include "ManagerController_RenderResource_VertInfo.hpp"
-#include "TransferRequest_VertInfo.hpp"
-#include "TransferRequest_IndicesInfo.hpp"
 #include "ManagerRenderResource.hpp"
 #include "MathHelpers.hpp"
 #include "TextureMaterial.hpp"
+#include "TransferRequest_IndicesInfo.hpp"
+#include "TransferRequest_VertInfo.hpp"
 #include "Vertex.hpp"
+
 #define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
-#include <stdexcept>
+#include <starlight/core/Exceptions.hpp>
+#include <starlight/core/helper/queue/QueueHelpers.hpp>
 
 TerrainChunk::TerrainChunk(const std::string &fullHeightFile, const std::string &nTextureFile,
                            const glm::dvec2 &northEast, const glm::dvec2 &southEast, const glm::dvec2 &southWest,
@@ -37,7 +35,7 @@ double TerrainChunk::getCenterHeightFromGDAL(const std::string &geoTiff, const g
 
     if (dataset == NULL)
     {
-        throw std::runtime_error("Failed to create dataset");
+        STAR_THROW("Failed to create dataset");
     }
 
     float *line = nullptr;
@@ -68,7 +66,10 @@ void TerrainChunk::load()
 std::unique_ptr<star::StarMesh> TerrainChunk::getMesh(star::core::device::DeviceContext &context,
                                                       std::shared_ptr<star::StarMaterial> myMaterial)
 {
-    const auto graphicsIndex = context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex(); 
+    const auto &graphicsIndex =
+        star::core::helper::GetEngineDefaultQueue(context.getEventBus(), context.getGraphicsManagers().queueManager,
+                                                  star::Queue_Type::Tgraphics)
+            ->getParentQueueFamilyIndex();
 
     const auto vertSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
@@ -312,7 +313,7 @@ TerrainChunk::TerrainDataset::~TerrainDataset()
     }
     catch (const std::exception &ex)
     {
-        std::cerr << "Memory leak found" << std::endl;
+        STAR_THROW("Memory leak found");
     }
 }
 
@@ -331,7 +332,7 @@ TerrainChunk::TerrainDataset::TerrainDataset(const std::string &path, const glm:
     GDALDataset *dataset = (GDALDataset *)GDALOpen(path.c_str(), GA_ReadOnly);
     if (dataset == NULL)
     {
-        throw std::runtime_error("Failed to create dataset");
+        STAR_THROW("Failed to create dataset");
     }
 
     initTransforms(dataset);
@@ -366,7 +367,7 @@ void TerrainChunk::TerrainDataset::initTransforms(GDALDataset *dataset)
 {
     if (GDALGetGeoTransform(dataset, this->geoTransforms) != CPLE_None)
     {
-        throw std::runtime_error("Failed to obtain proper geotransform");
+        STAR_THROW("Failed to obtain proper geotransform");
     }
 }
 
@@ -404,5 +405,7 @@ void TerrainChunk::TerrainDataset::initGDALBuffer(GDALDataset *dataset)
         this->pixSize.x + (2 * this->pixBorderSize), this->pixSize.y + (2 * this->pixBorderSize), GDT_Float32, 0, 0);
 
     if (error != CE_None)
-        throw std::runtime_error("Failed to read raster band");
+    {
+        STAR_THROW("Failed to read raster band");
+    }
 }

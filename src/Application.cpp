@@ -21,6 +21,7 @@ OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &con
                                           std::shared_ptr<std::vector<star::Light>> mainLight)
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
+
     auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
     auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
     terrain->init(context);
@@ -29,7 +30,7 @@ OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &con
 
      //auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
      //auto horse = std::make_shared<star::BasicObject>(horsePath);
-     //auto h_i = horse->createInstance();
+     //auto &h_i = horse->createInstance();
      //h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
      //horse->init(context);
      //std::vector<std::shared_ptr<star::StarObject>> objects{horse};

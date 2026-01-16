@@ -6,6 +6,7 @@
 #include "FogInfo.hpp"
 #include "GeometryHelpers.hpp"
 #include "Light.hpp"
+#include "OffscreenRenderer.hpp"
 #include "Ray.hpp"
 #include "RuntimeUpdateTexture.hpp"
 #include "ScreenMaterial.hpp"
@@ -15,7 +16,6 @@
 #include "VertColorMaterial.hpp"
 #include "Vertex.hpp"
 #include "VolumeRenderer.hpp"
-#include "OffscreenRenderer.hpp"
 
 #include <openvdb/Grid.h>
 #include <openvdb/openvdb.h>
@@ -105,15 +105,16 @@ class Volume : public star::StarObject
                             const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder,
                             star::Handle sharedPipeline) override;
 
-    void init(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight); 
-    
+    void init(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight);
+
     virtual void init(star::core::device::DeviceContext &context) override;
-    
+
     virtual void cleanupRender(star::core::device::DeviceContext &context) override;
 
     virtual bool isRenderReady(star::core::device::DeviceContext &context) override;
 
-    virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex, const uint64_t &frameIndex) override;
+    virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
+                                             const uint64_t &frameIndex) override;
 
     virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
 
@@ -146,13 +147,11 @@ class Volume : public star::StarObject
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
     void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-           std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
-           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList);
+                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
+                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
+                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList);
 
     void loadModel(star::core::device::DeviceContext &context, const std::string &filePath);
-
-    void loadGeometry(star::core::device::DeviceContext &context);
 
     void convertToFog(openvdb::FloatGrid::Ptr &grid);
 
@@ -191,7 +190,7 @@ class Volume : public star::StarObject
             return star::Ray{origin, normDir};
         }
     };
-    
+
     static float calcExp(const float &stepSize, const float &sigma);
 
     static float henyeyGreensteinPhase(const glm::vec3 &viewDirection, const glm::vec3 &lightDirection,

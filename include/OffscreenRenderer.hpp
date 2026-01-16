@@ -16,7 +16,7 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
     virtual ~OffscreenRenderer() = default;
 
     virtual void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
-                                     const uint64_t &frameIndex) override;
+                                const uint64_t &frameIndex) override;
 
     void prepRender(star::common::IDeviceContext &context) override;
 
@@ -25,10 +25,10 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
     virtual vk::Format getDepthAttachmentFormat(star::core::device::DeviceContext &device) const override;
 
   private:
-    std::unique_ptr<uint32_t> graphicsQueueFamilyIndex, computeQueueFamilyIndex;
-    bool isFirstPass = true;
+    uint32_t graphicsQueueFamilyIndex = 0;
+    uint32_t computeQueueFamilyIndex = 0;
     uint32_t firstFramePassCounter = 0;
-
+    bool isFirstPass = true;
     std::vector<std::shared_ptr<star::StarBuffers::Buffer>> depthInfoStorageBuffers;
 
     std::vector<star::StarTextures::Texture> createRenderToImages(star::core::device::DeviceContext &device,

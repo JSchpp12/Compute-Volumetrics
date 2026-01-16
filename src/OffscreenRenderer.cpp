@@ -2,6 +2,9 @@
 
 #include "Allocator.hpp"
 
+#include <starlight/core/helper/command_buffer/CommandBufferHelpers.hpp>
+#include <starlight/core/helper/queue/QueueHelpers.hpp>
+
 OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
                                      std::vector<std::shared_ptr<star::StarObject>> objects,
                                      std::shared_ptr<std::vector<star::Light>> lights,
@@ -10,8 +13,8 @@ OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context,
 {
 }
 
-void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer,
-                                            const star::common::FrameTracker &frameTracker, const uint64_t &frameIndex)
+void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
+                                       const uint64_t &frameIndex)
 {
     size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
     star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderToImages[index]);
@@ -25,8 +28,8 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer,
             vk::ImageMemoryBarrier2()
                 .setOldLayout(vk::ImageLayout::eGeneral)
                 .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
-                .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
-                .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
+                .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
+                .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
                 .setImage(colorTex->getVulkanImage())
                 .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
                 .setSrcAccessMask(vk::AccessFlagBits2::eNone)
@@ -41,8 +44,8 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer,
             vk::ImageMemoryBarrier2()
                 .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                 .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-                .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
-                .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
+                .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
+                .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
                 .setImage(depthTex->getVulkanImage())
                 .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
                 .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
@@ -67,10 +70,8 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer,
 
     {
         // dynamic rendering used...so dont need all that extra stuff
-        vk::RenderingAttachmentInfo colorAttachmentInfo =
-            prepareDynamicRenderingInfoColorAttachment(frameTracker);
-        vk::RenderingAttachmentInfo depthAttachmentInfo =
-            prepareDynamicRenderingInfoDepthAttachment(frameTracker);
+        vk::RenderingAttachmentInfo colorAttachmentInfo = prepareDynamicRenderingInfoColorAttachment(frameTracker);
+        vk::RenderingAttachmentInfo depthAttachmentInfo = prepareDynamicRenderingInfoDepthAttachment(frameTracker);
 
         auto renderArea = vk::Rect2D{vk::Offset2D{}, m_renderingContext.targetResolution};
         vk::RenderingInfoKHR renderInfo{};
@@ -94,8 +95,8 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer,
                 .setImage(colorTex->getVulkanImage())
                 .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
                 .setNewLayout(vk::ImageLayout::eGeneral)
-                .setSrcQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
-                .setDstQueueFamilyIndex(*this->computeQueueFamilyIndex)
+                .setSrcQueueFamilyIndex(this->graphicsQueueFamilyIndex)
+                .setDstQueueFamilyIndex(this->computeQueueFamilyIndex)
                 .setSrcStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
                 .setSrcAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
                 .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
@@ -110,8 +111,8 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer,
                 .setImage(depthTex->getVulkanImage())
                 .setOldLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
                 .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setSrcQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
-                .setDstQueueFamilyIndex(*this->computeQueueFamilyIndex)
+                .setSrcQueueFamilyIndex(this->graphicsQueueFamilyIndex)
+                .setDstQueueFamilyIndex(this->computeQueueFamilyIndex)
                 .setSrcStageMask(vk::PipelineStageFlagBits2::eLateFragmentTests |
                                  vk::PipelineStageFlagBits2::eEarlyFragmentTests)
                 .setSrcAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
@@ -198,11 +199,17 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages
     //     );
     // }
 
+    auto *queue = star::core::helper::GetEngineDefaultQueue(
+        device.getEventBus(), device.getGraphicsManagers().queueManager, star::Queue_Type::Tgraphics);
+    assert(queue != nullptr);
+
     for (int i = 0; i < numFramesInFlight; i++)
     {
         newRenderToImages.emplace_back(builder.build());
 
-        auto oneTimeSetup = device.getDevice().beginSingleTimeCommands();
+        auto oneTimeSetup = star::core::helper::BeginSingleTimeCommands(
+            device.getDevice(), device.getEventBus(), device.getGraphicsManagers().commandPoolManager,
+            device.getManagerCommandBuffer().m_manager, star::Queue_Type::Tgraphics);
 
         vk::ImageMemoryBarrier barrier{};
         barrier.sType = vk::StructureType::eImageMemoryBarrier;
@@ -221,7 +228,7 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = 1;
 
-        oneTimeSetup->buffer().pipelineBarrier(
+        oneTimeSetup.buffer().pipelineBarrier(
             vk::PipelineStageFlagBits::eTopOfPipe,             // which pipeline stages should
                                                                // occurr before barrier
             vk::PipelineStageFlagBits::eColorAttachmentOutput, // pipeline stage in
@@ -229,7 +236,7 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages
                                                                // wait on the barrier
             {}, {}, nullptr, barrier);
 
-        device.getDevice().endSingleTimeCommands(std::move(oneTimeSetup));
+        star::core::helper::EndSingleTimeCommands(*queue, std::move(oneTimeSetup));
     }
 
     return newRenderToImages;
@@ -298,11 +305,17 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToDepthI
                                 .setMinLod(0.0f)
                                 .setMaxLod(0.0f));
 
+    auto *queue = star::core::helper::GetEngineDefaultQueue(
+        device.getEventBus(), device.getGraphicsManagers().queueManager, star::Queue_Type::Tgraphics);
+    assert(queue != nullptr);
+
     for (int i = 0; i < numFramesInFlight; i++)
     {
         newRenderToImages.emplace_back(builder.build());
 
-        auto oneTimeSetup = device.getDevice().beginSingleTimeCommands();
+        auto oneTimeSetup = star::core::helper::BeginSingleTimeCommands(
+            device.getDevice(), device.getEventBus(), device.getGraphicsManagers().commandPoolManager,
+            device.getManagerCommandBuffer().m_manager, star::Queue_Type::Tgraphics);
 
         vk::ImageMemoryBarrier barrier{};
         barrier.sType = vk::StructureType::eImageMemoryBarrier;
@@ -321,14 +334,14 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToDepthI
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = 1;
 
-        oneTimeSetup->buffer().pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, // which pipeline stages should
-                                                                                      // occurr before barrier
-                                               vk::PipelineStageFlagBits::eEarlyFragmentTests, // pipeline stage in
-                                                                                               // which operations will
-                                                                                               // wait on the barrier
-                                               {}, {}, nullptr, barrier);
+        oneTimeSetup.buffer().pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, // which pipeline stages should
+                                                                                     // occurr before barrier
+                                              vk::PipelineStageFlagBits::eEarlyFragmentTests, // pipeline stage in
+                                                                                              // which operations will
+                                                                                              // wait on the barrier
+                                              {}, {}, nullptr, barrier);
 
-        device.getDevice().endSingleTimeCommands(std::move(oneTimeSetup));
+        star::core::helper::EndSingleTimeCommands(*queue, std::move(oneTimeSetup));
     }
 
     return newRenderToImages;
@@ -346,24 +359,24 @@ star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::ge
         .recordOnce = false};
 }
 
-void OffscreenRenderer::prepRender(star::common::IDeviceContext &context)
+void OffscreenRenderer::prepRender(star::common::IDeviceContext &c)
 {
-    auto &c = static_cast<star::core::device::DeviceContext &>(context);
+    auto &context = static_cast<star::core::device::DeviceContext &>(c);
     {
-        this->graphicsQueueFamilyIndex = std::make_unique<uint32_t>(
-            c.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
-        const uint32_t computeQueueIndex =
-            c.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
+        this->graphicsQueueFamilyIndex =
+            star::core::helper::GetEngineDefaultQueue(context.getEventBus(), context.getGraphicsManagers().queueManager,
+                                                      star::Queue_Type::Tgraphics)
+                ->getParentQueueFamilyIndex();
 
-        if (*this->graphicsQueueFamilyIndex != computeQueueIndex)
-        {
-            this->computeQueueFamilyIndex = std::make_unique<uint32_t>(uint32_t(computeQueueIndex));
-        }
+        this->computeQueueFamilyIndex =
+            star::core::helper::GetEngineDefaultQueue(context.getEventBus(), context.getGraphicsManagers().queueManager,
+                                                      star::Queue_Type::Tcompute)
+                ->getParentQueueFamilyIndex();
     }
 
-    this->firstFramePassCounter = uint32_t(c.getFrameTracker().getSetup().getNumFramesInFlight());
+    this->firstFramePassCounter = uint32_t(context.getFrameTracker().getSetup().getNumFramesInFlight());
 
-    star::core::renderer::DefaultRenderer::prepRender(context);
+    star::core::renderer::DefaultRenderer::prepRender(c);
 }
 
 vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(

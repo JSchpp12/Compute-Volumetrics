@@ -14,6 +14,7 @@
 #include "event/EnginePhaseComplete.hpp"
 #include "wrappers/graphics/policies/CreateDescriptorsOnEventPolicy.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
+#include <starlight/core/helper/queue/QueueHelpers.hpp>
 
 #include <star_common/HandleTypeRegistry.hpp>
 
@@ -128,6 +129,8 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
     star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(
         m_offscreenRenderer->getRenderToDepthImages()[frameTracker.getCurrent().getFrameInFlightIndex()]);
 
+    const bool diffQueues = this->computeQueueFamilyIndex != this->graphicsQueueFamilyIndex;
+
     std::vector<vk::ImageMemoryBarrier2> prepareImages = std::vector<vk::ImageMemoryBarrier2>{
         vk::ImageMemoryBarrier2()
             .setImage(colorTex->getVulkanImage())
@@ -137,10 +140,8 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
             .setSrcAccessMask(vk::AccessFlagBits2::eNone)
             .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
             .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ? *this->graphicsQueueFamilyIndex
-                                                                             : vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ? *this->computeQueueFamilyIndex
-                                                                             : vk::QueueFamilyIgnored)
+            .setSrcQueueFamilyIndex(diffQueues ? this->graphicsQueueFamilyIndex : vk::QueueFamilyIgnored)
+            .setDstQueueFamilyIndex(diffQueues ? this->computeQueueFamilyIndex : vk::QueueFamilyIgnored)
             .setSubresourceRange(vk::ImageSubresourceRange()
                                      .setBaseMipLevel(0)
                                      .setLevelCount(1)
@@ -155,10 +156,8 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
             .setSrcAccessMask(vk::AccessFlagBits2::eNone)
             .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
             .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ? *this->graphicsQueueFamilyIndex
-                                                                             : vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(this->computeQueueFamilyIndex != nullptr ? *this->computeQueueFamilyIndex
-                                                                             : vk::QueueFamilyIgnored)
+            .setSrcQueueFamilyIndex(diffQueues ? this->graphicsQueueFamilyIndex : vk::QueueFamilyIgnored)
+            .setDstQueueFamilyIndex(diffQueues ? this->computeQueueFamilyIndex : vk::QueueFamilyIgnored)
             .setSubresourceRange(vk::ImageSubresourceRange()
                                      .setBaseMipLevel(0)
                                      .setLevelCount(1)
@@ -195,8 +194,8 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
                     this->computeWriteToImages[frameTracker.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
                 .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                 .setNewLayout(vk::ImageLayout::eGeneral)
-                .setSrcQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
-                .setDstQueueFamilyIndex(*this->computeQueueFamilyIndex)
+                .setSrcQueueFamilyIndex(diffQueues ? this->graphicsQueueFamilyIndex : vk::QueueFamilyIgnored)
+                .setDstQueueFamilyIndex(diffQueues ? this->computeQueueFamilyIndex : vk::QueueFamilyIgnored)
                 .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
                 .setSrcAccessMask(vk::AccessFlagBits2::eNone)
                 .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
@@ -231,72 +230,85 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
     }
 
     // give render to image back to graphics queue
-    std::array<vk::ImageMemoryBarrier2, 3> backToGraphics{
-        vk::ImageMemoryBarrier2()
-            .setImage(colorTex->getVulkanImage())
-            .setOldLayout(vk::ImageLayout::eGeneral)
-            .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
-            .setDstAccessMask(vk::AccessFlagBits2::eNone)
-            .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
-            .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1)),
-        vk::ImageMemoryBarrier2()
-            .setImage(depthTex->getVulkanImage())
-            .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests |
-                             vk::PipelineStageFlagBits2::eLateFragmentTests)
-            .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentRead)
-            .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
-            .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eDepth)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1)),
-        vk::ImageMemoryBarrier2()
-            .setImage(this->computeWriteToImages[frameTracker.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
-            .setOldLayout(vk::ImageLayout::eGeneral)
-            .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
-            .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setSrcQueueFamilyIndex(*this->computeQueueFamilyIndex)
-            .setDstQueueFamilyIndex(*this->graphicsQueueFamilyIndex)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1))};
+    if (diffQueues)
+    {
+        std::array<vk::ImageMemoryBarrier2, 3> backToGraphics{
+            vk::ImageMemoryBarrier2()
+                .setImage(colorTex->getVulkanImage())
+                .setOldLayout(vk::ImageLayout::eGeneral)
+                .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+                .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
+                .setDstAccessMask(vk::AccessFlagBits2::eNone)
+                .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
+                .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
+                .setSubresourceRange(vk::ImageSubresourceRange()
+                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                         .setBaseMipLevel(0)
+                                         .setLevelCount(1)
+                                         .setBaseArrayLayer(0)
+                                         .setLayerCount(1)),
+            vk::ImageMemoryBarrier2()
+                .setImage(depthTex->getVulkanImage())
+                .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+                .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests |
+                                 vk::PipelineStageFlagBits2::eLateFragmentTests)
+                .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentRead)
+                .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
+                .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
+                .setSubresourceRange(vk::ImageSubresourceRange()
+                                         .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                         .setBaseMipLevel(0)
+                                         .setLevelCount(1)
+                                         .setBaseArrayLayer(0)
+                                         .setLayerCount(1)),
+            vk::ImageMemoryBarrier2()
+                .setImage(
+                    this->computeWriteToImages[frameTracker.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
+                .setOldLayout(vk::ImageLayout::eGeneral)
+                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+                .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
+                .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
+                .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
+                .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
+                .setSubresourceRange(vk::ImageSubresourceRange()
+                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                         .setBaseMipLevel(0)
+                                         .setLevelCount(1)
+                                         .setBaseArrayLayer(0)
+                                         .setLayerCount(1))};
 
-    auto deps = vk::DependencyInfo().setImageMemoryBarrierCount(3).setPImageMemoryBarriers(&backToGraphics.front());
-
-    commandBuffer.pipelineBarrier2(deps);
+        auto deps = vk::DependencyInfo().setImageMemoryBarrierCount(3).setPImageMemoryBarriers(&backToGraphics.front());
+        commandBuffer.pipelineBarrier2(deps);
+    }
 }
 
 void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &screensize,
                                 const uint8_t &numFramesInFlight)
 {
+    this->computeQueueFamilyIndex =
+        star::core::helper::GetEngineDefaultQueue(context.getEventBus(), context.getGraphicsManagers().queueManager,
+                                                  star::Queue_Type::Tcompute)
+            ->getParentQueueFamilyIndex();
+    {
+        this->graphicsQueueFamilyIndex =
+            star::core::helper::GetEngineDefaultQueue(context.getEventBus(), context.getGraphicsManagers().queueManager,
+                                                      star::Queue_Type::Tgraphics)
+                ->getParentQueueFamilyIndex();
+    }
     const auto camSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     this->cameraShaderInfo = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(camSemaphore)->semaphore,
         std::make_unique<CameraInfo>(
-            camera, context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
+            this->camera, computeQueueFamilyIndex,
             context.getDevice().getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment),
         nullptr, true);
 
@@ -310,17 +322,15 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     this->vdbInfoSDF = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(vdbSemaphore)->semaphore,
         std::make_unique<VDBTransfer>(
-            context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
-            std::make_unique<LevelSetData>(m_vdbFilePath, openvdb::GridClass::GRID_LEVEL_SET)),
+            computeQueueFamilyIndex, std::make_unique<LevelSetData>(m_vdbFilePath, openvdb::GridClass::GRID_LEVEL_SET)),
         nullptr, true);
     const auto vdbFogSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     this->vdbInfoFog = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(vdbFogSemaphore)->semaphore,
-        std::make_unique<VDBTransfer>(
-            context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
-            std::make_unique<LevelSetData>(m_vdbFilePath, openvdb::GridClass::GRID_FOG_VOLUME)),
+        std::make_unique<VDBTransfer>(computeQueueFamilyIndex, std::make_unique<LevelSetData>(
+                                                                   m_vdbFilePath, openvdb::GridClass::GRID_FOG_VOLUME)),
         nullptr, true);
 
     const auto randomSemaphore =
@@ -328,29 +338,17 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
     this->randomValueTexture = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(randomSemaphore)->semaphore,
-        std::make_unique<RandomValueTexture>(
-            screensize.width, screensize.height,
-            context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
-            context.getDevice().getPhysicalDevice().getProperties()));
+        std::make_unique<RandomValueTexture>(screensize.width, screensize.height, this->computeQueueFamilyIndex,
+                                             context.getDevice().getPhysicalDevice().getProperties()));
 
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
     {
-        const uint32_t computeIndex =
-            context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex();
-
-        this->graphicsQueueFamilyIndex = std::make_unique<uint32_t>(
-            context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex());
-        if (*this->graphicsQueueFamilyIndex != computeIndex)
+        std::vector<uint32_t> indices = {this->graphicsQueueFamilyIndex};
+        if (this->computeQueueFamilyIndex != this->graphicsQueueFamilyIndex)
         {
-            this->computeQueueFamilyIndex = std::make_unique<uint32_t>(uint32_t(computeIndex));
+            indices.push_back(this->computeQueueFamilyIndex);
         }
-    }
-
-    {
-        uint32_t indices[] = {
-            context.getDevice().getDefaultQueue(star::Queue_Type::Tcompute).getParentQueueFamilyIndex(),
-            context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex()};
 
         auto builder =
             star::StarTextures::Texture::Builder(context.getDevice().getVulkanDevice(),
@@ -420,9 +418,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
         this->aabbInfoBuffers.emplace_back(star::ManagerRenderResource::addRequest(
             context.getDeviceID(), context.getSemaphoreManager().get(aabbSemaphore)->semaphore,
-            std::make_unique<AABBTransfer>(
-                context.getDevice().getDefaultQueue(star::Queue_Type::Tgraphics).getParentQueueFamilyIndex(),
-                aabbBounds)));
+            std::make_unique<AABBTransfer>(this->graphicsQueueFamilyIndex, aabbBounds)));
 
         const auto fogShaderInfoSemaphore =
             context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));

@@ -34,14 +34,13 @@ class FogInfoController : public star::ManagerController::RenderResource::Buffer
 
     virtual ~FogInfoController() = default;
 
-    FogInfoController(std::shared_ptr<FogInfo> currentFogInfo)
-        : m_currentFogInfo(std::move(currentFogInfo))
+    FogInfoController(std::shared_ptr<FogInfo> currentFogInfo) : m_currentFogInfo(std::move(currentFogInfo))
     {
     }
 
     void prepRender(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight) override;
 
-    std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::core::device::StarDevice &device,
+    std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::core::device::DeviceContext &context,
                                                                          const uint8_t &frameInFlightIndex) override;
 
   protected:
