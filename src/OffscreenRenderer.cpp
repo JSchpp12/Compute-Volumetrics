@@ -207,9 +207,9 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages
     {
         newRenderToImages.emplace_back(builder.build());
 
-        auto oneTimeSetup = star::core::helper::BeginSingleTimeCommands(
-            device.getDevice(), device.getEventBus(), device.getGraphicsManagers().commandPoolManager,
-            device.getManagerCommandBuffer().m_manager, star::Queue_Type::Tgraphics);
+        auto oneTimeSetup = star::core::helper::BeginSingleTimeCommands(device.getDevice(), device.getEventBus(),
+                                                                        device.getManagerCommandBuffer().m_manager,
+                                                                        star::Queue_Type::Tgraphics);
 
         vk::ImageMemoryBarrier barrier{};
         barrier.sType = vk::StructureType::eImageMemoryBarrier;
@@ -313,9 +313,9 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToDepthI
     {
         newRenderToImages.emplace_back(builder.build());
 
-        auto oneTimeSetup = star::core::helper::BeginSingleTimeCommands(
-            device.getDevice(), device.getEventBus(), device.getGraphicsManagers().commandPoolManager,
-            device.getManagerCommandBuffer().m_manager, star::Queue_Type::Tgraphics);
+        auto oneTimeSetup = star::core::helper::BeginSingleTimeCommands(device.getDevice(), device.getEventBus(),
+                                                                        device.getManagerCommandBuffer().m_manager,
+                                                                        star::Queue_Type::Tgraphics);
 
         vk::ImageMemoryBarrier barrier{};
         barrier.sType = vk::StructureType::eImageMemoryBarrier;
