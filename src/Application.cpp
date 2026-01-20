@@ -1,17 +1,17 @@
 #include "Application.hpp"
 
-#include "Terrain.hpp"
-
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
 #include "OffscreenRenderer.hpp"
+#include "Terrain.hpp"
+
+#include <sstream>
+#include <starlight/command/SaveSceneState.hpp>
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/objects/BasicObject.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/core/renderer/HeadlessRenderer.hpp>
 #include <starlight/event/RegisterMainGraphicsRenderer.hpp>
 #include <starlight/virtual/StarCamera.hpp>
-
-#include <sstream>
 #include <string>
 
 using namespace star;
@@ -28,12 +28,12 @@ OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &con
     terrain->createInstance();
     std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
 
-     //auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-     //auto horse = std::make_shared<star::BasicObject>(horsePath);
-     //auto &h_i = horse->createInstance();
-     //h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
-     //horse->init(context);
-     //std::vector<std::shared_ptr<star::StarObject>> objects{horse};
+    // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    // auto horse = std::make_shared<star::BasicObject>(horsePath);
+    // auto &h_i = horse->createInstance();
+    // h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
+    // horse->init(context);
+    // std::vector<std::shared_ptr<star::StarObject>> objects{horse};
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
@@ -149,6 +149,12 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     m_volume->getFogControlInfo().linearInfo.farDist = 1000.0f;
     m_volume->getFogControlInfo().expFogInfo.density = 0.6f;
     return m_mainScene;
+}
+
+void Application::shutdown(star::core::device::DeviceContext &context)
+{
+    auto cmd = star::command::SaveSceneState();
+    context.begin().set(cmd).submit();
 }
 
 void Application::frameUpdate(star::core::SystemContext &context)

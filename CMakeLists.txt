@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.26)
 
-include(GNUInstallDirs)
-
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
 )
+
+set(BUILD_SHARED_LIBS ON)
 
 option(HEADLESS "Build without presentation support" OFF)
 
@@ -258,6 +258,7 @@ add_custom_target(format_cpp_files
     DEPENDS ${FORMAT_STAMP}
 )
 
+include(GNUInstallDirs)
 #install
 install(TARGETS ${PROJECT_NAME}
 	RUNTIME DESTINATION .

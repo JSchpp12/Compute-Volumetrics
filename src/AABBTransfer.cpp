@@ -52,7 +52,7 @@ void AABBTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) con
     buffer.map(&mapped);
 
     std::array<glm::vec4, 2> rawaabbBounds = this->aabbBounds;
-    for (int i = 0; i < 2; i++)
+    for (size_t i{0}; i < 2; i++)
     {
         buffer.writeToIndex(&rawaabbBounds[i], mapped, i);
     }

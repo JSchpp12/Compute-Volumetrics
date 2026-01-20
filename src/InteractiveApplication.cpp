@@ -3,10 +3,13 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "Terrain.hpp"
+
 #include <star_windowing/BasicCamera.hpp>
 #include <star_windowing/InteractivityBus.hpp>
 #include <star_windowing/SwapChainRenderer.hpp>
 #include <star_windowing/event/RequestSwapChainFromService.hpp>
+#include <starlight/command/CreateObject.hpp>
+#include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/objects/BasicObject.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
@@ -17,18 +20,23 @@ OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &con
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    //auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-    //auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
-    //terrain->init(context);
-    //terrain->createInstance();
-    //std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
+    // auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+    // auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
+    // terrain->init(context);
+    // terrain->createInstance();
+    // std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
 
-     auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-     auto horse = std::make_shared<star::BasicObject>(horsePath);
-     auto h_i = horse->createInstance();
-     h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
-     horse->init(context);
-     std::vector<std::shared_ptr<star::StarObject>> objects{horse};
+    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    auto cmd = star::command::CreateObject::Builder()
+                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+                   .setUniqueName("horse")
+                   .build();
+    context.begin().set(cmd).submit();
+
+    auto h_i = cmd.getReply().get()->createInstance();
+    h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
+    cmd.getReply().get()->init(context);
+    std::vector<std::shared_ptr<star::StarObject>> objects{cmd.getReply().get()};
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
