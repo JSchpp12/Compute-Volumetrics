@@ -5,7 +5,32 @@ project(compute_volumetrics
 	LANGUAGES C CXX
 )
 
-set(BUILD_SHARED_LIBS ON)
+option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
+option(STAR_ENABLE_WARNINGS "Enable Warnings" OFF)
+if (STAR_ENABLE_UBSAN)
+	message("STAR - Enable UBSAN")
+	if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+		add_compile_options(-fsanitize=undefined -fno-omit-frame-pointer)
+		add_link_options(-fsanitize=undefined -lubsan)
+	endif()
+endif()
+if (STAR_ENABLE_WARNINGS)
+	message("STAR - Enable WARNINGS")
+
+	if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+		add_compile_options(
+			-Wall
+			-Wextra
+			-Wpedantic
+			-Wconversion
+			-g
+		)
+	endif()
+
+	if (MSVC)
+		add_compile_options(/W4 /Zi)
+	endif()
+endif()
 
 option(HEADLESS "Build without presentation support" OFF)
 
@@ -129,16 +154,14 @@ if (WIN32)
 	endif()
 
 else()
-	find_package(Blosc CONFIG REQUIRED)
-
-	target_compile_options(${PROJECT_NAME} PRIVATE -frtti -fexceptions)
+	# add_link_options("-latomic")
 	if (HEADLESS)
 		target_link_libraries(${PROJECT_NAME}
 			PRIVATE 
 				Starlight::starlight
 				OpenVDB::openvdb
 				GDAL::GDAL
-				blosc_static
+				atomic
 		)
 	else()
 		target_link_libraries(${PROJECT_NAME}
@@ -146,10 +169,9 @@ else()
 				starlight_windowing
 				OpenVDB::openvdb
 				GDAL::GDAL
-				blosc_static
+				atomic
 		)
 	endif()
-
 endif()
 
 if (NOT ${HEADLESS})

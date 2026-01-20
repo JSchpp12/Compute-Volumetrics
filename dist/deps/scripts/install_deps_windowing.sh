@@ -6,4 +6,5 @@ if [[ -z "$VCPKG_ROOT" ]]; then
   exit 1
 fi
 
+export VCPKG_DEFAULT_TRIPLET=x64-linux-dynamic
 "$VCPKG_ROOT/vcpkg" install glfw3
