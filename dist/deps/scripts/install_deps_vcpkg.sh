@@ -7,5 +7,4 @@ if [[ -z "$VCPKG_ROOT" ]]; then
 fi
 
 export VCPKG_DEFAULT_TRIPLET=x64-linux-dynamic
-"$VCPKG_ROOT/vcpkg" install tbb usd openvdb[nanovdb,nanovdb-tools]
-"$VCPKG_ROOT/vcpkg" install abseil nlohmann-json stb blosc glm vulkan-memory-allocator basisu tinyobjloader boost-thread boost-lockfree boost-container boost-filesystem boost-log ktx[vulkan] gdal[png,geos]
+"$VCPKG_ROOT/vcpkg" install tbb usd openvdb[nanovdb,nanovdb-tools] abseil nlohmann-json stb blosc glm vulkan-memory-allocator basisu tinyobjloader boost-thread boost-lockfree boost-container boost-filesystem boost-log ktx[vulkan] gdal[png,geos]
