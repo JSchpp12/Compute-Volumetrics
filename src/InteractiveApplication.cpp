@@ -4,7 +4,6 @@
 
 #include "Terrain.hpp"
 
-#include <star_windowing/BasicCamera.hpp>
 #include <star_windowing/InteractivityBus.hpp>
 #include <star_windowing/SwapChainRenderer.hpp>
 #include <star_windowing/event/RequestSwapChainFromService.hpp>
@@ -14,9 +13,10 @@
 #include <starlight/common/objects/BasicObject.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
 
-OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
-                                          std::shared_ptr<star::windowing::BasicCamera> camera,
-                                          std::shared_ptr<std::vector<star::Light>> mainLight)
+OffscreenRenderer InteractiveApplication::createOffscreenRenderer(star::core::device::DeviceContext &context,
+                                                                  const uint8_t &numFramesInFlight,
+                                                                  std::shared_ptr<star::windowing::BasicCamera> camera,
+                                                                  std::shared_ptr<std::vector<star::Light>> mainLight)
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
@@ -33,8 +33,7 @@ OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &con
                    .build();
     context.begin().set(cmd).submit();
 
-    auto h_i = cmd.getReply().get()->createInstance();
-    h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
+    m_testObject = cmd.getReply().get();
     cmd.getReply().get()->init(context);
     std::vector<std::shared_ptr<star::StarObject>> objects{cmd.getReply().get()};
 
@@ -71,6 +70,21 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     if (key == GLFW_KEY_SPACE)
     {
         m_flipScreenshotState = true;
+    }
+
+    if (key == GLFW_KEY_T)
+    {
+        m_testObject->getInstance().rotateRelative(star::Type::Axis::x, 90);
+    }
+
+    if (key == GLFW_KEY_R)
+    {
+        m_testObject->getInstance().rotateRelative(star::Type::Axis::y, 35);
+    }
+
+    if (key == GLFW_KEY_U)
+    {
+        m_testObject->getInstance().moveRelative(glm::vec3{0.0, 1.0, 0.0});
     }
 
     const float MILES_TO_METERS = 1609.35;
@@ -281,7 +295,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     }
 
     {
-        auto oRenderer = star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight));
+        auto oRenderer = star::common::Renderer(createOffscreenRenderer(context, numInFlight, camera, m_mainLight));
         auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
         const uint32_t &width = context.getEngineResolution().width;

@@ -13,7 +13,7 @@ cd ../../dist
 
 cd docker_working
 echo "USING $VCPKG_ROOT"
-cmake -S ../../ -B ./build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DHEADLESS=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_EXE_LINKER_FLAGS=-latomic -DCPACK_GENERATOR=TGZ
+cmake -S ../../ -B ./build -G Ninja -DCMAKE_BUILD_TYPE=Release -DVCPKG_TARGET_TRIPLET=x64-linux-dynamic -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DHEADLESS=ON -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_EXE_LINKER_FLAGS=-latomic -DCPACK_GENERATOR=TGZ
 cd build
 cmake --build . --config Release
 cpack .
