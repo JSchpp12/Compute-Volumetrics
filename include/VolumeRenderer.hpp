@@ -4,21 +4,24 @@
 #include "FogControlInfo.hpp"
 #include "FogInfo.hpp"
 #include "ManagerController_RenderResource_Buffer.hpp"
+#include "OffscreenRenderer.hpp"
 #include "StarBuffers/Buffer.hpp"
 #include "StarCamera.hpp"
 #include "StarComputePipeline.hpp"
 #include "StarObjectInstance.hpp"
 #include "StarShaderInfo.hpp"
+#include "VolumeDirectoryProcessor.hpp"
 #include "VolumeRendererCreateDescriptorsPolicy.hpp"
 #include "core/renderer/RenderingContext.hpp"
-#include "OffscreenRenderer.hpp"
 
 #include <star_common/Handle.hpp>
 
+#include <vma/vk_mem_alloc.h>
+
+#include <vulkan/vulkan.hpp>
+
 #include <memory>
 #include <vector>
-#include <vma/vk_mem_alloc.h>
-#include <vulkan/vulkan.hpp>
 
 class VolumeRenderer
 {
@@ -37,9 +40,9 @@ class VolumeRenderer
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalLightList,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
-                   OffscreenRenderer *offscreenRenderer,
-                   std::string vdbFilePath, std::shared_ptr<FogInfo> fogControlInfo,
-                   const std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds);
+                   OffscreenRenderer *offscreenRenderer, std::string vdbFilePath,
+                   std::shared_ptr<FogInfo> fogControlInfo, const std::shared_ptr<star::StarCamera> camera,
+                   const std::array<glm::vec4, 2> &aabbBounds);
 
     void init(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight);
 
@@ -55,8 +58,9 @@ class VolumeRenderer
     void recordCommandBuffer(star::StarCommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                              const uint64_t &frameIndex);
 
-    void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker, const uint64_t &frameIndex);
-     
+    void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
+                        const uint64_t &frameIndex);
+
     std::vector<std::shared_ptr<star::StarTextures::Texture>> &getRenderToImages()
     {
         return this->computeWriteToImages;

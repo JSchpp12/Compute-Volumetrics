@@ -15,6 +15,7 @@
 #include "StarObject.hpp"
 #include "VertColorMaterial.hpp"
 #include "Vertex.hpp"
+#include "VolumeDirectoryProcessor.hpp"
 #include "VolumeRenderer.hpp"
 
 #include <openvdb/Grid.h>
@@ -23,13 +24,15 @@
 #include <openvdb/tools/Interpolation.h>
 #include <openvdb/tools/LevelSetSphere.h>
 #include <openvdb/tools/RayTracer.h>
-#include <stdio.h>
+
 #include <tbb/tbb.h>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/ext.hpp>
 #include <glm/gtx/string_cast.hpp>
+
 #include <random>
+#include <stdio.h>
 #include <string>
 #include <thread>
 

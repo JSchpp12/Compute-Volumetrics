@@ -49,6 +49,8 @@ find_package(Threads REQUIRED)
 find_package(OpenVDB CONFIG REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(zstd CONFIG REQUIRED)
+find_package(TBB CONFIG REQUIRED)
 set(starlight_common_DIR "${CMAKE_BINARY_DIR}/extern/Starlight-Common" CACHE PATH "")
 add_subdirectory("extern/Starlight-Common")
 add_subdirectory("extern/starlight")
@@ -89,6 +91,11 @@ set(${PROJECT_NAME}_SOURCES
 	"src/HeadlessMode.cpp"
 	"src/InteractiveApplication.cpp"
 	"src/VDBTransferFactory.cpp"
+	"src/VolumeDirectoryProcessor.cpp"
+	"src/VolumeFile.cpp"
+	"src/NanoVDBFileLoader.cpp"
+	"src/OpenVDBFileLoader.cpp"
+	"src/VDBFileInfo.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -122,6 +129,11 @@ set(${PROJECT_NAME}_HEADERS
 	"include/HeadlessMode.hpp"
 	"include/InteractiveApplication.hpp"
 	"include/VDBTransferFactory.hpp"
+	"include/VolumeDirectoryProcessor.hpp"
+	"include/VolumeFile.hpp"
+	"include/NanoVDBFileLoader.hpp"
+	"include/OpenVDBFileLoader.hpp"
+	"include/VDBFileInfo.hpp"
 )
 
 set(${PROJECT_NAME}_INCLUDE_DIRS
@@ -143,6 +155,8 @@ if (WIN32)
 			Starlight::starlight
 			OpenVDB::openvdb
 			GDAL::GDAL
+			TBB::tbb
+			zstd::libzstd
 	)
 	else()
 		target_link_libraries(${PROJECT_NAME}
@@ -150,6 +164,8 @@ if (WIN32)
 			Starlight::windowing
 			OpenVDB::openvdb
 			GDAL::GDAL
+			TBB::tbb
+			zstd::libzstd
 		)
 	endif()
 
@@ -161,6 +177,8 @@ else()
 				Starlight::starlight
 				OpenVDB::openvdb
 				GDAL::GDAL
+				TBB::tbb
+				zstd::libzstd
 				atomic
 		)
 	else()
@@ -169,6 +187,8 @@ else()
 				starlight_windowing
 				OpenVDB::openvdb
 				GDAL::GDAL
+				TBB::tbb
+				zstd::libzstd
 				atomic
 		)
 	endif()

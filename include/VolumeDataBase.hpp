@@ -2,10 +2,11 @@
 
 #include "StarBuffers/Buffer.hpp"
 
-#include <openvdb/Grid.h>
-#include <openvdb/Types.h>
 #include <nanovdb/GridHandle.h>
 #include <nanovdb/HostBuffer.h>
+
+#include <openvdb/Grid.h>
+#include <openvdb/Types.h>
 #include <openvdb/openvdb.h>
 
 #include <memory>
