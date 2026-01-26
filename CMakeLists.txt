@@ -90,11 +90,8 @@ set(${PROJECT_NAME}_SOURCES
 	"src/InteractiveMode.cpp"
 	"src/HeadlessMode.cpp"
 	"src/InteractiveApplication.cpp"
-	"src/VDBTransferFactory.cpp"
 	"src/VolumeDirectoryProcessor.cpp"
 	"src/VolumeFile.cpp"
-	"src/NanoVDBFileLoader.cpp"
-	"src/OpenVDBFileLoader.cpp"
 	"src/VDBFileInfo.cpp"
 )
 
@@ -128,11 +125,8 @@ set(${PROJECT_NAME}_HEADERS
 	"include/InteractiveMode.hpp"
 	"include/HeadlessMode.hpp"
 	"include/InteractiveApplication.hpp"
-	"include/VDBTransferFactory.hpp"
 	"include/VolumeDirectoryProcessor.hpp"
 	"include/VolumeFile.hpp"
-	"include/NanoVDBFileLoader.hpp"
-	"include/OpenVDBFileLoader.hpp"
 	"include/VDBFileInfo.hpp"
 )
 

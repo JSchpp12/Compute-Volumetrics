@@ -5,6 +5,7 @@
 #include "TransferRequest_IndicesInfo.hpp"
 #include "TransferRequest_VertInfo.hpp"
 #include "VolumeFile.hpp"
+#include "FogData.hpp"
 
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
@@ -90,65 +91,12 @@ void Volume::loadModel(star::core::device::DeviceContext &context, const std::st
                                               star::ConfigFile::getSetting(star::Config_Settings::tmp_directory));
     contentProcessor.init(); 
     auto firstFile = contentProcessor.getProcessedFiles().front().getDataFilePath();
+    auto fileData = FogData(firstFile, openvdb::GridClass::GRID_FOG_VOLUME);
+    fileData.prep();
+    const auto aabb = fileData.getAABB();
 
-    if (!star::file_helpers::FileExists(filePath))
-    {
-        std::ostringstream oss;
-        oss << "VDB File does not exist: " << filePath << std::endl;
-        STAR_THROW(oss.str());
-    }
-
-    openvdb::initialize();
-
-    openvdb::GridBase::Ptr baseGrid{};
-
-    openvdb::io::File file(filePath);
-
-    file.open();
-
-    std::ostringstream oss;
-    oss << "OpenVDB File Info:" << std::endl;
-    for (openvdb::io::File::NameIterator nameIter = file.beginName(); nameIter != file.endName(); ++nameIter)
-    {
-        oss << "Available Grids in file:" << std::endl;
-        oss << nameIter.gridName() << std::endl;
-
-        if (!baseGrid)
-        {
-            baseGrid = file.readGrid(nameIter.gridName());
-        }
-        else
-        {
-            oss << "Skipping extra grid: " << nameIter.gridName() << std::endl;
-        }
-    }
-    file.close();
-
-    this->grid = openvdb::gridPtrCast<openvdb::FloatGrid>(baseGrid);
-
-    openvdb::GridClass gridClass = baseGrid->getGridClass();
-    switch (gridClass)
-    {
-    case openvdb::GridClass::GRID_LEVEL_SET: {
-        oss << "Grid type: Level_Set" << std::endl;
-        break;
-    }
-    case openvdb::GridClass::GRID_FOG_VOLUME: {
-        oss << "Grid type: Fog " << std::endl;
-        break;
-    }
-    default:
-        STAR_THROW("Unsupported OpenVDB volume class type");
-    }
-
-    star::core::logging::info(oss.str());
-
-    openvdb::math::CoordBBox bbox = this->grid->evalActiveVoxelBoundingBox();
-    openvdb::math::Coord &bmin = bbox.min();
-    openvdb::math::Coord &bmax = bbox.max();
-
-    this->aabbBounds[0] = glm::vec4{bmin.x(), bmin.y(), bmin.z(), 1.0};
-    this->aabbBounds[1] = glm::vec4{bmax.x(), bmax.y(), bmax.z(), 1.0};
+    this->aabbBounds[0] = glm::vec4(aabb[0], 1.0f);
+    this->aabbBounds[1] = glm::vec4(aabb[1], 1.0f);
 }
 
 void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)

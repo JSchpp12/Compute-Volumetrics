@@ -34,7 +34,6 @@ class InteractiveApplication : public Application,
   private:
     friend class star::windowing::HandleKeyReleasePolicy<InteractiveApplication>;
     star::windowing::WindowingContext *m_winContext = nullptr;
-    std::shared_ptr<star::StarObject> m_testObject = nullptr;
 
     void onKeyRelease(const int &key, const int &scancode, const int &mods);
 

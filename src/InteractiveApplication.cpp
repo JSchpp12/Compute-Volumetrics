@@ -4,14 +4,16 @@
 
 #include "Terrain.hpp"
 
-#include <star_windowing/InteractivityBus.hpp>
-#include <star_windowing/SwapChainRenderer.hpp>
-#include <star_windowing/event/RequestSwapChainFromService.hpp>
 #include <starlight/command/CreateObject.hpp>
+#include <starlight/command/detail/create_object/DirectObjCreation.hpp>
 #include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/objects/BasicObject.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
+
+#include <star_windowing/InteractivityBus.hpp>
+#include <star_windowing/SwapChainRenderer.hpp>
+#include <star_windowing/event/RequestSwapChainFromService.hpp>
 
 OffscreenRenderer InteractiveApplication::createOffscreenRenderer(star::core::device::DeviceContext &context,
                                                                   const uint8_t &numFramesInFlight,
@@ -20,7 +22,16 @@ OffscreenRenderer InteractiveApplication::createOffscreenRenderer(star::core::de
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    // auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+    // {
+    //     auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+    //     auto cmd = star::command::CreateObject::Builder()
+    //                    .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
+    //                        std::make_shared<Terrain>(context, terrainInfoPath)))
+    //                    .setUniqueName("terrain")
+    //                    .build();
+    //     context.begin().set(cmd).submit();
+    // }
+
     // auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
     // terrain->init(context);
     // terrain->createInstance();
@@ -32,11 +43,8 @@ OffscreenRenderer InteractiveApplication::createOffscreenRenderer(star::core::de
                    .setUniqueName("horse")
                    .build();
     context.begin().set(cmd).submit();
-
-    m_testObject = cmd.getReply().get();
     cmd.getReply().get()->init(context);
     std::vector<std::shared_ptr<star::StarObject>> objects{cmd.getReply().get()};
-
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
 
@@ -55,7 +63,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
             oss << "Ending screen capture on frame: ";
         }
         oss << context.getAllDevices().getData()[0].getFrameTracker().getCurrent().getGlobalFrameCounter();
-        star::core::logging::log(boost::log::trivial::info, oss.str());
+        star::core::logging::info(oss.str());
 
         m_flipScreenshotState = false;
     }
@@ -74,17 +82,21 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
     if (key == GLFW_KEY_T)
     {
-        m_testObject->getInstance().rotateRelative(star::Type::Axis::x, 90);
+        m_volume->getInstance().rotateRelative(star::Type::Axis::x, 90);
     }
 
     if (key == GLFW_KEY_R)
     {
-        m_testObject->getInstance().rotateRelative(star::Type::Axis::y, 35);
+        m_volume->getInstance().rotateRelative(star::Type::Axis::y, 35);
     }
 
-    if (key == GLFW_KEY_U)
+    if (key == GLFW_KEY_UP)
     {
-        m_testObject->getInstance().moveRelative(glm::vec3{0.0, 1.0, 0.0});
+        m_volume->getInstance().moveRelative(glm::vec3{0.0, 1.0, 0.0});
+    }
+    if (key == GLFW_KEY_DOWN)
+    {
+        m_volume->getInstance().moveRelative(glm::vec3{0.0, -1.0, 0.0});
     }
 
     const float MILES_TO_METERS = 1609.35;
@@ -288,29 +300,32 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     m_mainLight = std::make_shared<std::vector<star::Light>>(
         std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0})});
 
-    uint8_t numInFlight;
     {
-        int framesInFlight = std::stoi(star::ConfigFile::getSetting(star::Config_Settings::frames_in_flight));
-        star::common::helper::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
-    }
-
-    {
-        auto oRenderer = star::common::Renderer(createOffscreenRenderer(context, numInFlight, camera, m_mainLight));
+        auto oRenderer = star::common::Renderer(createOffscreenRenderer(context, numFramesInFlight, camera, m_mainLight));
         auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
         const uint32_t &width = context.getEngineResolution().width;
         const uint32_t &height = context.getEngineResolution().height;
-        std::vector<star::Handle> globalInfos(numInFlight);
-        std::vector<star::Handle> lightInfos(numInFlight);
+        std::vector<star::Handle> globalInfos(numFramesInFlight);
+        std::vector<star::Handle> lightInfos(numFramesInFlight);
 
         size_t fNumFramesInFlight = 0;
         star::common::helper::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
-        std::string vdbPath = mediaDirectoryPath + "volumes/flat_plane_wind";
-        m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
-                                            offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
-                                            offscreenRenderer->getLightInfoBuffers(),
-                                            offscreenRenderer->getLightListBuffers());
+        {
+            std::string vdbPath = mediaDirectoryPath + "volumes/flat_plane_wind";
+            m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
+                                                offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
+                                                offscreenRenderer->getLightInfoBuffers(),
+                                                offscreenRenderer->getLightListBuffers());
+            auto cmd = star::command::CreateObject::Builder()
+                           .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
+                           .setUniqueName("flat_plane_wind")
+                           .build();
+
+            context.begin().set(cmd).submit();
+            auto shared = cmd.getReply().get();
+        }
 
         m_volume->init(context, numFramesInFlight);
 
@@ -320,16 +335,14 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
         s_i.rotateRelative(star::Type::Axis::y, 90);
 
         std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
-        std::vector<star::common::Renderer> additionals;
-        additionals.emplace_back(std::move(oRenderer));
+        std::vector<star::common::Renderer> additional;
+        additional.emplace_back(std::move(oRenderer));
 
         vk::SwapchainKHR swapchain{VK_NULL_HANDLE};
-
         context.getEventBus().emit(star::windowing::event::RequestSwapChainFromService{swapchain});
-
         star::common::Renderer sc{star::windowing::SwapChainRenderer{m_winContext, std::move(swapchain), context,
                                                                      numFramesInFlight, objects, m_mainLight, camera}};
-        m_mainScene = std::make_shared<star::StarScene>(std::move(camera), std::move(sc), std::move(additionals));
+        m_mainScene = std::make_shared<star::StarScene>(std::move(camera), std::move(sc), std::move(additional));
     }
 
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;

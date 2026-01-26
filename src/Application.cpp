@@ -4,14 +4,18 @@
 #include "OffscreenRenderer.hpp"
 #include "Terrain.hpp"
 
-#include <sstream>
+#include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
+#include <starlight/command/detail/create_object/DirectObjCreation.hpp>
+#include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/objects/BasicObject.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/core/renderer/HeadlessRenderer.hpp>
 #include <starlight/event/RegisterMainGraphicsRenderer.hpp>
 #include <starlight/virtual/StarCamera.hpp>
+
+#include <sstream>
 #include <string>
 
 using namespace star;
@@ -22,19 +26,29 @@ OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &con
 {
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-    auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
-    terrain->init(context);
-    terrain->createInstance();
-    std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
+    // {
+    //     auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+    //     auto cmd = star::command::CreateObject::Builder()
+    //                    .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
+    //                        std::make_shared<Terrain>(context, terrainInfoPath)))
+    //                    .setUniqueName("terrain")
+    //                    .build();
+    //     context.begin().set(cmd).submit();
+    // }
 
-    // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    // auto horse = std::make_shared<star::BasicObject>(horsePath);
-    // auto &h_i = horse->createInstance();
-    // h_i.setPosition(glm::vec3{0.0, 0.0, 0.0});
-    // horse->init(context);
-    // std::vector<std::shared_ptr<star::StarObject>> objects{horse};
+    // auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
+    // terrain->init(context);
+    // terrain->createInstance();
+    // std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
 
+    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    auto cmd = star::command::CreateObject::Builder()
+                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+                   .setUniqueName("horse")
+                   .build();
+    context.begin().set(cmd).submit();
+    cmd.getReply().get()->init(context);
+    std::vector<std::shared_ptr<star::StarObject>> objects{cmd.getReply().get()};
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
 
@@ -113,11 +127,20 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         size_t fNumFramesInFlight = 0;
         star::common::helper::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
-        std::string vdbPath = mediaDirectoryPath + "volumes/dragon.vdb";
-        m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
-                                            offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
-                                            offscreenRenderer->getLightInfoBuffers(),
-                                            offscreenRenderer->getLightListBuffers());
+        {
+            std::string vdbPath = mediaDirectoryPath + "volumes/flat_plane_wind";
+            m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
+                                                offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
+                                                offscreenRenderer->getLightInfoBuffers(),
+                                                offscreenRenderer->getLightListBuffers());
+            auto cmd = star::command::CreateObject::Builder()
+                           .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
+                           .setUniqueName("flat_plane_wind")
+                           .build();
+
+            context.begin().set(cmd).submit();
+            auto shared = cmd.getReply().get();
+        }
 
         m_volume->init(context, numFramesInFlight);
 

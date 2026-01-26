@@ -18,9 +18,9 @@ class VolumeRendererCreateDescriptorsPolicy
         star::Handle *deviceID, FogInfoController *fogController, std::vector<star::Handle> *aabbInfoBuffers,
         std::vector<star::Handle> *offscreenRenderToColors, std::vector<star::Handle> *offscreenRenderToDepths,
         std::vector<std::shared_ptr<star::StarTextures::Texture>> *computeWriteToImages,
-        star::Handle *nanoVDBPipeline_hitBoundingBox, star::Handle *nanoVDBPipeline_surface,
-        star::Handle *marchedPipeline, star::Handle *linearPipeline, star::Handle *expPipeline,
-        star::Handle *cameraShaderInfo, star::Handle *vdbInfoSDF, star::Handle *vdbInfoFog,
+        std::vector<star::StarBuffers::Buffer> *computeRayDistBuffers, star::Handle *nanoVDBPipeline_hitBoundingBox,
+        star::Handle *nanoVDBPipeline_surface, star::Handle *marchedPipeline, star::Handle *linearPipeline,
+        star::Handle *expPipeline, star::Handle *cameraShaderInfo, star::Handle *vdbInfoSDF, star::Handle *vdbInfoFog,
         star::Handle *randomValueTexture, std::unique_ptr<star::StarShaderInfo> *SDFShaderInfo,
         std::unique_ptr<star::StarShaderInfo> *VolumeShaderInfo,
         std::unique_ptr<vk::PipelineLayout> *computePipelineLayout,
@@ -34,6 +34,7 @@ class VolumeRendererCreateDescriptorsPolicy
         : m_deviceID(deviceID), m_fogController(fogController), m_aabbInfoBuffers(aabbInfoBuffers),
           m_offscreenRenderToColors(offscreenRenderToColors), m_offscreenRenderToDepths(offscreenRenderToDepths),
           m_computeWriteToImages(computeWriteToImages),
+          m_computeRayDistBuffers(computeRayDistBuffers),
           m_nanoVDBPipeline_hitBoundingBox(nanoVDBPipeline_hitBoundingBox),
           m_nanoVDBPipeline_surface(nanoVDBPipeline_surface), m_marchedPipeline(marchedPipeline),
           m_linearPipeline(linearPipeline), m_expPipeline(expPipeline), m_cameraShaderInfo(cameraShaderInfo),
@@ -56,6 +57,7 @@ class VolumeRendererCreateDescriptorsPolicy
     std::vector<star::Handle> *m_aabbInfoBuffers;
     std::vector<star::Handle> *m_offscreenRenderToColors, *m_offscreenRenderToDepths;
     std::vector<std::shared_ptr<star::StarTextures::Texture>> *m_computeWriteToImages;
+    std::vector<star::StarBuffers::Buffer> *m_computeRayDistBuffers;
     star::Handle *m_nanoVDBPipeline_hitBoundingBox;
     star::Handle *m_nanoVDBPipeline_surface;
     star::Handle *m_marchedPipeline;

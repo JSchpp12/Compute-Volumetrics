@@ -15,6 +15,7 @@
 #include "event/EnginePhaseComplete.hpp"
 #include "wrappers/graphics/policies/CreateDescriptorsOnEventPolicy.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
+
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
 #include <star_common/HandleTypeRegistry.hpp>
@@ -58,6 +59,7 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context, const uint
                                                              &m_offscreenRenderer->getRenderToColorImages(),
                                                              &m_offscreenRenderer->getRenderToDepthImages(),
                                                              &computeWriteToImages,
+                                                             &computeRayDistanceBuffers,
                                                              &nanoVDBPipeline_hitBoundingBox,
                                                              &nanoVDBPipeline_surface,
                                                              &marchedPipeline,
@@ -321,21 +323,21 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     const auto tmpDir = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::tmp_directory));
     VolumeDirectoryProcessor processor(m_vdbFilePath, std::move(tmpDir));
     processor.init();
-    auto transfers = processor.createAllGPUTransfers();
 
+    const auto &frontPath = processor.getProcessedFiles().front().getDataFilePath();
     // fog sim is fog
     this->vdbInfoSDF = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(vdbSemaphore)->semaphore,
-        std::make_unique<VDBTransfer>(
-            computeQueueFamilyIndex, std::make_unique<LevelSetData>(m_vdbFilePath, openvdb::GridClass::GRID_LEVEL_SET)),
+        std::make_unique<VDBTransfer>(computeQueueFamilyIndex,
+                                      std::make_unique<FogData>(frontPath, openvdb::GridClass::GRID_LEVEL_SET)),
         nullptr, true);
     const auto vdbFogSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     this->vdbInfoFog = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(vdbFogSemaphore)->semaphore,
-        std::make_unique<VDBTransfer>(computeQueueFamilyIndex, std::make_unique<LevelSetData>(
-                                                                   m_vdbFilePath, openvdb::GridClass::GRID_FOG_VOLUME)),
+        std::make_unique<VDBTransfer>(computeQueueFamilyIndex,
+                                      std::make_unique<FogData>(frontPath, openvdb::GridClass::GRID_FOG_VOLUME)),
         nullptr, true);
 
     const auto randomSemaphore =
@@ -348,72 +350,10 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
-    {
-        std::vector<uint32_t> indices = {this->graphicsQueueFamilyIndex};
-        if (this->computeQueueFamilyIndex != this->graphicsQueueFamilyIndex)
-        {
-            indices.push_back(this->computeQueueFamilyIndex);
-        }
-
-        auto builder =
-            star::StarTextures::Texture::Builder(context.getDevice().getVulkanDevice(),
-                                                 context.getDevice().getAllocator().get())
-                .setCreateInfo(star::Allocator::AllocationBuilder()
-                                   .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
-                                   .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
-                                   .build(),
-                               vk::ImageCreateInfo()
-                                   .setExtent(vk::Extent3D()
-                                                  .setWidth(static_cast<int>(screensize.width))
-                                                  .setHeight(static_cast<int>(screensize.height))
-                                                  .setDepth(1))
-                                   .setPQueueFamilyIndices(&indices[0])
-                                   .setQueueFamilyIndexCount(2)
-                                   .setArrayLayers(1)
-                                   .setUsage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled)
-                                   .setImageType(vk::ImageType::e2D)
-                                   .setMipLevels(1)
-                                   .setTiling(vk::ImageTiling::eOptimal)
-                                   .setInitialLayout(vk::ImageLayout::eUndefined)
-                                   .setSamples(vk::SampleCountFlagBits::e1)
-                                   .setSharingMode(vk::SharingMode::eExclusive),
-                               "VolumeRendererImages")
-                .setBaseFormat(vk::Format::eR8G8B8A8Unorm)
-                .addViewInfo(vk::ImageViewCreateInfo()
-                                 .setViewType(vk::ImageViewType::e2D)
-                                 .setFormat(vk::Format::eR8G8B8A8Unorm)
-                                 .setSubresourceRange(vk::ImageSubresourceRange()
-                                                          .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                                          .setBaseArrayLayer(0)
-                                                          .setLayerCount(1)
-                                                          .setBaseMipLevel(0)
-                                                          .setLevelCount(1)))
-                .setSamplerInfo(vk::SamplerCreateInfo()
-                                    .setAnisotropyEnable(true)
-                                    .setMaxAnisotropy(star::StarTextures::Texture::SelectAnisotropyLevel(
-                                        context.getDevice().getPhysicalDevice().getProperties()))
-                                    .setMagFilter(star::StarTextures::Texture::SelectTextureFiltering(
-                                        context.getDevice().getPhysicalDevice().getProperties()))
-                                    .setMinFilter(star::StarTextures::Texture::SelectTextureFiltering(
-                                        context.getDevice().getPhysicalDevice().getProperties()))
-                                    .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
-                                    .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
-                                    .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
-                                    .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-                                    .setUnnormalizedCoordinates(VK_FALSE)
-                                    .setCompareEnable(VK_FALSE)
-                                    .setCompareOp(vk::CompareOp::eAlways)
-                                    .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-                                    .setMipLodBias(0.0f)
-                                    .setMinLod(0.0f)
-                                    .setMaxLod(0.0f));
-
-        for (uint8_t i = 0; i < numFramesInFlight; i++)
-        {
-            this->computeWriteToImages.emplace_back(builder.buildShared());
-        }
-    }
-
+    this->computeWriteToImages =
+        createComputeWriteToImages(context, screensize, static_cast<size_t>(numFramesInFlight));
+    this->computeRayDistanceBuffers =
+        createComputeWriteToBuffers(context, screensize, static_cast<size_t>(numFramesInFlight));
     m_fogController.prepRender(context, numFramesInFlight);
 
     for (uint8_t i = 0; i < numFramesInFlight; i++)
@@ -458,9 +398,13 @@ void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
     this->VolumeShaderInfo->cleanupRender(context.getDevice());
     this->VolumeShaderInfo.reset();
 
-    for (size_t i = 0; i < computeWriteToImages.size(); i++)
+    for (auto &image : computeWriteToImages)
     {
-        computeWriteToImages[i]->cleanupRender(context.getDevice().getVulkanDevice());
+        image->cleanupRender(context.getDevice().getVulkanDevice());
+    }
+    for (auto &buffer : computeRayDistanceBuffers)
+    {
+        buffer.cleanupRender(context.getDevice().getVulkanDevice());
     }
 
     context.getDevice().getVulkanDevice().destroyPipelineLayout(*this->computePipelineLayout);
@@ -544,4 +488,112 @@ void VolumeRenderer::updateRenderingContext(star::core::device::DeviceContext &c
 glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize)
 {
     return glm::uvec2{std::ceil(screenSize.width / 8), std::ceil(screenSize.height / 8)};
+}
+
+std::vector<std::shared_ptr<star::StarTextures::Texture>> VolumeRenderer::createComputeWriteToImages(
+    star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate) const
+{
+    auto textures = std::vector<std::shared_ptr<star::StarTextures::Texture>>(numToCreate);
+
+    std::vector<uint32_t> indices = {this->graphicsQueueFamilyIndex};
+    if (this->computeQueueFamilyIndex != this->graphicsQueueFamilyIndex)
+    {
+        indices.push_back(this->computeQueueFamilyIndex);
+    }
+
+    auto builder =
+        star::StarTextures::Texture::Builder(context.getDevice().getVulkanDevice(),
+                                             context.getDevice().getAllocator().get())
+            .setCreateInfo(star::Allocator::AllocationBuilder()
+                               .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                               .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
+                               .build(),
+                           vk::ImageCreateInfo()
+                               .setExtent(vk::Extent3D()
+                                              .setWidth(static_cast<uint32_t>(screenSize.width))
+                                              .setHeight(static_cast<uint32_t>(screenSize.height))
+                                              .setDepth(1))
+                               .setPQueueFamilyIndices(&indices[0])
+                               .setQueueFamilyIndexCount(2)
+                               .setArrayLayers(1)
+                               .setUsage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled)
+                               .setImageType(vk::ImageType::e2D)
+                               .setMipLevels(1)
+                               .setTiling(vk::ImageTiling::eOptimal)
+                               .setInitialLayout(vk::ImageLayout::eUndefined)
+                               .setSamples(vk::SampleCountFlagBits::e1)
+                               .setSharingMode(vk::SharingMode::eExclusive),
+                           "VolumeRendererImages")
+            .setBaseFormat(vk::Format::eR8G8B8A8Unorm)
+            .addViewInfo(vk::ImageViewCreateInfo()
+                             .setViewType(vk::ImageViewType::e2D)
+                             .setFormat(vk::Format::eR8G8B8A8Unorm)
+                             .setSubresourceRange(vk::ImageSubresourceRange()
+                                                      .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                      .setBaseArrayLayer(0)
+                                                      .setLayerCount(1)
+                                                      .setBaseMipLevel(0)
+                                                      .setLevelCount(1)))
+            .setSamplerInfo(vk::SamplerCreateInfo()
+                                .setAnisotropyEnable(true)
+                                .setMaxAnisotropy(star::StarTextures::Texture::SelectAnisotropyLevel(
+                                    context.getDevice().getPhysicalDevice().getProperties()))
+                                .setMagFilter(star::StarTextures::Texture::SelectTextureFiltering(
+                                    context.getDevice().getPhysicalDevice().getProperties()))
+                                .setMinFilter(star::StarTextures::Texture::SelectTextureFiltering(
+                                    context.getDevice().getPhysicalDevice().getProperties()))
+                                .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+                                .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+                                .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
+                                .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                                .setUnnormalizedCoordinates(VK_FALSE)
+                                .setCompareEnable(VK_FALSE)
+                                .setCompareOp(vk::CompareOp::eAlways)
+                                .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                                .setMipLodBias(0.0f)
+                                .setMinLod(0.0f)
+                                .setMaxLod(0.0f));
+
+    for (size_t i{0}; i < numToCreate; i++)
+    {
+        textures[i] = builder.buildShared();
+    }
+
+    return textures;
+}
+
+std::vector<star::StarBuffers::Buffer> VolumeRenderer::createComputeWriteToBuffers(
+    star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate) const
+{
+    auto buffers = std::vector<star::StarBuffers::Buffer>(numToCreate);
+
+    std::vector<uint32_t> indices = {this->graphicsQueueFamilyIndex};
+    if (this->computeQueueFamilyIndex != this->graphicsQueueFamilyIndex)
+    {
+        indices.push_back(this->computeQueueFamilyIndex);
+    }
+
+    const vk::DeviceSize bufferSize = screenSize.width * screenSize.height * sizeof(float);
+    auto builder = star::StarBuffers::Buffer::Builder(context.getDevice().getAllocator().get())
+                       .setAllocationCreateInfo(star::Allocator::AllocationBuilder()
+                                                    .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                                                    .setUsage(VMA_MEMORY_USAGE_AUTO)
+                                                    .setMemoryPreferredFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)
+                                                    .build(),
+                                                vk::BufferCreateInfo()
+                                                    .setSharingMode(vk::SharingMode::eExclusive)
+
+                                                    .setSize(bufferSize)
+                                                    .setUsage(vk::BufferUsageFlagBits::eTransferSrc |
+                                                              vk::BufferUsageFlagBits::eStorageBuffer),
+                                                "RayDistanceResult")
+                       .setInstanceCount(1)
+                       .setInstanceSize(bufferSize);
+
+    for (size_t i{0}; i < numToCreate; i++)
+    {
+        buffers[i] = builder.build();
+    }
+
+    return buffers;
 }

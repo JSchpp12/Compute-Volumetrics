@@ -1,8 +1,9 @@
 #include "LevelSetData.hpp"
 
-#include <starlight/core/Exceptions.hpp>
 #include <openvdb/openvdb.h>
 #include <openvdb/tools/LevelSetUtil.h>
+
+#include <starlight/core/Exceptions.hpp>
 
 void LevelSetData::convertVolumeFormat(openvdb::SharedPtr<openvdb::FloatGrid> &baseGrid) const
 {
@@ -10,7 +11,7 @@ void LevelSetData::convertVolumeFormat(openvdb::SharedPtr<openvdb::FloatGrid> &b
     if (baseGrid->getGridClass() == openvdb::GridClass::GRID_STAGGERED ||
         baseGrid->getGridClass() == openvdb::GridClass::GRID_UNKNOWN)
     {
-        throw std::runtime_error("Unsupported grid class");
+        STAR_THROW("Unsupported grid class type");
     }
 
     const auto gridClass = baseGrid->getGridClass();
@@ -26,5 +27,5 @@ void LevelSetData::convertVolumeFormat(openvdb::SharedPtr<openvdb::FloatGrid> &b
         {
             STAR_THROW("Failed to convert SDF to fog body");
         }
-    } 
+    }
 }

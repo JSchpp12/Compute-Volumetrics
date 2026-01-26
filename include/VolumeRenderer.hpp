@@ -81,8 +81,6 @@ class VolumeRenderer
     OffscreenRenderer *m_offscreenRenderer = nullptr;
     std::string m_vdbFilePath;
     star::core::renderer::RenderingContext m_renderingContext = star::core::renderer::RenderingContext();
-    bool isReady = false;
-    bool isFirstPass = true;
     const star::Handle volumeTexture;
     const std::array<glm::vec4, 2> &aabbBounds;
     const std::shared_ptr<star::StarCamera> camera = nullptr;
@@ -92,15 +90,16 @@ class VolumeRenderer
     std::unique_ptr<star::StarShaderInfo> SDFShaderInfo, VolumeShaderInfo;
     std::vector<star::Handle> aabbInfoBuffers;
     uint32_t graphicsQueueFamilyIndex, computeQueueFamilyIndex;
-
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
         std::vector<std::shared_ptr<star::StarTextures::Texture>>();
+    std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers; 
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
     star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline;
     std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
-
     FogType currentFogType = FogType::marched;
+    bool isReady = false;
+    bool isFirstPass = true;
 
     void registerListenForEngineInitDone(star::common::EventBus &eventBus);
 
@@ -127,4 +126,7 @@ class VolumeRenderer
     void updateRenderingContext(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
 
     static glm::uvec2 CalculateWorkGroupSize(const vk::Extent2D &screenSize);
+
+    std::vector<std::shared_ptr<star::StarTextures::Texture>> createComputeWriteToImages(star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate) const; 
+    std::vector<star::StarBuffers::Buffer> createComputeWriteToBuffers(star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate) const;
 };

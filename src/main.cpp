@@ -6,6 +6,9 @@
 
 #ifdef STAR_ENABLE_PRESENTATION
 #include "InteractiveMode.hpp"
+
+#include <openvdb/openvdb.h>
+
 int runWindow()
 {
     InteractiveMode interactiveInstance{};
@@ -25,6 +28,9 @@ int runHeadless()
 int main()
 {
     star::ConfigFile::load("./StarEngine.cfg");
+
+    openvdb::initialize();
+
 #ifdef STAR_ENABLE_PRESENTATION
     return runWindow();
 #else
