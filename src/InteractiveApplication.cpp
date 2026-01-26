@@ -306,7 +306,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
         size_t fNumFramesInFlight = 0;
         star::common::helper::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
-        std::string vdbPath = mediaDirectoryPath + "volumes/dragon.vdb";
+        std::string vdbPath = mediaDirectoryPath + "volumes/flat_plane_wind";
         m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
                                             offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
                                             offscreenRenderer->getLightInfoBuffers(),

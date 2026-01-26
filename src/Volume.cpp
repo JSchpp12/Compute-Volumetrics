@@ -4,6 +4,8 @@
 #include "ManagerRenderResource.hpp"
 #include "TransferRequest_IndicesInfo.hpp"
 #include "TransferRequest_VertInfo.hpp"
+#include "VolumeFile.hpp"
+
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
@@ -84,6 +86,11 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
 
 void Volume::loadModel(star::core::device::DeviceContext &context, const std::string &filePath)
 {
+    VolumeDirectoryProcessor contentProcessor(filePath,
+                                              star::ConfigFile::getSetting(star::Config_Settings::tmp_directory));
+    contentProcessor.init(); 
+    auto firstFile = contentProcessor.getProcessedFiles().front().getDataFilePath();
+
     if (!star::file_helpers::FileExists(filePath))
     {
         std::ostringstream oss;
@@ -135,14 +142,6 @@ void Volume::loadModel(star::core::device::DeviceContext &context, const std::st
     }
 
     star::core::logging::info(oss.str());
-
-    // std::cout << "Type: " << baseGrid->type() << std::endl;
-
-    // if (this->grid->getGridClass() == openvdb::GridClass::GRID_LEVEL_SET)
-    // {
-    //     // need to convert to fog volume
-    //     convertToFog(this->grid);
-    // }
 
     openvdb::math::CoordBBox bbox = this->grid->evalActiveVoxelBoundingBox();
     openvdb::math::Coord &bmin = bbox.min();

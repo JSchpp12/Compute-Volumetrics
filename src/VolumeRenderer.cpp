@@ -9,6 +9,7 @@
 #include "ManagerRenderResource.hpp"
 #include "RandomValueTexture.hpp"
 #include "VDBTransfer.hpp"
+#include "VolumeDirectoryProcessor.hpp"
 #include "VolumeRendererCreateDescriptorsPolicy.hpp"
 #include "core/device/managers/DescriptorPool.hpp"
 #include "event/EnginePhaseComplete.hpp"
@@ -317,6 +318,10 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
     // need to find a way to tell what type the volume is...
     // dragon is level set
+    const auto tmpDir = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::tmp_directory));
+    VolumeDirectoryProcessor processor(m_vdbFilePath, std::move(tmpDir));
+    processor.init();
+    auto transfers = processor.createAllGPUTransfers();
 
     // fog sim is fog
     this->vdbInfoSDF = star::ManagerRenderResource::addRequest(
