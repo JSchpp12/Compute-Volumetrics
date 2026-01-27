@@ -20,31 +20,33 @@ OffscreenRenderer InteractiveApplication::createOffscreenRenderer(star::core::de
                                                                   std::shared_ptr<star::windowing::BasicCamera> camera,
                                                                   std::shared_ptr<std::vector<star::Light>> mainLight)
 {
-    auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
+    std::vector<std::shared_ptr<star::StarObject>> objects;
+    const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    // {
-    //     auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-    //     auto cmd = star::command::CreateObject::Builder()
-    //                    .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-    //                        std::make_shared<Terrain>(context, terrainInfoPath)))
-    //                    .setUniqueName("terrain")
-    //                    .build();
-    //     context.begin().set(cmd).submit();
-    // }
+    {
+        auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+        auto cmd = star::command::CreateObject::Builder()
+                       .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
+                           std::make_shared<Terrain>(context, terrainInfoPath)))
+                       .setUniqueName("terrain")
+                       .build();
+        context.begin().set(cmd).submit();
+        objects.emplace_back(cmd.getReply().get());
+    }
 
     // auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
     // terrain->init(context);
     // terrain->createInstance();
     // std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
 
-    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    auto cmd = star::command::CreateObject::Builder()
-                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-                   .setUniqueName("horse")
-                   .build();
-    context.begin().set(cmd).submit();
-    cmd.getReply().get()->init(context);
-    std::vector<std::shared_ptr<star::StarObject>> objects{cmd.getReply().get()};
+    // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    // auto cmd = star::command::CreateObject::Builder()
+    //                .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+    //                .setUniqueName("horse")
+    //                .build();
+    // context.begin().set(cmd).submit();
+    // cmd.getReply().get()->init(context);
+    // std::vector<std::shared_ptr<star::StarObject>> objects{cmd.getReply().get()};
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
 
@@ -80,14 +82,18 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         m_flipScreenshotState = true;
     }
 
-    if (key == GLFW_KEY_T)
+    if (key == GLFW_KEY_X)
     {
         m_volume->getInstance().rotateRelative(star::Type::Axis::x, 90);
     }
 
-    if (key == GLFW_KEY_R)
+    if (key == GLFW_KEY_C)
     {
-        m_volume->getInstance().rotateRelative(star::Type::Axis::y, 35);
+        m_volume->getInstance().rotateRelative(star::Type::Axis::y, 90);
+    }
+    if (key == GLFW_KEY_Z)
+    {
+        m_volume->getInstance().rotateRelative(star::Type::Axis::z, 90);
     }
 
     if (key == GLFW_KEY_UP)
@@ -301,7 +307,8 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
         std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0})});
 
     {
-        auto oRenderer = star::common::Renderer(createOffscreenRenderer(context, numFramesInFlight, camera, m_mainLight));
+        auto oRenderer =
+            star::common::Renderer(createOffscreenRenderer(context, numFramesInFlight, camera, m_mainLight));
         auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
         const uint32_t &width = context.getEngineResolution().width;

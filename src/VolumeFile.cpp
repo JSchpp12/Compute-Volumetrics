@@ -48,7 +48,7 @@ bool VolumeFile::doesDataFileExist() const
 
 void VolumeFile::decompressDataFile() const
 {
-    std::vector<char> compressedData = readFile(m_compressedSrcFile);
+    std::vector<char> compressedData = readFile(m_compressedSrcFile.string());
     size_t compressedSize = compressedData.size();
     unsigned long long const decompressedSize = ZSTD_getFrameContentSize(compressedData.data(), compressedSize);
     if (decompressedSize == ZSTD_CONTENTSIZE_ERROR || decompressedSize == ZSTD_CONTENTSIZE_UNKNOWN)

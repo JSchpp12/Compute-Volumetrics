@@ -328,8 +328,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     // fog sim is fog
     this->vdbInfoSDF = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(vdbSemaphore)->semaphore,
-        std::make_unique<VDBTransfer>(computeQueueFamilyIndex,
-                                      std::make_unique<FogData>(frontPath, openvdb::GridClass::GRID_LEVEL_SET)),
+        std::make_unique<VDBTransfer>(computeQueueFamilyIndex, std::make_unique<FogData>(frontPath.string(), openvdb::GridClass::GRID_LEVEL_SET)),
         nullptr, true);
     const auto vdbFogSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
@@ -337,7 +336,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     this->vdbInfoFog = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(vdbFogSemaphore)->semaphore,
         std::make_unique<VDBTransfer>(computeQueueFamilyIndex,
-                                      std::make_unique<FogData>(frontPath, openvdb::GridClass::GRID_FOG_VOLUME)),
+            std::make_unique<FogData>(frontPath.string(), openvdb::GridClass::GRID_FOG_VOLUME)),
         nullptr, true);
 
     const auto randomSemaphore =
@@ -420,8 +419,8 @@ std::vector<std::pair<vk::DescriptorType, const uint32_t>> VolumeRenderer::getDe
     return std::vector<std::pair<vk::DescriptorType, const uint32_t>>{
         std::make_pair(vk::DescriptorType::eStorageImage, 1 + (3 * numFramesInFlight * 50)),
         std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + (4 * numFramesInFlight * 50)),
-        std::make_pair(vk::DescriptorType::eStorageBuffer, 4 * numFramesInFlight * 15),
-        std::make_pair(vk::DescriptorType::eCombinedImageSampler, 900)};
+        std::make_pair(vk::DescriptorType::eStorageBuffer, 5 * numFramesInFlight),
+        std::make_pair(vk::DescriptorType::eCombinedImageSampler, 800 * numFramesInFlight)};
 }
 
 void VolumeRenderer::recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer,

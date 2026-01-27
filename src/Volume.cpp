@@ -91,7 +91,7 @@ void Volume::loadModel(star::core::device::DeviceContext &context, const std::st
                                               star::ConfigFile::getSetting(star::Config_Settings::tmp_directory));
     contentProcessor.init(); 
     auto firstFile = contentProcessor.getProcessedFiles().front().getDataFilePath();
-    auto fileData = FogData(firstFile, openvdb::GridClass::GRID_FOG_VOLUME);
+    auto fileData = FogData(firstFile.string(), openvdb::GridClass::GRID_FOG_VOLUME);
     fileData.prep();
     const auto aabb = fileData.getAABB();
 

@@ -75,39 +75,9 @@ std::vector<VDBTransfer> VolumeDirectoryProcessor::createAllGPUTransfers()
     return transfers;
 }
 
-std::unordered_set<std::string> GetAllDecompressedNVDBFiles(const std::filesystem::path &dir)
-{
-    std::unordered_set<std::string> files;
-    for (const auto &file : ListFiles(dir))
-    {
-        if (".nvdb" == file.extension())
-        {
-            files.insert(file);
-        }
-    }
-    return files;
-}
-
 void VolumeDirectoryProcessor::init()
 {
     decompressAllFiles();
-}
-
-std::vector<std::filesystem::path> VolumeDirectoryProcessor::gatherAllFilesToBeDecompressed() const
-{
-    std::vector<std::filesystem::path> targetFiles;
-    std::unordered_set<std::string> curVolFiles = GetAllFileNamesWithoutExtension(m_tmpWorkingDir);
-    std::unordered_set<std::filesystem::path> compressedFiles = GetAllCompressedFiles(m_dataDir);
-
-    for (const auto &cFile : compressedFiles)
-    {
-        if (!curVolFiles.contains(cFile.root_name()))
-        {
-            targetFiles.push_back(cFile);
-        }
-    }
-
-    return targetFiles;
 }
 
 void VolumeDirectoryProcessor::decompressAllFiles()

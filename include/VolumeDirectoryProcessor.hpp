@@ -31,6 +31,4 @@ class VolumeDirectoryProcessor
     std::vector<VolumeFile> m_processedFiles;
 
     void decompressAllFiles();
-
-    std::vector<std::filesystem::path> gatherAllFilesToBeDecompressed() const;
 };

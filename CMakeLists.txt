@@ -209,9 +209,7 @@ set(FINAL_APPLICATION_DIR "")
 if (MSVC)
     set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
 	target_compile_options(${PROJECT_NAME} PRIVATE 
-		$<$<CXX_COMPILER_ID:MSVC>:/MP> 
-		$<$<CXX_COMPILER_ID:MSVC>:/EHsc> 
-		$<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus>
+		$<$<CXX_COMPILER_ID:MSVC>:/bigobj /MP /EHsc /Zc:__cplusplus> 
 	)
 else()
 	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}")
