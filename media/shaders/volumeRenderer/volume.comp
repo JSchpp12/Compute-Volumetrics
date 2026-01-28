@@ -183,7 +183,7 @@ vec3 forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                     const float lRayAttenuation = exp(-lTau * lightStepSize * sigmaT);
                     const float cosTheta = dot(-ray.direction.xyz, rayToLight.direction.xyz);
                     const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g); 
-                    resultingRadiance += transparency * lightList.lights[j].ambient.rgb * lRayAttenuation * phase * sigmaScattering * densityP * mainStepSize; 
+                    resultingRadiance += lightList.lights[j].ambient.rgb * lRayAttenuation * phase * sigmaScattering * densityP * mainStepSize; 
                 }
             } 
         }
