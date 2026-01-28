@@ -4,10 +4,10 @@
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
 
+#include <openvdb/openvdb.h>
+
 #ifdef STAR_ENABLE_PRESENTATION
 #include "InteractiveMode.hpp"
-
-#include <openvdb/openvdb.h>
 
 int runWindow()
 {
