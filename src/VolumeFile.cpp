@@ -14,6 +14,7 @@
 
 static std::vector<char> readFile(const std::string &path)
 {
+
     std::ifstream ifs(path, std::ios::binary);
     if (!ifs)
     {
@@ -22,7 +23,25 @@ static std::vector<char> readFile(const std::string &path)
         STAR_THROW(oss.str());
     }
 
-    return std::vector<char>((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+    // Compute file size
+    ifs.seekg(0, std::ios::end);
+    std::streamoff end = ifs.tellg();
+    if (end < 0)
+    {
+        STAR_THROW("tellg() failed (file size unknown)");
+    }
+
+    std::vector<char> data(static_cast<size_t>(end));
+    ifs.seekg(0, std::ios::beg);
+
+    if (!data.empty())
+    {
+        if (!ifs.read(data.data(), static_cast<std::streamsize>(data.size())))
+        {
+            STAR_THROW("read() failed (short read)");
+        }
+    }
+    return data;
 }
 
 VolumeFile::VolumeFile(std::filesystem::path compressedSrcFile, std::filesystem::path dataFilePath)
@@ -49,7 +68,7 @@ bool VolumeFile::doesDataFileExist() const
 void VolumeFile::decompressDataFile() const
 {
     std::vector<char> compressedData = readFile(m_compressedSrcFile.string());
-    size_t compressedSize = compressedData.size();
+     size_t compressedSize = compressedData.size();
     unsigned long long const decompressedSize = ZSTD_getFrameContentSize(compressedData.data(), compressedSize);
     if (decompressedSize == ZSTD_CONTENTSIZE_ERROR || decompressedSize == ZSTD_CONTENTSIZE_UNKNOWN)
     {
