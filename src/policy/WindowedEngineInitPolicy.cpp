@@ -1,5 +1,6 @@
 #include "policy/WindowedEngineInitPolicy.hpp"
 
+#ifdef STAR_ENABLE_PRESENTATION
 #include "service/ImageMetricManager.hpp"
 
 namespace policy
@@ -53,3 +54,5 @@ star::service::Service WindowEngineInitPolicy::createImageMetricManagerService()
     return star::service::Service{ImageMetricManager()};
 }
 } // namespace policy
+
+#endif

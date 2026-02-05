@@ -3,7 +3,6 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "Terrain.hpp"
-#include "command/image_metrics/TriggerCapture.hpp"
 
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/detail/create_object/DirectObjCreation.hpp>
@@ -24,30 +23,28 @@ OffscreenRenderer InteractiveApplication::createOffscreenRenderer(star::core::de
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    //{
-    //    auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-    //    auto cmd = star::command::CreateObject::Builder()
-    //                   .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-    //                       std::make_shared<Terrain>(context, terrainInfoPath)))
-    //                   .setUniqueName("terrain")
-    //                   .build();
-    //    context.begin().set(cmd).submit();
-    //    objects.emplace_back(cmd.getReply().get());
-    //}
+    {
+        auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+        auto cmd = star::command::CreateObject::Builder()
+                       .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
+                           std::make_shared<Terrain>(context, terrainInfoPath)))
+                       .setUniqueName("terrain")
+                       .build();
+        context.begin().set(cmd).submit();
+        objects.emplace_back(cmd.getReply().get());
+    }
 
-    // auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
-    // terrain->init(context);
-    // terrain->createInstance();
-    // std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
+    // {
+    // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    // auto cmd = star::command::CreateObject::Builder()
+    //                .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+    //                .setUniqueName("horse")
+    //                .build();
+    // context.begin().set(cmd).submit();
+    // cmd.getReply().get()->init(context);
+    // objects.emplace_back(cmd.getReply().get());
+    // }
 
-    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    auto cmd = star::command::CreateObject::Builder()
-                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-                   .setUniqueName("horse")
-                   .build();
-    context.begin().set(cmd).submit();
-    cmd.getReply().get()->init(context);
-    objects.emplace_back(cmd.getReply().get());
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
 
@@ -291,9 +288,6 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     star::windowing::HandleKeyReleasePolicy<InteractiveApplication>::init(context.getEventBus());
     star::windowing::InteractivityBus::Init(&context.getEventBus(), m_winContext);
 
-    m_captureTrigger = context.begin();
-    m_captureTrigger.setType(image_metrics::TriggerCapture::GetUniqueTypeName());
-
     m_screenshotRegistrations.resize(context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
@@ -392,15 +386,7 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
     context.getEventBus().emit(star::event::TriggerScreenshot{
         std::move(targetTexture), oss.str(), render->getCommandBuffer(), m_screenshotRegistrations[index]});
 
-    image_metrics::TriggerCapture trigger(oss.str(), *m_volume);
-    m_captureTrigger.update(trigger).submit();
-
-    // submit file writing processing for distance information
-    // m_imageInfoManager.recordThisFrame(context, oss.str());
-    //
-    // need a command buffer to handle copying the storage buffer from compute pass into host accessible memory
-
-    // pass host visible buffer to secondary thread for processing and writing of data
+    triggerImageRecord(context, frameTracker, oss.str());
 }
 
 #endif

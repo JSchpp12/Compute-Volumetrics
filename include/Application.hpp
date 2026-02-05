@@ -22,8 +22,8 @@ class Application : public star::StarApplication
     virtual void shutdown(star::core::device::DeviceContext &context) override;
 
   protected:
+    star::core::CommandSubmitter m_captureTrigger;
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
-
     star::StarObjectInstance *testObject = nullptr;
     std::shared_ptr<Volume> m_volume = nullptr;
     std::shared_ptr<std::vector<star::Light>> m_mainLight;
@@ -44,4 +44,8 @@ class Application : public star::StarApplication
     static float ProcessFloatInput(const bool &allowNegatives);
 
     static int ProcessIntInput();
+
+    virtual void triggerImageRecord(star::core::device::DeviceContext &context,
+                                    const star::common::FrameTracker &frameTracker,
+                                    const std::string &targetImageFileName);
 };

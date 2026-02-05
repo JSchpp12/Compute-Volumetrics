@@ -17,9 +17,10 @@ class InteractiveApplication : public Application,
     {
     }
 
-    OffscreenRenderer createOffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
-                                 std::shared_ptr<star::windowing::BasicCamera> camera,
-                                 std::shared_ptr<std::vector<star::Light>> mainLight);
+    OffscreenRenderer createOffscreenRenderer(star::core::device::DeviceContext &context,
+                                              const uint8_t &numFramesInFlight,
+                                              std::shared_ptr<star::windowing::BasicCamera> camera,
+                                              std::shared_ptr<std::vector<star::Light>> mainLight);
     virtual ~InteractiveApplication() = default;
 
     virtual std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context,
@@ -33,7 +34,6 @@ class InteractiveApplication : public Application,
 
   private:
     friend class star::windowing::HandleKeyReleasePolicy<InteractiveApplication>;
-    star::core::CommandSubmitter m_captureTrigger; 
     star::windowing::WindowingContext *m_winContext = nullptr;
 
     void onKeyRelease(const int &key, const int &scancode, const int &mods);

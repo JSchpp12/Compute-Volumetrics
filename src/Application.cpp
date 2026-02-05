@@ -3,6 +3,7 @@
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
 #include "OffscreenRenderer.hpp"
 #include "Terrain.hpp"
+#include "command/image_metrics/TriggerCapture.hpp"
 
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
@@ -24,77 +25,40 @@ OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &con
                                           std::shared_ptr<star::StarCamera> camera,
                                           std::shared_ptr<std::vector<star::Light>> mainLight)
 {
-    auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
+    std::vector<std::shared_ptr<star::StarObject>> objects;
+    const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
+
+    {
+        auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+        auto cmd = star::command::CreateObject::Builder()
+                       .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
+                           std::make_shared<Terrain>(context, terrainInfoPath)))
+                       .setUniqueName("terrain")
+                       .build();
+        context.begin().set(cmd).submit();
+        objects.emplace_back(cmd.getReply().get());
+    }
 
     // {
-    //     auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-    //     auto cmd = star::command::CreateObject::Builder()
-    //                    .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-    //                        std::make_shared<Terrain>(context, terrainInfoPath)))
-    //                    .setUniqueName("terrain")
-    //                    .build();
-    //     context.begin().set(cmd).submit();
+    // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    // auto cmd = star::command::CreateObject::Builder()
+    //                .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+    //                .setUniqueName("horse")
+    //                .build();
+    // context.begin().set(cmd).submit();
+    // cmd.getReply().get()->init(context);
+    // objects.emplace_back(cmd.getReply().get());
     // }
 
-    // auto terrain = std::make_shared<Terrain>(context, terrainInfoPath);
-    // terrain->init(context);
-    // terrain->createInstance();
-    // std::vector<std::shared_ptr<star::StarObject>> objects{terrain};
-
-    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    auto cmd = star::command::CreateObject::Builder()
-                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-                   .setUniqueName("horse")
-                   .build();
-    context.begin().set(cmd).submit();
-    cmd.getReply().get()->init(context);
-    std::vector<std::shared_ptr<star::StarObject>> objects{cmd.getReply().get()};
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
-
-// void Application::onKeyPress(int key, int scancode, int mods)
-// {
-//     //  if (key == star::KEY::H && !m_volume->udpdateVolumeRender)
-//     //      m_volume->udpdateVolumeRender = true;
-//     //  if (key == star::KEY::V)
-//     //      m_volume->isVisible = !m_volume->isVisible;
-//     //  if (key == star::KEY::M) {
-//     //      m_volume->rayMarchToAABB = false;
-//     //      m_volume->rayMarchToVolumeBoundry = false;
-//     //  }
-//     //  if (key == star::KEY::J)
-//     //  {
-//     //      m_volume->rayMarchToVolumeBoundry =
-//     //      !m_volume->rayMarchToVolumeBoundry; m_volume->rayMarchToAABB =
-//     //      false;
-//     //  }
-//     //  if (key == star::KEY::K)
-//     //  {
-//     //      m_volume->rayMarchToAABB = !m_volume->rayMarchToAABB;
-//     //      m_volume->rayMarchToVolumeBoundry = false;
-//     //  }
-// }
-
-// void Application::onKeyRelease(int key, int scancode, int mods)
-// {
-
-// }
-
-// void Application::onMouseMovement(double xpos, double ypos)
-// {
-// }
-
-// void Application::onMouseButtonAction(int button, int action, int mods)
-// {
-// }
-
-// void Application::onScroll(double xoffset, double yoffset)
-// {
-// }
 
 std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::DeviceContext &context,
                                                         const uint8_t &numFramesInFlight)
 {
+    m_captureTrigger = context.begin();
+    m_captureTrigger.setType(image_metrics::TriggerCapture::GetUniqueTypeName());
+
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
     const glm::vec3 camPos{-50.9314, 135.686, 25.9329};
     const glm::vec3 volumePos{50.0, 10.0, 0.0};
@@ -237,4 +201,12 @@ int Application::ProcessIntInput()
     }
 
     return selectedValue;
+}
+
+void Application::triggerImageRecord(star::core::device::DeviceContext &context,
+                                     const star::common::FrameTracker &frameTracker,
+                                     const std::string &targetImageFileName)
+{
+    image_metrics::TriggerCapture trigger(targetImageFileName, *m_volume);
+    m_captureTrigger.update(trigger).submit();
 }
