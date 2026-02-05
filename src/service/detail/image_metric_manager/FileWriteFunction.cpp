@@ -1,5 +1,7 @@
 #include "service/detail/image_metric_manager/FileWriteFunction.hpp"
 
+#include <boost/filesystem/path.hpp>
+
 #include "service/detail/image_metric_manager/ImageMetrics.hpp"
 
 namespace image_metric_manager
@@ -28,8 +30,11 @@ void FileWriteFunction::write(const std::string &path) const
 {
     assert(m_storage != nullptr && "Host storage should have been provided");
 
+    auto fPath = boost::filesystem::path(path);
+    fPath.replace_extension(".json");
+
     {
-        const std::string msg = "Beginning file write: " + path;
+        const std::string msg = "Beginning file write: " + fPath.string();
         star::core::logging::info(msg);
     }
 
@@ -37,9 +42,6 @@ void FileWriteFunction::write(const std::string &path) const
 
     double mean = calculateAverageRayDistance();
     m_storage->returnBuffer(m_hostVisibleRayDistanceBuffer);
-
-    boost::filesystem::path fPath = path;
-    fPath.replace_extension(".json");
 
     std::ofstream out(fPath.string(), std::ofstream::binary);
     const auto data = ImageMetrics(fPath.filename().string(), mean).toJsonDump();

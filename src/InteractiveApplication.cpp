@@ -292,7 +292,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     star::windowing::InteractivityBus::Init(&context.getEventBus(), m_winContext);
 
     m_captureTrigger = context.begin();
-    m_captureTrigger.setName(image_metrics::TriggerCapture::GetUniqueTypeName());
+    m_captureTrigger.setType(image_metrics::TriggerCapture::GetUniqueTypeName());
 
     m_screenshotRegistrations.resize(context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
 
@@ -392,8 +392,8 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
     context.getEventBus().emit(star::event::TriggerScreenshot{
         std::move(targetTexture), oss.str(), render->getCommandBuffer(), m_screenshotRegistrations[index]});
 
-    //image_metrics::TriggerCapture trigger(oss.str(), *m_volume);
-    //m_captureTrigger.update(trigger).submit();
+    image_metrics::TriggerCapture trigger(oss.str(), *m_volume);
+    m_captureTrigger.update(trigger).submit();
 
     // submit file writing processing for distance information
     // m_imageInfoManager.recordThisFrame(context, oss.str());

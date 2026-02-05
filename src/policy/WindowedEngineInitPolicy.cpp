@@ -44,7 +44,7 @@ void WindowEngineInitPolicy::init(uint8_t requestedNumFramesInFlight)
 std::vector<star::service::Service> WindowEngineInitPolicy::getAdditionalDeviceServices()
 {
     auto services = m_winPolicy.getAdditionalDeviceServices();
-    services.emplace_back(createImageMetricManagerService()); 
+    services.emplace_back(createImageMetricManagerService());
     return services;
 }
 

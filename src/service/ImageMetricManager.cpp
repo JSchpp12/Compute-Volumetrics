@@ -51,10 +51,10 @@ ImageMetricManager &ImageMetricManager::operator=(ImageMetricManager &&other)
 void ImageMetricManager::setInitParameters(star::service::InitParameters &params)
 {
     m_cmdSubmitter = params.cmdSubmitter;
-    m_cmdSubmitter.setName(star::command::write_to_file::GetWriteToFileCommandTypeName);
+    m_cmdSubmitter.setType(star::command::write_to_file::GetWriteToFileCommandTypeName);
 
     m_cmdSubmitterUpdater = params.cmdSubmitter;
-    m_cmdSubmitterUpdater.setName(star::command::get_sync_info::GetSyncInfoCommandTypeName); 
+    m_cmdSubmitterUpdater.setType(star::command::get_sync_info::GetSyncInfoCommandTypeName); 
 
     m_frameTracker = &params.flightTracker;
     m_cmdBus = &params.commandBus;

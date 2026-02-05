@@ -41,6 +41,7 @@ int main()
     }
     catch (const std::exception &ex)
     {
+        std::cerr << ex.what();
         std::terminate();
     }
 }

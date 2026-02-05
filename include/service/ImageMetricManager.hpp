@@ -10,8 +10,8 @@
 
 template <typename T>
 using ListenForTriggerCapture =
-    star::policy::ListenFor<T, image_metrics::TriggerCapture, image_metrics::trigger_capture::GetTriggerCaptureCommandTypeName,
-                            &T::onCapture>;
+    star::policy::ListenFor<T, image_metrics::TriggerCapture,
+                            image_metrics::trigger_capture::GetTriggerCaptureCommandTypeName, &T::onCapture>;
 
 /// <summary>
 /// Responsible for gathering all needed information from shaders and compute operations needed for
@@ -30,6 +30,11 @@ class ImageMetricManager
     void init();
 
     void setInitParameters(star::service::InitParameters &params);
+
+    void negotiateWorkers(star::core::WorkerPool &pool, star::job::TaskManager &tm)
+    {
+      
+    }
 
     void shutdown();
 

@@ -46,10 +46,10 @@ class HostVisibleStorage
     struct HostBuffers
     {
         std::unique_ptr<star::data_structure::dynamic::ThreadSharedObjectPool<
-            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 25>>
+            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 40>>
             rayDistBuffers;
         std::unique_ptr<star::data_structure::dynamic::ThreadSharedObjectPool<
-            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 25>>
+            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 40>>
             rayAtCutoffBuffers;
     };
     std::vector<HostBuffers> m_pools;

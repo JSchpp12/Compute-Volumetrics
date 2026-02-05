@@ -1,8 +1,8 @@
 #include "Terrain.hpp"
 
+#include "TerrainGrid.hpp"
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/helpers/FileHelpers.hpp>
-#include "TerrainGrid.hpp"
 
 std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
 {

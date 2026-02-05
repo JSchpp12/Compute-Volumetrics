@@ -34,7 +34,7 @@ void CopyCmds::trigger(star::core::device::manager::ManagerCommandBuffer &cmdMan
 void CopyCmds::recordCommandBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                                    const uint64_t &frameIndex)
 {
-    //waitForSemaphoreIfNecessary(frameTracker);
+    waitForSemaphoreIfNecessary(frameTracker);
 
     buffer.begin(frameTracker.getCurrent().getFrameInFlightIndex());
 

@@ -57,11 +57,11 @@ void HostVisibleStorage::createResourcePoolForResolution(const vk::Extent2D &res
                                                          star::common::EventBus &eb)
 {
     std::unique_ptr<star::data_structure::dynamic::ThreadSharedObjectPool<
-        star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 25>>
+        star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 40>>
         rayDist = nullptr;
 
     std::unique_ptr<star::data_structure::dynamic::ThreadSharedObjectPool<
-        star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 25>>
+        star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 40>>
         rayAtCutoff = nullptr;
 
     {
@@ -82,7 +82,7 @@ void HostVisibleStorage::createResourcePoolForResolution(const vk::Extent2D &res
             .instanceCount = 1};
 
         rayDist = std::make_unique<star::data_structure::dynamic::ThreadSharedObjectPool<
-            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 25>>(
+            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 40>>(
             create);
     }
 
@@ -104,7 +104,7 @@ void HostVisibleStorage::createResourcePoolForResolution(const vk::Extent2D &res
             .instanceCount = 1};
 
         rayAtCutoff = std::make_unique<star::data_structure::dynamic::ThreadSharedObjectPool<
-            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 25>>(
+            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 40>>(
             create);
     }
 

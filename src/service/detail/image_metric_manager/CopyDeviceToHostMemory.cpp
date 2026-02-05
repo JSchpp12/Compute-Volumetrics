@@ -1,4 +1,4 @@
-#include "service/detail/image_metric_manager/CopyDeviceTohostMemory.hpp"
+#include "service/detail/image_metric_manager/CopyDeviceToHostMemory.hpp"
 
 namespace image_metric_manager
 {
