@@ -60,6 +60,7 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context, const uint
                                                              &m_offscreenRenderer->getRenderToDepthImages(),
                                                              &computeWriteToImages,
                                                              &computeRayDistanceBuffers,
+                                                             &computeRayAtCutoffDistanceBuffers,
                                                              &nanoVDBPipeline_hitBoundingBox,
                                                              &nanoVDBPipeline_surface,
                                                              &marchedPipeline,
@@ -328,14 +329,16 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     // fog sim is fog
     this->vdbInfoSDF = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(vdbSemaphore)->semaphore,
-        std::make_unique<VDBTransfer>(computeQueueFamilyIndex, std::make_unique<FogData>(frontPath.string(), openvdb::GridClass::GRID_LEVEL_SET)),
+        std::make_unique<VDBTransfer>(
+            computeQueueFamilyIndex, std::make_unique<FogData>(frontPath.string(), openvdb::GridClass::GRID_LEVEL_SET)),
         nullptr, true);
     const auto vdbFogSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     this->vdbInfoFog = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(vdbFogSemaphore)->semaphore,
-        std::make_unique<VDBTransfer>(computeQueueFamilyIndex,
+        std::make_unique<VDBTransfer>(
+            computeQueueFamilyIndex,
             std::make_unique<FogData>(frontPath.string(), openvdb::GridClass::GRID_FOG_VOLUME)),
         nullptr, true);
 
@@ -349,10 +352,15 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
-    this->computeWriteToImages =
-        createComputeWriteToImages(context, screensize, static_cast<size_t>(numFramesInFlight));
-    this->computeRayDistanceBuffers =
-        createComputeWriteToBuffers(context, screensize, static_cast<size_t>(numFramesInFlight));
+    {
+        const size_t n = static_cast<size_t>(numFramesInFlight);
+        this->computeWriteToImages = createComputeWriteToImages(context, screensize, n);
+        this->computeRayDistanceBuffers =
+            createComputeWriteToBuffers(context, screensize, sizeof(float), "RayDistanceBuffer", n);
+        computeRayAtCutoffDistanceBuffers =
+            createComputeWriteToBuffers(context, screensize, sizeof(uint32_t), "RayScissorBuffer", n);
+    }
+
     m_fogController.prepRender(context, numFramesInFlight);
 
     for (uint8_t i = 0; i < numFramesInFlight; i++)
@@ -405,6 +413,10 @@ void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
     {
         buffer.cleanupRender(context.getDevice().getVulkanDevice());
     }
+    for (auto &buffer : computeRayAtCutoffDistanceBuffers)
+    {
+        buffer.cleanupRender(context.getDevice().getVulkanDevice());
+    }
 
     context.getDevice().getVulkanDevice().destroyPipelineLayout(*this->computePipelineLayout);
 }
@@ -419,7 +431,7 @@ std::vector<std::pair<vk::DescriptorType, const uint32_t>> VolumeRenderer::getDe
     return std::vector<std::pair<vk::DescriptorType, const uint32_t>>{
         std::make_pair(vk::DescriptorType::eStorageImage, 1 + (3 * numFramesInFlight * 50)),
         std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + (4 * numFramesInFlight * 50)),
-        std::make_pair(vk::DescriptorType::eStorageBuffer, 5 * numFramesInFlight),
+        std::make_pair(vk::DescriptorType::eStorageBuffer, 6 * numFramesInFlight),
         std::make_pair(vk::DescriptorType::eCombinedImageSampler, 800 * numFramesInFlight)};
 }
 
@@ -505,7 +517,7 @@ std::vector<std::shared_ptr<star::StarTextures::Texture>> VolumeRenderer::create
                                              context.getDevice().getAllocator().get())
             .setCreateInfo(star::Allocator::AllocationBuilder()
                                .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
-                               .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
+                               .setUsage(VMA_MEMORY_USAGE_AUTO)
                                .build(),
                            vk::ImageCreateInfo()
                                .setExtent(vk::Extent3D()
@@ -562,7 +574,8 @@ std::vector<std::shared_ptr<star::StarTextures::Texture>> VolumeRenderer::create
 }
 
 std::vector<star::StarBuffers::Buffer> VolumeRenderer::createComputeWriteToBuffers(
-    star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate) const
+    star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &dataTypeSize,
+    const std::string &debugName, const size_t &numToCreate) const
 {
     auto buffers = std::vector<star::StarBuffers::Buffer>(numToCreate);
 
@@ -572,22 +585,21 @@ std::vector<star::StarBuffers::Buffer> VolumeRenderer::createComputeWriteToBuffe
         indices.push_back(this->computeQueueFamilyIndex);
     }
 
-    const vk::DeviceSize bufferSize = screenSize.width * screenSize.height * sizeof(float);
-    auto builder = star::StarBuffers::Buffer::Builder(context.getDevice().getAllocator().get())
-                       .setAllocationCreateInfo(star::Allocator::AllocationBuilder()
-                                                    .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
-                                                    .setUsage(VMA_MEMORY_USAGE_AUTO)
-                                                    .setMemoryPreferredFlags(vk::MemoryPropertyFlagBits::eDeviceLocal)
-                                                    .build(),
-                                                vk::BufferCreateInfo()
-                                                    .setSharingMode(vk::SharingMode::eExclusive)
-
-                                                    .setSize(bufferSize)
-                                                    .setUsage(vk::BufferUsageFlagBits::eTransferSrc |
-                                                              vk::BufferUsageFlagBits::eStorageBuffer),
-                                                "RayDistanceResult")
-                       .setInstanceCount(1)
-                       .setInstanceSize(bufferSize);
+    const vk::DeviceSize bufferSize = screenSize.width * screenSize.height * dataTypeSize;
+    auto builder =
+        star::StarBuffers::Buffer::Builder(context.getDevice().getAllocator().get())
+            .setAllocationCreateInfo(
+                star::Allocator::AllocationBuilder()
+                    .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                    .setUsage(VMA_MEMORY_USAGE_AUTO)
+                    .build(),
+                vk::BufferCreateInfo()
+                    .setSharingMode(vk::SharingMode::eExclusive)
+                    .setSize(bufferSize)
+                    .setUsage(vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eStorageBuffer),
+                debugName)
+            .setInstanceCount(1)
+            .setInstanceSize(bufferSize);
 
     for (size_t i{0}; i < numToCreate; i++)
     {

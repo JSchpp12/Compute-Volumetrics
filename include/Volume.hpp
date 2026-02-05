@@ -8,7 +8,6 @@
 #include "Light.hpp"
 #include "OffscreenRenderer.hpp"
 #include "Ray.hpp"
-#include "RuntimeUpdateTexture.hpp"
 #include "ScreenMaterial.hpp"
 #include "StarCamera.hpp"
 #include "StarCommandBuffer.hpp"
@@ -133,6 +132,12 @@ class Volume : public star::StarObject
     {
         assert(m_fogControlInfo && "Fog control info must be proper");
         return *this->m_fogControlInfo;
+    }
+
+    const VolumeRenderer &getRenderer() const
+    {
+        assert(volumeRenderer != nullptr && "prepRender has not yet happened"); 
+        return *volumeRenderer;
     }
 
   protected:

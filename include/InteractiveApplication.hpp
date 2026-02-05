@@ -33,6 +33,7 @@ class InteractiveApplication : public Application,
 
   private:
     friend class star::windowing::HandleKeyReleasePolicy<InteractiveApplication>;
+    star::core::CommandSubmitter m_captureTrigger; 
     star::windowing::WindowingContext *m_winContext = nullptr;
 
     void onKeyRelease(const int &key, const int &scancode, const int &mods);

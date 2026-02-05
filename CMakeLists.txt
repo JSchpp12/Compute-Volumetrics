@@ -93,6 +93,16 @@ set(${PROJECT_NAME}_SOURCES
 	"src/VolumeDirectoryProcessor.cpp"
 	"src/VolumeFile.cpp"
 	"src/VDBFileInfo.cpp"
+	"src/PrepareDistanceBufferInfo.cpp"
+	"src/service/ImageMetricManager.cpp"
+	"src/policy/EngineInitPolicy.cpp"
+	"src/command/image_metrics/TriggerCapture.cpp"
+	"src/policy/WindowedEngineInitPolicy.cpp"
+	"src/service/detail/image_metric_manager/CopyDeviceToHostMemory.cpp"
+	"src/service/detail/image_metric_manager/CopyCmds.cpp"
+	"src/service/detail/image_metric_manager/FileWriteFunction.cpp"
+	"src/service/detail/image_metric_manager/HostVisibleStorage.cpp"
+	"src/service/detail/image_metric_manager/ImageMetrics.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -128,6 +138,16 @@ set(${PROJECT_NAME}_HEADERS
 	"include/VolumeDirectoryProcessor.hpp"
 	"include/VolumeFile.hpp"
 	"include/VDBFileInfo.hpp"
+	"include/PrepareDistanceBufferInfo.hpp"
+	"include/service/ImageMetricManager.hpp"
+	"include/policy/WindowedEngineInitPolicy.hpp"
+	"include/policy/EngineInitPolicy.hpp"
+	"include/command/image_metrics/TriggerCapture.hpp"
+	"include/service/detail/image_metric_manager/CopyDeviceToHostMemory.hpp"
+	"include/service/detail/image_metric_manager/CopyCmds.hpp"
+	"include/service/detail/image_metric_manager/FileWriteFunction.hpp"
+	"include/service/detail/image_metric_manager/HostVisibleStorage.hpp"
+	"include/service/detail/image_metric_manager/ImageMetrics.hpp"
 )
 
 set(${PROJECT_NAME}_INCLUDE_DIRS

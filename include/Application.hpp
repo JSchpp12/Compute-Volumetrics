@@ -1,10 +1,10 @@
 #pragma once
 
-#include <memory>
-
 #include "OffscreenRenderer.hpp"
 #include "StarApplication.hpp"
 #include "Volume.hpp"
+
+#include <memory>
 
 class Application : public star::StarApplication
 {

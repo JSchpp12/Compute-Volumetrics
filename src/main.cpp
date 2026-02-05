@@ -19,21 +19,28 @@ int runWindow()
 #include "HeadlessMode.hpp"
 int runHeadless()
 {
-    HeadlessMode headlessInstance{}; 
-    return headlessInstance.run(); 
+    HeadlessMode headlessInstance{};
+    return headlessInstance.run();
 }
 
 #endif
 
 int main()
 {
-    star::ConfigFile::load("./StarEngine.cfg");
+    try
+    {
+        star::ConfigFile::load("./StarEngine.cfg");
 
-    openvdb::initialize();
+        openvdb::initialize();
 
 #ifdef STAR_ENABLE_PRESENTATION
-    return runWindow();
+        return runWindow();
 #else
-    return runHeadless();
+        return runHeadless();
 #endif
+    }
+    catch (const std::exception &ex)
+    {
+        std::terminate();
+    }
 }

@@ -21,6 +21,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include <memory>
+#include <string_view>
 #include <vector>
 
 class VolumeRenderer
@@ -65,6 +66,10 @@ class VolumeRenderer
     {
         return this->computeWriteToImages;
     }
+    const std::vector<std::shared_ptr<star::StarTextures::Texture>> &getRenderToImages() const
+    {
+        return this->computeWriteToImages;
+    }
     void setFogType(const FogType &type)
     {
         this->currentFogType = type;
@@ -72,6 +77,20 @@ class VolumeRenderer
     const FogType &getFogType()
     {
         return this->currentFogType;
+    }
+
+    const star::StarBuffers::Buffer &getRayDistanceBufferAt(const size_t &index) const
+    {
+        assert(index < computeRayDistanceBuffers.size() && "Requested index out of range for getRayDistanceBuffers");
+
+        return computeRayDistanceBuffers[index];
+    }
+
+    const star::StarBuffers::Buffer &getRayAtCutoffBufferAt(const size_t &index) const
+    {
+        assert(index < computeRayAtCutoffDistanceBuffers.size()); 
+
+        return computeRayAtCutoffDistanceBuffers[index];
     }
 
   private:
@@ -92,7 +111,7 @@ class VolumeRenderer
     uint32_t graphicsQueueFamilyIndex, computeQueueFamilyIndex;
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
         std::vector<std::shared_ptr<star::StarTextures::Texture>>();
-    std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers; 
+    std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers, computeRayAtCutoffDistanceBuffers;
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
     star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline;
     std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
@@ -127,6 +146,11 @@ class VolumeRenderer
 
     static glm::uvec2 CalculateWorkGroupSize(const vk::Extent2D &screenSize);
 
-    std::vector<std::shared_ptr<star::StarTextures::Texture>> createComputeWriteToImages(star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate) const; 
-    std::vector<star::StarBuffers::Buffer> createComputeWriteToBuffers(star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate) const;
+    std::vector<std::shared_ptr<star::StarTextures::Texture>> createComputeWriteToImages(
+        star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate) const;
+    std::vector<star::StarBuffers::Buffer> createComputeWriteToBuffers(star::core::device::DeviceContext &context,
+                                                                       const vk::Extent2D &screenSize,
+                                                                       const size_t &dataTypeSize,
+                                                                       const std::string &debugName,
+                                                                       const size_t &numToCreate) const;
 };
