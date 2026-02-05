@@ -31,10 +31,6 @@ class Application : public star::StarApplication
     bool m_triggerScreenshot = false;
     bool m_flipScreenshotState = false;
 
-    // void onKeyRelease(int key, int scancode, int mods) override;
-    // void onMouseMovement(double xpos, double ypos) override;
-    // void onMouseButtonAction(int button, int action, int mods) override;
-    // void onScroll(double xoffset, double yoffset) override;
     void frameUpdate(star::core::SystemContext &context) override;
 
     static float PromptForFloat(const std::string &prompt, const bool &allowNegative = false);

@@ -9,6 +9,7 @@
 #include <starlight/command/SaveSceneState.hpp>
 #include <starlight/command/detail/create_object/DirectObjCreation.hpp>
 #include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
+#include <starlight/command/headless_render_result_write/GetFileNameForFrame.hpp>
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/objects/BasicObject.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
@@ -146,11 +147,16 @@ void Application::shutdown(star::core::device::DeviceContext &context)
 
 void Application::frameUpdate(star::core::SystemContext &context)
 {
-
     // m_volume->renderVolume(glm::radians(this->scene.getCamera()->getFieldOfView()),
     // this->scene.getCamera()->getPosition(),
     // glm::inverse(this->scene.getCamera()->getViewMatrix()),
     // this->scene.getCamera()->getProjectionMatrix());
+
+    auto &d= context.getAllDevices().getData()[0]; 
+    auto cmd = star::headless_render_result_write::GetFileNameForFrame(); 
+    d.begin().set(cmd).submit(); 
+
+    triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get()); 
 }
 
 float Application::PromptForFloat(const std::string &prompt, const bool &allowNegatives)
