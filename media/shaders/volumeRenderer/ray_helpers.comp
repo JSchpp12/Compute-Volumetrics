@@ -23,7 +23,7 @@ Ray createRay(const vec3 origin, const vec3 direction)
     );
 }
 
-vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const uvec2 resolution, const float depth){
+vec4 getClipSpaceCoordsFromPixel(const uvec2 pixelCoords, const uvec2 resolution, const float depth){
     vec2 uv = (vec2(pixelCoords) + 0.5) / vec2(resolution);
     uv = uv * 2.0 - 1.0; 
     float clipZ = depth * 2.0 - 1.0; 
@@ -31,7 +31,7 @@ vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const uvec2 resolution
     return vec4(uv.x, uv.y, clipZ, 1.0);  
 }
 
-void getSceneViewInfoForPix(in const ivec2 pixelCoords, in const uvec2 resolution, in float depth, out vec3 orgWorld, out vec3 viewDirWorld) {
+void getSceneViewInfoForPix(in const uvec2 pixelCoords, in const uvec2 resolution, in float depth, out vec3 orgWorld, out vec3 viewDirWorld) {
     vec4 clipPos = getClipSpaceCoordsFromPixel(pixelCoords, resolution, depth);
 
     vec4 viewPos = addCamInfo.invProj * clipPos;
