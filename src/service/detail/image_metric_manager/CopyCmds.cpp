@@ -46,20 +46,14 @@ void CopyCmds::recordCommandBuffer(star::StarCommandBuffer &buffer, const star::
 {
     waitForSemaphoreIfNecessary(frameTracker);
 
-    // get resources from compute queue neighbor
-
     buffer.begin(frameTracker.getCurrent().getFrameInFlightIndex());
 
     vk::CommandBuffer &b = buffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex());
-
     addPreMemoryBarriers(b);
-
     copyBuffer(buffer, frameTracker, *m_targetInfo.rayDistance.buffer, *m_cpyResources.rayDistance);
     copyBuffer(buffer, frameTracker, *m_targetInfo.rayAtCutoffDistance.buffer, *m_cpyResources.rayAtCutoff);
-
     addPostMemoryBarriers(b);
-    // always give resources back to compute queue neighbor
-
+    
     b.end();
 }
 
