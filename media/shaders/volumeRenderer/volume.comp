@@ -205,16 +205,14 @@ void writeMaxDistanceTraveled(const float d, const uint index)
 
 void writeDistanceStencilInfo(const float d, const uint index)
 {
-    // if (d >= addCamInfo.farClipDist)
-    // {
-    //     isAtMaxDistance[index] = 1;
-    // }
-    // else
-    // {
-    //     isAtMaxDistance[index] = 0;
-    // }
-
-    isAtMaxDistance[index] = 0;
+    if (d >= addCamInfo.farClipDist)
+    {
+        isAtMaxDistance[index] = 1;
+    }
+    else
+    {
+        isAtMaxDistance[index] = 0;
+    }
 }
 
 void writeDistanceInfo(const float d, const ivec2 tPix, const uvec2 cSize)
