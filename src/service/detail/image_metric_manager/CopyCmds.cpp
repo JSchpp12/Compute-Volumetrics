@@ -195,8 +195,9 @@ static vk::BufferMemoryBarrier2 MakePreBarrier(uint8_t srcFamilyIndex, uint8_t d
 {
     return vk::BufferMemoryBarrier2()
         .setSize(vk::WholeSize)
+        .setOffset(0)
         .setBuffer(std::move(buffer))
-        .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+        .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
         .setSrcAccessMask(vk::AccessFlagBits2::eNone)
         .setDstStageMask(vk::PipelineStageFlagBits2::eTransfer)
         .setDstAccessMask(vk::AccessFlagBits2::eTransferRead)
@@ -208,6 +209,7 @@ static vk::BufferMemoryBarrier2 MakePreBarrierSameQueue(vk::Buffer buffer)
 {
     return vk::BufferMemoryBarrier2()
         .setSize(vk::WholeSize)
+        .setOffset(0)
         .setBuffer(std::move(buffer))
         .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
         .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
@@ -247,6 +249,7 @@ static vk::BufferMemoryBarrier2 MakePostBarrier(const uint8_t srcFamilyIndex, ui
 {
     return vk::BufferMemoryBarrier2()
         .setSize(vk::WholeSize)
+        .setOffset(0)
         .setBuffer(std::move(buffer))
         .setSrcStageMask(vk::PipelineStageFlagBits2::eTransfer)
         .setSrcAccessMask(vk::AccessFlagBits2::eTransferRead)
@@ -256,6 +259,18 @@ static vk::BufferMemoryBarrier2 MakePostBarrier(const uint8_t srcFamilyIndex, ui
         .setDstQueueFamilyIndex(std::move(dstFamilyIndex));
 }
 
+static vk::BufferMemoryBarrier2 MakeBarrierForTransfer(vk::Buffer buffer)
+{
+    return vk::BufferMemoryBarrier2()
+        .setSize(vk::WholeSize)
+        .setOffset(0)
+        .setBuffer(std::move(buffer))
+        .setSrcStageMask(vk::PipelineStageFlagBits2::eTransfer)
+        .setSrcAccessMask(vk::AccessFlagBits2::eTransferWrite)
+        .setDstStageMask(vk::PipelineStageFlagBits2::eHost)
+        .setDstAccessMask(vk::AccessFlagBits2::eHostRead);
+}
+
 std::vector<vk::BufferMemoryBarrier2> CopyCmds::getPostBufferBarriers() const
 {
     assert(m_cpyResources.rayDistance != nullptr && m_cpyResources.rayAtCutoff != nullptr &&
@@ -263,17 +278,23 @@ std::vector<vk::BufferMemoryBarrier2> CopyCmds::getPostBufferBarriers() const
 
     const bool diffFamilies = m_transferQueueFamilyIndex != m_computeQueueFamilyIndex;
 
+    std::vector<vk::BufferMemoryBarrier2> barriers = std::vector<vk::BufferMemoryBarrier2>(4);
+
+    barriers[0] = MakeBarrierForTransfer(m_cpyResources.rayDistance->getVulkanBuffer());
+    barriers[1] = MakeBarrierForTransfer(m_cpyResources.rayAtCutoff->getVulkanBuffer());
     if (diffFamilies)
     {
-        return {MakePostBarrier(m_transferQueueFamilyIndex, m_computeQueueFamilyIndex,
-                                m_targetInfo.rayAtCutoffDistance.buffer->getVulkanBuffer()),
-                MakePostBarrier(m_transferQueueFamilyIndex, m_computeQueueFamilyIndex,
-                                m_targetInfo.rayDistance.buffer->getVulkanBuffer())};
+        barriers[2] = MakePostBarrier(m_transferQueueFamilyIndex, m_computeQueueFamilyIndex,
+                                      m_targetInfo.rayAtCutoffDistance.buffer->getVulkanBuffer());
+        barriers[3] = MakePostBarrier(m_transferQueueFamilyIndex, m_computeQueueFamilyIndex,
+                                      m_targetInfo.rayDistance.buffer->getVulkanBuffer());
     }
     else
     {
         return {};
     }
+
+    return barriers;
 }
 
 void CopyCmds::addPostMemoryBarriers(vk::CommandBuffer &cmdBuffer) const

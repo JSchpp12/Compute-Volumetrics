@@ -632,7 +632,7 @@ inline static vk::BufferMemoryBarrier2 CreatePostBufferMemoryBarrier(uint32_t sr
         .setSize(vk::WholeSize)
         .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
         .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
-        .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
+        .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
         .setDstAccessMask(vk::AccessFlagBits2::eNone)
         .setSrcQueueFamilyIndex(std::move(srcQueue))
         .setDstQueueFamilyIndex(std::move(dstQueue));

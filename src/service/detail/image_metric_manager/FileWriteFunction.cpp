@@ -95,16 +95,24 @@ double FileWriteFunction::calculateAverageRayDistance() const
 uint32_t FileWriteFunction::getNumRaysAtMaxDistance(const star::StarBuffers::Buffer &computeRayAtMaxBuffer) const
 {
     void *d = nullptr;
+    auto result = computeRayAtMaxBuffer.invalidate();
+    if (result != vk::Result::eSuccess)
+    {
+        STAR_THROW("Failed to invalidate memory");
+    }
     computeRayAtMaxBuffer.map(&d);
 
     auto *data = static_cast<const uint32_t *>(d);
     const size_t n = static_cast<size_t>(computeRayAtMaxBuffer.getBufferSize() / sizeof(uint32_t));
     std::span<const uint32_t> span{data, n};
 
-    for (size_t i{0}; i < span.size(); i++){
-        if (span[i] != 0){
-            const auto &value = span[i]; 
-            std::cout << "Found issue: " + std::to_string(span[i]); 
+    for (size_t i{0}; i < span.size(); i++)
+    {
+        if (span[i] != 0)
+        {
+            std::string msg =
+                "Found issue. At index: " + std::to_string(i) + ", With Value: " + std::to_string(span[i]);
+            star::core::logging::warning(msg);
         }
     }
     uint32_t nAtMax = std::reduce(std::execution::unseq, span.begin(), span.end(), 0u, std::plus<uint32_t>());
