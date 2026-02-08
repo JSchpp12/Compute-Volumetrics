@@ -16,6 +16,8 @@
 
 #include <star_common/Handle.hpp>
 
+#include <starlight/command/command_order/GetPassInfo.hpp>
+
 #include <vma/vk_mem_alloc.h>
 
 #include <vulkan/vulkan.hpp>
@@ -88,9 +90,19 @@ class VolumeRenderer
 
     const star::StarBuffers::Buffer &getRayAtCutoffBufferAt(const size_t &index) const
     {
-        assert(index < computeRayAtCutoffDistanceBuffers.size()); 
+        assert(index < computeRayAtCutoffDistanceBuffers.size());
 
         return computeRayAtCutoffDistanceBuffers[index];
+    }
+
+    void setTransferTriggered(bool value)
+    {
+        transferTriggeredThisFrame = value;
+    }
+
+    star::Handle getCommandBuffer() const
+    {
+        return m_commandBuffer;
     }
 
   private:
@@ -104,11 +116,11 @@ class VolumeRenderer
     const std::array<glm::vec4, 2> &aabbBounds;
     const std::shared_ptr<star::StarCamera> camera = nullptr;
     glm::uvec2 workgroupSize = glm::uvec2();
-    star::Handle cameraShaderInfo, commandBuffer, vdbInfoSDF, vdbInfoFog, randomValueTexture;
+    star::Handle cameraShaderInfo, m_commandBuffer, vdbInfoSDF, vdbInfoFog, randomValueTexture;
     FogInfoController m_fogController;
     std::unique_ptr<star::StarShaderInfo> SDFShaderInfo, VolumeShaderInfo;
     std::vector<star::Handle> aabbInfoBuffers;
-    uint32_t graphicsQueueFamilyIndex, computeQueueFamilyIndex;
+    uint32_t graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex;
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
         std::vector<std::shared_ptr<star::StarTextures::Texture>>();
     std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers, computeRayAtCutoffDistanceBuffers;
@@ -119,7 +131,10 @@ class VolumeRenderer
     FogType currentFogType = FogType::marched;
     bool isReady = false;
     bool isFirstPass = true;
+    bool transferTriggeredThisFrame = false;
+    star::core::CommandSubmitter m_checkForDepsSubmitter;
 
+    void recordQueueFamilyInfo(star::core::device::DeviceContext &context);
     void registerListenForEngineInitDone(star::common::EventBus &eventBus);
 
     std::vector<std::pair<vk::DescriptorType, const uint32_t>> getDescriptorRequests(const int &numFramesInFlight);
@@ -146,6 +161,17 @@ class VolumeRenderer
 
     static glm::uvec2 CalculateWorkGroupSize(const vk::Extent2D &screenSize);
 
+    std::vector<vk::BufferMemoryBarrier2> getBufferBarriersFromTransferQueues(
+        const star::common::FrameTracker &ft) const;
+
+    std::vector<vk::BufferMemoryBarrier2> getBufferBarriersToTransferQueues(const star::common::FrameTracker &ft) const;
+
+    void addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
+                                     const bool getBuffersBackFromTransfer) const;
+
+    void addPostComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
+                                      const bool giveBuffersToTransfer) const;
+
     std::vector<std::shared_ptr<star::StarTextures::Texture>> createComputeWriteToImages(
         star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate) const;
     std::vector<star::StarBuffers::Buffer> createComputeWriteToBuffers(star::core::device::DeviceContext &context,
@@ -153,4 +179,6 @@ class VolumeRenderer
                                                                        const size_t &dataTypeSize,
                                                                        const std::string &debugName,
                                                                        const size_t &numToCreate) const;
+
+    std::unique_ptr<star::command_order::get_pass_info::GatheredPassInfo> getTransferNeighborInfo();
 };

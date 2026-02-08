@@ -12,7 +12,7 @@ namespace trigger_capture
 {
 inline constexpr const char *GetTriggerCaptureCommandTypeName()
 {
-    return "tcTriggerCapture";
+    return "imTriggerCapture";
 };
 } // namespace trigger_capture
 

@@ -20,7 +20,7 @@ static double Mean(std::span<const float> &span)
 }
 
 FileWriteFunction::FileWriteFunction(star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
-                                     uint32_t copyToHostBufferDoneValue, HostVisibleStorage *storage)
+                                     uint64_t copyToHostBufferDoneValue, HostVisibleStorage *storage)
     : m_hostVisibleRayDistanceBuffer(std::move(buffer)), m_vkDevice(std::move(vkDevice)), m_copyDone(std::move(done)),
       m_copyToHostBufferDoneValue(copyToHostBufferDoneValue), m_storage(storage)
 {
@@ -54,9 +54,8 @@ void FileWriteFunction::waitForCopyToDstBufferDone() const
 {
     assert(m_vkDevice != VK_NULL_HANDLE);
 
-    uint64_t value = uint64_t(m_copyToHostBufferDoneValue);
-    vk::Result waitResult =
-        m_vkDevice.waitSemaphores(vk::SemaphoreWaitInfo().setValues(value).setSemaphores(m_copyDone), UINT64_MAX);
+    vk::Result waitResult = m_vkDevice.waitSemaphores(
+        vk::SemaphoreWaitInfo().setValues(m_copyToHostBufferDoneValue).setSemaphores(m_copyDone), UINT64_MAX);
 
     if (waitResult != vk::Result::eSuccess)
     {
@@ -95,7 +94,6 @@ double FileWriteFunction::calculateAverageRayDistance() const
 
 uint32_t FileWriteFunction::getNumRaysAtMaxDistance(const star::StarBuffers::Buffer &computeRayAtMaxBuffer) const
 {
-    uint32_t nAtMax = 0;
     void *d = nullptr;
     computeRayAtMaxBuffer.map(&d);
 
@@ -103,7 +101,13 @@ uint32_t FileWriteFunction::getNumRaysAtMaxDistance(const star::StarBuffers::Buf
     const size_t n = static_cast<size_t>(computeRayAtMaxBuffer.getBufferSize() / sizeof(uint32_t));
     std::span<const uint32_t> span{data, n};
 
-    nAtMax = sum(span);
+    for (size_t i{0}; i < span.size(); i++){
+        if (span[i] != 0){
+            const auto &value = span[i]; 
+            std::cout << "Found issue: " + std::to_string(span[i]); 
+        }
+    }
+    uint32_t nAtMax = std::reduce(std::execution::unseq, span.begin(), span.end(), 0u, std::plus<uint32_t>());
     computeRayAtMaxBuffer.unmap();
 
     return nAtMax;

@@ -27,8 +27,7 @@ int runHeadless()
 
 int main()
 {
-    try
-    {
+
         star::ConfigFile::load("./StarEngine.cfg");
 
         openvdb::initialize();
@@ -38,10 +37,5 @@ int main()
 #else
         return runHeadless();
 #endif
-    }
-    catch (const std::exception &ex)
-    {
-        std::cerr << ex.what();
-        std::terminate();
-    }
+
 }

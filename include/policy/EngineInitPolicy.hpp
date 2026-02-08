@@ -1,9 +1,14 @@
 #pragma once
 
-class EngineInitPolicy
+#include <starlight/policy/DefaultEngineInitPolicy.hpp>
+
+class EngineInitPolicy : public star::policy::DefaultEngineInitPolicy
 {
   public:
-  EngineInitPolicy() = default; 
+    EngineInitPolicy() = default;
 
-  private:
+  protected:
+    virtual std::vector<star::service::Service> addAdditionalServices() override;
+
+    star::service::Service CreateImageMetricManagerService() const;
 };

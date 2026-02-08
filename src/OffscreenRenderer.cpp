@@ -4,6 +4,7 @@
 
 #include <starlight/core/helper/command_buffer/CommandBufferHelpers.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
+#include <starlight/command/command_order/DeclarePass.hpp>
 
 OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
                                      std::vector<std::shared_ptr<star::StarObject>> objects,
@@ -377,6 +378,9 @@ void OffscreenRenderer::prepRender(star::common::IDeviceContext &c)
     this->firstFramePassCounter = uint32_t(context.getFrameTracker().getSetup().getNumFramesInFlight());
 
     star::core::renderer::DefaultRenderer::prepRender(c);
+
+    auto cmd = star::command_order::DeclarePass(this->m_commandBuffer, this->graphicsQueueFamilyIndex);
+    context.begin().set(cmd).submit(); 
 }
 
 vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(

@@ -22,12 +22,13 @@ class CopyDeviceToHostMemory
     CopyDeviceToHostMemory &operator=(CopyDeviceToHostMemory &&other) = delete;
     ~CopyDeviceToHostMemory() = default;
 
-    void prepRender(star::core::device::StarDevice &device, star::common::EventBus &eb,
+    void prepRender(star::core::device::StarDevice &device, star::common::EventBus &eb, star::core::CommandBus &cmdBus,
                     star::core::device::manager::ManagerCommandBuffer &cb, star::core::device::manager::Queue &qm,
                     const star::common::FrameTracker &frameTracker);
 
-    void trigger(star::core::device::manager::ManagerCommandBuffer &bufferManager, const star::StarBuffers::Buffer &hostRayCutoff,
-                 const star::StarBuffers::Buffer &hostRayDist, const star::StarBuffers::Buffer &targetRayCutoffBuffer,
+    void trigger(star::core::device::manager::ManagerCommandBuffer &bufferManager, star::core::CommandBus &cmdBus,
+                 const star::StarBuffers::Buffer &hostRayCutoff, const star::StarBuffers::Buffer &hostRayDist,
+                 const star::StarBuffers::Buffer &targetRayCutoffBuffer,
                  const star::StarBuffers::Buffer &targetRayDistanceBuffer,
                  star::core::device::manager::SemaphoreRecord *timeline, const uint64_t &valueToSignal);
 

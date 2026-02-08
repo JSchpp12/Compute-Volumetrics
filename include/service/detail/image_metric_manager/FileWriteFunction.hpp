@@ -16,7 +16,7 @@ namespace image_metric_manager
 class FileWriteFunction
 {
   public:
-    FileWriteFunction(star::Handle buffer, vk::Device vkDevice, vk::Semaphore done, uint32_t copyToHostBufferDoneValue,
+    FileWriteFunction(star::Handle buffer, vk::Device vkDevice, vk::Semaphore done, uint64_t copyToHostBufferDoneValue,
                       HostVisibleStorage *storage);
 
     void write(const std::string &path) const;
@@ -25,7 +25,7 @@ class FileWriteFunction
     star::Handle m_hostVisibleRayDistanceBuffer;
     vk::Device m_vkDevice = VK_NULL_HANDLE;
     vk::Semaphore m_copyDone;
-    uint32_t m_copyToHostBufferDoneValue;
+    uint64_t m_copyToHostBufferDoneValue;
     HostVisibleStorage *m_storage = nullptr;
 
     void waitForCopyToDstBufferDone() const;

@@ -3,8 +3,11 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "Terrain.hpp"
+#include "command/image_metrics/TriggerCapture.hpp"
 
 #include <starlight/command/CreateObject.hpp>
+#include <starlight/command/command_order/DeclareDependency.hpp>
+#include <starlight/command/command_order/DeclarePass.hpp>
 #include <starlight/command/detail/create_object/DirectObjCreation.hpp>
 #include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/common/ConfigFile.hpp>
@@ -23,27 +26,27 @@ OffscreenRenderer InteractiveApplication::createOffscreenRenderer(star::core::de
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
+    // {
+    //     auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+    //     auto cmd = star::command::CreateObject::Builder()
+    //                    .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
+    //                        std::make_shared<Terrain>(context, terrainInfoPath)))
+    //                    .setUniqueName("terrain")
+    //                    .build();
+    //     context.begin().set(cmd).submit();
+    //     objects.emplace_back(cmd.getReply().get());
+    // }
+
     {
-        auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
+        auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
         auto cmd = star::command::CreateObject::Builder()
-                       .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-                           std::make_shared<Terrain>(context, terrainInfoPath)))
-                       .setUniqueName("terrain")
+                       .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+                       .setUniqueName("horse")
                        .build();
         context.begin().set(cmd).submit();
+        cmd.getReply().get()->init(context);
         objects.emplace_back(cmd.getReply().get());
     }
-
-    // {
-    // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    // auto cmd = star::command::CreateObject::Builder()
-    //                .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-    //                .setUniqueName("horse")
-    //                .build();
-    // context.begin().set(cmd).submit();
-    // cmd.getReply().get()->init(context);
-    // objects.emplace_back(cmd.getReply().get());
-    // }
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
@@ -89,6 +92,7 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     {
         m_volume->getInstance().rotateRelative(star::Type::Axis::y, 90);
     }
+
     if (key == GLFW_KEY_Z)
     {
         m_volume->getInstance().rotateRelative(star::Type::Axis::z, 90);
@@ -98,6 +102,7 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     {
         m_volume->getInstance().moveRelative(glm::vec3{0.0, 1.0, 0.0});
     }
+
     if (key == GLFW_KEY_DOWN)
     {
         m_volume->getInstance().moveRelative(glm::vec3{0.0, -1.0, 0.0});
@@ -260,6 +265,7 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         pos.y += 10;
         m_volume->getInstance(0).setPosition(pos);
     }
+
     if (key == GLFW_KEY_O)
     {
         glm::vec3 newScale = static_cast<const star::StarObject *>(m_volume.get())->getInstance(0).getScale();
@@ -269,24 +275,31 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
         m_volume->getInstance(0).setScale(newScale);
     }
+
     if (key == GLFW_KEY_I)
     {
         m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90);
     }
+
     if (key == GLFW_KEY_U)
     {
         m_volume->getInstance(0).rotateGlobal(star::Type::Axis::z, 90);
     }
+
     if (key == GLFW_KEY_Y)
     {
         m_volume->getInstance(0).rotateGlobal(star::Type::Axis::x, 90);
     }
 }
+
 std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::device::DeviceContext &context,
                                                                    const uint8_t &numFramesInFlight)
 {
     star::windowing::HandleKeyReleasePolicy<InteractiveApplication>::init(context.getEventBus());
     star::windowing::InteractivityBus::Init(&context.getEventBus(), m_winContext);
+
+    m_captureTrigger = context.begin();
+    m_captureTrigger.setType(image_metrics::TriggerCapture::GetUniqueTypeName());
 
     m_screenshotRegistrations.resize(context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
 
@@ -330,6 +343,8 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
 
             context.begin().set(cmd).submit();
             auto shared = cmd.getReply().get();
+
+            // record
         }
 
         m_volume->init(context, numFramesInFlight);
@@ -347,7 +362,8 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
         context.getEventBus().emit(star::windowing::event::RequestSwapChainFromService{swapchain});
         star::common::Renderer sc{star::windowing::SwapChainRenderer{m_winContext, std::move(swapchain), context,
                                                                      numFramesInFlight, objects, m_mainLight, camera}};
-        m_mainScene = std::make_shared<star::StarScene>(std::move(camera), std::move(sc), std::move(additional));
+        m_mainScene = std::make_shared<star::StarScene>(star::star_scene::makeAlwaysReadyPolicy(), std::move(camera),
+                                                        std::move(sc), std::move(additional));
     }
 
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;

@@ -6,6 +6,8 @@
 #include <starlight/wrappers/graphics/StarBuffers/Buffer.hpp>
 #include <starlight/wrappers/graphics/StarQueue.hpp>
 
+#include <optional>
+
 namespace image_metric_manager
 {
 struct CopyResources
@@ -33,11 +35,11 @@ class CopyCmds
 
     explicit CopyCmds(CopyResources &cpyResources);
 
-    void prepRender(star::core::device::StarDevice &device, star::common::EventBus &eb,
+    void prepRender(star::core::device::StarDevice &device, star::core::CommandBus &cmdBus, star::common::EventBus &eb,
                     star::core::device::manager::ManagerCommandBuffer &cb, star::core::device::manager::Queue &qm,
                     const star::common::FrameTracker &frameTracker);
 
-    void trigger(star::core::device::manager::ManagerCommandBuffer &cmdManager,
+    void trigger(star::core::device::manager::ManagerCommandBuffer &cmdManager, star::core::CommandBus &cmdBus,
                  const star::StarBuffers::Buffer &targetRayCutoff, const star::StarBuffers::Buffer &targetRayDistance);
 
     const star::Handle &getCommandBuffer() const
@@ -49,6 +51,9 @@ class CopyCmds
     CopyResources &m_cpyResources;
     CopyTargetInfo m_targetInfo;
     star::Handle m_cmdBuffer;
+    uint16_t m_cachedTriggerCmdType = 0;
+    uint8_t m_transferQueueFamilyIndex = 0;
+    uint8_t m_computeQueueFamilyIndex = 0;
     vk::Device m_device = VK_NULL_HANDLE;
     star::StarQueue *m_targetTransferQueue = nullptr;
 
@@ -59,7 +64,8 @@ class CopyCmds
 
     star::Handle registerWithManager(star::core::device::StarDevice &device,
                                      star::core::device::manager::ManagerCommandBuffer &cb,
-                                     const star::common::FrameTracker &frameTracker);
+                                     star::core::device::manager::Queue &qm, star::common::EventBus &eb,
+                                     star::core::CommandBus &cmdBus, const star::common::FrameTracker &frameTracker);
 
     void copyBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                     const star::StarBuffers::Buffer &src, const star::StarBuffers::Buffer &dst) const;
@@ -71,5 +77,13 @@ class CopyCmds
                                std::vector<std::optional<uint64_t>> previousSignaledValues);
 
     star::StarQueue *getTransferQueue(star::common::EventBus &eb, star::core::device::manager::Queue &qm) const;
+
+    std::vector<vk::BufferMemoryBarrier2> getPreBufferBarriers() const;
+
+    std::vector<vk::BufferMemoryBarrier2> getPostBufferBarriers() const; 
+
+    void addPreMemoryBarriers(vk::CommandBuffer &cmdBuffer) const;
+
+    void addPostMemoryBarriers(vk::CommandBuffer &cmdBuffer) const;
 };
 } // namespace image_metric_manager

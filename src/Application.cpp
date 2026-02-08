@@ -57,6 +57,8 @@ OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &con
 std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::DeviceContext &context,
                                                         const uint8_t &numFramesInFlight)
 {
+    std::vector<std::shared_ptr<star::StarObject>> allObjects;
+
     m_captureTrigger = context.begin();
     m_captureTrigger.setType(image_metrics::TriggerCapture::GetUniqueTypeName());
 
@@ -84,6 +86,11 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         auto oRenderer = star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight));
         auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
+        for (auto &object : offscreenRenderer->getObjects())
+        {
+            allObjects.emplace_back(object);
+        }
+
         const uint32_t width = context.getEngineResolution().width;
         const uint32_t height = context.getEngineResolution().height;
         std::vector<star::Handle> globalInfos(numInFlight);
@@ -105,6 +112,8 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
             context.begin().set(cmd).submit();
             auto shared = cmd.getReply().get();
+
+            allObjects.emplace_back(shared);
         }
 
         m_volume->init(context, numFramesInFlight);
@@ -123,7 +132,9 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
         auto *renderer = sc.getRaw<star::core::renderer::HeadlessRenderer>();
         context.getEventBus().emit(star::event::RegisterMainGraphicsRenderer{renderer});
-        m_mainScene = std::make_shared<star::StarScene>(std::move(camera), std::move(sc), std::move(additionals));
+        m_mainScene =
+            std::make_shared<star::StarScene>(star::star_scene::makeWaitForAllObjectsReadyPolicy(std::move(allObjects)),
+                                              std::move(camera), std::move(sc), std::move(additionals));
     }
 
     m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
@@ -152,11 +163,11 @@ void Application::frameUpdate(star::core::SystemContext &context)
     // glm::inverse(this->scene.getCamera()->getViewMatrix()),
     // this->scene.getCamera()->getProjectionMatrix());
 
-    auto &d= context.getAllDevices().getData()[0]; 
-    auto cmd = star::headless_render_result_write::GetFileNameForFrame(); 
-    d.begin().set(cmd).submit(); 
+    auto &d = context.getAllDevices().getData()[0];
+    auto cmd = star::headless_render_result_write::GetFileNameForFrame();
+    d.begin().set(cmd).submit();
 
-    triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get()); 
+    triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());
 }
 
 float Application::PromptForFloat(const std::string &prompt, const bool &allowNegatives)

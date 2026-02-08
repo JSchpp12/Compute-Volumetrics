@@ -10,7 +10,7 @@
 
 template <typename T>
 using ListenForTriggerCapture =
-    star::policy::ListenFor<T, image_metrics::TriggerCapture,
+    star::policy::command::ListenFor<T, image_metrics::TriggerCapture,
                                      image_metrics::trigger_capture::GetTriggerCaptureCommandTypeName, &T::onCapture>;
 
 /// <summary>
@@ -47,6 +47,7 @@ class ImageMetricManager
     ListenForTriggerCapture<ImageMetricManager> m_listenerCapture;
     star::core::CommandSubmitter m_cmdSubmitter;
     star::core::CommandSubmitter m_cmdSubmitterUpdater;
+    star::core::CommandSubmitter m_cmdSubmitterTrigger;
     star::core::CommandBus *m_cmdBus = nullptr;
     star::core::device::StarDevice *m_device = nullptr;
     star::common::EventBus *m_eb = nullptr;
@@ -54,6 +55,7 @@ class ImageMetricManager
     star::core::device::manager::Queue *m_qm = nullptr;
     star::core::device::manager::Semaphore *m_s = nullptr;
     const star::common::FrameTracker *m_frameTracker = nullptr;
+    bool m_isRegistered = false; 
 
     void initCopier(star::core::device::DeviceContext &context);
 
