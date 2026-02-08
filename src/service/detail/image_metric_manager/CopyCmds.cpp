@@ -35,8 +35,8 @@ void CopyCmds::trigger(star::core::device::manager::ManagerCommandBuffer &cmdMan
         cmdBus.submit(tCmd);
     }
 
-    m_targetInfo.rayDistance.buffer = &targetRayDistance;
     m_targetInfo.rayAtCutoffDistance.buffer = &targetRayCutoff;
+    m_targetInfo.rayDistance.buffer = &targetRayDistance;
 
     cmdManager.submitDynamicBuffer(m_cmdBuffer);
 }

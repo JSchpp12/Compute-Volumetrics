@@ -24,6 +24,6 @@ void CopyDeviceToHostMemory::trigger(star::core::device::manager::ManagerCommand
     m_resources.timelineRecord = timeline;
     m_resources.rayAtCutoff = &hostRayCutoff;
     m_resources.rayDistance = &hostRayDist;
-    m_cpyCmds.trigger(bufferManager, cmdBus, targetRayDistanceBuffer, targetRayCutoffBuffer);
+    m_cpyCmds.trigger(bufferManager, cmdBus, targetRayCutoffBuffer, targetRayDistanceBuffer);
 }
 } // namespace image_metric_manager
