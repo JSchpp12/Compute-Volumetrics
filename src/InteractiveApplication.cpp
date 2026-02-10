@@ -26,27 +26,27 @@ OffscreenRenderer InteractiveApplication::createOffscreenRenderer(star::core::de
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    // {
-    //     auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-    //     auto cmd = star::command::CreateObject::Builder()
-    //                    .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-    //                        std::make_shared<Terrain>(context, terrainInfoPath)))
-    //                    .setUniqueName("terrain")
-    //                    .build();
-    //     context.begin().set(cmd).submit();
-    //     objects.emplace_back(cmd.getReply().get());
-    // }
-
     {
-        auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+        auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
         auto cmd = star::command::CreateObject::Builder()
-                       .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-                       .setUniqueName("horse")
+                       .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
+                           std::make_shared<Terrain>(context, terrainInfoPath)))
+                       .setUniqueName("terrain")
                        .build();
         context.begin().set(cmd).submit();
-        cmd.getReply().get()->init(context);
         objects.emplace_back(cmd.getReply().get());
     }
+
+    // {
+    //     auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    //     auto cmd = star::command::CreateObject::Builder()
+    //                    .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+    //                    .setUniqueName("horse")
+    //                    .build();
+    //     context.begin().set(cmd).submit();
+    //     cmd.getReply().get()->init(context);
+    //     objects.emplace_back(cmd.getReply().get());
+    // }
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
