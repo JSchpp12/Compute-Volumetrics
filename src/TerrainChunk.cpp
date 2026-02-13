@@ -12,21 +12,41 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
+
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
+
+static std::string FindMatchingTextureFile(const std::string &textureFileName)
+{
+    const boost::filesystem::path *found = nullptr;
+    const auto terrainDir =
+        boost::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) / "terrains";
+
+    auto files =
+        star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(terrainDir.string(), textureFileName);
+    for (const auto &file : files)
+    {
+        if (file.has_extension() && (file.extension() == ".png" || file.extension() == ".ktx2"))
+        {
+            found = &file;
+            break;
+        }
+    }
+
+    if (found == nullptr)
+    {
+        STAR_THROW("Unable to find matching texture file for terrain chunk");
+    }
+
+    return found->string();
+}
 
 TerrainChunk::TerrainChunk(const std::string &fullHeightFile, const std::string &nTextureFile,
                            const glm::dvec2 &northEast, const glm::dvec2 &southEast, const glm::dvec2 &southWest,
                            const glm::dvec2 &northWest, const glm::dvec3 &offset, const glm::dvec2 &center)
-    : fullHeightFile(fullHeightFile), northEast(northEast), southEast(southEast), southWest(southWest),
-      northWest(northWest), offset(offset), center(center)
+    : textureFile(FindMatchingTextureFile(nTextureFile)), fullHeightFile(fullHeightFile), m_northEast(northEast),
+      m_southEast(southEast), m_southWest(southWest), m_northWest(northWest), m_offset(offset), m_center(center)
 {
-    std::string terrainDir = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "/terrains";
-    std::optional<std::string> matchedFile =
-        star::file_helpers::FindFileInDirectoryWithSameNameIgnoreFileType(terrainDir, nTextureFile);
-    assert(matchedFile.has_value() && "Unable to find matching texture file");
-
-    this->textureFile = matchedFile.value();
 }
 
 double TerrainChunk::getCenterHeightFromGDAL(const std::string &geoTiff, const glm::dvec2 &centerLatLon)
@@ -57,8 +77,8 @@ double TerrainChunk::getCenterHeightFromGDAL(const std::string &geoTiff, const g
 
 void TerrainChunk::load()
 {
-    TerrainDataset dataset = TerrainDataset(this->fullHeightFile, this->northEast, this->southEast, this->southWest,
-                                            this->northWest, this->center, this->offset);
+    TerrainDataset dataset =
+        TerrainDataset(this->fullHeightFile, m_northEast, m_southEast, m_southWest, m_northWest, m_center, m_offset);
 
     loadGeomInfo(dataset, verts, inds, this->firstLine, this->lastLine);
 }
@@ -317,26 +337,20 @@ TerrainChunk::TerrainDataset::~TerrainDataset()
     }
 }
 
-TerrainChunk::TerrainDataset::TerrainDataset(const std::string &path, const glm::dvec2 &northEast,
-                                             const glm::dvec2 &southEast, const glm::dvec2 &southWest,
-                                             const glm::dvec2 &northWest, const glm::dvec2 &center,
-                                             const glm::dvec3 &offset)
-    : path(path), northEast(northEast), southEast(southEast), southWest(southWest), northWest(northWest),
-      center(center), offset(offset)
+TerrainChunk::TerrainDataset::TerrainDataset(std::string path, const glm::dvec2 &northEast, const glm::dvec2 &southEast,
+                                             const glm::dvec2 &southWest, const glm::dvec2 &northWest,
+                                             const glm::dvec2 &center, const glm::dvec3 &offset)
+    : m_path(std::move(path)), m_northEast(northEast), m_southEast(southEast), m_southWest(southWest),
+      m_northWest(northWest), m_center(center), m_offset(offset)
 {
-    if (!star::file_helpers::FileExists(path))
-    {
-        throw std::runtime_error("File does not exist");
-    }
-
-    GDALDataset *dataset = (GDALDataset *)GDALOpen(path.c_str(), GA_ReadOnly);
+    GDALDataset *dataset = (GDALDataset *)GDALOpen(m_path.c_str(), GA_ReadOnly);
     if (dataset == NULL)
     {
         STAR_THROW("Failed to create dataset");
     }
 
     initTransforms(dataset);
-    initPixelCoords(northEast, northWest, southEast);
+    initPixelCoords();
     initBandSizes(dataset);
     initGDALBuffer(dataset);
 
@@ -371,13 +385,12 @@ void TerrainChunk::TerrainDataset::initTransforms(GDALDataset *dataset)
     }
 }
 
-void TerrainChunk::TerrainDataset::initPixelCoords(const glm::dvec2 &northEast, const glm::dvec2 &northWest,
-                                                   const glm::dvec2 &southEast)
+void TerrainChunk::TerrainDataset::initPixelCoords()
 {
-    const glm::ivec2 tNorthEast = getTexCoordsFromLatLon(northEast);
-    const glm::ivec2 tNorthWest = getTexCoordsFromLatLon(northWest);
-    const glm::ivec2 tSouthEast = getTexCoordsFromLatLon(southEast);
-    const glm::ivec2 tSouthWest = getTexCoordsFromLatLon(southWest);
+    const glm::ivec2 tNorthEast = getTexCoordsFromLatLon(m_northEast);
+    const glm::ivec2 tNorthWest = getTexCoordsFromLatLon(m_northWest);
+    const glm::ivec2 tSouthEast = getTexCoordsFromLatLon(m_southEast);
+    const glm::ivec2 tSouthWest = getTexCoordsFromLatLon(m_southWest);
 
     const auto crossA = glm::ivec2{std::abs(tSouthEast.x - tNorthWest.x), std::abs(tSouthEast.y - tNorthWest.y)};
     const auto crossB = glm::ivec2{std::abs(tSouthWest.x - tNorthEast.x), std::abs(tSouthWest.y - tNorthEast.y)};

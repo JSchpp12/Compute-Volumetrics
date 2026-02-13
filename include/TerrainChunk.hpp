@@ -9,8 +9,8 @@
 #include <string>
 
 #include "StarBuffers/Buffer.hpp"
-#include "device/StarDevice.hpp"
 #include "StarMesh.hpp"
+#include "device/StarDevice.hpp"
 
 class TerrainChunk
 {
@@ -22,7 +22,8 @@ class TerrainChunk
     /// @brief Load meshes from the provided files
     void load();
 
-    std::unique_ptr<star::StarMesh> getMesh(star::core::device::DeviceContext &context, std::shared_ptr<star::StarMaterial> myMaterial);
+    std::unique_ptr<star::StarMesh> getMesh(star::core::device::DeviceContext &context,
+                                            std::shared_ptr<star::StarMaterial> myMaterial);
 
     std::string &getTextureFile();
 
@@ -64,7 +65,7 @@ class TerrainChunk
     class TerrainDataset
     {
       public:
-        TerrainDataset(const std::string &path, const glm::dvec2 &northEast, const glm::dvec2 &southEast,
+        TerrainDataset(std::string path, const glm::dvec2 &northEast, const glm::dvec2 &southEast,
                        const glm::dvec2 &southWest, const glm::dvec2 &northWest, const glm::dvec2 &center,
                        const glm::dvec3 &offset);
 
@@ -86,23 +87,23 @@ class TerrainChunk
 
         const glm::dvec2 &getNorthEast() const
         {
-            return this->northEast;
+            return this->m_northEast;
         }
         const glm::dvec2 &getSouthEast() const
         {
-            return this->southEast;
+            return this->m_southEast;
         }
         const glm::dvec2 &getSouthWest() const
         {
-            return this->southWest;
+            return this->m_southWest;
         }
         const glm::dvec2 &getNorthWest() const
         {
-            return this->northWest;
+            return this->m_northWest;
         }
         const glm::dvec3 &getOffset() const
         {
-            return this->offset;
+            return this->m_offset;
         }
         const glm::ivec2 &getPixSize() const
         {
@@ -110,13 +111,13 @@ class TerrainChunk
         }
         const glm::dvec2 &getCenter() const
         {
-            return this->center;
+            return this->m_center;
         }
 
       private:
-        const std::string path;
-        const glm::dvec2 northEast, southEast, southWest, northWest, center;
-        const glm::dvec3 offset;
+        std::string m_path;
+        glm::dvec2 m_northEast, m_southEast, m_southWest, m_northWest, m_center;
+        glm::dvec3 m_offset;
         const int pixBorderSize = 4;
 
         float *gdalBuffer = nullptr;
@@ -127,7 +128,7 @@ class TerrainChunk
 
         void initBandSizes(GDALDataset *dataset);
 
-        void initPixelCoords(const glm::dvec2 &northEast, const glm::dvec2 &northWest, const glm::dvec2 &southEast);
+        void initPixelCoords();
 
         void initGDALBuffer(GDALDataset *dataset);
     };
@@ -137,8 +138,8 @@ class TerrainChunk
     std::unique_ptr<star::StarBuffers::Buffer> indBuffer, vertBuffer;
     std::unique_ptr<star::StarMesh> mesh;
     std::string textureFile, fullHeightFile;
-    const glm::dvec2 northEast, southEast, southWest, northWest, center;
-    const glm::dvec3 offset;
+    glm::dvec2 m_northEast, m_southEast, m_southWest, m_northWest, m_center;
+    glm::dvec3 m_offset;
 
     /**
      * @brief Extract height info from the file and calculate ver

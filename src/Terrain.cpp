@@ -80,14 +80,23 @@ std::vector<std::shared_ptr<star::StarMaterial>> Terrain::LoadMaterials(std::str
 
     for (size_t i = 0; i < fileInfo.infos().size(); i++)
     {
-        auto foundTexture = star::file_helpers::FindFileInDirectoryWithSameNameIgnoreFileType(
+        const boost::filesystem::path *found = nullptr;
+        auto files = star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(
             mediaDirectoryPath, fileInfo.infos()[i].textureFile);
-        if (!foundTexture.has_value())
+        for (const auto &file : files)
         {
-            throw std::runtime_error("Failed to find matching texture for file");
+            if (file.extension() == ".ktx2")
+            {
+                found = &file;
+            }
         }
 
-        materials[i] = std::make_shared<star::TextureMaterial>(foundTexture.value());
+        if (found == nullptr)
+        {
+            STAR_THROW("Failed to find matching texture for file");
+        }
+
+        materials[i] = std::make_shared<star::TextureMaterial>(found->string());
     }
 
     return materials;
