@@ -41,7 +41,7 @@ class TerrainChunk
         return *this->vertBuffer;
     }
 
-    static double getCenterHeightFromGDAL(const std::string &geoTiff, const glm::dvec2 &centerLatLon);
+    static double GetCenterHeightFromGDAL(const std::string &geoTiff);
 
     std::vector<glm::dvec3> lastLine;
     std::vector<glm::dvec3> firstLine;

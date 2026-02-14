@@ -49,7 +49,7 @@ TerrainChunk::TerrainChunk(const std::string &fullHeightFile, const std::string 
 {
 }
 
-double TerrainChunk::getCenterHeightFromGDAL(const std::string &geoTiff, const glm::dvec2 &centerLatLon)
+double TerrainChunk::GetCenterHeightFromGDAL(const std::string &geoTiff)
 {
     GDALDataset *dataset = (GDALDataset *)GDALOpen(geoTiff.c_str(), GA_ReadOnly);
 
@@ -137,7 +137,6 @@ void TerrainChunk::loadLocation(TerrainDataset &dataset, std::vector<glm::dvec3>
     // calculate locations
     for (int i = 0; i < dataset.getPixSize().y; i++)
     {
-        // problem is here
         const glm::dvec2 bordPosWest = dataset.getNorthWest() + (vertLineDir_west * vertStep_west * (double)i);
         const glm::dvec2 bordPosEast = dataset.getNorthEast() + (vertLineDir_east * vertStep_east * (double)i);
 
@@ -172,15 +171,15 @@ void TerrainChunk::loadInds(TerrainDataset &dataset, std::vector<uint32_t> &inds
                 // this is a 'central' vert where drawing should be based around
                 //
                 // uppper left
-                uint32_t center = indexCounter;
-                uint32_t centerLeft = indexCounter - 1;
-                uint32_t centerRight = indexCounter + 1;
-                uint32_t upperLeft = indexCounter - 1 - dataset.getPixSize().x;
-                uint32_t upperCenter = indexCounter - dataset.getPixSize().x;
-                uint32_t upperRight = indexCounter - dataset.getPixSize().x + 1;
-                uint32_t lowerLeft = indexCounter + dataset.getPixSize().x - 1;
-                uint32_t lowerCenter = indexCounter + dataset.getPixSize().x;
-                uint32_t lowerRight = indexCounter + dataset.getPixSize().x + 1;
+                const uint32_t center = indexCounter;
+                const uint32_t centerLeft = indexCounter - 1;
+                const uint32_t centerRight = indexCounter + 1;
+                const uint32_t upperLeft = indexCounter - 1 - dataset.getPixSize().x;
+                const uint32_t upperCenter = indexCounter - dataset.getPixSize().x;
+                const uint32_t upperRight = indexCounter - dataset.getPixSize().x + 1;
+                const uint32_t lowerLeft = indexCounter + dataset.getPixSize().x - 1;
+                const uint32_t lowerCenter = indexCounter + dataset.getPixSize().x;
+                const uint32_t lowerRight = indexCounter + dataset.getPixSize().x + 1;
                 // 1
                 inds.push_back(center);
                 inds.push_back(upperLeft);

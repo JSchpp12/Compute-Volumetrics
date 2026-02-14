@@ -18,6 +18,8 @@
 #include <star_windowing/SwapChainRenderer.hpp>
 #include <star_windowing/event/RequestSwapChainFromService.hpp>
 
+#include <boost/filesystem/path.hpp>
+
 OffscreenRenderer InteractiveApplication::createOffscreenRenderer(star::core::device::DeviceContext &context,
                                                                   const uint8_t &numFramesInFlight,
                                                                   std::shared_ptr<star::windowing::BasicCamera> camera,
@@ -109,34 +111,6 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     }
 
     const float MILES_TO_METERS = 1609.35;
-
-    // if (key == GLFW_KEY_P)
-    // {
-    //     auto time = std::time(nullptr);
-    //     auto tm = *std::localtime(&time);
-    //     std::ostringstream oss;
-    //     oss << std::put_time(&tm, "%Y-%m-%d-%H-%M-%S") << ".png";
-    //     auto stringName = oss.str();
-    //     star::StarEngine::takeScreenshot(stringName);
-    // }
-
-    // if (key == GLFW_KEY_SPACE)
-    // {
-    //     m_flipScreenshotState = true;
-    //     auto camPosition = this->m_mainScene->getCamera()->getPosition();
-    //     camPosition.z += 1.0f;
-    //     this->m_mainScene->getCamera()->setPosition(camPosition);
-
-    //     // auto camPosition = this->scene->getCamera()->getPosition();
-    //     // auto camLookDirection = this->scene->getCamera()->getForwardVector();
-
-    //     this->testObject->setPosition(glm::vec3{camPosition.x, camPosition.y, camPosition.z + 10});
-
-    //     // this->testObject->setPosition(
-    //     //     glm::vec3{camPosition.x + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.x))),
-    //     //               camPosition.y + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.y))),
-    //     //               camPosition.z + (static_cast<float>(MathHelpers::MilesToMeters(camLookDirection.z)))});
-    // }
 
     if (key == GLFW_KEY_T)
     {
@@ -266,6 +240,12 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         m_volume->getInstance(0).setPosition(pos);
     }
 
+    if (key == GLFW_KEY_V)
+    {
+        auto camPos = this->m_mainScene->getCamera()->getPosition(); 
+        this->m_mainScene->getCamera()->setPosition(glm::vec3{camPos.x, camPos.y, 0});
+    }
+
     if (key == GLFW_KEY_O)
     {
         glm::vec3 newScale = static_cast<const star::StarObject *>(m_volume.get())->getInstance(0).getScale();
@@ -331,20 +311,24 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
         star::common::helper::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
         {
-            std::string vdbPath = mediaDirectoryPath + "volumes/flat_plane_wind";
+            std::string vdbPath;
+            {
+                boost::filesystem::path rPath =
+                    boost::filesystem::path(mediaDirectoryPath) / "volumes" / "flat_plane_wind";
+                vdbPath = rPath.string();
+            }
+
             m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
                                                 offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
                                                 offscreenRenderer->getLightInfoBuffers(),
                                                 offscreenRenderer->getLightListBuffers());
             auto cmd = star::command::CreateObject::Builder()
                            .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
-                           .setUniqueName("flat_plane_wind")
+                           .setUniqueName("flatWind")
                            .build();
 
             context.begin().set(cmd).submit();
             auto shared = cmd.getReply().get();
-
-            // record
         }
 
         m_volume->init(context, numFramesInFlight);
@@ -376,33 +360,23 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     m_volume->getFogControlInfo().linearInfo.nearDist = 0.01f;
     m_volume->getFogControlInfo().linearInfo.farDist = 1000.0f;
     m_volume->getFogControlInfo().expFogInfo.density = 0.6f;
-
-    // std::cout << "Application Controls" << std::endl;
-    // std::cout << "B - Modify fog properties" << std::endl;
-    // std::cout << "L - Set to linear fog rendering" << std::endl;
-    // std::cout << "K - Set to marched fog rendering" << std::endl;
-    // std::cout << "J - Set to exp fog rendering" << std::endl;
-    // std::cout << std::endl;
-
     return m_mainScene;
 }
 
 void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext &context,
                                                const star::common::FrameTracker &frameTracker)
 {
-    std::ostringstream oss;
-    oss << "Test" << std::to_string(context.getFrameTracker().getCurrent().getGlobalFrameCounter());
-    oss << ".png";
+    std::string name = "Test" + std::to_string(context.getFrameTracker().getCurrent().getGlobalFrameCounter()) + ".png";
 
     size_t index = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());
     auto *render = m_mainScene->getPrimaryRenderer().getRaw<star::windowing::SwapChainRenderer>();
-    auto targetTexture = context.getImageManager().get(render->getRenderToColorImages()[index])->texture;
 
     // submit screenshot processing
-    context.getEventBus().emit(star::event::TriggerScreenshot{
-        std::move(targetTexture), oss.str(), render->getCommandBuffer(), m_screenshotRegistrations[index]});
+    context.getEventBus().emit(
+        star::event::TriggerScreenshot(context.getImageManager().get(render->getRenderToColorImages()[index])->texture,
+                                       name, render->getCommandBuffer(), m_screenshotRegistrations[index]));
 
-    triggerImageRecord(context, frameTracker, oss.str());
+    triggerImageRecord(context, frameTracker, name);
 }
 
 #endif
