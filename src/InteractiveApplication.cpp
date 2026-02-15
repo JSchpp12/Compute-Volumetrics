@@ -102,12 +102,14 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
     if (key == GLFW_KEY_UP)
     {
-        m_volume->getInstance().moveRelative(glm::vec3{0.0, 1.0, 0.0});
+        const auto pos = m_mainScene->getCamera()->getPosition(); 
+        m_mainScene->getCamera()->setPosition(glm::vec3{pos.x, pos.y + 1.0, pos.z}); 
     }
 
     if (key == GLFW_KEY_DOWN)
     {
-        m_volume->getInstance().moveRelative(glm::vec3{0.0, -1.0, 0.0});
+        const auto pos = m_mainScene->getCamera()->getPosition(); 
+        m_mainScene->getCamera()->setPosition(glm::vec3{pos.x, pos.y - 1.0, pos.z}); 
     }
 
     const float MILES_TO_METERS = 1609.35;
@@ -359,7 +361,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     m_volume->setFogType(VolumeRenderer::FogType::marched);
     m_volume->getFogControlInfo().linearInfo.nearDist = 0.01f;
     m_volume->getFogControlInfo().linearInfo.farDist = 1000.0f;
-    m_volume->getFogControlInfo().expFogInfo.density = 0.6f;
+    m_volume->getFogControlInfo().expFogInfo.density = 12.0f;
     return m_mainScene;
 }
 

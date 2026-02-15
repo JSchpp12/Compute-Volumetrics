@@ -105,7 +105,7 @@ void VolumeRendererCreateDescriptorsPolicy::createDescriptors()
 
     {
         std::string compShaderPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) +
-                                     "shaders/volumeRenderer/nanoVDBHitBoundingBox.comp";
+                                     "shaders/volumeRenderer/HomogenousMarchedFog.comp";
 
         *m_nanoVDBPipeline_hitBoundingBox =
             m_graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{
