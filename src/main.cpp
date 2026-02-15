@@ -4,8 +4,11 @@
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
 
+#include <openvdb/openvdb.h>
+
 #ifdef STAR_ENABLE_PRESENTATION
 #include "InteractiveMode.hpp"
+
 int runWindow()
 {
     InteractiveMode interactiveInstance{};
@@ -16,18 +19,23 @@ int runWindow()
 #include "HeadlessMode.hpp"
 int runHeadless()
 {
-    HeadlessMode headlessInstance{}; 
-    return headlessInstance.run(); 
+    HeadlessMode headlessInstance{};
+    return headlessInstance.run();
 }
 
 #endif
 
 int main()
 {
-    star::ConfigFile::load("./StarEngine.cfg");
+
+        star::ConfigFile::load("./StarEngine.cfg");
+
+        openvdb::initialize();
+
 #ifdef STAR_ENABLE_PRESENTATION
-    return runWindow();
+        return runWindow();
 #else
-    return runHeadless();
+        return runHeadless();
 #endif
+
 }

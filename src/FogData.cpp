@@ -1,6 +1,7 @@
 #include "FogData.hpp"
 
 #include "FileHelpers.hpp"
+
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 

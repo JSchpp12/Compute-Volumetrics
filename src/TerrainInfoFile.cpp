@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 
 #include <iostream>
+#include <string>
 
 TerrainInfoFile::TerrainInfoFile(const std::string &pathToFile)
 {
@@ -24,14 +25,20 @@ void TerrainInfoFile::loadFromFile(const std::string &pathToFile)
     this->fullHeightFilePath = j["full_terrain_file"];
     this->parsedInfo.resize(images.size());
 
-    for (int i = 0; i < images.size(); i++)
+    for (size_t i = 0; i < images.size(); i++)
     {
-        this->parsedInfo[i] = TerrainInfo{
-            glm::dvec2(double(images[i]["corners"]["NE"]["lat"]), double(images[i]["corners"]["NE"]["lon"])),
-            glm::dvec2(double(images[i]["corners"]["SE"]["lat"]), double(images[i]["corners"]["SE"]["lon"])),
-            glm::dvec2(double(images[i]["corners"]["SW"]["lat"]), double(images[i]["corners"]["SW"]["lon"])),
-            glm::dvec2(double(images[i]["corners"]["NW"]["lat"]), double(images[i]["corners"]["NW"]["lon"])),
-            glm::dvec2(double(images[i]["corners"]["center"]["lat"]), double(images[i]["corners"]["center"]["lon"])),
-            std::string(images[i]["texture_name_no_extension"])};
+        std::string name = images[i]["name"].get<std::string>();
+        glm::dvec2 ne{std::stod(images[i]["bounds"]["northEast"]["lat"].get<std::string>()),
+                      std::stod(images[i]["bounds"]["northEast"]["lon"].get<std::string>())};
+        glm::dvec2 se{std::stod(images[i]["bounds"]["southEast"]["lat"].get<std::string>()),
+                      std::stod(images[i]["bounds"]["southEast"]["lon"].get<std::string>())};
+        glm::dvec2 sw{std::stod(images[i]["bounds"]["southWest"]["lat"].get<std::string>()),
+                      std::stod(images[i]["bounds"]["southWest"]["lon"].get<std::string>())};
+        glm::dvec2 nw{std::stod(images[i]["bounds"]["northWest"]["lat"].get<std::string>()),
+                      std::stod(images[i]["bounds"]["northWest"]["lon"].get<std::string>())};
+        glm::dvec2 center{std::stod(images[i]["bounds"]["center"]["lat"].get<std::string>()),
+                          std::stod(images[i]["bounds"]["center"]["lon"].get<std::string>())};
+        this->parsedInfo[i] =
+            TerrainInfo{std::move(ne), std::move(se), std::move(sw), std::move(nw), std::move(center), std::move(name)};
     }
 }

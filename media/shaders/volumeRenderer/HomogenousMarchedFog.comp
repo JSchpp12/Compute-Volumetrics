@@ -1,0 +1,257 @@
+#version 450
+
+const float PI = 3.1415926535897932384626433832795;
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+struct Light_Type
+{
+    uint point;
+    uint directional;
+    uint spot;
+};
+
+struct Light
+{
+    vec4 position;
+    vec4 direction;
+
+    // properties
+    vec4 ambient;
+    vec4 diffuse;
+    vec4 specular;
+    // controls.x = inner cutoff angle
+    // controls.y = outer cutoff angle
+    vec4 controls;
+    // settings.x = enabled
+    // settings.y = type
+    uvec4 settings;
+};
+
+layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
+{
+    mat4 proj;
+    mat4 view;
+    mat4 invView;
+} globalUbo;
+
+layout(set = 0, binding = 1) uniform GlobalLightInfo{
+    int numLights;
+} lightInfo; 
+
+layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer{
+    Light lights[];
+ } lightList;
+
+layout(set = 1, binding = 0) uniform additionalCameraInfo
+{
+    mat4 invProj;
+    vec2 cameraDimensions;
+    float aspectRatio;
+    float farClipDist;
+    float nearClipDist;
+    float scale;
+}
+addCamInfo;
+layout(std430, set = 1, binding = 1) buffer PNanoVDBBuffer{
+    uint pnanovdb_buf_data[];
+};
+layout(r32f, set = 1, binding = 2) uniform readonly image2D randomTexture;
+
+layout(set = 2, binding = 0, rgba8) uniform readonly image2D inputSceneColor;
+layout(set = 2, binding = 1) uniform sampler2D inputSceneDepth;
+layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
+layout(set = 2, binding = 3) buffer RayDistanceResult{
+    float rayDistData[]; 
+};
+layout(set = 2, binding = 4) buffer IsRayAtMaxDistance{
+    uint isAtMaxDistance[];
+};
+
+layout(set = 3, binding = 0) uniform InstanceModelMatrix
+{
+    mat4 instanceModelMatrix[1024];
+};
+
+layout(set = 3, binding = 1) uniform aabbInfo
+{
+    vec4 bounds[2];
+}
+aabb;
+
+layout(set = 3, binding = 2) uniform FogControllerInfo
+{
+    float linearFog_nearDistance;
+    float linearFog_farDistance;
+    float expFog_density;
+    float marchedFog_defaultDensity;
+    float marchedFog_sigmaAbsorption;
+    float marchedFog_sigmaScattering;
+    float marchedFog_lightPropertyDirG;
+    float marchedFog_stepSizeDist;
+    float marchedFog_stepSizeDist_light;
+    uint marchedFog_levelSet_maxNumSteps;
+    uint gridType;
+}
+fogInfo;
+
+layout(set = 3, binding = 3) uniform InstanceInverseModelMatrix{
+    mat4 instanceInverseMatrix[1024];
+};
+
+#include "PNanoVDB.h"
+#include "ray_helpers.comp"
+#include "volume_helpers.comp"
+
+ivec2 getTargetPixelCoords()
+{
+    return ivec2((gl_LocalInvocationID.x) + ((gl_WorkGroupID.x) * 8),
+                 (gl_LocalInvocationID.y) + ((gl_WorkGroupID.y) * 8));
+}
+
+float linearizeDepth(const float depth, const float camNearClipDist, const float camFarClipDist)
+{
+    /* convert depth value back to linear space -- based on proj matrix
+    Source: http://www.songho.ca/opengl/gl_projectionmatrix.html
+    Source2: https://learnopengl.com/Advanced-OpenGL/Depth-testing
+    */
+    return (camNearClipDist * camFarClipDist) / (camFarClipDist - depth * (camFarClipDist - camNearClipDist));
+}
+
+bool checkForThreadOutsideOfTarget()
+{
+    ivec2 imageSize = imageSize(inputSceneColor);
+    uvec2 coords = gl_GlobalInvocationID.xy;
+    if (coords.x > imageSize.x || coords.y > imageSize.y)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+float applyHenyeyGreensteinPhase(const float cosTheta, const float g){
+    float denom = 1.0 + g*g - 2.0*g*cosTheta;
+    return (1.0 / (4.0 * PI)) * (1.0 - g*g) / pow(denom, 1.5);
+}
+
+void forwardMarch(const vec3 backgroundColor, const Ray ray,
+                  float sigmaAbsorption, float sigmaScattering, float lightPropertyDir_g,
+                  float stepSize, uint numSteps, const float cutOffDistance, 
+                  const float jitterAmount, const float defaultDensity, inout vec3 resultingColor, 
+                  inout float rayDistanceTraveled)
+{ 
+    const float sigmaT = sigmaAbsorption + sigmaScattering;
+    const float jitter = jitterAmount * stepSize; 
+    const float lJitter = jitterAmount * stepSize; 
+
+	float transparency = 1.0;
+    vec3 resultingRadiance = vec3(0.0);
+    
+    for (int i = 0; i < numSteps; i++){
+        // setting to middle
+        const float t = (stepSize * (i + 0.5)) + jitter;
+        if (transparency < 0.001)
+        {
+            break; 
+        }
+
+		const vec3 pos = ray.origin.xyz + (t * ray.direction.xyz); 
+        const float pTransmission = exp(-stepSize * defaultDensity * sigmaT);
+        transparency *= pTransmission;
+        for (int j = 0; j < lightInfo.numLights; j++){
+            //might need to check if light is within volume later
+            const vec3 lightPos = (lightList.lights[j].position).xyz; 
+            const Ray rayToLight = createRay(pos, normalize(lightPos - pos));
+
+            float lTau = 0.0;
+
+            for (int k = 0; k < numSteps; k++){
+                const float lt = (stepSize * (k + 0.5)) + lJitter;
+                const vec3 lPos = pos + (lt * rayToLight.direction.xyz); 
+                lTau += defaultDensity;
+            } 
+
+            const float lRayAttenuation = exp(-lTau * stepSize * sigmaT);
+            const float cosTheta = dot(-ray.direction.xyz, rayToLight.direction.xyz);
+            const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g); 
+            resultingRadiance += lightList.lights[j].ambient.rgb * lRayAttenuation * phase * sigmaScattering * defaultDensity * stepSize; 
+        } 
+    }
+
+    resultingColor = backgroundColor * transparency + resultingRadiance; 
+}
+
+void writeMaxDistanceTraveled(const float d, const uint index)
+{
+    if (d >= addCamInfo.farClipDist)
+    {
+        rayDistData[index] = 0;
+    }
+    else
+    {
+        rayDistData[index] = d;
+    }
+
+}
+
+void writeDistanceStencilInfo(const float d, const uint index)
+{
+    if (d >= addCamInfo.farClipDist)
+    {
+        isAtMaxDistance[index] = 1;
+    }
+    else
+    {
+        isAtMaxDistance[index] = 0;
+    }
+}
+
+void writeDistanceInfo(const float d, const ivec2 tPix, const uvec2 cSize)
+{
+    const uint index = tPix.x + (tPix.y * cSize.x);  
+    writeMaxDistanceTraveled(d, index);
+    writeDistanceStencilInfo(d, index);
+}
+
+void main()
+{
+    uvec2 gid = gl_GlobalInvocationID.xy;
+    uvec2 size = uvec2(addCamInfo.cameraDimensions.xy);
+    if (any(greaterThanEqual(gid, size))) return;
+
+    const ivec2 targetPixel = getTargetPixelCoords(); 
+    const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]);
+    const float randomValue = imageLoad(randomTexture, targetPixel).r;
+    
+    float targetPixelInputDepth = texelFetch(inputSceneDepth, targetPixel, 0).r;
+    const float linearDepth = linearizeDepth(targetPixelInputDepth, addCamInfo.nearClipDist, addCamInfo.farClipDist); 
+    const vec3 backgroundColor = imageLoad(inputSceneColor, targetPixel).rgb;
+
+    vec3 viewDirScene = vec3(0.0); 
+    vec3 orgScene = vec3(0.0);
+    getSceneViewInfoForPix(targetPixel, uvec2(addCamInfo.cameraDimensions.x, addCamInfo.cameraDimensions.y), targetPixelInputDepth, orgScene, viewDirScene); 
+
+    const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]); 
+    Ray worldRay = createRay(orgScene.xyz, viewDirScene.xyz);  
+    Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix); 
+
+    vec3 resultingColor = vec3(0.0, 0.0, 0.0); 
+    float rayDistanceTraveled; 
+    forwardMarch(backgroundColor, 
+        localRay, 
+        fogInfo.marchedFog_sigmaAbsorption,
+        fogInfo.marchedFog_sigmaScattering,
+        fogInfo.marchedFog_lightPropertyDirG, 
+        fogInfo.marchedFog_stepSizeDist,
+        fogInfo.marchedFog_levelSet_maxNumSteps,
+        linearDepth,
+        randomValue,
+        fogInfo.marchedFog_defaultDensity,
+        resultingColor,
+        rayDistanceTraveled
+    );
+
+    writeDistanceInfo(rayDistanceTraveled, targetPixel, size); 
+    imageStore(outputImage, targetPixel, vec4(resultingColor, 1.0));
+}

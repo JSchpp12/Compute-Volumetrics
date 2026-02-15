@@ -34,6 +34,8 @@ std::unique_ptr<star::StarShaderInfo> VolumeRendererCreateDescriptorsPolicy::bui
                     .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
                     .addBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
                     .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                    .addBinding(3, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
+                    .addBinding(4, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
                     .build(*m_device))
             .addSetLayout(star::StarDescriptorSetLayout::Builder()
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
@@ -67,6 +69,8 @@ std::unique_ptr<star::StarShaderInfo> VolumeRendererCreateDescriptorsPolicy::bui
             .add(*colorTex, vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
             .add(*depthTex, vk::ImageLayout::eShaderReadOnlyOptimal)
             .add(*m_computeWriteToImages->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
+            .add(m_computeRayDistBuffers->at(i))
+            .add(m_computeRayAtCutoffBuffer->at(i))
             .startSet()
             .add(m_infoManagerInstanceModel->getHandle(i))
             .add(m_aabbInfoBuffers->at(i))
@@ -101,7 +105,7 @@ void VolumeRendererCreateDescriptorsPolicy::createDescriptors()
 
     {
         std::string compShaderPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) +
-                                     "shaders/volumeRenderer/nanoVDBHitBoundingBox.comp";
+                                     "shaders/volumeRenderer/HomogenousMarchedFog.comp";
 
         *m_nanoVDBPipeline_hitBoundingBox =
             m_graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{

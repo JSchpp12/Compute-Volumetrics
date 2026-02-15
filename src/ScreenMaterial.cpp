@@ -22,8 +22,6 @@ std::unique_ptr<star::StarShaderInfo> ScreenMaterial::buildShaderInfo(star::core
     assert(m_computeOutputImages.size() > 0 && "Compute images need to be assigned before shader infos be built"); 
 
     for (uint8_t i = 0; i < numFramesInFlight; i++){
-        assert(m_computeOutputImages.at(i) && "Image is not properly initialized"); 
-        
         builder.startOnFrameIndex(i); 
         builder.startSet(); 
         builder.add(*m_computeOutputImages.at(i), vk::ImageLayout::eShaderReadOnlyOptimal);

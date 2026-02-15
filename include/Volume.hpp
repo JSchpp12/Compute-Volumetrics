@@ -8,13 +8,13 @@
 #include "Light.hpp"
 #include "OffscreenRenderer.hpp"
 #include "Ray.hpp"
-#include "RuntimeUpdateTexture.hpp"
 #include "ScreenMaterial.hpp"
 #include "StarCamera.hpp"
 #include "StarCommandBuffer.hpp"
 #include "StarObject.hpp"
 #include "VertColorMaterial.hpp"
 #include "Vertex.hpp"
+#include "VolumeDirectoryProcessor.hpp"
 #include "VolumeRenderer.hpp"
 
 #include <openvdb/Grid.h>
@@ -23,13 +23,15 @@
 #include <openvdb/tools/Interpolation.h>
 #include <openvdb/tools/LevelSetSphere.h>
 #include <openvdb/tools/RayTracer.h>
-#include <stdio.h>
+
 #include <tbb/tbb.h>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/ext.hpp>
 #include <glm/gtx/string_cast.hpp>
+
 #include <random>
+#include <stdio.h>
 #include <string>
 #include <thread>
 
@@ -130,6 +132,12 @@ class Volume : public star::StarObject
     {
         assert(m_fogControlInfo && "Fog control info must be proper");
         return *this->m_fogControlInfo;
+    }
+
+    const VolumeRenderer &getRenderer() const
+    {
+        assert(volumeRenderer != nullptr && "prepRender has not yet happened"); 
+        return *volumeRenderer;
     }
 
   protected:

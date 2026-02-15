@@ -49,6 +49,8 @@ find_package(Threads REQUIRED)
 find_package(OpenVDB CONFIG REQUIRED)
 find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(zstd CONFIG REQUIRED)
+find_package(TBB CONFIG REQUIRED)
 set(starlight_common_DIR "${CMAKE_BINARY_DIR}/extern/Starlight-Common" CACHE PATH "")
 add_subdirectory("extern/Starlight-Common")
 add_subdirectory("extern/starlight")
@@ -64,6 +66,8 @@ set(${PROJECT_NAME}_SOURCES
  	"src/Application.cpp"
 	"src/Volume.cpp"
 	"src/Terrain.cpp"
+	"src/TerrainShapeInfo.cpp"
+	"src/TerrainShapeInfoLoader.cpp"
 	"src/VolumeRendererCreateDescriptorsPolicy.cpp"
 	"src/VolumeRenderer.cpp"
 	"src/OffscreenRenderer.cpp"
@@ -88,7 +92,19 @@ set(${PROJECT_NAME}_SOURCES
 	"src/InteractiveMode.cpp"
 	"src/HeadlessMode.cpp"
 	"src/InteractiveApplication.cpp"
-	"src/VDBTransferFactory.cpp"
+	"src/VolumeDirectoryProcessor.cpp"
+	"src/VolumeFile.cpp"
+	"src/VDBFileInfo.cpp"
+	"src/PrepareDistanceBufferInfo.cpp"
+	"src/service/ImageMetricManager.cpp"
+	"src/policy/EngineInitPolicy.cpp"
+	"src/command/image_metrics/TriggerCapture.cpp"
+	"src/policy/WindowedEngineInitPolicy.cpp"
+	"src/service/detail/image_metric_manager/CopyDeviceToHostMemory.cpp"
+	"src/service/detail/image_metric_manager/CopyCmds.cpp"
+	"src/service/detail/image_metric_manager/FileWriteFunction.cpp"
+	"src/service/detail/image_metric_manager/HostVisibleStorage.cpp"
+	"src/service/detail/image_metric_manager/ImageMetrics.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -97,6 +113,8 @@ set(${PROJECT_NAME}_HEADERS
 	"include/AABBTransfer.hpp"
 	"include/Volume.hpp"
 	"include/Terrain.hpp"
+	"include/TerrainShapeInfo.hpp"
+	"include/TerrainShapeInfoLoader.hpp"
 	"include/VolumeRendererCreateDescriptorsPolicy.hpp"
 	"include/VolumeRenderer.hpp"
 	"include/OffscreenRenderer.hpp"
@@ -121,7 +139,19 @@ set(${PROJECT_NAME}_HEADERS
 	"include/InteractiveMode.hpp"
 	"include/HeadlessMode.hpp"
 	"include/InteractiveApplication.hpp"
-	"include/VDBTransferFactory.hpp"
+	"include/VolumeDirectoryProcessor.hpp"
+	"include/VolumeFile.hpp"
+	"include/VDBFileInfo.hpp"
+	"include/PrepareDistanceBufferInfo.hpp"
+	"include/service/ImageMetricManager.hpp"
+	"include/policy/WindowedEngineInitPolicy.hpp"
+	"include/policy/EngineInitPolicy.hpp"
+	"include/command/image_metrics/TriggerCapture.hpp"
+	"include/service/detail/image_metric_manager/CopyDeviceToHostMemory.hpp"
+	"include/service/detail/image_metric_manager/CopyCmds.hpp"
+	"include/service/detail/image_metric_manager/FileWriteFunction.hpp"
+	"include/service/detail/image_metric_manager/HostVisibleStorage.hpp"
+	"include/service/detail/image_metric_manager/ImageMetrics.hpp"
 )
 
 set(${PROJECT_NAME}_INCLUDE_DIRS
@@ -143,6 +173,8 @@ if (WIN32)
 			Starlight::starlight
 			OpenVDB::openvdb
 			GDAL::GDAL
+			TBB::tbb
+			zstd::libzstd
 	)
 	else()
 		target_link_libraries(${PROJECT_NAME}
@@ -150,6 +182,8 @@ if (WIN32)
 			Starlight::windowing
 			OpenVDB::openvdb
 			GDAL::GDAL
+			TBB::tbb
+			zstd::libzstd
 		)
 	endif()
 
@@ -161,6 +195,8 @@ else()
 				Starlight::starlight
 				OpenVDB::openvdb
 				GDAL::GDAL
+				TBB::tbb
+				zstd::libzstd
 				atomic
 		)
 	else()
@@ -169,6 +205,8 @@ else()
 				starlight_windowing
 				OpenVDB::openvdb
 				GDAL::GDAL
+				TBB::tbb
+				zstd::libzstd
 				atomic
 		)
 	endif()
@@ -195,9 +233,7 @@ set(FINAL_APPLICATION_DIR "")
 if (MSVC)
     set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
 	target_compile_options(${PROJECT_NAME} PRIVATE 
-		$<$<CXX_COMPILER_ID:MSVC>:/MP> 
-		$<$<CXX_COMPILER_ID:MSVC>:/EHsc> 
-		$<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus>
+		$<$<CXX_COMPILER_ID:MSVC>:/bigobj /MP /EHsc /Zc:__cplusplus> 
 	)
 else()
 	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}")

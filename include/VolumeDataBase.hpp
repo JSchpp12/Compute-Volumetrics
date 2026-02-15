@@ -2,20 +2,24 @@
 
 #include "StarBuffers/Buffer.hpp"
 
-#include <openvdb/Grid.h>
-#include <openvdb/Types.h>
 #include <nanovdb/GridHandle.h>
 #include <nanovdb/HostBuffer.h>
+
+#include <openvdb/Grid.h>
+#include <openvdb/Types.h>
 #include <openvdb/openvdb.h>
+
+#include <glm/glm.hpp>
 
 #include <memory>
 #include <string>
+#include <filesystem>
 
 
 class VolumeDataBase
 {
   public:
-    VolumeDataBase(std::string pathToFile, openvdb::GridClass gridClass)
+    VolumeDataBase(std::filesystem::path pathToFile, openvdb::GridClass gridClass)
         : m_pathToFile(std::move(pathToFile)), m_requestedGridClass(std::move(gridClass))
     {
     }
@@ -32,15 +36,23 @@ class VolumeDataBase
         return m_nanoVDB->gridSize();
     }
 
+    std::array<glm::vec3, 2> getAABB() const;
+
     static openvdb::GridBase::Ptr LoadVDBBaseGrid(const std::string &pathToVDBFile);
 
   protected:
-    std::string m_pathToFile;
+    std::filesystem::path m_pathToFile;
     openvdb::GridClass m_requestedGridClass;
     std::unique_ptr<nanovdb::GridHandle<nanovdb::HostBuffer>> m_nanoVDB = nullptr; 
 
     virtual void convertVolumeFormat(openvdb::SharedPtr<openvdb::FloatGrid> &grid) const = 0;
 
+    std::unique_ptr<nanovdb::GridHandle<nanovdb::HostBuffer>> prepVDBFile() const;
+    std::unique_ptr<nanovdb::GridHandle<nanovdb::HostBuffer>> prepNVDBFile() const;
+
   private:
     static std::unique_ptr<nanovdb::GridHandle<nanovdb::HostBuffer>> LoadNanoVDB(openvdb::SharedPtr<openvdb::FloatGrid> &grid); 
+    static std::unique_ptr<nanovdb::GridHandle<nanovdb::HostBuffer>> LoadNanoVDB(const std::string &path); 
+
+
 };

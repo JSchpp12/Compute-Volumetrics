@@ -2,6 +2,7 @@
 
 #include "Allocator.hpp"
 
+#include <starlight/command/command_order/DeclarePass.hpp>
 #include <starlight/core/helper/command_buffer/CommandBufferHelpers.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
@@ -22,17 +23,10 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const s
 
     // need to transition the image from general to color attachment
     // also get ownership back
-    if (!this->isFirstPass)
+    auto prepImages = std::vector<vk::ImageMemoryBarrier2>
     {
-        std::array<const vk::ImageMemoryBarrier2, 2> backFromCompute{
-            vk::ImageMemoryBarrier2()
-                .setOldLayout(vk::ImageLayout::eGeneral)
-                .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
-                .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
-                .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
+        vk::ImageMemoryBarrier2()
                 .setImage(colorTex->getVulkanImage())
-                .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
-                .setSrcAccessMask(vk::AccessFlagBits2::eNone)
                 .setDstStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
                 .setDstAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
                 .setSubresourceRange(vk::ImageSubresourceRange()
@@ -41,14 +35,8 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const s
                                          .setBaseArrayLayer(0)
                                          .setLevelCount(1)
                                          .setLayerCount(1)),
-            vk::ImageMemoryBarrier2()
-                .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-                .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
-                .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
+                     vk::ImageMemoryBarrier2()
                 .setImage(depthTex->getVulkanImage())
-                .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
                 .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests |
                                  vk::PipelineStageFlagBits2::eLateFragmentTests)
                 .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentRead |
@@ -58,10 +46,46 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const s
                                          .setBaseMipLevel(0)
                                          .setBaseArrayLayer(0)
                                          .setLevelCount(1)
-                                         .setLayerCount(1))};
+                                         .setLayerCount(1))
+    };
 
-        commandBuffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(backFromCompute));
+    if (!isFirstPass)
+    {
+        prepImages[0]
+            .setOldLayout(vk::ImageLayout::eGeneral)
+            .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
+            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
+            .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex);
+        prepImages[1]
+            .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+            .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
+            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
+            .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex);
     }
+    else
+    {
+        prepImages[0]
+            .setOldLayout(vk::ImageLayout::eUndefined)
+            .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
+            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored);
+
+        prepImages[1]
+            .setOldLayout(vk::ImageLayout::eUndefined)
+            .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
+            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored);
+    }
+
+    commandBuffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(prepImages));
 
     vk::Viewport viewport = this->prepareRenderingViewport(m_renderingContext.targetResolution);
     commandBuffer.setViewport(0, viewport);
@@ -99,8 +123,8 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const s
                 .setDstQueueFamilyIndex(this->computeQueueFamilyIndex)
                 .setSrcStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
                 .setSrcAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
-                .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
+                .setDstAccessMask(vk::AccessFlagBits2::eNone)
                 .setSubresourceRange(vk::ImageSubresourceRange()
                                          .setAspectMask(vk::ImageAspectFlagBits::eColor)
                                          .setBaseMipLevel(0)
@@ -116,7 +140,7 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const s
                 .setSrcStageMask(vk::PipelineStageFlagBits2::eLateFragmentTests |
                                  vk::PipelineStageFlagBits2::eEarlyFragmentTests)
                 .setSrcAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
-                .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
                 .setDstAccessMask(vk::AccessFlagBits2::eNone)
                 .setSubresourceRange(vk::ImageSubresourceRange()
                                          .setAspectMask(vk::ImageAspectFlagBits::eDepth)
@@ -206,37 +230,6 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages
     for (int i = 0; i < numFramesInFlight; i++)
     {
         newRenderToImages.emplace_back(builder.build());
-
-        auto oneTimeSetup = star::core::helper::BeginSingleTimeCommands(device.getDevice(), device.getEventBus(),
-                                                                        device.getManagerCommandBuffer().m_manager,
-                                                                        star::Queue_Type::Tgraphics);
-
-        vk::ImageMemoryBarrier barrier{};
-        barrier.sType = vk::StructureType::eImageMemoryBarrier;
-        barrier.oldLayout = vk::ImageLayout::eUndefined;
-        barrier.newLayout = vk::ImageLayout::eColorAttachmentOptimal;
-        barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
-        barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
-
-        barrier.image = newRenderToImages.back().getVulkanImage();
-        barrier.srcAccessMask = vk::AccessFlagBits::eNone;
-        barrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-
-        barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        barrier.subresourceRange.baseMipLevel = 0; // image does not have any mipmap levels
-        barrier.subresourceRange.levelCount = 1;   // image is not an array
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
-
-        oneTimeSetup.buffer().pipelineBarrier(
-            vk::PipelineStageFlagBits::eTopOfPipe,             // which pipeline stages should
-                                                               // occurr before barrier
-            vk::PipelineStageFlagBits::eColorAttachmentOutput, // pipeline stage in
-                                                               // which operations will
-                                                               // wait on the barrier
-            {}, {}, nullptr, barrier);
-
-        star::core::helper::EndSingleTimeCommands(*queue, std::move(oneTimeSetup));
     }
 
     return newRenderToImages;
@@ -306,42 +299,12 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToDepthI
                                 .setMaxLod(0.0f));
 
     auto *queue = star::core::helper::GetEngineDefaultQueue(
-        device.getEventBus(), device.getGraphicsManagers().queueManager, star::Queue_Type::Tgraphics);
+        device.getEventBus(), device.getGraphicsManagers().queueManager, star::Queue_Type::Tcompute);
     assert(queue != nullptr);
 
     for (int i = 0; i < numFramesInFlight; i++)
     {
         newRenderToImages.emplace_back(builder.build());
-
-        auto oneTimeSetup = star::core::helper::BeginSingleTimeCommands(device.getDevice(), device.getEventBus(),
-                                                                        device.getManagerCommandBuffer().m_manager,
-                                                                        star::Queue_Type::Tgraphics);
-
-        vk::ImageMemoryBarrier barrier{};
-        barrier.sType = vk::StructureType::eImageMemoryBarrier;
-        barrier.oldLayout = vk::ImageLayout::eUndefined;
-        barrier.newLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-        barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
-        barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
-
-        barrier.image = newRenderToImages.back().getVulkanImage();
-        barrier.srcAccessMask = vk::AccessFlagBits::eNone;
-        barrier.dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-
-        barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
-        barrier.subresourceRange.baseMipLevel = 0; // image does not have any mipmap levels
-        barrier.subresourceRange.levelCount = 1;   // image is not an array
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
-
-        oneTimeSetup.buffer().pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, // which pipeline stages should
-                                                                                     // occurr before barrier
-                                              vk::PipelineStageFlagBits::eEarlyFragmentTests, // pipeline stage in
-                                                                                              // which operations will
-                                                                                              // wait on the barrier
-                                              {}, {}, nullptr, barrier);
-
-        star::core::helper::EndSingleTimeCommands(*queue, std::move(oneTimeSetup));
     }
 
     return newRenderToImages;
@@ -377,6 +340,9 @@ void OffscreenRenderer::prepRender(star::common::IDeviceContext &c)
     this->firstFramePassCounter = uint32_t(context.getFrameTracker().getSetup().getNumFramesInFlight());
 
     star::core::renderer::DefaultRenderer::prepRender(c);
+
+    auto cmd = star::command_order::DeclarePass(this->m_commandBuffer, this->graphicsQueueFamilyIndex);
+    context.begin().set(cmd).submit();
 }
 
 vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(

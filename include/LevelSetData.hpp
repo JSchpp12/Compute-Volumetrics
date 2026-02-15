@@ -13,6 +13,5 @@ class LevelSetData : public VolumeDataBase
     virtual ~LevelSetData() = default; 
 
   private:
-
-  virtual void convertVolumeFormat(openvdb::SharedPtr<openvdb::FloatGrid> &baseGrid) const override; 
+  virtual void convertVolumeFormat(openvdb::SharedPtr<openvdb::FloatGrid> &grid) const override; 
 };

@@ -1,8 +1,10 @@
 #include "Terrain.hpp"
 
+#include "TerrainGrid.hpp"
+#include "TerrainShapeInfoLoader.hpp"
+
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/helpers/FileHelpers.hpp>
-#include "TerrainGrid.hpp"
 
 std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
 {
@@ -25,6 +27,14 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
     TerrainInfoFile fileInfo = TerrainInfoFile(m_terrainDefFile);
     const auto terrainPath = star::file_helpers::GetParentDirectory(m_terrainDefFile).value();
 
+    TerrainShapeInfo shapeInfo;
+    {
+        const auto terrainShapeFile = boost::filesystem::path(terrainPath) / "Shape.json";
+        auto loader = TerrainShapeInfoLoader(terrainShapeFile.string());
+
+        shapeInfo = loader.load();
+    }
+
     TerrainGrid grid = TerrainGrid();
 
     std::vector<TerrainChunk> chunks;
@@ -33,7 +43,7 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
 
     std::set<std::string> alreadyProcessed = std::set<std::string>();
     bool setWorldCenter = false;
-    glm::dvec3 worldCenter = glm::dvec3();
+    glm::dvec3 worldCenter(shapeInfo.center.x, shapeInfo.center.y, 0);
 
     const auto fullHeightFilePath = terrainPath / boost::filesystem::path(fileInfo.getFullHeightFilePath());
     for (size_t i = 0; i < fileInfo.infos().size(); i++)
@@ -43,9 +53,8 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
         {
             setWorldCenter = true;
 
-            float height = TerrainChunk::getCenterHeightFromGDAL(fullHeightFilePath.string(), glm::dvec3{});
-
-            worldCenter = glm::dvec3{fileInfo.infos()[i].cornerNW.x, fileInfo.infos()[i].cornerNW.y, height};
+            float height = TerrainChunk::GetCenterHeightFromGDAL(fullHeightFilePath.string());
+            worldCenter.z = height; 
         }
 
         chunks.emplace_back(fullHeightFilePath.string(), infoPath.string(), fileInfo.infos()[i].cornerNE,
@@ -80,14 +89,23 @@ std::vector<std::shared_ptr<star::StarMaterial>> Terrain::LoadMaterials(std::str
 
     for (size_t i = 0; i < fileInfo.infos().size(); i++)
     {
-        auto foundTexture = star::file_helpers::FindFileInDirectoryWithSameNameIgnoreFileType(
+        const boost::filesystem::path *found = nullptr;
+        auto files = star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(
             mediaDirectoryPath, fileInfo.infos()[i].textureFile);
-        if (!foundTexture.has_value())
+        for (const auto &file : files)
         {
-            throw std::runtime_error("Failed to find matching texture for file");
+            if (file.extension() == ".ktx2")
+            {
+                found = &file;
+            }
         }
 
-        materials[i] = std::make_shared<star::TextureMaterial>(foundTexture.value());
+        if (found == nullptr)
+        {
+            STAR_THROW("Failed to find matching texture for file");
+        }
+
+        materials[i] = std::make_shared<star::TextureMaterial>(found->string());
     }
 
     return materials;

@@ -114,8 +114,8 @@ class FogInfo
 
         MarchedFogInfo(const MarchedFogInfo &other)
             : defaultDensity(other.defaultDensity), sigmaAbsorption(other.sigmaAbsorption),
-              lightPropertyDirG(other.lightPropertyDirG), stepSizeDist(other.stepSizeDist),
-              stepSizeDist_light(other.stepSizeDist_light)
+              sigmaScattering(other.sigmaScattering), lightPropertyDirG(other.lightPropertyDirG),
+              stepSizeDist(other.stepSizeDist), stepSizeDist_light(other.stepSizeDist_light)
         {
         }
 
@@ -123,6 +123,7 @@ class FogInfo
         {
             this->defaultDensity = other.defaultDensity;
             this->sigmaAbsorption = other.sigmaAbsorption;
+            this->sigmaScattering = other.sigmaScattering;
             this->lightPropertyDirG = other.lightPropertyDirG;
             this->stepSizeDist = other.stepSizeDist;
             this->stepSizeDist_light = other.stepSizeDist_light;
@@ -133,6 +134,7 @@ class FogInfo
         bool operator==(const MarchedFogInfo &other) const
         {
             return this->defaultDensity == other.defaultDensity && this->sigmaAbsorption == other.sigmaAbsorption &&
+                   this->sigmaScattering == other.sigmaScattering &&
                    this->lightPropertyDirG == other.lightPropertyDirG && this->stepSizeDist == other.stepSizeDist &&
                    this->stepSizeDist_light == other.stepSizeDist_light;
         }
@@ -140,6 +142,7 @@ class FogInfo
         bool operator!=(const MarchedFogInfo &other) const
         {
             return this->defaultDensity != other.defaultDensity || this->sigmaAbsorption != other.sigmaAbsorption ||
+                   this->sigmaScattering != other.sigmaScattering ||
                    this->lightPropertyDirG != other.lightPropertyDirG || this->stepSizeDist != other.stepSizeDist ||
                    this->stepSizeDist_light != other.stepSizeDist_light;
         }
@@ -171,7 +174,7 @@ class FogInfo
 
         void setSigmaScattering(const float &value)
         {
-            sigmaScattering = value; 
+            sigmaScattering = value;
         }
 
         float getSigmaScattering() const
