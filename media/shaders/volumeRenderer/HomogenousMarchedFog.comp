@@ -105,7 +105,7 @@ layout(set = 3, binding = 3) uniform FogControllerInfo
     float marchedFog_lightPropertyDirG;
     float marchedFog_stepSizeDist;
     float marchedFog_stepSizeDist_light;
-    uint marchedFog_levelSet_maxNumSteps;
+    uint marchedFog_uniform_maxNumSteps;
     uint gridType;
 }
 fogInfo;
@@ -135,9 +135,9 @@ float applyHenyeyGreensteinPhase(const float cosTheta, const float g){
 }
 
 void forwardMarch(const vec3 backgroundColor, const Ray ray,
-                  float sigmaAbsorption, float sigmaScattering, float lightPropertyDir_g,
-                  float stepSize, uint numSteps, float cutOffDistance, 
-                  const float jitterAmount, float defaultDensity, inout vec3 resultingColor, 
+                  float sigmaAbsorption, float sigmaScattering, const float lightPropertyDir_g,
+                  const float stepSize, const uint numSteps, const float cutOffDistance, 
+                  const float jitterAmount, const float defaultDensity, inout vec3 resultingColor, 
                   inout float rayDistanceTraveled)
 { 
     Light_Type lChecker = createLightTypeStruct(); 
@@ -259,7 +259,7 @@ void main()
         fogInfo.marchedFog_sigmaScattering,
         fogInfo.marchedFog_lightPropertyDirG, 
         fogInfo.marchedFog_stepSizeDist,
-        fogInfo.marchedFog_levelSet_maxNumSteps,
+        fogInfo.marchedFog_uniform_maxNumSteps,
         linearDepth,
         randomValue,
         fogInfo.marchedFog_defaultDensity,

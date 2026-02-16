@@ -1,11 +1,11 @@
 #include "Volume.hpp"
 
 #include "ConfigFile.hpp"
+#include "FogData.hpp"
 #include "ManagerRenderResource.hpp"
 #include "TransferRequest_IndicesInfo.hpp"
 #include "TransferRequest_VertInfo.hpp"
 #include "VolumeFile.hpp"
-#include "FogData.hpp"
 
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
@@ -88,7 +88,7 @@ void Volume::loadModel(star::core::device::DeviceContext &context, const std::st
 {
     VolumeDirectoryProcessor contentProcessor(filePath,
                                               star::ConfigFile::getSetting(star::Config_Settings::tmp_directory));
-    contentProcessor.init(); 
+    contentProcessor.init();
     auto firstFile = contentProcessor.getProcessedFiles().front().getDataFilePath();
     auto fileData = FogData(firstFile.string(), openvdb::GridClass::GRID_FOG_VOLUME);
     fileData.prep();

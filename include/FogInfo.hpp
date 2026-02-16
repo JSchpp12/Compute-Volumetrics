@@ -272,7 +272,7 @@ class FogInfo
                              this->marchedInfo.getLightPropertyDirG(),
                              this->marchedInfo.stepSizeDist,
                              this->marchedInfo.stepSizeDist_light,
-                             uint32_t(1000),
-                             this->homogenousInfo.maxNumSteps};
+                             this->homogenousInfo.maxNumSteps,
+                             uint32_t(0)};
     }
 };
