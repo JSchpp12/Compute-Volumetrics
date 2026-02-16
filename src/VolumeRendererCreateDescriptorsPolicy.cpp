@@ -73,11 +73,11 @@ std::unique_ptr<star::StarShaderInfo> VolumeRendererCreateDescriptorsPolicy::bui
             .add(m_computeRayAtCutoffBuffer->at(i))
             .startSet()
             .add(m_infoManagerInstanceModel->getHandle(i))
+            .add(m_infoManagerInstanceNormal->getHandle(i))
             .add(m_aabbInfoBuffers->at(i))
             .add(m_fogController->getHandle(i),
                  &m_resourceManager->get<star::StarBuffers::Buffer>(*m_deviceID, m_fogController->getHandle(i))
-                      ->resourceSemaphore)
-            .add(m_infoManagerInstanceNormal->getHandle(i));
+                      ->resourceSemaphore);
     }
 
     return shaderInfoBuilder.build();

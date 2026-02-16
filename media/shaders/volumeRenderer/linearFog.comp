@@ -2,13 +2,15 @@
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in; 
 
-struct Light_Type{
+struct Light_Type
+{
 	uint point; 
 	uint directional; 
 	uint spot;
 };
 
-struct Light{
+struct Light
+{
 	vec4 position;
 	vec4 direction;
 
@@ -24,7 +26,6 @@ struct Light{
 	uvec4 settings; 
 };
 
-
 layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
 {
     mat4 proj;
@@ -33,11 +34,13 @@ layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
 }
 globalUbo;
 
-layout(set = 0, binding = 1) uniform GlobalLightInfo{
+layout(set = 0, binding = 1) uniform GlobalLightInfo
+{
     int numLights;
 } lightInfo; 
 
-layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer{
+layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer
+{
     Light lights[];
 };
 
@@ -61,16 +64,16 @@ layout(set = 3, binding = 0) uniform InstanceModelMatrix
 {
     mat4 modelMatrix[1024];
 };
-
-layout(set = 3, binding = 1) 
-
-layout(set = 3, binding = 1) uniform aabbInfo
+layout(set = 3, binding = 1) uniform InstanceInverseModelMatrix
+{
+    mat4 instanceInverseMatrix[1024];
+};
+layout(set = 3, binding = 2) uniform aabbInfo
 {
     vec4 bounds[2];
 }
 aabb;
-
-layout(set = 3, binding = 2) uniform FogControllerInfo
+layout(set = 3, binding = 3) uniform FogControllerInfo
 {
     float linearFog_nearDistance;
     float linearFog_farDistance;

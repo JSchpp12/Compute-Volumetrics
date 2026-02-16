@@ -33,11 +33,13 @@ layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
     mat4 invView;
 } globalUbo;
 
-layout(set = 0, binding = 1) uniform GlobalLightInfo{
+layout(set = 0, binding = 1) uniform GlobalLightInfo
+{
     int numLights;
 } lightInfo; 
 
-layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer{
+layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer
+{
     Light lights[];
  } lightList;
 
@@ -63,14 +65,16 @@ layout(set = 3, binding = 0) uniform InstanceModelMatrix
 {
     mat4 instanceModelMatrix[1024];
 };
-
-layout(set = 3, binding = 1) uniform aabbInfo
+layout(set = 3, binding = 1) uniform InstanceInverseModelMatrix
+{
+    mat4 instanceInverseMatrix[1024];
+};
+layout(set = 3, binding = 2) uniform aabbInfo
 {
     vec4 bounds[2];
 }
 aabb;
-
-layout(set = 3, binding = 2) uniform FogControllerInfo
+layout(set = 3, binding = 3) uniform FogControllerInfo
 {
     float linearFog_nearDistance;
     float linearFog_farDistance;
@@ -85,10 +89,6 @@ layout(set = 3, binding = 2) uniform FogControllerInfo
     uint gridType;
 }
 fogInfo;
-
-layout(set = 3, binding = 3) uniform InstanceInverseModelMatrix{
-    mat4 instanceInverseMatrix[1024]; 
-};
 
 #include "PNanoVDB.h"
 #include "ray_helpers.comp"
