@@ -213,10 +213,10 @@ else()
 endif()
 
 if (NOT ${HEADLESS})
-    target_compile_definitions(${PROJECT_NAME} PRIVATE STAR_ENABLE_PRESENTATION "NANOVDB_USE_OPENVDB")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE STAR_ENABLE_PRESENTATION "NANOVDB_USE_OPENVDB" "GLM_FORCE_DEPTH_ZERO_TO_ONE")
 	message("STAR - Enabling Presentation")
 else()
-	target_compile_definitions(${PROJECT_NAME} PRIVATE "NANOVDB_USE_OPENVDB")
+	target_compile_definitions(${PROJECT_NAME} PRIVATE "NANOVDB_USE_OPENVDB" "GLM_FORCE_DEPTH_ZERO_TO_ONE")
 	message("STAR - Disable Presentation")
 endif()
 

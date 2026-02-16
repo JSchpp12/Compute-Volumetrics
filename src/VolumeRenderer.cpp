@@ -63,6 +63,7 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context, const uint
                                                                         &computeWriteToImages,
                                                                         &computeRayDistanceBuffers,
                                                                         &computeRayAtCutoffDistanceBuffers,
+                                                                        &marchedHomogenousPipeline,
                                                                         &nanoVDBPipeline_hitBoundingBox,
                                                                         &nanoVDBPipeline_surface,
                                                                         &marchedPipeline,
@@ -385,6 +386,9 @@ void VolumeRenderer::updateRenderingContext(star::core::device::DeviceContext &c
     case (FogType::exp):
         m_renderingContext.pipeline = &context.getPipelineManager().get(this->expPipeline)->request.pipeline;
         break;
+    case (FogType::marched_homogenous): 
+        m_renderingContext.pipeline = &context.getPipelineManager().get(this->marchedHomogenousPipeline)->request.pipeline;
+        break;
     case (FogType::nano_boundingBox):
         m_renderingContext.pipeline =
             &context.getPipelineManager().get(this->nanoVDBPipeline_hitBoundingBox)->request.pipeline;
@@ -396,14 +400,6 @@ void VolumeRenderer::updateRenderingContext(star::core::device::DeviceContext &c
     default:
         throw std::runtime_error("Unsupported type");
     }
-
-    // size_t index = static_cast<size_t>(frameInFlightIndex);
-    // auto *colorImage = &context.getImageManager().get(m_offscreenRenderer->getRenderToColorImages()[index])->texture;
-    // auto *depthImage = &context.getImageManager().get(m_offscreenRenderer->getRenderToDepthImages()[index])->texture;
-    // rContext.recordDependentImage.manualInsert(m_offscreenRenderer->getRenderToColorImages()[index], colorImage);
-    // rContext.recordDependentImage.manualInsert(m_offscreenRenderer->getRenderToDepthImages()[index], depthImage);
-
-    // return rContext;
 }
 
 glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize)

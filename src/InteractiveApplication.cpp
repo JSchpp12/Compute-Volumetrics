@@ -132,6 +132,7 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         std::cout << "7 - MarchedFog: Light PropertyDirG" << std::endl;
         std::cout << "8 - MarchedFog: Step Size" << std::endl;
         std::cout << "9 - MarchedFog: Step Size Light" << std::endl;
+        std::cout << "10 - HomogenousRendering: Max Num Steps" << std::endl;
 
         int selectedMode;
 
@@ -199,6 +200,11 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
             std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = PromptForFloat("Select step size light");
             break;
+        case (10): 
+            oss << std::to_string(m_volume->getFogControlInfo().homogenousInfo.getMaxNumSteps()); 
+            std::cout << oss.str() << std::endl;
+            m_volume->getFogControlInfo().homogenousInfo.setMaxNumSteps(PromptForInt("Select max number of steps"));
+            break;
         default:
             std::cout << "Unknown option" << std::endl;
         }
@@ -232,6 +238,12 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     {
         std::cout << "Setting fog type to: NANO Surface" << std::endl;
         m_volume->setFogType(VolumeRenderer::FogType::nano_surface);
+    }
+    
+    if (key == GLFW_KEY_F)
+    {
+        std::cout << "Setting fog type to: Homogenous" << std::endl;
+        m_volume->setFogType(VolumeRenderer::FogType::marched_homogenous);
     }
 
     if (key == GLFW_KEY_P)
@@ -297,7 +309,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     camera->setForwardVector(volumePos - camera->getPosition());
 
     m_mainLight = std::make_shared<std::vector<star::Light>>(
-        std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0})});
+        std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{0.0, -1.0, 0.0})});
 
     {
         auto oRenderer =
@@ -352,16 +364,16 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
                                                         std::move(sc), std::move(additional));
     }
 
-    m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
+    m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.03f;
     m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 3.0f;
     m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 5.0f;
-    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.00001f);
+    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.0f);
     m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.8f);
-    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.3f);
+    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.7f);
     m_volume->setFogType(VolumeRenderer::FogType::marched);
     m_volume->getFogControlInfo().linearInfo.nearDist = 0.01f;
     m_volume->getFogControlInfo().linearInfo.farDist = 1000.0f;
-    m_volume->getFogControlInfo().expFogInfo.density = 12.0f;
+    m_volume->getFogControlInfo().expFogInfo.density = 0.03f;
     return m_mainScene;
 }
 

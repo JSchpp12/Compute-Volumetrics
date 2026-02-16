@@ -34,6 +34,7 @@ class VolumeRenderer
         linear,
         exp,
         marched,
+        marched_homogenous,
         nano_boundingBox,
         nano_surface
     };
@@ -125,7 +126,7 @@ class VolumeRenderer
         std::vector<std::shared_ptr<star::StarTextures::Texture>>();
     std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers, computeRayAtCutoffDistanceBuffers;
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
-    star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline;
+    star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline, marchedHomogenousPipeline;
     std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
     FogType currentFogType = FogType::marched;

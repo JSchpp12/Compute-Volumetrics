@@ -63,7 +63,7 @@ std::unique_ptr<star::StarShaderInfo> VolumeRendererCreateDescriptorsPolicy::bui
         }
         shaderInfoBuilder.add(*m_randomValueTexture, vk::ImageLayout::eGeneral, vk::Format::eR32Sfloat);
 
-        auto *colorTex = &m_graphicsManagers->imageManager.get(m_offscreenRenderToColors->at(i))->texture; 
+        auto *colorTex = &m_graphicsManagers->imageManager.get(m_offscreenRenderToColors->at(i))->texture;
         auto *depthTex = &m_graphicsManagers->imageManager.get(m_offscreenRenderToDepths->at(i))->texture;
         shaderInfoBuilder.startSet()
             .add(*colorTex, vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
@@ -81,6 +81,17 @@ std::unique_ptr<star::StarShaderInfo> VolumeRendererCreateDescriptorsPolicy::bui
     }
 
     return shaderInfoBuilder.build();
+}
+
+static star::Handle BuildPipeline(const boost::filesystem::path &shaderDir, const std::string &shaderFile,
+                                  const vk::PipelineLayout &compmutePipelineLayout,
+                                  star::core::device::manager::GraphicsContainer *graphicsManagers)
+{
+    const auto fPath = shaderDir / shaderFile;
+    return graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{star::StarPipeline(
+        star::StarPipeline::ComputePipelineConfigSettings(), compmutePipelineLayout,
+        std::vector<star::Handle>{graphicsManagers->shaderManager->submit(star::core::device::manager::ShaderRequest{
+            star::StarShader(fPath.string(), star::Shader_Stage::compute), star::Compiler("PNANOVDB_GLSL")})})});
 }
 
 void VolumeRendererCreateDescriptorsPolicy::createDescriptors()
@@ -103,59 +114,15 @@ void VolumeRendererCreateDescriptorsPolicy::createDescriptors()
             std::make_unique<vk::PipelineLayout>(m_device->getVulkanDevice().createPipelineLayout(pipelineLayoutInfo));
     }
 
-    {
-        std::string compShaderPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) +
-                                     "shaders/volumeRenderer/HomogenousMarchedFog.comp";
+    const vk::PipelineLayout &cLay = *this->m_computePipelineLayout->get();
 
-        *m_nanoVDBPipeline_hitBoundingBox =
-            m_graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{
-                star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), *m_computePipelineLayout->get(),
-                                   std::vector<star::Handle>{m_graphicsManagers->shaderManager->submit(
-                                       star::core::device::manager::ShaderRequest{
-                                           star::StarShader(compShaderPath, star::Shader_Stage::compute),
-                                           star::Compiler("PNANOVDB_GLSL")})})});
-    }
-
-    {
-
-        std::string compShaderPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) +
-                                     "shaders/volumeRenderer/nanoVDBSurface.comp";
-
-        *m_nanoVDBPipeline_surface =
-            m_graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{
-                star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), *m_computePipelineLayout->get(),
-                                   std::vector<star::Handle>{m_graphicsManagers->shaderManager->submit(
-                                       star::core::device::manager::ShaderRequest{
-                                           star::StarShader(compShaderPath, star::Shader_Stage::compute),
-                                           star::Compiler("PNANOVDB_GLSL")})})});
-    }
-
-    {
-        std::string compShaderPath =
-            star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/volume.comp";
-
-        *m_marchedPipeline = m_graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{
-            star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), *m_computePipelineLayout->get(),
-                               std::vector<star::Handle>{
-                                   m_graphicsManagers->shaderManager->submit(star::core::device::manager::ShaderRequest{
-                                       star::StarShader(compShaderPath, star::Shader_Stage::compute),
-                                       star::Compiler("PNANOVDB_GLSL")})})});
-    }
-
-    std::string linearFogPath =
-        star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/linearFog.comp";
-    auto linearCompShader = star::StarShader(linearFogPath, star::Shader_Stage::compute);
-    *m_linearPipeline = m_graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{
-        star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), *m_computePipelineLayout->get(),
-                           std::vector<star::Handle>{m_graphicsManagers->shaderManager->submit(
-                               star::StarShader(linearFogPath, star::Shader_Stage::compute))})});
-
-    const std::string expFogPath =
-        star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "shaders/volumeRenderer/expFog.comp";
-    auto expCompShader = star::StarShader(expFogPath, star::Shader_Stage::compute);
-
-    *m_expPipeline = m_graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{
-        star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), *m_computePipelineLayout->get(),
-                           std::vector<star::Handle>{m_graphicsManagers->shaderManager->submit(
-                               star::StarShader(expFogPath, star::Shader_Stage::compute))})});
+    auto shaderDir = boost::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) /
+                     "shaders" / "volumeRenderer";
+    *m_nanoVDBPipeline_hitBoundingBox =
+        BuildPipeline(shaderDir, "nanoVDBHitBoundingBox.comp", cLay, m_graphicsManagers);
+    *m_nanoVDBPipeline_surface = BuildPipeline(shaderDir, "nanoVDBSurface.comp", cLay, m_graphicsManagers);
+    *m_marchedPipeline = BuildPipeline(shaderDir, "volume.comp", cLay, m_graphicsManagers);
+    *m_linearPipeline = BuildPipeline(shaderDir, "linearFog.comp", cLay, m_graphicsManagers);
+    *m_expPipeline = BuildPipeline(shaderDir, "expFog.comp", cLay, m_graphicsManagers);
+    *m_marchedHomogenousPipeline = BuildPipeline(shaderDir, "HomogenousMarchedFog.comp", cLay, m_graphicsManagers);
 }
