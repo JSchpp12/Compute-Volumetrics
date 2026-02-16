@@ -11,8 +11,16 @@
 
 int runWindow()
 {
-    InteractiveMode interactiveInstance{};
-    return interactiveInstance.run();
+    try
+    {
+        InteractiveMode interactiveInstance{};
+        return interactiveInstance.run();
+    }
+    catch (...)
+    {
+        std::cerr << "Fatal exception...exiting" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 #else

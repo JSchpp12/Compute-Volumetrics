@@ -132,6 +132,7 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         std::cout << "7 - MarchedFog: Light PropertyDirG" << std::endl;
         std::cout << "8 - MarchedFog: Step Size" << std::endl;
         std::cout << "9 - MarchedFog: Step Size Light" << std::endl;
+        std::cout << "10 - HomogenousRendering: Max Num Steps" << std::endl;
 
         int selectedMode;
 
@@ -199,6 +200,11 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
             std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = PromptForFloat("Select step size light");
             break;
+        case (10): 
+            oss << std::to_string(m_volume->getFogControlInfo().homogenousInfo.getMaxNumSteps()); 
+            std::cout << oss.str() << std::endl;
+            m_volume->getFogControlInfo().homogenousInfo.setMaxNumSteps(PromptForInt("Select max number of steps"));
+            break;
         default:
             std::cout << "Unknown option" << std::endl;
         }
@@ -232,6 +238,12 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     {
         std::cout << "Setting fog type to: NANO Surface" << std::endl;
         m_volume->setFogType(VolumeRenderer::FogType::nano_surface);
+    }
+    
+    if (key == GLFW_KEY_F)
+    {
+        std::cout << "Setting fog type to: Homogenous" << std::endl;
+        m_volume->setFogType(VolumeRenderer::FogType::marched_homogenous);
     }
 
     if (key == GLFW_KEY_P)

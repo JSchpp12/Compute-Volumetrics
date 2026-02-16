@@ -19,8 +19,7 @@ Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePa
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
       camera(camera), screenDimensions(screenWidth, screenHeight), m_offscreenRenderer(offscreenRenderer),
-      m_fogControlInfo(std::make_shared<FogInfo>(FogInfo::LinearFogInfo(0.001f, 100.0f), FogInfo::ExpFogInfo(0.5f),
-                                                 FogInfo::MarchedFogInfo(0.002f, 0.3f, 0.3f, 0.2f, 0.1f, 5.0f)))
+      m_fogControlInfo(std::make_shared<FogInfo>())
 {
     initVolume(context, std::move(vdbFilePath), std::move(sceneCameraInfos), std::move(lightInfos),
                std::move(lightList));
