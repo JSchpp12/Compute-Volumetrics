@@ -5,6 +5,8 @@
 std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createStagingBuffer(vk::Device &device,
                                                                                        VmaAllocator &allocator) const
 {
+    const vk::DeviceSize size = sizeof(FogInfo::FinalizedInfo); 
+
     return star::StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
@@ -13,11 +15,11 @@ std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createStaging
                 .build(),
             vk::BufferCreateInfo()
                 .setSharingMode(vk::SharingMode::eExclusive)
-                .setSize(sizeof(FogInfo::FinalizedInfo))
+                .setSize(size)
                 .setUsage(vk::BufferUsageFlagBits::eTransferSrc),
             "FogControlInfo_Src")
         .setInstanceCount(1)
-        .setInstanceSize(sizeof(FogInfo::FinalizedInfo))
+        .setInstanceSize(size)
         .buildUnique();
 }
 
@@ -27,6 +29,8 @@ std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createFinal(
     std::vector<uint32_t> indices = {this->computeQueueFamilyIndex};
     for (const auto &index : transferQueueFamilyIndex)
         indices.push_back(index);
+
+    const vk::DeviceSize size = sizeof(FogInfo::FinalizedInfo);
 
     return star::StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
@@ -38,11 +42,11 @@ std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createFinal(
                 .setSharingMode(vk::SharingMode::eConcurrent)
                 .setQueueFamilyIndexCount(indices.size())
                 .setPQueueFamilyIndices(indices.data())
-                .setSize(sizeof(FogInfo::FinalizedInfo))
+                .setSize(size)
                 .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer),
             "FogControlInfo")
         .setInstanceCount(1)
-        .setInstanceSize(sizeof(FogInfo::FinalizedInfo))
+        .setInstanceSize(size)
         .buildUnique();
 }
 
