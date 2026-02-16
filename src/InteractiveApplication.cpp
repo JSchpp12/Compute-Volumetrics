@@ -297,7 +297,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     camera->setForwardVector(volumePos - camera->getPosition());
 
     m_mainLight = std::make_shared<std::vector<star::Light>>(
-        std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0})});
+        std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{0.0, -1.0, 0.0})});
 
     {
         auto oRenderer =
@@ -352,16 +352,16 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
                                                         std::move(sc), std::move(additional));
     }
 
-    m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
+    m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.03f;
     m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 3.0f;
     m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 5.0f;
-    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.00001f);
+    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.0f);
     m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.8f);
-    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.3f);
+    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.7f);
     m_volume->setFogType(VolumeRenderer::FogType::marched);
     m_volume->getFogControlInfo().linearInfo.nearDist = 0.01f;
     m_volume->getFogControlInfo().linearInfo.farDist = 1000.0f;
-    m_volume->getFogControlInfo().expFogInfo.density = 12.0f;
+    m_volume->getFogControlInfo().expFogInfo.density = 0.03f;
     return m_mainScene;
 }
 

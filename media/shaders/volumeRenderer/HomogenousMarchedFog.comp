@@ -28,6 +28,16 @@ struct Light
     uvec4 settings;
 };
 
+Light_Type createLightTypeStruct()
+{
+	Light_Type lightChecker = {
+		0x0, 
+		0x1, 
+		0x2
+	};
+	return(lightChecker);
+}
+
 layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
 {
     mat4 proj;
@@ -119,18 +129,6 @@ float linearizeDepth(const float depth, const float camNearClipDist, const float
     return (camNearClipDist * camFarClipDist) / (camFarClipDist - depth * (camFarClipDist - camNearClipDist));
 }
 
-bool checkForThreadOutsideOfTarget()
-{
-    ivec2 imageSize = imageSize(inputSceneColor);
-    uvec2 coords = gl_GlobalInvocationID.xy;
-    if (coords.x > imageSize.x || coords.y > imageSize.y)
-    {
-        return false;
-    }
-
-    return true;
-}
-
 float applyHenyeyGreensteinPhase(const float cosTheta, const float g){
     float denom = 1.0 + g*g - 2.0*g*cosTheta;
     return (1.0 / (4.0 * PI)) * (1.0 - g*g) / pow(denom, 1.5);
@@ -138,49 +136,68 @@ float applyHenyeyGreensteinPhase(const float cosTheta, const float g){
 
 void forwardMarch(const vec3 backgroundColor, const Ray ray,
                   float sigmaAbsorption, float sigmaScattering, float lightPropertyDir_g,
-                  float stepSize, uint numSteps, const float cutOffDistance, 
-                  const float jitterAmount, const float defaultDensity, inout vec3 resultingColor, 
+                  float stepSize, uint numSteps, float cutOffDistance, 
+                  const float jitterAmount, float defaultDensity, inout vec3 resultingColor, 
                   inout float rayDistanceTraveled)
 { 
+    Light_Type lChecker = createLightTypeStruct(); 
     const float sigmaT = sigmaAbsorption + sigmaScattering;
-    const float jitter = jitterAmount * stepSize; 
-    const float lJitter = jitterAmount * stepSize; 
 
 	float transparency = 1.0;
     vec3 resultingRadiance = vec3(0.0);
-    
-    for (int i = 0; i < numSteps; i++){
-        // setting to middle
-        const float t = (stepSize * (i + 0.5)) + jitter;
-        if (transparency < 0.001)
-        {
-            break; 
-        }
-
+    float t = (stepSize * (jitterAmount + 0.5));
+    for (int i = 0; i < numSteps; i++)
+    {
 		const vec3 pos = ray.origin.xyz + (t * ray.direction.xyz); 
-        const float pTransmission = exp(-stepSize * defaultDensity * sigmaT);
-        transparency *= pTransmission;
-        for (int j = 0; j < lightInfo.numLights; j++){
+        vec3 lightSums = vec3(0.0);
+        for (int j = 0; j < lightInfo.numLights; j++)
+        {
             //might need to check if light is within volume later
             const vec3 lightPos = (lightList.lights[j].position).xyz; 
             const Ray rayToLight = createRay(pos, normalize(lightPos - pos));
+            float lValue = 1.0;
+            vec3 lDir;
 
-            float lTau = 0.0;
+            const bool isPoint = ((lightList.lights[j].settings.y & lChecker.point) != 0);
+            const bool isDirectional = ((lightList.lights[j].settings.y & lChecker.directional) != 0);
+            if (isPoint)
+            {
+                //attenuate the lValue as point lights have distance
+                const vec3 lPos = lightList.lights[j].position.xyz; 
+                const vec3 v = lPos - pos; 
+                const float dL = length(v); 
+                lDir = v / max(dL, 1e-6); 
 
-            for (int k = 0; k < numSteps; k++){
-                const float lt = (stepSize * (k + 0.5)) + lJitter;
-                const vec3 lPos = pos + (lt * rayToLight.direction.xyz); 
-                lTau += defaultDensity;
-            } 
+                lValue = exp(-sigmaT * defaultDensity * stepSize); 
+            }
+            else if (isDirectional)
+            {
+                //can just use the direction from the light itself
+                lDir = normalize(lightList.lights[j].direction.xyz);
+            }
 
-            const float lRayAttenuation = exp(-lTau * stepSize * sigmaT);
-            const float cosTheta = dot(-ray.direction.xyz, rayToLight.direction.xyz);
+            const float cosTheta = dot(lDir, normalize(-ray.direction.xyz));
             const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g); 
-            resultingRadiance += lightList.lights[j].ambient.rgb * lRayAttenuation * phase * sigmaScattering * defaultDensity * stepSize; 
+
+            lightSums += lightList.lights[j].ambient.rgb * lValue * phase;
         } 
+
+        const float tau = sigmaT * defaultDensity * stepSize; 
+        float segmentAlpha = (sigmaT > 0.0) ? (1.0 - exp(-tau)) : 0.0;
+        if (sigmaT > 0.0)
+        {
+            resultingRadiance += transparency * (sigmaScattering / sigmaT) * lightSums * segmentAlpha;
+            transparency *= exp(-sigmaT * stepSize * defaultDensity);
+        }
+
+        t += stepSize;
+        if (t >= cutOffDistance || transparency < 0.001)
+        {
+            break;
+        }
     }
 
-    resultingColor = backgroundColor * transparency + resultingRadiance; 
+    resultingColor = backgroundColor * transparency + resultingRadiance;
 }
 
 void writeMaxDistanceTraveled(const float d, const uint index)
@@ -230,17 +247,14 @@ void main()
     const vec3 backgroundColor = imageLoad(inputSceneColor, targetPixel).rgb;
 
     vec3 viewDirScene = vec3(0.0); 
-    vec3 orgScene = vec3(0.0);
-    getSceneViewInfoForPix(targetPixel, uvec2(addCamInfo.cameraDimensions.x, addCamInfo.cameraDimensions.y), targetPixelInputDepth, orgScene, viewDirScene); 
-
-    const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]); 
-    Ray worldRay = createRay(orgScene.xyz, viewDirScene.xyz);  
-    Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix); 
+    vec3 camPos = vec3(0.0);
+    getSceneViewInfoForPix(targetPixel, uvec2(addCamInfo.cameraDimensions.x, addCamInfo.cameraDimensions.y), targetPixelInputDepth, camPos, viewDirScene); 
+    Ray worldRay = createRay(camPos, viewDirScene);  
 
     vec3 resultingColor = vec3(0.0, 0.0, 0.0); 
     float rayDistanceTraveled; 
     forwardMarch(backgroundColor, 
-        localRay, 
+        worldRay, 
         fogInfo.marchedFog_sigmaAbsorption,
         fogInfo.marchedFog_sigmaScattering,
         fogInfo.marchedFog_lightPropertyDirG, 

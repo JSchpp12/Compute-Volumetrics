@@ -9,11 +9,16 @@ struct Ray
 Ray createRay(const vec3 origin, const vec3 direction)
 {
     const vec3 d = normalize(direction); 
-    const vec3 invD = 1.0 / d; 
 
-    const bool sx = d.x < 1.0; 
-    const bool sy = d.y < 1.0; 
-    const bool sz = d.z < 1.0;
+    const vec3 invD = vec3(
+        d.x != 0.0 ? 1.0/d.x : (d.x > 0.0 ? 1e30 : -1e30),
+        d.y != 0.0 ? 1.0/d.y : (d.y > 0.0 ? 1e30 : -1e30),
+        d.z != 0.0 ? 1.0/d.z : (d.z > 0.0 ? 1e30 : -1e30)
+    );
+
+    const bool sx = d.x < 0.0; 
+    const bool sy = d.y < 0.0; 
+    const bool sz = d.z < 0.0;
 
     return Ray(
         vec4(origin, 1.0), 
@@ -23,25 +28,21 @@ Ray createRay(const vec3 origin, const vec3 direction)
     );
 }
 
-vec4 getClipSpaceCoordsFromPixel(const uvec2 pixelCoords, const uvec2 resolution, const float depth){
+vec4 getClipSpaceCoordsFromPixel(const uvec2 pixelCoords, const uvec2 resolution){
     vec2 uv = (vec2(pixelCoords) + 0.5) / vec2(resolution);
     uv = uv * 2.0 - 1.0; 
-    float clipZ = depth * 2.0 - 1.0; 
- 
-    return vec4(uv.x, uv.y, clipZ, 1.0);  
+    
+    return vec4(uv.x, uv.y, 1.0, 1.0);  
 }
 
-void getSceneViewInfoForPix(in const uvec2 pixelCoords, in const uvec2 resolution, in float depth, out vec3 orgWorld, out vec3 viewDirWorld) {
-    vec4 clipPos = getClipSpaceCoordsFromPixel(pixelCoords, resolution, depth);
+void getSceneViewInfoForPix(in const uvec2 pixelCoords, in const uvec2 resolution, in float depth, out vec3 camPos, out vec3 dirWorld) {
+    vec4 clipPos = getClipSpaceCoordsFromPixel(pixelCoords, resolution);
 
-    vec4 viewPos = addCamInfo.invProj * clipPos;
-    viewPos /= viewPos.w;
+    vec4 view = addCamInfo.invProj * clipPos;
+    view /= view.w;
 
-    const vec3 cameraPosWorld = (globalUbo.invView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    vec3 worldFar = (globalUbo.invView * view).xyz; 
 
-    // Compute ray direction
-    const vec3 rayDirView = normalize(viewPos.xyz);
-    
-    orgWorld = cameraPosWorld;
-    viewDirWorld = normalize((globalUbo.invView * vec4(rayDirView, 0.0)).xyz);
+    camPos = (globalUbo.invView * vec4(0.0, 0.0, 0.0, 1.0)).xyz; 
+    dirWorld = normalize(worldFar - camPos); 
 }
