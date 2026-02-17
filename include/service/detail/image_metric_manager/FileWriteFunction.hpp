@@ -1,5 +1,7 @@
 #pragma once
 
+#include "FogControlInfo.hpp"
+#include "FogType.hpp"
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
 
 #include <starlight/core/CommandSubmitter.hpp>
@@ -16,30 +18,21 @@ namespace image_metric_manager
 class FileWriteFunction
 {
   public:
-    FileWriteFunction(star::Handle buffer, vk::Device vkDevice, vk::Semaphore done, uint64_t copyToHostBufferDoneValue,
-                      HostVisibleStorage *storage);
+    FileWriteFunction(FogInfo controlInfo, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
+                      uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage);
 
     void write(const std::string &path) const;
 
   private:
+    FogInfo m_controlInfo;
     star::Handle m_hostVisibleRayDistanceBuffer;
     vk::Device m_vkDevice = VK_NULL_HANDLE;
     vk::Semaphore m_copyDone;
     uint64_t m_copyToHostBufferDoneValue;
+    Fog::Type m_type;
     HostVisibleStorage *m_storage = nullptr;
 
     void waitForCopyToDstBufferDone() const;
     double calculateAverageRayDistance() const;
-    uint32_t getNumRaysAtMaxDistance(const star::StarBuffers::Buffer &computeRayAtMaxBuffer) const;
-
-    template <typename T> T sum(std::span<const T> &span) const
-    {
-        if (span.empty())
-        {
-            return 0;
-        }
-
-        return std::reduce(std::execution::unseq, span.begin(), span.end(), 0.0);
-    }
 };
 } // namespace image_metric_manager

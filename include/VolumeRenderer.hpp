@@ -68,7 +68,7 @@ class VolumeRenderer
     {
         this->currentFogType = type;
     }
-    const Fog::Type &getFogType()
+    Fog::Type getFogType() const
     {
         return this->currentFogType;
     }
@@ -95,6 +95,10 @@ class VolumeRenderer
     star::Handle getCommandBuffer() const
     {
         return m_commandBuffer;
+    }
+    const FogInfo &getFogInfo() const
+    {
+        return m_fogController.getFogInfo();
     }
 
   private:

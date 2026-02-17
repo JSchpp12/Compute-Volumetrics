@@ -19,10 +19,11 @@ static double Mean(std::span<const float> &span)
     return sum / static_cast<double>(span.size());
 }
 
-FileWriteFunction::FileWriteFunction(star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
-                                     uint64_t copyToHostBufferDoneValue, HostVisibleStorage *storage)
-    : m_hostVisibleRayDistanceBuffer(std::move(buffer)), m_vkDevice(std::move(vkDevice)), m_copyDone(std::move(done)),
-      m_copyToHostBufferDoneValue(copyToHostBufferDoneValue), m_storage(storage)
+FileWriteFunction::FileWriteFunction(FogInfo controlInfo, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
+                                     uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage)
+    : m_controlInfo(std::move(controlInfo)), m_hostVisibleRayDistanceBuffer(std::move(buffer)),
+      m_vkDevice(std::move(vkDevice)), m_copyDone(std::move(done)),
+      m_copyToHostBufferDoneValue(copyToHostBufferDoneValue), m_type(type), m_storage(storage)
 {
 }
 
@@ -44,7 +45,7 @@ void FileWriteFunction::write(const std::string &path) const
     m_storage->returnBuffer(m_hostVisibleRayDistanceBuffer);
 
     std::ofstream out(fPath.string(), std::ofstream::binary);
-    const auto data = ImageMetrics(fPath.filename().string(), mean).toJsonDump();
+    const auto data = ImageMetrics(m_controlInfo, fPath.filename().string(), mean, m_type).toJsonDump();
     out << data;
 
     star::core::logging::info("Done");
@@ -63,36 +64,38 @@ void FileWriteFunction::waitForCopyToDstBufferDone() const
     }
 }
 
-double FileWriteFunction::calculateAverageRayDistance() const
+// cutoff factory is some amount (%) when it becomes "foggy" used as mixing value in shader
+static double CalcVisDistanceExponential(const FogInfo &info, const float &cutoffValue)
 {
-    assert(m_storage != nullptr);
-
-    const star::StarBuffers::Buffer *rayDistance = nullptr;
-    const star::StarBuffers::Buffer *rayAtCutoff = nullptr;
-    m_storage->getRayDistanceBuffers(m_hostVisibleRayDistanceBuffer, &rayDistance, &rayAtCutoff);
-
-    assert(rayDistance != nullptr && rayAtCutoff != nullptr && "Failed to get buffers");
-    uint32_t nAtMax = getNumRaysAtMaxDistance(*rayAtCutoff);
-    double mean = 0.0;
-    {
-        void *d = nullptr;
-        rayDistance->map(&d);
-
-        auto *data = static_cast<const float *>(d);
-        const size_t n = static_cast<size_t>(rayDistance->getBufferSize() / sizeof(float));
-        std::span<const float> span{data, n};
-
-        const size_t numRaysToConsider = n - static_cast<size_t>(nAtMax);
-        const float s = sum(span);
-
-        rayDistance->unmap();
-        mean = (double)s / (double)numRaysToConsider;
-    }
-
-    return mean;
+    return -std::log(1.0 - cutoffValue) / (double)info.expFogInfo.density;
 }
 
-uint32_t FileWriteFunction::getNumRaysAtMaxDistance(const star::StarBuffers::Buffer &computeRayAtMaxBuffer) const
+static double CalcVisDistanceLinear(const FogInfo &info)
+{
+    return info.linearInfo.farDist;
+}
+
+static uint32_t Sum(std::span<const uint32_t> &span)
+{
+    if (span.empty())
+    {
+        return 0;
+    }
+
+    return std::reduce(std::execution::unseq, span.begin(), span.end(), 0.0);
+}
+
+static float Sum(std::span<const float> &span)
+{
+    if (span.empty())
+    {
+        return 0;
+    }
+
+    return std::reduce(std::execution::unseq, span.begin(), span.end(), 0.0);
+}
+
+static uint32_t GetNumRaysAtMaxDistance(const star::StarBuffers::Buffer &computeRayAtMaxBuffer)
 {
     void *d = nullptr;
     auto result = computeRayAtMaxBuffer.invalidate();
@@ -110,4 +113,54 @@ uint32_t FileWriteFunction::getNumRaysAtMaxDistance(const star::StarBuffers::Buf
 
     return nAtMax;
 }
+
+static double CalcVisDistanceFromRayBuffers(const star::StarBuffers::Buffer &rayDistance,
+                                            const star::StarBuffers::Buffer &rayAtCutoff)
+{
+    uint32_t nAtMax = GetNumRaysAtMaxDistance(rayAtCutoff);
+    double mean = 0.0;
+    {
+        void *d = nullptr;
+        rayDistance.map(&d);
+
+        auto *data = static_cast<const float *>(d);
+        const size_t n = static_cast<size_t>(rayDistance.getBufferSize() / sizeof(float));
+        std::span<const float> span{data, n};
+
+        const size_t numRaysToConsider = n - static_cast<size_t>(nAtMax);
+        const float s = Sum(span);
+
+        rayDistance.unmap();
+        mean = (double)s / (double)numRaysToConsider;
+    }
+
+    return mean;
+}
+
+double FileWriteFunction::calculateAverageRayDistance() const
+{
+    assert(m_storage != nullptr);
+
+    const star::StarBuffers::Buffer *rayDistance = nullptr;
+    const star::StarBuffers::Buffer *rayAtCutoff = nullptr;
+    m_storage->getRayDistanceBuffers(m_hostVisibleRayDistanceBuffer, &rayDistance, &rayAtCutoff);
+    assert(rayDistance != nullptr && rayAtCutoff != nullptr && "Failed to get buffers");
+
+    double distance = 0.0;
+    switch (m_type)
+    {
+    case (Fog::Type::exp):
+        distance = CalcVisDistanceExponential(m_controlInfo, 0.98f);
+        break;
+    case (Fog::Type::linear):
+        distance = CalcVisDistanceLinear(m_controlInfo);
+        break;
+    default:
+        distance = CalcVisDistanceFromRayBuffers(*rayDistance, *rayAtCutoff);
+        break;
+    }
+
+    return distance;
+}
+
 } // namespace image_metric_manager

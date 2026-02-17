@@ -12,4 +12,6 @@ enum Type
     nano_surface
 };
 
+std::string TypeToString(const Type &type);
+
 } // namespace Fog
