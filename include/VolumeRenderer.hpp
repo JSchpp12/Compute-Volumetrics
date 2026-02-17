@@ -3,6 +3,7 @@
 #include "CopyDepthTextureToBuffer.hpp"
 #include "FogControlInfo.hpp"
 #include "FogInfo.hpp"
+#include "FogType.hpp"
 #include "ManagerController_RenderResource_Buffer.hpp"
 #include "OffscreenRenderer.hpp"
 #include "StarBuffers/Buffer.hpp"
@@ -29,16 +30,6 @@
 class VolumeRenderer
 {
   public:
-    enum FogType
-    {
-        linear,
-        exp,
-        marched,
-        marched_homogenous,
-        nano_boundingBox,
-        nano_surface
-    };
-
     VolumeRenderer(std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceNormalInfo,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers,
@@ -73,11 +64,11 @@ class VolumeRenderer
     {
         return this->computeWriteToImages;
     }
-    void setFogType(const FogType &type)
+    void setFogType(const Fog::Type &type)
     {
         this->currentFogType = type;
     }
-    const FogType &getFogType()
+    const Fog::Type &getFogType()
     {
         return this->currentFogType;
     }
@@ -126,10 +117,11 @@ class VolumeRenderer
         std::vector<std::shared_ptr<star::StarTextures::Texture>>();
     std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers, computeRayAtCutoffDistanceBuffers;
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
-    star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline, marchedHomogenousPipeline;
+    star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline,
+        marchedHomogenousPipeline;
     std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
-    FogType currentFogType = FogType::marched;
+    Fog::Type currentFogType = Fog::Type::marched;
     bool isReady = false;
     bool isFirstPass = true;
     bool transferTriggeredThisFrame = false;

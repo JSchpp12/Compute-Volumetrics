@@ -61,6 +61,7 @@ endif()
 
 set(${PROJECT_NAME}_SOURCES
 	"src/main.cpp"
+	"src/FogType.cpp"
 	"src/VDBTransfer.cpp"
 	"src/AABBTransfer.cpp"
  	"src/Application.cpp"
@@ -108,6 +109,7 @@ set(${PROJECT_NAME}_SOURCES
 )
 
 set(${PROJECT_NAME}_HEADERS 
+	"include/FogType.hpp"
 	"include/Application.hpp"
 	"include/VDBTransfer.hpp"
 	"include/AABBTransfer.hpp"
