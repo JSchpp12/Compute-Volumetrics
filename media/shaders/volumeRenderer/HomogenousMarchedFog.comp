@@ -197,6 +197,7 @@ void forwardMarch(const vec3 backgroundColor, const Ray ray,
         }
     }
 
+    rayDistanceTraveled = t;
     resultingColor = backgroundColor * transparency + resultingRadiance;
 }
 
