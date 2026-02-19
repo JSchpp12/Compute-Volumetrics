@@ -145,7 +145,7 @@ void forwardMarch(const vec3 backgroundColor, const Ray ray,
 
 	float transparency = 1.0;
     vec3 resultingRadiance = vec3(0.0);
-    float t = (stepSize * (jitterAmount + 0.5));
+    float t = (stepSize * jitterAmount);
     for (int i = 0; i < numSteps; i++)
     {
 		const vec3 pos = ray.origin.xyz + (t * ray.direction.xyz); 
@@ -173,7 +173,7 @@ void forwardMarch(const vec3 backgroundColor, const Ray ray,
             else if (isDirectional)
             {
                 //can just use the direction from the light itself
-                lDir = normalize(lightList.lights[j].direction.xyz);
+                lDir = -normalize(lightList.lights[j].direction.xyz);
             }
 
             const float cosTheta = dot(lDir, normalize(-ray.direction.xyz));
@@ -191,7 +191,7 @@ void forwardMarch(const vec3 backgroundColor, const Ray ray,
         }
 
         t += stepSize;
-        if (t >= cutOffDistance || transparency < 0.001)
+        if (t >= cutOffDistance)
         {
             break;
         }
