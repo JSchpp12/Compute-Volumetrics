@@ -143,7 +143,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.00001f);
     m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.8f);
     m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.3f);
-    m_volume->setFogType(VolumeRenderer::FogType::marched);
+    m_volume->setFogType(Fog::Type::marched);
     m_volume->getFogControlInfo().linearInfo.nearDist = 0.01f;
     m_volume->getFogControlInfo().linearInfo.farDist = 1000.0f;
     m_volume->getFogControlInfo().expFogInfo.density = 0.6f;

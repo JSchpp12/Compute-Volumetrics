@@ -4,9 +4,9 @@
 
 #include <starlight/command/GetScreenCaptureSyncInfo.hpp>
 #include <starlight/command/WriteToFile.hpp>
+#include <starlight/command/command_order/DeclareDependency.hpp>
 #include <starlight/command/command_order/DeclarePass.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
-#include <starlight/command/command_order/DeclareDependency.hpp>
 
 ImageMetricManager::ImageMetricManager() : m_storage(), m_copier(), m_listenerCapture(*this)
 {
@@ -98,12 +98,14 @@ void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string
 {
     if (!m_isRegistered)
     {
-        const auto type = m_cmdBus->registerCommandType(star::command_order::declare_dependency::GetDeclareDependencyCommandTypeName()); 
+        const auto type = m_cmdBus->registerCommandType(
+            star::command_order::declare_dependency::GetDeclareDependencyCommandTypeName());
 
-        auto dCmd = star::command_order::DeclareDependency(type, volume.getRenderer().getCommandBuffer(), m_copier.getCommandBuffer()); 
-        m_cmdBus->submit(dCmd); 
+        auto dCmd = star::command_order::DeclareDependency(type, volume.getRenderer().getCommandBuffer(),
+                                                           m_copier.getCommandBuffer());
+        m_cmdBus->submit(dCmd);
 
-        m_isRegistered = true; 
+        m_isRegistered = true;
     }
     // select resource to use
     const size_t fi = static_cast<size_t>(m_frameTracker->getCurrent().getFrameInFlightIndex());
@@ -132,10 +134,10 @@ void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string
     m_copier.trigger(*m_cb, *m_cmdBus, *rayAtCutoff, *rayDistance, volume.getRenderer().getRayAtCutoffBufferAt(fi),
                      volume.getRenderer().getRayDistanceBufferAt(fi), semaphoreRecord, signalValue);
 
-    auto writeToFile = image_metric_manager::FileWriteFunction(hostResource, m_device->getVulkanDevice(),
-                                                               semaphoreRecord->semaphore, signalValue, &m_storage);
+    auto writeToFile = image_metric_manager::FileWriteFunction(
+        volume.getRenderer().getFogInfo(), hostResource, m_device->getVulkanDevice(), semaphoreRecord->semaphore,
+        signalValue, volume.getRenderer().getFogType(), &m_storage);
     auto function = [writeToFile](const std::string &filePath) -> void { writeToFile.write(filePath); };
-    // submit task to writer
     {
         auto writeCmd =
             star::command::WriteToFile::Builder().setFile(imageCaptureFileName).setWriteFileFunction(function).build();

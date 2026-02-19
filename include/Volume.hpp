@@ -123,7 +123,7 @@ class Volume : public star::StarObject
     virtual void frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
                              const star::Handle &targetCommandBuffer) override;
 
-    void setFogType(const VolumeRenderer::FogType &fogType)
+    void setFogType(const Fog::Type &fogType)
     {
         this->volumeRenderer->setFogType(fogType);
     }

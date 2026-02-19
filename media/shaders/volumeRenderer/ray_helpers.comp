@@ -23,7 +23,7 @@ Ray createRay(const vec3 origin, const vec3 direction)
     return Ray(
         vec4(origin, 1.0), 
         vec4(d, 0.0), 
-        vec4(invD, 0.0),
+        vec4(normalize(invD), 0.0),
         bool[3](sx, sy, sz)
     );
 }

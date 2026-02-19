@@ -55,7 +55,7 @@ class ImageMetricManager
     star::core::device::manager::Queue *m_qm = nullptr;
     star::core::device::manager::Semaphore *m_s = nullptr;
     const star::common::FrameTracker *m_frameTracker = nullptr;
-    bool m_isRegistered = false; 
+    bool m_isRegistered = false;
 
     void initCopier(star::core::device::DeviceContext &context);
 

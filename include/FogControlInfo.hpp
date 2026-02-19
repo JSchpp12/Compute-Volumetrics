@@ -42,6 +42,11 @@ class FogInfoController : public star::ManagerController::RenderResource::Buffer
 
     std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::core::device::DeviceContext &context,
                                                                          const uint8_t &frameInFlightIndex) override;
+    const FogInfo &getFogInfo() const
+    {
+        assert(m_currentFogInfo != nullptr && "Current fog info is not valid when requested from FogInfoController");
+        return *m_currentFogInfo;
+    }
 
   protected:
     bool doesFrameInFlightDataNeedUpdated(const uint8_t &currentFrameInFlightIndex) const override;

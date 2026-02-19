@@ -213,37 +213,37 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     if (key == GLFW_KEY_L)
     {
         std::cout << "Setting fog type to: Linear" << std::endl;
-        m_volume->setFogType(VolumeRenderer::FogType::linear);
+        m_volume->setFogType(Fog::Type::linear);
     }
 
     if (key == GLFW_KEY_K)
     {
         std::cout << "Setting fog type to: Ray Marched" << std::endl;
-        m_volume->setFogType(VolumeRenderer::FogType::marched);
+        m_volume->setFogType(Fog::Type::marched);
     }
 
     if (key == GLFW_KEY_J)
     {
         std::cout << "Setting fog type to: Exponential" << std::endl;
-        m_volume->setFogType(VolumeRenderer::FogType::exp);
+        m_volume->setFogType(Fog::Type::exp);
     }
 
     if (key == GLFW_KEY_H)
     {
         std::cout << "Setting fog type to: Nano Bounding Box" << std::endl;
-        m_volume->setFogType(VolumeRenderer::FogType::nano_boundingBox);
+        m_volume->setFogType(Fog::Type::nano_boundingBox);
     }
 
     if (key == GLFW_KEY_G)
     {
         std::cout << "Setting fog type to: NANO Surface" << std::endl;
-        m_volume->setFogType(VolumeRenderer::FogType::nano_surface);
+        m_volume->setFogType(Fog::Type::nano_surface);
     }
     
     if (key == GLFW_KEY_F)
     {
         std::cout << "Setting fog type to: Homogenous" << std::endl;
-        m_volume->setFogType(VolumeRenderer::FogType::marched_homogenous);
+        m_volume->setFogType(Fog::Type::marched_homogenous);
     }
 
     if (key == GLFW_KEY_P)
@@ -370,7 +370,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.0f);
     m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.8f);
     m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.7f);
-    m_volume->setFogType(VolumeRenderer::FogType::marched);
+    m_volume->setFogType(Fog::Type::marched);
     m_volume->getFogControlInfo().linearInfo.nearDist = 0.01f;
     m_volume->getFogControlInfo().linearInfo.farDist = 1000.0f;
     m_volume->getFogControlInfo().expFogInfo.density = 0.03f;
