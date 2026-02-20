@@ -3,7 +3,7 @@
 #include "service/detail/image_metric_manager/FileWriteFunction.hpp"
 
 #include <starlight/command/GetScreenCaptureSyncInfo.hpp>
-#include <starlight/command/WriteToFile.hpp>
+#include <starlight/command/FileIO/WriteToFile.hpp>
 #include <starlight/command/command_order/DeclareDependency.hpp>
 #include <starlight/command/command_order/DeclarePass.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
@@ -85,7 +85,7 @@ void ImageMetricManager::init()
     initListeners(*m_cmdBus);
 
     m_cmdSubmitterTrigger.setType(star::command_order::trigger_pass::GetTriggerPassCommandTypeName());
-    m_cmdSubmitter.setType(star::command::write_to_file::GetWriteToFileCommandTypeName);
+    m_cmdSubmitter.setType(star::command::file_io::write_to_file::GetWriteToFileCommandTypeName);
     m_cmdSubmitterUpdater.setType(star::command::get_sync_info::GetSyncInfoCommandTypeName);
 }
 
@@ -140,7 +140,7 @@ void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string
     auto function = [writeToFile](const std::string &filePath) -> void { writeToFile.write(filePath); };
     {
         auto writeCmd =
-            star::command::WriteToFile::Builder().setFile(imageCaptureFileName).setWriteFileFunction(function).build();
+            star::command::file_io::WriteToFile::Builder().setFile(imageCaptureFileName).setWriteFileFunction(function).build();
         m_cmdSubmitter.update(writeCmd).submit();
     }
 

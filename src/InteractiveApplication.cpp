@@ -4,6 +4,7 @@
 
 #include "Terrain.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
+#include "controller/CircleCameraController.hpp"
 
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/command_order/DeclareDependency.hpp>
@@ -102,14 +103,14 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
     if (key == GLFW_KEY_UP)
     {
-        const auto pos = m_mainScene->getCamera()->getPosition(); 
-        m_mainScene->getCamera()->setPosition(glm::vec3{pos.x, pos.y + 1.0, pos.z}); 
+        const auto pos = m_mainScene->getCamera()->getPosition();
+        m_mainScene->getCamera()->setPosition(glm::vec3{pos.x, pos.y + 1.0, pos.z});
     }
 
     if (key == GLFW_KEY_DOWN)
     {
-        const auto pos = m_mainScene->getCamera()->getPosition(); 
-        m_mainScene->getCamera()->setPosition(glm::vec3{pos.x, pos.y - 1.0, pos.z}); 
+        const auto pos = m_mainScene->getCamera()->getPosition();
+        m_mainScene->getCamera()->setPosition(glm::vec3{pos.x, pos.y - 1.0, pos.z});
     }
 
     const float MILES_TO_METERS = 1609.35;
@@ -200,8 +201,8 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
             std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = PromptForFloat("Select step size light");
             break;
-        case (10): 
-            oss << std::to_string(m_volume->getFogControlInfo().homogenousInfo.getMaxNumSteps()); 
+        case (10):
+            oss << std::to_string(m_volume->getFogControlInfo().homogenousInfo.getMaxNumSteps());
             std::cout << oss.str() << std::endl;
             m_volume->getFogControlInfo().homogenousInfo.setMaxNumSteps(PromptForInt("Select max number of steps"));
             break;
@@ -239,7 +240,7 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         std::cout << "Setting fog type to: NANO Surface" << std::endl;
         m_volume->setFogType(Fog::Type::nano_surface);
     }
-    
+
     if (key == GLFW_KEY_F)
     {
         std::cout << "Setting fog type to: Homogenous" << std::endl;
@@ -256,7 +257,7 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
     if (key == GLFW_KEY_V)
     {
-        auto camPos = this->m_mainScene->getCamera()->getPosition(); 
+        auto camPos = this->m_mainScene->getCamera()->getPosition();
         this->m_mainScene->getCamera()->setPosition(glm::vec3{camPos.x, camPos.y, 0});
     }
 
@@ -306,7 +307,10 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     camera->init(context.getEventBus());
 
     camera->setPosition(camPos);
-    camera->setForwardVector(volumePos - camera->getPosition());
+    // camera->setForwardVector(volumePos - camera->getPosition());
+    camera->setForwardVector(glm::vec3(1.0, 0.0, 0.0));
+    auto controller = CircleCameraController(camera);
+    controller.init(context);
 
     m_mainLight = std::make_shared<std::vector<star::Light>>(
         std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{0.0, -1.0, 0.0})});

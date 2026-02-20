@@ -157,8 +157,10 @@ class FogInfo
             {
                 lightPropertyDirG = 0.0;
             }
-
-            lightPropertyDirG = value;
+            else
+            {
+                lightPropertyDirG = value;
+            }
         }
 
         void setSigmaAbsorption(const float &value)

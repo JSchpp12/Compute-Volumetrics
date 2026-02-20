@@ -61,6 +61,9 @@ endif()
 
 set(${PROJECT_NAME}_SOURCES
 	"src/main.cpp"
+	"src/controller/detail/SimulationBoundsFile.cpp"
+	"src/controller/CircleCameraController.cpp"
+	"src/controller/SimulationController.cpp"
 	"src/FogType.cpp"
 	"src/VDBTransfer.cpp"
 	"src/AABBTransfer.cpp"
@@ -110,6 +113,9 @@ set(${PROJECT_NAME}_SOURCES
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"
+	"include/controller/detail/SimulationBoundsFile.hpp"
+	"include/controller/CircleCameraController.hpp"
+	"include/controller/SimulationController.hpp"
 	"include/Application.hpp"
 	"include/VDBTransfer.hpp"
 	"include/AABBTransfer.hpp"
