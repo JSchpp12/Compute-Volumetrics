@@ -3,7 +3,6 @@
 #include "Color.hpp"
 #include "ConfigFile.hpp"
 #include "FileHelpers.hpp"
-#include "FogInfo.hpp"
 #include "GeometryHelpers.hpp"
 #include "Light.hpp"
 #include "OffscreenRenderer.hpp"
@@ -128,15 +127,14 @@ class Volume : public star::StarObject
         this->volumeRenderer->setFogType(fogType);
     }
 
-    FogInfo &getFogControlInfo()
+    VolumeRenderer &getRenderer()
     {
-        assert(m_fogControlInfo && "Fog control info must be proper");
-        return *this->m_fogControlInfo;
+        assert(volumeRenderer != nullptr && "prepRender has not yet happened");
+        return *volumeRenderer;
     }
-
     const VolumeRenderer &getRenderer() const
     {
-        assert(volumeRenderer != nullptr && "prepRender has not yet happened"); 
+        assert(volumeRenderer != nullptr && "getRenderer has not yet happened");
         return *volumeRenderer;
     }
 
@@ -144,7 +142,6 @@ class Volume : public star::StarObject
     std::shared_ptr<star::StarCamera> camera = nullptr;
     std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr;
     std::array<glm::vec4, 2> aabbBounds;
-    std::shared_ptr<FogInfo> m_fogControlInfo = nullptr;
     OffscreenRenderer *m_offscreenRenderer = nullptr;
     glm::vec2 screenDimensions{};
     openvdb::FloatGrid::Ptr grid{};

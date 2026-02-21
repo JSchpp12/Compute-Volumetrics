@@ -27,13 +27,12 @@ VolumeRenderer::VolumeRenderer(std::shared_ptr<star::ManagerController::RenderRe
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightList,
                                OffscreenRenderer *offscreenRenderer, std::string vdbFilePath,
-                               std::shared_ptr<FogInfo> fogControlInfo, const std::shared_ptr<star::StarCamera> camera,
+                               const std::shared_ptr<star::StarCamera> camera,
                                const std::array<glm::vec4, 2> &aabbBounds)
     : m_infoManagerInstanceModel(instanceManagerInfo), m_infoManagerInstanceNormal(instanceNormalInfo),
       m_infoManagerGlobalCamera(globalInfoBuffers), m_infoManagerSceneLightInfo(sceneLightInfoBuffers),
       m_infoManagerSceneLightList(sceneLightList), m_offscreenRenderer(offscreenRenderer),
-      m_vdbFilePath(std::move(vdbFilePath)), m_fogController(fogControlInfo), aabbBounds(aabbBounds), camera(camera),
-      volumeTexture(volumeTexture)
+      m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(volumeTexture)
 {
 }
 

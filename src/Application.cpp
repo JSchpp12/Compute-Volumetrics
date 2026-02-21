@@ -137,16 +137,16 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
                                               std::move(camera), std::move(sc), std::move(additionals));
     }
 
-    m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 3.0f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 5.0f;
-    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.00001f);
-    m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.8f);
-    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.3f);
-    m_volume->setFogType(Fog::Type::marched);
-    m_volume->getFogControlInfo().linearInfo.nearDist = 0.01f;
-    m_volume->getFogControlInfo().linearInfo.farDist = 1000.0f;
-    m_volume->getFogControlInfo().expFogInfo.density = 0.6f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0001f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 3.0f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 5.0f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.00001f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.8f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.3f);
+    m_volume->getRenderer().setFogType(Fog::Type::marched);
+    m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
+    m_volume->getRenderer().getFogInfo().linearInfo.farDist = 1000.0f;
+    m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.6f;
     return m_mainScene;
 }
 

@@ -36,8 +36,7 @@ class VolumeRenderer
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalLightList,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
                    OffscreenRenderer *offscreenRenderer, std::string vdbFilePath,
-                   std::shared_ptr<FogInfo> fogControlInfo, const std::shared_ptr<star::StarCamera> camera,
-                   const std::array<glm::vec4, 2> &aabbBounds);
+                   const std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds);
 
     void init(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight);
 
@@ -96,9 +95,17 @@ class VolumeRenderer
     {
         return m_commandBuffer;
     }
+    FogInfo &getFogInfo()
+    {
+        return m_fogController.getFogInfo();
+    }
     const FogInfo &getFogInfo() const
     {
         return m_fogController.getFogInfo();
+    }
+    void setFogInfo(FogInfo newInfo)
+    {
+        m_fogController.setFogInfo(std::move(newInfo));
     }
 
   private:

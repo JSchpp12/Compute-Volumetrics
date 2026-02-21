@@ -163,4 +163,11 @@ double FileWriteFunction::calculateAverageRayDistance() const
     return distance;
 }
 
+int FileWriteFunction::operator()(const std::string &filePath)
+{
+    write(filePath);
+
+    return 0;
+}
+
 } // namespace image_metric_manager

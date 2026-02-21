@@ -4,7 +4,6 @@
 
 #include "Terrain.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
-#include "controller/CircleCameraController.hpp"
 
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/command_order/DeclareDependency.hpp>
@@ -21,10 +20,9 @@
 
 #include <boost/filesystem/path.hpp>
 
-OffscreenRenderer InteractiveApplication::createOffscreenRenderer(star::core::device::DeviceContext &context,
-                                                                  const uint8_t &numFramesInFlight,
-                                                                  std::shared_ptr<star::windowing::BasicCamera> camera,
-                                                                  std::shared_ptr<std::vector<star::Light>> mainLight)
+OffscreenRenderer InteractiveApplication::createOffscreenRenderer(
+    star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
+    std::shared_ptr<star::windowing::BasicCamera> m_camera, std::shared_ptr<std::vector<star::Light>> mainLight)
 {
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
@@ -51,11 +49,12 @@ OffscreenRenderer InteractiveApplication::createOffscreenRenderer(star::core::de
     //     objects.emplace_back(cmd.getReply().get());
     // }
 
-    return {context, numFramesInFlight, objects, std::move(mainLight), camera};
+    return {context, numFramesInFlight, objects, std::move(mainLight), m_camera};
 }
 
 void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
+
     if (m_flipScreenshotState)
     {
         m_triggerScreenshot = !m_triggerScreenshot;
@@ -75,6 +74,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     }
     if (m_triggerScreenshot)
     {
+        m_cameraController->frameUpdate(context.getAllDevices().getData()[0]);
         triggerScreenshot(context.getAllDevices().getData()[0], context.getAllDevices().getData()[0].getFrameTracker());
     }
 }
@@ -157,54 +157,57 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         switch (selectedMode)
         {
         case (1):
-            oss << std::to_string(m_volume->getFogControlInfo().linearInfo.nearDist);
+            oss << std::to_string(m_volume->getRenderer().getFogInfo().linearInfo.nearDist);
             std::cout << oss.str() << std::endl;
-            m_volume->getFogControlInfo().linearInfo.nearDist = PromptForFloat("Select visibility");
+            m_volume->getRenderer().getFogInfo().linearInfo.nearDist = PromptForFloat("Select visibility");
             break;
         case (2):
-            oss << std::to_string(m_volume->getFogControlInfo().linearInfo.farDist);
+            oss << std::to_string(m_volume->getRenderer().getFogInfo().linearInfo.farDist);
             std::cout << oss.str() << std::endl;
-            m_volume->getFogControlInfo().linearInfo.farDist = PromptForFloat("Select distance");
+            m_volume->getRenderer().getFogInfo().linearInfo.farDist = PromptForFloat("Select distance");
             break;
         case (3):
-            oss << std::to_string(m_volume->getFogControlInfo().expFogInfo.density);
+            oss << std::to_string(m_volume->getRenderer().getFogInfo().expFogInfo.density);
             std::cout << oss.str() << std::endl;
-            m_volume->getFogControlInfo().expFogInfo.density = PromptForFloat("Select density");
+            m_volume->getRenderer().getFogInfo().expFogInfo.density = PromptForFloat("Select density");
             break;
         case (4):
-            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.defaultDensity);
+            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity);
             std::cout << oss.str() << std::endl;
-            m_volume->getFogControlInfo().marchedInfo.defaultDensity = PromptForFloat("Select density");
+            m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = PromptForFloat("Select density");
             break;
         case (5):
-            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getSigmaAbsorption());
+            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.getSigmaAbsorption());
             std::cout << oss.str() << std::endl;
-            m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(PromptForFloat("Select sigma"));
+            m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(PromptForFloat("Select sigma"));
             break;
         case (6):
-            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getSigmaScattering());
+            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.getSigmaScattering());
             std::cout << oss.str() << std::endl;
-            m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(PromptForFloat("Select sigma"));
+            m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(PromptForFloat("Select sigma"));
             break;
         case (7):
-            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.getLightPropertyDirG());
+            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.getLightPropertyDirG());
             std::cout << oss.str() << std::endl;
-            m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(PromptForFloat("Select light prop", true));
+            m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(
+                PromptForFloat("Select light prop", true));
             break;
         case (8):
-            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.stepSizeDist);
+            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist);
             std::cout << oss.str() << std::endl;
-            m_volume->getFogControlInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size");
+            m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size");
             break;
         case (9):
-            oss << std::to_string(m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light);
+            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light);
             std::cout << oss.str() << std::endl;
-            m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = PromptForFloat("Select step size light");
+            m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light =
+                PromptForFloat("Select step size light");
             break;
         case (10):
-            oss << std::to_string(m_volume->getFogControlInfo().homogenousInfo.getMaxNumSteps());
+            oss << std::to_string(m_volume->getRenderer().getFogInfo().homogenousInfo.getMaxNumSteps());
             std::cout << oss.str() << std::endl;
-            m_volume->getFogControlInfo().homogenousInfo.setMaxNumSteps(PromptForInt("Select max number of steps"));
+            m_volume->getRenderer().getFogInfo().homogenousInfo.setMaxNumSteps(
+                PromptForInt("Select max number of steps"));
             break;
         default:
             std::cout << "Unknown option" << std::endl;
@@ -299,25 +302,22 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     m_screenshotRegistrations.resize(context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-    const glm::vec3 camPos{-50.9314, 135.686, 25.9329};
+    const glm::vec3 camPos{-50.9314, 40.686, 25.9329};
     const glm::vec3 volumePos{50.0, 10.0, 0.0};
     const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
-    std::shared_ptr<star::windowing::BasicCamera> camera = std::make_shared<star::windowing::BasicCamera>(
+    m_camera = std::make_shared<star::windowing::BasicCamera>(
         context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 1.0f, 20000.0f, 100.0f, 0.1f);
-    camera->init(context.getEventBus());
+    m_camera->init(context.getEventBus());
 
-    camera->setPosition(camPos);
-    // camera->setForwardVector(volumePos - camera->getPosition());
-    camera->setForwardVector(glm::vec3(1.0, 0.0, 0.0));
-    auto controller = CircleCameraController(camera);
-    controller.init(context);
+    m_camera->setPosition(camPos);
+    m_camera->setForwardVector(volumePos - m_camera->getPosition());
 
     m_mainLight = std::make_shared<std::vector<star::Light>>(
         std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{0.0, -1.0, 0.0})});
 
     {
         auto oRenderer =
-            star::common::Renderer(createOffscreenRenderer(context, numFramesInFlight, camera, m_mainLight));
+            star::common::Renderer(createOffscreenRenderer(context, numFramesInFlight, m_camera, m_mainLight));
         auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
         const uint32_t &width = context.getEngineResolution().width;
@@ -336,7 +336,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
                 vdbPath = rPath.string();
             }
 
-            m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
+            m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, m_camera, width, height,
                                                 offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
                                                 offscreenRenderer->getLightInfoBuffers(),
                                                 offscreenRenderer->getLightListBuffers());
@@ -362,22 +362,25 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
 
         vk::SwapchainKHR swapchain{VK_NULL_HANDLE};
         context.getEventBus().emit(star::windowing::event::RequestSwapChainFromService{swapchain});
-        star::common::Renderer sc{star::windowing::SwapChainRenderer{m_winContext, std::move(swapchain), context,
-                                                                     numFramesInFlight, objects, m_mainLight, camera}};
-        m_mainScene = std::make_shared<star::StarScene>(star::star_scene::makeAlwaysReadyPolicy(), std::move(camera),
+        star::common::Renderer sc{star::windowing::SwapChainRenderer{
+            m_winContext, std::move(swapchain), context, numFramesInFlight, objects, m_mainLight, m_camera}};
+        m_mainScene = std::make_shared<star::StarScene>(star::star_scene::makeAlwaysReadyPolicy(), m_camera,
                                                         std::move(sc), std::move(additional));
     }
 
-    m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.03f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 3.0f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 5.0f;
-    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.0f);
-    m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.8f);
-    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.7f);
+    m_cameraController = std::make_unique<CircleCameraController>(m_camera, m_volume);
+    m_cameraController->init(context);
+
+    m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.03f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 3.0f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 5.0f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.0f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.8f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.7f);
     m_volume->setFogType(Fog::Type::marched);
-    m_volume->getFogControlInfo().linearInfo.nearDist = 0.01f;
-    m_volume->getFogControlInfo().linearInfo.farDist = 1000.0f;
-    m_volume->getFogControlInfo().expFogInfo.density = 0.03f;
+    m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
+    m_volume->getRenderer().getFogInfo().linearInfo.farDist = 1000.0f;
+    m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.03f;
     return m_mainScene;
 }
 
