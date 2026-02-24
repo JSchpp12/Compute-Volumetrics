@@ -36,7 +36,7 @@ static void WriteDefaultControllerInfo(star::core::device::DeviceContext &contex
 
 void CircleCameraController::init(star::core::device::DeviceContext &context)
 {
-    const auto filePath = star::common::GetRuntimePath() / "SimulationController.json";
+    const auto filePath = star::common::GetRuntimePath().parent_path() / "SimulationController.json";
 
     if (std::filesystem::exists(filePath))
     {
@@ -60,9 +60,26 @@ void CircleCameraController::switchFogType(int newType)
     assert(m_volume && "Volume is not init");
     assert(m_camera && "Camera is not init");
 
-    m_camera->setForwardVector(glm::vec3{0.0, 1.0, 0.0});
+    auto type = Fog::Type::linear;
+
+    switch (newType)
+    {
+    case (1):
+        type = Fog::Type::linear;
+        break;
+    case (2):
+        type = Fog::Type::exp;
+        break;
+    case (3):
+        type = Fog::Type::marched_homogenous;
+        break;
+    default:
+        std::cout << "Unknown fog type";
+    }
+
     m_volume->getRenderer().setFogInfo(m_loadedSteps.start);
-    m_volume->getRenderer().setFogType(Fog::Type::linear);
+    m_volume->getRenderer().setFogType(type);
+    m_camera->setForwardVector(glm::vec3{1.0, 0.0, 0.0});
 }
 
 void CircleCameraController::incrementLinear()
@@ -71,6 +88,11 @@ void CircleCameraController::incrementLinear()
 
     m_volume->getRenderer().getFogInfo().linearInfo.farDist += m_loadedSteps.fogInfoChanges.linearInfo.farDist;
     m_volume->getRenderer().getFogInfo().linearInfo.nearDist += m_loadedSteps.fogInfoChanges.linearInfo.nearDist;
+}
+
+bool CircleCameraController::isDone() const
+{
+    return m_stepCounter == m_loadedSteps.numSteps && m_rotationCounter == 5 && m_fogTypeTracker == 1;
 }
 
 void CircleCameraController::frameUpdate(star::core::device::DeviceContext &context)
@@ -83,25 +105,40 @@ void CircleCameraController::frameUpdate(star::core::device::DeviceContext &cont
         m_loadedSteps = m_loadedInfo.get();
     }
 
-    if (m_stepCounter >= m_loadedSteps.numSteps)
+    if (isDone())
     {
-        m_camera->rotateGlobal(star::Type::Axis::y, 1.0);
-        switchFogType(1);
-
-        m_stepCounter = 0;
-    }
-
-    switch (m_fogTypeTracker)
-    {
-    case (0):
-        // linear fog
-        incrementLinear();
-        break;
-    default:
         return;
     }
 
-    // rotate camera
+    if (m_stepCounter < m_loadedSteps.numSteps)
+    {
+        switch (m_fogTypeTracker)
+        {
+        case (1):
+            // linear fog
+            incrementLinear();
+            break;
+        default:
+            return;
+        }
+        m_stepCounter++;
+    }
+    else if (m_rotationCounter < 5)
+    {
+        m_volume->getRenderer().setFogInfo(m_loadedSteps.start);
+        m_camera->rotateRelative(star::Type::Axis::y, 1.0);
 
-    m_stepCounter++;
+        m_rotationCounter++;
+        m_stepCounter = 0;
+    }
+    else if (m_fogTypeTracker < 1)
+    {
+        // switch to next fog type
+        m_fogTypeTracker++;
+        //  set next fog type -- circle done
+        switchFogType(m_fogTypeTracker);
+
+        m_rotationCounter = 0; 
+        m_stepCounter = 0; 
+    }
 }

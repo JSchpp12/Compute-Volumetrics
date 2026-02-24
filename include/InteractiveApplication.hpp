@@ -41,8 +41,7 @@ class InteractiveApplication : public Application,
 
     void onKeyRelease(const int &key, const int &scancode, const int &mods);
 
-    virtual void triggerScreenshot(star::core::device::DeviceContext &context,
-                                   const star::common::FrameTracker &frameTracker);
+    virtual void triggerScreenshot(star::core::device::DeviceContext &context);
 };
 
 #endif

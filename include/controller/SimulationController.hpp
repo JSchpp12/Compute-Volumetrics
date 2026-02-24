@@ -7,4 +7,5 @@ struct ISimulationController
     virtual ~ISimulationController() = default;
     virtual void init(star::core::device::DeviceContext &context) = 0;
     virtual void frameUpdate(star::core::device::DeviceContext &context) = 0; 
+    virtual bool isDone() const = 0; 
 };

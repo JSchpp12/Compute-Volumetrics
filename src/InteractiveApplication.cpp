@@ -74,8 +74,11 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     }
     if (m_triggerScreenshot)
     {
-        m_cameraController->frameUpdate(context.getAllDevices().getData()[0]);
-        triggerScreenshot(context.getAllDevices().getData()[0], context.getAllDevices().getData()[0].getFrameTracker());
+        if (!m_cameraController->isDone())
+        {
+            m_cameraController->frameUpdate(context.getAllDevices().getData()[0]);
+            triggerScreenshot(context.getAllDevices().getData()[0]);
+        }
     }
 }
 
@@ -119,6 +122,16 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     {
         std::cout << m_mainScene->getCamera()->getPosition().x << "," << m_mainScene->getCamera()->getPosition().y
                   << "," << m_mainScene->getCamera()->getPosition().z << std::endl;
+    }
+
+    if (key == GLFW_KEY_RIGHT)
+    {
+        m_camera->rotateGlobal(star::Type::Axis::y, 1.0);
+    }
+
+    if (key == GLFW_KEY_LEFT)
+    {
+        m_camera->rotateRelative(star::Type::Axis::y, -1.0);
     }
 
     if (key == GLFW_KEY_B)
@@ -288,6 +301,11 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     {
         m_volume->getInstance(0).rotateGlobal(star::Type::Axis::x, 90);
     }
+
+    if (key == GLFW_KEY_Q)
+    {
+        m_mainScene->getCamera()->setForwardVector(glm::vec3{1.0, 0.0, 0.0});
+    }
 }
 
 std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::device::DeviceContext &context,
@@ -384,9 +402,10 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     return m_mainScene;
 }
 
-void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext &context,
-                                               const star::common::FrameTracker &frameTracker)
+void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext &context)
 {
+    const auto &frameTracker = context.getFrameTracker();
+
     std::string name = "Test" + std::to_string(context.getFrameTracker().getCurrent().getGlobalFrameCounter()) + ".png";
 
     size_t index = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());

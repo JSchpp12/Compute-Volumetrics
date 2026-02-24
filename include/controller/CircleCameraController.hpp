@@ -17,6 +17,8 @@ class CircleCameraController : public ISimulationController
 
     virtual void frameUpdate(star::core::device::DeviceContext &context) override;
 
+    virtual bool isDone() const override; 
+
   private:
     int m_fogTypeTracker = 0;
     int m_rotationCounter = 0;

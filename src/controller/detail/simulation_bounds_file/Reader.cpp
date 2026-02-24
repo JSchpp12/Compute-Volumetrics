@@ -85,6 +85,8 @@ SimulationSteps CalculateSimSteps(const SimulationBounds &bounds)
 
 int Reader::operator()(const std::string &filePath)
 {
+    assert(std::filesystem::path(filePath).extension() == ".json" && "Requested file is not an expected json file"); 
+
     auto bounds = LoadBoundsInfoFromFile(filePath);
     m_loadedBounds.set_value(CalculateSimSteps(bounds));
     return 0;
