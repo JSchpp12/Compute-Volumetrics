@@ -1,7 +1,7 @@
-#include "controller/CircleCameraController.hpp"
+#include "service/controller/CircleCameraController.hpp"
 
-#include "controller/detail/simulation_bounds_file/Reader.hpp"
-#include "controller/detail/simulation_bounds_file/Writer.hpp"
+#include "service/controller/detail/simulation_bounds_file/Reader.hpp"
+#include "service/controller/detail/simulation_bounds_file/Writer.hpp"
 
 #include <starlight/command/FileIO/ReadFromFile.hpp>
 #include <starlight/command/FileIO/WriteToFile.hpp>
@@ -10,9 +10,58 @@
 
 #include <filesystem>
 
+CircleCameraController::CircleCameraController()
+    : m_loadedSteps(), m_loadedInfo(), m_fogTypeTracker(0), m_rotationCounter(0), m_stepCounter(0),
+      m_onTriggerUpdate(*this)
+{
+}
+
+CircleCameraController::CircleCameraController(CircleCameraController &&other)
+    : m_loadedSteps(std::move(other.m_loadedSteps)), m_loadedInfo(std::move(other.m_loadedInfo)),
+      m_fogTypeTracker(std::move(other.m_fogTypeTracker)), m_rotationCounter(std::move(other.m_rotationCounter)),
+      m_stepCounter(std::move(other.m_stepCounter)), m_onTriggerUpdate(*this), m_cmd(other.m_cmd)
+{
+    if (m_cmd != nullptr)
+    {
+        other.cleanupListeners(*m_cmd);
+        initListeners(*m_cmd);
+    }
+}
+
+CircleCameraController &CircleCameraController::operator=(CircleCameraController &&other)
+{
+    if (this != &other)
+    {
+        m_loadedSteps = std::move(other.m_loadedSteps);
+        m_loadedInfo = std::move(other.m_loadedInfo);
+        m_fogTypeTracker = std::move(other.m_fogTypeTracker);
+        m_rotationCounter = std::move(other.m_rotationCounter);
+        m_stepCounter = std::move(other.m_stepCounter);
+        m_cmd = other.m_cmd;
+
+        if (m_cmd != nullptr)
+        {
+            other.cleanupListeners(*m_cmd);
+            initListeners(*m_cmd);
+        }
+    }
+
+    return *this;
+}
+
+void CircleCameraController::initListeners(star::core::CommandBus &cmdBus)
+{
+    m_onTriggerUpdate.init(cmdBus);
+}
+
+void CircleCameraController::cleanupListeners(star::core::CommandBus &cmdBus)
+{
+    m_onTriggerUpdate.cleanup(cmdBus);
+}
+
 void CircleCameraController::submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path)
 {
-    const auto type = cmdBus.getRegistry().getType(star::command::file_io::ReadFromFile::GetUniqueTypeName()); 
+    const auto type = cmdBus.getRegistry().getType(star::command::file_io::ReadFromFile::GetUniqueTypeName());
 
     controller::simulation_bounds_file::Reader reader{};
     m_loadedInfo = reader.getFuture();
@@ -21,7 +70,7 @@ void CircleCameraController::submitReadCmd(star::core::CommandBus &cmdBus, const
     auto readTask = star::job::tasks::io::CreateReadTask(std::move(payload));
     auto readCmd = star::command::file_io::ReadFromFile(std::move(readTask));
 
-    cmdBus.submit(readCmd); 
+    cmdBus.submit(readCmd);
 }
 
 static void WriteDefaultControllerInfo(star::core::CommandBus &cmdBus, const std::string &path)
@@ -31,17 +80,30 @@ static void WriteDefaultControllerInfo(star::core::CommandBus &cmdBus, const std
     cmdBus.submit(writeCmd);
 }
 
+void CircleCameraController::onTriggerUpdate(sim_controller::TriggerUpdate &cmd)
+{
+    updateSim(cmd.volume, cmd.camera);
+}
+
 void CircleCameraController::setInitParameters(star::service::InitParameters &params)
 {
     m_cmd = &params.commandBus;
 }
 
+void CircleCameraController::shutdown()
+{
+    assert(m_cmd != nullptr);
+    cleanupListeners(*m_cmd);
+}
+
 void CircleCameraController::init()
 {
-    assert(m_cmd && "Command bus should have been registered during setInitParams"); 
+    assert(m_cmd && "Command bus should have been registered during setInitParams");
 
     const auto filePath = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) /
                           "SimulationController.json";
+
+    initListeners(*m_cmd);
 
     if (std::filesystem::exists(filePath))
     {

@@ -4,6 +4,7 @@
 #include "OffscreenRenderer.hpp"
 #include "Terrain.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
+#include "command/sim_controller/TriggerUpdate.hpp"
 
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
@@ -241,4 +242,10 @@ void Application::triggerImageRecord(star::core::device::DeviceContext &context,
 {
     image_metrics::TriggerCapture trigger(targetImageFileName, *m_volume);
     m_captureTrigger.update(trigger).submit();
+}
+
+void Application::TriggerSimUpdate(star::core::CommandBus& cmd, Volume& volume, star::StarCamera& camera)
+{
+    sim_controller::TriggerUpdate trigger(volume, camera); 
+    cmd.submit(trigger); 
 }

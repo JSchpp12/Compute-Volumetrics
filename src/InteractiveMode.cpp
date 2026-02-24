@@ -4,7 +4,7 @@
 
 #include "InteractiveApplication.hpp"
 #include "policy/WindowedEngineInitPolicy.hpp"
-#include "controller/CircleCameraController.hpp"
+#include "service/controller/CircleCameraController.hpp"
 
 #include <star_windowing/policy/EngineExitPolicy.hpp>
 #include <star_windowing/policy/EngineMainLoopPolicy.hpp>

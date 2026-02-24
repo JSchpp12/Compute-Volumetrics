@@ -1,7 +1,7 @@
 #pragma once
 
-#include "controller/detail/simulation_bounds_file/SimulationBounds.hpp"
-#include "controller/detail/simulation_bounds_file/SimulationSteps.hpp"
+#include "service/controller/detail/simulation_bounds_file/SimulationBounds.hpp"
+#include "service/controller/detail/simulation_bounds_file/SimulationSteps.hpp"
 
 #include <future>
 #include <string>

@@ -3,7 +3,7 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "Application.hpp"
-#include "controller/CircleCameraController.hpp"
+#include "service/controller/CircleCameraController.hpp"
 
 #include <star_windowing/BasicCamera.hpp>
 #include <star_windowing/WindowingContext.hpp>

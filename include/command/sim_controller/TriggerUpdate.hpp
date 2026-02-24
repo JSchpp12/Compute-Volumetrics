@@ -14,7 +14,7 @@ inline constexpr const char *GetTypeName()
 {
     return "scTU";
 }
-}
+} // namespace trigger_update
 struct TriggerUpdate : public star::common::IServiceCommand
 {
     static inline constexpr std::string_view GetUniqueTypeName()
@@ -22,6 +22,15 @@ struct TriggerUpdate : public star::common::IServiceCommand
         return trigger_update::GetTypeName();
     }
 
+    TriggerUpdate(Volume &volume, star::StarCamera &camera)
+        : star::common::IServiceCommand(), volume(volume), camera(camera)
+    {
+    }
+
+    TriggerUpdate(Volume &volume, star::StarCamera &camera, uint16_t type)
+        : star::common::IServiceCommand(std::move(type)), volume(volume), camera(camera)
+    {
+    }
 
     Volume &volume;
     star::StarCamera &camera;

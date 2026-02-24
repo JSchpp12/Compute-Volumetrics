@@ -75,11 +75,8 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 
     if (m_triggerScreenshot)
     {
-        //if (!m_cameraController->isDone())
-        //{
-        //    m_cameraController->frameUpdate(context.getAllDevices().getData()[0]);
-        //    triggerScreenshot(context.getAllDevices().getData()[0]);
-        //}
+        TriggerSimUpdate(context.getAllDevices().getData()[0].getCmdBus(), *m_volume, *m_camera);
+        triggerScreenshot(context.getAllDevices().getData()[0]);
     }
 }
 

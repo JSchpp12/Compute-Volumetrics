@@ -1,6 +1,6 @@
 #pragma once
 
-#include "controller/detail/simulation_bounds_file/SimulationBounds.hpp"
+#include "service/controller/detail/simulation_bounds_file/SimulationBounds.hpp"
 
 namespace controller::simulation_bounds_file
 {
