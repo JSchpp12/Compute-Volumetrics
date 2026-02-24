@@ -10,13 +10,10 @@
 
 #include <filesystem>
 
-CircleCameraController::CircleCameraController(std::shared_ptr<star::StarCamera> camera, std::shared_ptr<Volume> volume)
-    : m_rotationCounter(0), m_camera(std::move(camera)), m_volume(std::move(volume))
+void CircleCameraController::submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path)
 {
-}
+    const auto type = cmdBus.getRegistry().getType(star::command::file_io::ReadFromFile::GetUniqueTypeName()); 
 
-void CircleCameraController::submitReadCmd(star::core::device::DeviceContext &context, const std::string &path)
-{
     controller::simulation_bounds_file::Reader reader{};
     m_loadedInfo = reader.getFuture();
     star::job::tasks::io::ReadPayload payload{path, std::move(reader)};
@@ -24,24 +21,31 @@ void CircleCameraController::submitReadCmd(star::core::device::DeviceContext &co
     auto readTask = star::job::tasks::io::CreateReadTask(std::move(payload));
     auto readCmd = star::command::file_io::ReadFromFile(std::move(readTask));
 
-    context.begin().set(readCmd).submit();
+    cmdBus.submit(readCmd); 
 }
 
-static void WriteDefaultControllerInfo(star::core::device::DeviceContext &context, const std::string &path)
+static void WriteDefaultControllerInfo(star::core::CommandBus &cmdBus, const std::string &path)
 {
     auto writePayload = star::job::tasks::io::WritePayload{path, controller::simulation_bounds_file::Writer{}};
     auto writeCmd = star::command::file_io::WriteToFile(star::job::tasks::io::CreateWriteTask(std::move(writePayload)));
-    context.begin().set(writeCmd).submit();
+    cmdBus.submit(writeCmd);
 }
 
-void CircleCameraController::init(star::core::device::DeviceContext &context)
+void CircleCameraController::setInitParameters(star::service::InitParameters &params)
 {
+    m_cmd = &params.commandBus;
+}
+
+void CircleCameraController::init()
+{
+    assert(m_cmd && "Command bus should have been registered during setInitParams"); 
+
     const auto filePath = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) /
                           "SimulationController.json";
 
     if (std::filesystem::exists(filePath))
     {
-        submitReadCmd(context, filePath.string());
+        submitReadCmd(*m_cmd, filePath.string());
     }
     else
     {
@@ -49,18 +53,15 @@ void CircleCameraController::init(star::core::device::DeviceContext &context)
         m_loadedInfo = promise.get_future();
         promise.set_value({});
 
-        WriteDefaultControllerInfo(context, filePath.string());
+        WriteDefaultControllerInfo(*m_cmd, filePath.string());
     }
 
     m_rotationCounter = 361;
     m_stepCounter = 1000000;
 }
 
-void CircleCameraController::switchFogType(int newType)
+void CircleCameraController::switchFogType(int newType, Volume &volume, star::StarCamera &camera) const
 {
-    assert(m_volume && "Volume is not init");
-    assert(m_camera && "Camera is not init");
-
     auto type = Fog::Type::linear;
 
     switch (newType)
@@ -78,17 +79,15 @@ void CircleCameraController::switchFogType(int newType)
         std::cout << "Unknown fog type";
     }
 
-    m_volume->getRenderer().setFogInfo(m_loadedSteps.start);
-    m_volume->getRenderer().setFogType(type);
-    m_camera->setForwardVector(glm::vec3{1.0, 0.0, 0.0});
+    volume.getRenderer().setFogInfo(m_loadedSteps.start);
+    volume.getRenderer().setFogType(type);
+    camera.setForwardVector(glm::vec3{1.0, 0.0, 0.0});
 }
 
-void CircleCameraController::incrementLinear()
+void CircleCameraController::incrementLinear(Volume &volume) const
 {
-    assert(m_volume && "Volume is not init");
-
-    m_volume->getRenderer().getFogInfo().linearInfo.farDist += m_loadedSteps.fogInfoChanges.linearInfo.farDist;
-    m_volume->getRenderer().getFogInfo().linearInfo.nearDist += m_loadedSteps.fogInfoChanges.linearInfo.nearDist;
+    volume.getRenderer().getFogInfo().linearInfo.farDist += m_loadedSteps.fogInfoChanges.linearInfo.farDist;
+    volume.getRenderer().getFogInfo().linearInfo.nearDist += m_loadedSteps.fogInfoChanges.linearInfo.nearDist;
 }
 
 bool CircleCameraController::isDone() const
@@ -96,10 +95,8 @@ bool CircleCameraController::isDone() const
     return m_stepCounter == m_loadedSteps.numSteps && m_rotationCounter == 360 && m_fogTypeTracker == 1;
 }
 
-void CircleCameraController::frameUpdate(star::core::device::DeviceContext &context)
+void CircleCameraController::updateSim(Volume &volume, star::StarCamera &camera)
 {
-    assert(m_camera && "Camera is not initialized");
-
     // check if the bounds are loaded
     if (!m_loadedSteps)
     {
@@ -125,7 +122,7 @@ void CircleCameraController::frameUpdate(star::core::device::DeviceContext &cont
         {
         case (1):
             // linear fog
-            incrementLinear();
+            incrementLinear(volume);
             break;
         default:
             return;
@@ -134,8 +131,8 @@ void CircleCameraController::frameUpdate(star::core::device::DeviceContext &cont
     }
     else if (m_rotationCounter < 360)
     {
-        m_volume->getRenderer().setFogInfo(m_loadedSteps.start);
-        m_camera->rotateRelative(star::Type::Axis::y, 1.0);
+        volume.getRenderer().setFogInfo(m_loadedSteps.start);
+        camera.rotateRelative(star::Type::Axis::y, 1.0);
 
         m_rotationCounter++;
         m_stepCounter = 0;
@@ -145,7 +142,7 @@ void CircleCameraController::frameUpdate(star::core::device::DeviceContext &cont
         // switch to next fog type
         m_fogTypeTracker++;
         //  set next fog type -- circle done
-        switchFogType(m_fogTypeTracker);
+        switchFogType(m_fogTypeTracker, volume, camera);
 
         m_rotationCounter = 0;
         m_stepCounter = 0;

@@ -1,34 +1,39 @@
 #pragma once
 
-#include "controller/SimulationController.hpp"
+#include "command/sim_controller/TriggerUpdate.hpp"
 #include "controller/detail/simulation_bounds_file/SimulationSteps.hpp"
-#include "Volume.hpp"
 
 #include <starlight/virtual/StarCamera.hpp>
 
 #include <future>
 
-class CircleCameraController : public ISimulationController
+class CircleCameraController
 {
   public:
-    CircleCameraController(std::shared_ptr<star::StarCamera> camera, std::shared_ptr<Volume> volume);
+    void init();
 
-    virtual void init(star::core::device::DeviceContext &context) override;
+    void setInitParameters(star::service::InitParameters &params);
 
-    virtual void frameUpdate(star::core::device::DeviceContext &context) override;
+    void negotiateWorkers(star::core::WorkerPool &pool, star::job::TaskManager &tm)
+    {
+    }
 
-    virtual bool isDone() const override; 
+    void shutdown(); 
+
+    void onTriggerUpdate(); 
+
+    bool isDone() const;
 
   private:
-    int m_fogTypeTracker = 0;
-    int m_rotationCounter = 0;
-    int m_stepCounter = 0; 
     controller::simulation_bounds_file::SimulationSteps m_loadedSteps;
     std::future<controller::simulation_bounds_file::SimulationSteps> m_loadedInfo;
-    std::shared_ptr<star::StarCamera> m_camera = nullptr;
-    std::shared_ptr<Volume> m_volume = nullptr; 
+    int m_fogTypeTracker = 0;
+    int m_rotationCounter = 0;
+    int m_stepCounter = 0;
+    star::core::CommandBus *m_cmd = nullptr; 
 
-    void switchFogType(int newType); 
-    void submitReadCmd(star::core::device::DeviceContext &context, const std::string &path);
-    void incrementLinear();
+    void switchFogType(int newType, Volume &volume, star::StarCamera &camera) const;
+    void submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path);
+    void incrementLinear(Volume &volume) const;
+    void updateSim(Volume &volume, star::StarCamera &camera);
 };

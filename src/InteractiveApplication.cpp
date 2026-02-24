@@ -75,11 +75,11 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 
     if (m_triggerScreenshot)
     {
-        if (!m_cameraController->isDone())
-        {
-            m_cameraController->frameUpdate(context.getAllDevices().getData()[0]);
-            triggerScreenshot(context.getAllDevices().getData()[0]);
-        }
+        //if (!m_cameraController->isDone())
+        //{
+        //    m_cameraController->frameUpdate(context.getAllDevices().getData()[0]);
+        //    triggerScreenshot(context.getAllDevices().getData()[0]);
+        //}
     }
 }
 
@@ -386,9 +386,6 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
         m_mainScene = std::make_shared<star::StarScene>(star::star_scene::makeAlwaysReadyPolicy(), m_camera,
                                                         std::move(sc), std::move(additional));
     }
-
-    m_cameraController = std::make_unique<CircleCameraController>(m_camera, m_volume);
-    m_cameraController->init(context);
 
     m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.03f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 3.0f;

@@ -13,8 +13,9 @@ class InteractiveApplication : public Application,
                                private star::windowing::HandleKeyReleasePolicy<InteractiveApplication>
 {
   public:
-    explicit InteractiveApplication(star::windowing::WindowingContext *winContext)
-        : star::windowing::HandleKeyReleasePolicy<InteractiveApplication>(*this), m_winContext(winContext), m_camera()
+    InteractiveApplication(star::windowing::WindowingContext *winContext)
+        : Application(), star::windowing::HandleKeyReleasePolicy<InteractiveApplication>(*this),
+          m_winContext(winContext), m_camera()
     {
     }
 
@@ -33,7 +34,6 @@ class InteractiveApplication : public Application,
     friend class star::windowing::HandleKeyReleasePolicy<InteractiveApplication>;
     star::windowing::WindowingContext *m_winContext = nullptr;
     std::shared_ptr<star::windowing::BasicCamera> m_camera;
-    std::unique_ptr<CircleCameraController> m_cameraController = nullptr;
 
     void onKeyRelease(const int &key, const int &scancode, const int &mods);
 

@@ -4,6 +4,7 @@
 
 #include "InteractiveApplication.hpp"
 #include "policy/WindowedEngineInitPolicy.hpp"
+#include "controller/CircleCameraController.hpp"
 
 #include <star_windowing/policy/EngineExitPolicy.hpp>
 #include <star_windowing/policy/EngineMainLoopPolicy.hpp>
@@ -19,7 +20,7 @@ int InteractiveMode::run()
     win_loop windowLoop{winContext};
     win_exit windowExit{winContext};
 
-    InteractiveApplication application{&winContext};
+    InteractiveApplication application(&winContext);
     auto engine = star::StarEngine<policy::WindowEngineInitPolicy, win_loop, win_exit>(
         std::move(windowInit), std::move(windowLoop), std::move(windowExit), application);
 

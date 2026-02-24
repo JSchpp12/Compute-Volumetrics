@@ -64,7 +64,8 @@ static std::string CreateImageDir()
     return fullDir.string();
 }
 
-Application::Application() : m_captureTrigger(), m_imageOutputDir(CreateImageDir())
+Application::Application()
+    : m_captureTrigger(), m_imageOutputDir(CreateImageDir())
 {
 }
 

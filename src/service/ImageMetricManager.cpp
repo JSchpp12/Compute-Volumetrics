@@ -13,10 +13,9 @@ ImageMetricManager::ImageMetricManager() : m_storage(), m_copier(), m_listenerCa
 }
 
 ImageMetricManager::ImageMetricManager(ImageMetricManager &&other)
-    : m_storage(std::move(other.m_storage)), m_copier(), m_listenerCapture(*this), m_cmdSubmitter(other.m_cmdSubmitter),
-      m_cmdSubmitterUpdater(std::move(other.m_cmdSubmitterUpdater)),
-      m_cmdSubmitterTrigger(std::move(other.m_cmdSubmitterTrigger)), m_cmdBus(other.m_cmdBus), m_device(other.m_device),
-      m_eb(other.m_eb), m_cb(other.m_cb), m_qm(other.m_qm), m_s(other.m_s), m_frameTracker(other.m_frameTracker)
+    : m_storage(std::move(other.m_storage)), m_copier(), m_listenerCapture(*this), m_cmdBus(other.m_cmdBus),
+      m_device(other.m_device), m_eb(other.m_eb), m_cb(other.m_cb), m_qm(other.m_qm), m_s(other.m_s),
+      m_frameTracker(other.m_frameTracker)
 {
     if (m_cmdBus != nullptr)
     {
@@ -31,9 +30,6 @@ ImageMetricManager &ImageMetricManager::operator=(ImageMetricManager &&other)
     {
         m_storage = std::move(other.m_storage);
         m_cmdBus = other.m_cmdBus;
-        m_cmdSubmitter = other.m_cmdSubmitter;
-        m_cmdSubmitterUpdater = other.m_cmdSubmitterUpdater;
-        m_cmdSubmitterTrigger = other.m_cmdSubmitterTrigger;
         m_device = other.m_device;
         m_eb = other.m_eb;
         m_cb = other.m_cb;
@@ -56,9 +52,6 @@ ImageMetricManager &ImageMetricManager::operator=(ImageMetricManager &&other)
 
 void ImageMetricManager::setInitParameters(star::service::InitParameters &params)
 {
-    m_cmdSubmitter = params.cmdSubmitter;
-    m_cmdSubmitterUpdater = params.cmdSubmitter;
-    m_cmdSubmitterTrigger = params.cmdSubmitter;
     m_frameTracker = &params.flightTracker;
     m_cmdBus = &params.commandBus;
     m_device = &params.device;
@@ -83,10 +76,6 @@ void ImageMetricManager::init()
     m_storage.prepRender(*m_frameTracker, *m_eb);
 
     initListeners(*m_cmdBus);
-
-    m_cmdSubmitterTrigger.setType(star::command_order::trigger_pass::GetTriggerPassCommandTypeName());
-    m_cmdSubmitter.setType(star::command::file_io::write_to_file::GetWriteToFileCommandTypeName);
-    m_cmdSubmitterUpdater.setType(star::command::get_sync_info::GetSyncInfoCommandTypeName);
 }
 
 void ImageMetricManager::onCapture(image_metrics::TriggerCapture &cmd)
@@ -141,7 +130,7 @@ void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string
                                                     m_device->getVulkanDevice(), semaphoreRecord->semaphore,
                                                     signalValue, volume.getRenderer().getFogType(), &m_storage}});
         star::command::file_io::WriteToFile writeCmd{std::move(writePayload)};
-        m_cmdSubmitter.update(writeCmd).submit();
+        m_cmdBus->submit(writeCmd);
     }
 
     // properly sync screen capture service cmds -- is done because multiple queues cannot wait on a single binary
@@ -149,7 +138,7 @@ void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string
     // semaphore
     {
         auto getSyncCmd = star::command::GetScreenCaptureSyncInfo();
-        m_cmdSubmitterUpdater.update(getSyncCmd).submit();
+        m_cmdBus->submit(getSyncCmd);
 
         if (getSyncCmd.getReply().get().cmdBuffer == nullptr)
         {
