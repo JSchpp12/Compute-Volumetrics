@@ -29,7 +29,7 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
 
     TerrainShapeInfo shapeInfo;
     {
-        const auto terrainShapeFile = boost::filesystem::path(terrainPath) / "Shape.json";
+        const auto terrainShapeFile = std::filesystem::path(terrainPath) / "Shape.json";
         auto loader = TerrainShapeInfoLoader(terrainShapeFile.string());
 
         shapeInfo = loader.load();
@@ -45,7 +45,7 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
     bool setWorldCenter = false;
     glm::dvec3 worldCenter(shapeInfo.center.x, shapeInfo.center.y, 0);
 
-    const auto fullHeightFilePath = terrainPath / boost::filesystem::path(fileInfo.getFullHeightFilePath());
+    const auto fullHeightFilePath = terrainPath / std::filesystem::path(fileInfo.getFullHeightFilePath());
     for (size_t i = 0; i < fileInfo.infos().size(); i++)
     {
         const auto infoPath = terrainPath / fileInfo.infos()[i].textureFile;
@@ -89,7 +89,7 @@ std::vector<std::shared_ptr<star::StarMaterial>> Terrain::LoadMaterials(std::str
 
     for (size_t i = 0; i < fileInfo.infos().size(); i++)
     {
-        const boost::filesystem::path *found = nullptr;
+        const std::filesystem::path *found = nullptr;
         auto files = star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(
             mediaDirectoryPath, fileInfo.infos()[i].textureFile);
         for (const auto &file : files)

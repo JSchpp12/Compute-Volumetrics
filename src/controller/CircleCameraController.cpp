@@ -36,7 +36,8 @@ static void WriteDefaultControllerInfo(star::core::device::DeviceContext &contex
 
 void CircleCameraController::init(star::core::device::DeviceContext &context)
 {
-    const auto filePath = star::common::GetRuntimePath().parent_path() / "SimulationController.json";
+    const auto filePath = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) /
+                          "SimulationController.json";
 
     if (std::filesystem::exists(filePath))
     {
@@ -92,7 +93,7 @@ void CircleCameraController::incrementLinear()
 
 bool CircleCameraController::isDone() const
 {
-    return m_stepCounter == m_loadedSteps.numSteps && m_rotationCounter == 5 && m_fogTypeTracker == 1;
+    return m_stepCounter == m_loadedSteps.numSteps && m_rotationCounter == 360 && m_fogTypeTracker == 1;
 }
 
 void CircleCameraController::frameUpdate(star::core::device::DeviceContext &context)
@@ -102,7 +103,15 @@ void CircleCameraController::frameUpdate(star::core::device::DeviceContext &cont
     // check if the bounds are loaded
     if (!m_loadedSteps)
     {
-        m_loadedSteps = m_loadedInfo.get();
+        try
+        {
+            m_loadedSteps = m_loadedInfo.get();
+        }
+        catch (...)
+        {
+            STAR_THROW("Attempted to call get on future that has already been consumed. This signifies that the json "
+                       "file is not valid");
+        }
     }
 
     if (isDone())
@@ -123,7 +132,7 @@ void CircleCameraController::frameUpdate(star::core::device::DeviceContext &cont
         }
         m_stepCounter++;
     }
-    else if (m_rotationCounter < 5)
+    else if (m_rotationCounter < 360)
     {
         m_volume->getRenderer().setFogInfo(m_loadedSteps.start);
         m_camera->rotateRelative(star::Type::Axis::y, 1.0);
@@ -138,7 +147,7 @@ void CircleCameraController::frameUpdate(star::core::device::DeviceContext &cont
         //  set next fog type -- circle done
         switchFogType(m_fogTypeTracker);
 
-        m_rotationCounter = 0; 
-        m_stepCounter = 0; 
+        m_rotationCounter = 0;
+        m_stepCounter = 0;
     }
 }

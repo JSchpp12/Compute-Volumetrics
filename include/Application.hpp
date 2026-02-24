@@ -9,9 +9,9 @@
 class Application : public star::StarApplication
 {
   public:
-    Application() = default;
-
+    Application();
     virtual ~Application() = default;
+
     virtual void init() override
     {
     }
@@ -23,6 +23,7 @@ class Application : public star::StarApplication
 
   protected:
     star::core::CommandSubmitter m_captureTrigger;
+    std::string m_imageOutputDir;
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
     star::StarObjectInstance *testObject = nullptr;
     std::shared_ptr<Volume> m_volume = nullptr;

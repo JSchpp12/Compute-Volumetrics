@@ -17,6 +17,8 @@
 #include <starlight/event/RegisterMainGraphicsRenderer.hpp>
 #include <starlight/virtual/StarCamera.hpp>
 
+#include <star_common/helper/PathHelpers.hpp>
+
 #include <sstream>
 #include <string>
 
@@ -52,6 +54,18 @@ OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &con
     // }
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
+}
+
+static std::string CreateImageDir()
+{
+    const auto fullDir = star::file_helpers::GetExecutableDirectory() / "images"; 
+    star::file_helpers::CreateDirectoryIfDoesNotExist(fullDir);
+
+    return fullDir.string();
+}
+
+Application::Application() : m_captureTrigger(), m_imageOutputDir(CreateImageDir())
+{
 }
 
 std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::DeviceContext &context,

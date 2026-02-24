@@ -38,16 +38,16 @@ OffscreenRenderer InteractiveApplication::createOffscreenRenderer(
         objects.emplace_back(cmd.getReply().get());
     }
 
-    // {
-    //     auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    //     auto cmd = star::command::CreateObject::Builder()
-    //                    .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-    //                    .setUniqueName("horse")
-    //                    .build();
-    //     context.begin().set(cmd).submit();
-    //     cmd.getReply().get()->init(context);
-    //     objects.emplace_back(cmd.getReply().get());
-    // }
+    //{
+    //    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    //    auto cmd = star::command::CreateObject::Builder()
+    //                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+    //                   .setUniqueName("horse")
+    //                   .build();
+    //    context.begin().set(cmd).submit();
+    //    cmd.getReply().get()->init(context);
+    //    objects.emplace_back(cmd.getReply().get());
+    //}
 
     return {context, numFramesInFlight, objects, std::move(mainLight), m_camera};
 }
@@ -72,6 +72,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 
         m_flipScreenshotState = false;
     }
+
     if (m_triggerScreenshot)
     {
         if (!m_cameraController->isDone())
@@ -406,7 +407,9 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
 {
     const auto &frameTracker = context.getFrameTracker();
 
-    std::string name = "Test" + std::to_string(context.getFrameTracker().getCurrent().getGlobalFrameCounter()) + ".png";
+    const std::string name =
+        "Test" + std::to_string(context.getFrameTracker().getCurrent().getGlobalFrameCounter()) + ".png";
+    const auto path = (std::filesystem::path(m_imageOutputDir) / name).string();
 
     size_t index = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());
     auto *render = m_mainScene->getPrimaryRenderer().getRaw<star::windowing::SwapChainRenderer>();
@@ -414,9 +417,9 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
     // submit screenshot processing
     context.getEventBus().emit(
         star::event::TriggerScreenshot(context.getImageManager().get(render->getRenderToColorImages()[index])->texture,
-                                       name, render->getCommandBuffer(), m_screenshotRegistrations[index]));
+                                       path, render->getCommandBuffer(), m_screenshotRegistrations[index]));
 
-    triggerImageRecord(context, frameTracker, name);
+    triggerImageRecord(context, frameTracker, path);
 }
 
 #endif

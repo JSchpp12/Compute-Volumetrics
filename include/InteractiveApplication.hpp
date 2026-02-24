@@ -27,10 +27,6 @@ class InteractiveApplication : public Application,
     virtual std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context,
                                                        const uint8_t &numFramesInFlight) override;
 
-    void init() override
-    {
-    }
-
     virtual void frameUpdate(star::core::SystemContext &context) override;
 
   private:

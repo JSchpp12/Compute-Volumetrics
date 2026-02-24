@@ -83,7 +83,7 @@ std::unique_ptr<star::StarShaderInfo> VolumeRendererCreateDescriptorsPolicy::bui
     return shaderInfoBuilder.build();
 }
 
-static star::Handle BuildPipeline(const boost::filesystem::path &shaderDir, const std::string &shaderFile,
+static star::Handle BuildPipeline(const std::filesystem::path &shaderDir, const std::string &shaderFile,
                                   const vk::PipelineLayout &compmutePipelineLayout,
                                   star::core::device::manager::GraphicsContainer *graphicsManagers)
 {
@@ -116,7 +116,7 @@ void VolumeRendererCreateDescriptorsPolicy::createDescriptors()
 
     const vk::PipelineLayout &cLay = *this->m_computePipelineLayout->get();
 
-    auto shaderDir = boost::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) /
+    auto shaderDir = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) /
                      "shaders" / "volumeRenderer";
     *m_nanoVDBPipeline_hitBoundingBox =
         BuildPipeline(shaderDir, "nanoVDBHitBoundingBox.comp", cLay, m_graphicsManagers);

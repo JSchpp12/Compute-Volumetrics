@@ -18,9 +18,9 @@
 
 static std::string FindMatchingTextureFile(const std::string &textureFileName)
 {
-    const boost::filesystem::path *found = nullptr;
+    const std::filesystem::path *found = nullptr;
     const auto terrainDir =
-        boost::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) / "terrains";
+        std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) / "terrains";
 
     auto files =
         star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(terrainDir.string(), textureFileName);
