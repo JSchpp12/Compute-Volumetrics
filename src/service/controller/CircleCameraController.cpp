@@ -146,15 +146,47 @@ void CircleCameraController::switchFogType(int newType, Volume &volume, star::St
     camera.setForwardVector(glm::vec3{1.0, 0.0, 0.0});
 }
 
+void CircleCameraController::incrementExp(Volume &volume) const
+{
+    volume.getRenderer().getFogInfo().expFogInfo.density += m_loadedSteps.fogInfoChanges.expFogInfo.density;
+}
+
 void CircleCameraController::incrementLinear(Volume &volume) const
 {
     volume.getRenderer().getFogInfo().linearInfo.farDist += m_loadedSteps.fogInfoChanges.linearInfo.farDist;
     volume.getRenderer().getFogInfo().linearInfo.nearDist += m_loadedSteps.fogInfoChanges.linearInfo.nearDist;
 }
 
+void CircleCameraController::incrementMarched(Volume &volume) const
+{
+    volume.getRenderer().getFogInfo().homogenousInfo.maxNumSteps +=
+        m_loadedSteps.fogInfoChanges.homogenousInfo.maxNumSteps;
+    volume.getRenderer().getFogInfo().marchedInfo.defaultDensity +=
+        m_loadedSteps.fogInfoChanges.marchedInfo.defaultDensity;
+    volume.getRenderer().getFogInfo().marchedInfo.stepSizeDist += m_loadedSteps.fogInfoChanges.marchedInfo.stepSizeDist;
+    volume.getRenderer().getFogInfo().marchedInfo.stepSizeDist_light +=
+        m_loadedSteps.fogInfoChanges.marchedInfo.stepSizeDist_light;
+
+    {
+        const auto value = volume.getRenderer().getFogInfo().marchedInfo.getLightPropertyDirG();
+        const auto inc = m_loadedSteps.fogInfoChanges.marchedInfo.getLightPropertyDirG();
+        volume.getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(value + inc);
+    }
+    {
+        const auto value = volume.getRenderer().getFogInfo().marchedInfo.getSigmaAbsorption();
+        const auto inc = m_loadedSteps.fogInfoChanges.marchedInfo.getSigmaAbsorption();
+        volume.getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(value + inc);
+    }
+    {
+        const auto value = volume.getRenderer().getFogInfo().marchedInfo.getSigmaScattering();
+        const auto inc = volume.getRenderer().getFogInfo().marchedInfo.getSigmaScattering();
+        volume.getRenderer().getFogInfo().marchedInfo.setSigmaScattering(value + inc);
+    }
+}
+
 bool CircleCameraController::isDone() const
 {
-    return m_stepCounter == m_loadedSteps.numSteps && m_rotationCounter == 360 && m_fogTypeTracker == 1;
+    return m_stepCounter == m_loadedSteps.numSteps && m_rotationCounter == 360 && m_fogTypeTracker == 3;
 }
 
 void CircleCameraController::updateSim(Volume &volume, star::StarCamera &camera)
@@ -186,6 +218,12 @@ void CircleCameraController::updateSim(Volume &volume, star::StarCamera &camera)
             // linear fog
             incrementLinear(volume);
             break;
+        case (2):
+            incrementExp(volume);
+            break;
+        case (3):
+            incrementMarched(volume);
+            break;
         default:
             return;
         }
@@ -199,7 +237,7 @@ void CircleCameraController::updateSim(Volume &volume, star::StarCamera &camera)
         m_rotationCounter++;
         m_stepCounter = 0;
     }
-    else if (m_fogTypeTracker < 1)
+    else if (m_fogTypeTracker < 3)
     {
         // switch to next fog type
         m_fogTypeTracker++;

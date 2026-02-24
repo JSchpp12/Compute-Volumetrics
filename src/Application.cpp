@@ -183,6 +183,7 @@ void Application::frameUpdate(star::core::SystemContext &context)
     auto cmd = star::headless_render_result_write::GetFileNameForFrame();
     d.begin().set(cmd).submit();
 
+    TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera()); 
     triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());
 }
 

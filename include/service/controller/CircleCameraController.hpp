@@ -48,6 +48,8 @@ class CircleCameraController
     void switchFogType(int newType, Volume &volume, star::StarCamera &camera) const;
     void submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path);
     void incrementLinear(Volume &volume) const;
+    void incrementExp(Volume &volume) const;
+    void incrementMarched(Volume &volume) const; 
     void updateSim(Volume &volume, star::StarCamera &camera);
     void initListeners(star::core::CommandBus &cmdBus); 
     void cleanupListeners(star::core::CommandBus &cmdBus); 

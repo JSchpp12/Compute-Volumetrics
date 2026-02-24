@@ -173,7 +173,7 @@ void forwardMarch(const vec3 backgroundColor, const Ray ray,
             else if (isDirectional)
             {
                 //can just use the direction from the light itself
-                lDir = -normalize(lightList.lights[j].direction.xyz);
+                lDir = normalize(lightList.lights[j].direction.xyz);
             }
 
             const float cosTheta = dot(lDir, normalize(-ray.direction.xyz));
