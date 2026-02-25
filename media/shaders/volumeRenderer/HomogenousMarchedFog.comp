@@ -129,25 +129,54 @@ float linearizeDepth(const float depth, const float camNearClipDist, const float
     return (camNearClipDist * camFarClipDist) / (camFarClipDist - depth * (camFarClipDist - camNearClipDist));
 }
 
-float applyHenyeyGreensteinPhase(const float cosTheta, const float g){
+float applyHenyeyGreensteinPhase(const float cosTheta, const float g)
+{
     float denom = 1.0 + g*g - 2.0*g*cosTheta;
-    return 1.0 / (4.0 * PI) * (1.0 - g*g) / denom * sqrt(denom);
+    return (1.0 - g*g) / (4.0 * PI * pow(denom, 1.5));
 }
 
-void forwardMarch(const vec3 backgroundColor, const Ray ray,
+float sampleRandomTexture(const ivec2 targetPixel, const int offset)
+{
+    const ivec2 size = imageSize(randomTexture); 
+    
+    int index = targetPixel.x + targetPixel.y * size.x; 
+    index = (index + offset) % (size.x * size.y); 
+
+    if (index < 0)
+    {
+        index += size.x * size.y; 
+    }
+
+    const int x = index % size.x; 
+    const int y = index / size.x; //dont care about remainders, simply truncate
+    ivec2 coord = ivec2(x, y); 
+    return imageLoad(randomTexture, coord).r; 
+}
+
+void forwardMarch(const vec3 backgroundColor, const ivec2 targetPixel, const Ray ray,
                   float sigmaAbsorption, float sigmaScattering, const float lightPropertyDir_g,
                   const float stepSize, const uint numSteps, const float cutOffDistance, 
-                  const float jitterAmount, const float defaultDensity, inout vec3 resultingColor, 
+                  const float defaultDensity, inout vec3 resultingColor, 
                   inout float rayDistanceTraveled)
 { 
+    rayDistanceTraveled = 0.0; 
+
     Light_Type lChecker = createLightTypeStruct(); 
     const float sigmaT = sigmaAbsorption + sigmaScattering;
 
 	float transparency = 1.0;
+    float t0 = sampleRandomTexture(targetPixel, 0) * stepSize; 
+
     vec3 resultingRadiance = vec3(0.0);
-    float t = (stepSize * jitterAmount);
     for (int i = 0; i < numSteps; i++)
     {
+        float rand = sampleRandomTexture(targetPixel, i); 
+        const float t = t0 + (i + rand) * stepSize;  
+        if (t >= cutOffDistance)
+        {
+            break;
+        }
+
 		const vec3 pos = ray.origin.xyz + (t * ray.direction.xyz); 
         vec3 lightSums = vec3(0.0);
         for (int j = 0; j < lightInfo.numLights; j++)
@@ -188,14 +217,9 @@ void forwardMarch(const vec3 backgroundColor, const Ray ray,
             transparency *= exp(-sigmaT * stepSize * defaultDensity);
         }
 
-        t += stepSize;
-        if (t >= cutOffDistance)
-        {
-            break;
-        }
+        rayDistanceTraveled = t;
     }
 
-    rayDistanceTraveled = t;
     resultingColor = backgroundColor * transparency + resultingRadiance;
 }
 
@@ -239,7 +263,6 @@ void main()
 
     const ivec2 targetPixel = getTargetPixelCoords(); 
     const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]);
-    const float randomValue = imageLoad(randomTexture, targetPixel).r;
     
     float targetPixelInputDepth = texelFetch(inputSceneDepth, targetPixel, 0).r;
     const float linearDepth = linearizeDepth(targetPixelInputDepth, addCamInfo.nearClipDist, addCamInfo.farClipDist); 
@@ -253,6 +276,7 @@ void main()
     vec3 resultingColor = vec3(0.0, 0.0, 0.0); 
     float rayDistanceTraveled; 
     forwardMarch(backgroundColor, 
+        targetPixel,
         worldRay, 
         fogInfo.marchedFog_sigmaAbsorption,
         fogInfo.marchedFog_sigmaScattering,
@@ -260,7 +284,6 @@ void main()
         fogInfo.marchedFog_stepSizeDist,
         fogInfo.marchedFog_uniform_maxNumSteps,
         linearDepth,
-        randomValue,
         fogInfo.marchedFog_defaultDensity,
         resultingColor,
         rayDistanceTraveled
