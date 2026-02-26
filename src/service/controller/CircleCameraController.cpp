@@ -16,10 +16,17 @@ CircleCameraController::CircleCameraController()
 {
 }
 
+CircleCameraController::CircleCameraController(std::shared_ptr<bool> doneFlag)
+    : m_loadedSteps(), m_loadedInfo(), m_fogTypeTracker(0), m_rotationCounter(0), m_stepCounter(0),
+      m_onTriggerUpdate(*this), m_doneFlag(std::move(doneFlag))
+{
+}
+
 CircleCameraController::CircleCameraController(CircleCameraController &&other)
     : m_loadedSteps(std::move(other.m_loadedSteps)), m_loadedInfo(std::move(other.m_loadedInfo)),
       m_fogTypeTracker(std::move(other.m_fogTypeTracker)), m_rotationCounter(std::move(other.m_rotationCounter)),
-      m_stepCounter(std::move(other.m_stepCounter)), m_onTriggerUpdate(*this), m_cmd(other.m_cmd)
+      m_stepCounter(std::move(other.m_stepCounter)), m_onTriggerUpdate(*this), m_cmd(other.m_cmd),
+      m_doneFlag(other.m_doneFlag)
 {
     if (m_cmd != nullptr)
     {
@@ -38,6 +45,7 @@ CircleCameraController &CircleCameraController::operator=(CircleCameraController
         m_rotationCounter = std::move(other.m_rotationCounter);
         m_stepCounter = std::move(other.m_stepCounter);
         m_cmd = other.m_cmd;
+        m_doneFlag = other.m_doneFlag;
 
         if (m_cmd != nullptr)
         {
@@ -207,6 +215,10 @@ void CircleCameraController::updateSim(Volume &volume, star::StarCamera &camera)
 
     if (isDone())
     {
+        if (m_doneFlag)
+        {
+            *m_doneFlag = true;
+        }
         return;
     }
 
@@ -247,4 +259,6 @@ void CircleCameraController::updateSim(Volume &volume, star::StarCamera &camera)
         m_rotationCounter = 0;
         m_stepCounter = 0;
     }
+
+    *m_doneFlag = true;
 }

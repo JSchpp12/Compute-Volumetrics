@@ -77,6 +77,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     {
         TriggerSimUpdate(context.getAllDevices().getData()[0].getCmdBus(), *m_volume, *m_camera);
         triggerScreenshot(context.getAllDevices().getData()[0]);
+        m_flipScreenshotState = true; 
     }
 }
 
@@ -322,7 +323,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     const glm::vec3 volumePos{50.0, 10.0, 0.0};
     const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
     m_camera = std::make_shared<star::windowing::BasicCamera>(
-        context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 1.0f, 20000.0f, 100.0f, 0.1f);
+        context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 0.5f, 25000.0f, 100.0f, 0.1f);
     m_camera->init(context.getEventBus());
 
     m_camera->setPosition(camPos);
@@ -385,7 +386,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     }
 
     m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.03f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 3.0f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 0.3f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 5.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.0f);
     m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.8f);

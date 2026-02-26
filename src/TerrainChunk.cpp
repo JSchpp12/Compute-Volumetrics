@@ -61,6 +61,9 @@ double TerrainChunk::GetCenterHeightFromGDAL(const std::string &geoTiff)
     float *line = nullptr;
 
     GDALRasterBand *band = dataset->GetRasterBand(1);
+    const char *unit = band->GetUnitType();
+    double scale = band->GetScale(); 
+    std::cout << "Band unit: " << (unit != nullptr ? unit : "None") << std::endl; 
 
     int nXSize = band->GetXSize();
     int nYSize = band->GetYSize();

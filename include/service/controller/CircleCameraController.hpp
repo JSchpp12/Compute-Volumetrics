@@ -17,6 +17,7 @@ class CircleCameraController
 {
   public:
     CircleCameraController(); 
+    explicit CircleCameraController(std::shared_ptr<bool> doneFlag); 
     CircleCameraController(const CircleCameraController &) = delete;
     CircleCameraController &operator=(const CircleCameraController &) = delete;
     CircleCameraController(CircleCameraController &&); 
@@ -44,6 +45,7 @@ class CircleCameraController
     int m_stepCounter = 0;
     ListenForTriggerUpdate<CircleCameraController> m_onTriggerUpdate; 
     star::core::CommandBus *m_cmd = nullptr;
+    std::shared_ptr<bool> m_doneFlag = nullptr; 
 
     void switchFogType(int newType, Volume &volume, star::StarCamera &camera) const;
     void submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path);
