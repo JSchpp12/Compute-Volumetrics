@@ -2,6 +2,7 @@
 
 #include "TerrainGrid.hpp"
 #include "TerrainShapeInfoLoader.hpp"
+#include "TerrainChunk.hpp"
 
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/helpers/FileHelpers.hpp>
@@ -53,7 +54,7 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
         {
             setWorldCenter = true;
 
-            float height = TerrainChunk::GetCenterHeightFromGDAL(fullHeightFilePath.string());
+            double height = TerrainChunk::GetHeightAtLocationFromGDAL(fullHeightFilePath.string(), shapeInfo.center.x, shapeInfo.center.y).value();
             worldCenter.z = height; 
         }
 

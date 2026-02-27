@@ -3,6 +3,7 @@
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
 #include "OffscreenRenderer.hpp"
 #include "Terrain.hpp"
+#include "TerrainChunk.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
 

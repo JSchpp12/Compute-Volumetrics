@@ -54,7 +54,6 @@ OffscreenRenderer InteractiveApplication::createOffscreenRenderer(
 
 void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
-
     if (m_flipScreenshotState)
     {
         m_triggerScreenshot = !m_triggerScreenshot;
@@ -69,15 +68,13 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         }
         oss << context.getAllDevices().getData()[0].getFrameTracker().getCurrent().getGlobalFrameCounter();
         star::core::logging::info(oss.str());
-
-        m_flipScreenshotState = false;
     }
 
     if (m_triggerScreenshot)
     {
         TriggerSimUpdate(context.getAllDevices().getData()[0].getCmdBus(), *m_volume, *m_camera);
         triggerScreenshot(context.getAllDevices().getData()[0]);
-        m_flipScreenshotState = true; 
+        m_flipScreenshotState = true;
     }
 }
 
@@ -272,8 +269,12 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
     if (key == GLFW_KEY_V)
     {
-        auto camPos = this->m_mainScene->getCamera()->getPosition();
-        this->m_mainScene->getCamera()->setPosition(glm::vec3{camPos.x, camPos.y, 0});
+        const auto camPos = this->m_mainScene->getCamera()->getPosition();
+        // this->m_mainScene->getCamera()->setPosition(glm::vec3{camPos.x, camPos.y, 0});
+        std::ostringstream oss;
+
+        star::core::logging::info("Cam position: " + std::to_string(camPos.x) + ',' + std::to_string(camPos.y) + ',' +
+                                  std::to_string(camPos.z));
     }
 
     if (key == GLFW_KEY_O)
@@ -319,14 +320,11 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     m_screenshotRegistrations.resize(context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-    const glm::vec3 camPos{-50.9314, 40.686, 25.9329};
     const glm::vec3 volumePos{50.0, 10.0, 0.0};
     const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
     m_camera = std::make_shared<star::windowing::BasicCamera>(
         context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 0.5f, 25000.0f, 100.0f, 0.1f);
     m_camera->init(context.getEventBus());
-
-    m_camera->setPosition(camPos);
     m_camera->setForwardVector(volumePos - m_camera->getPosition());
 
     m_mainLight = std::make_shared<std::vector<star::Light>>(
@@ -369,7 +367,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
         m_volume->init(context, numFramesInFlight);
 
         auto &s_i = m_volume->createInstance();
-        s_i.setPosition(camPos);
+        s_i.setPosition(m_camera->getPosition());
         s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
         s_i.rotateRelative(star::Type::Axis::y, 90);
 

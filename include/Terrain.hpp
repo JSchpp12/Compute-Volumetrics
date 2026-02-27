@@ -8,7 +8,6 @@
 
 #include "MathHelpers.hpp"
 #include "StarObject.hpp"
-#include "TerrainChunk.hpp"
 #include "TerrainInfoFile.hpp"
 #include "TextureMaterial.hpp"
 #include "nlohmann/json.hpp"
