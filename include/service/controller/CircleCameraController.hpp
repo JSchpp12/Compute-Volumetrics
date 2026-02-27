@@ -1,6 +1,7 @@
 #pragma once
 
 #include "command/sim_controller/TriggerUpdate.hpp"
+#include "command/sim_controller/CheckIfDone.hpp"
 #include "service/controller/detail/simulation_bounds_file/SimulationSteps.hpp"
 
 #include <starlight/policy/command/ListenFor.hpp>
@@ -13,6 +14,10 @@ using ListenForTriggerUpdate =
     star::policy::command::ListenFor<T, sim_controller::TriggerUpdate, sim_controller::trigger_update::GetTypeName,
                                       &T::onTriggerUpdate>;
 
+template <typename T>
+using ListenForCheckIfDone =
+    star::policy::command::ListenFor<T, sim_controller::CheckIfDone, sim_controller::check_if_done::GetTypeName,
+                                     &T::onCheckIfDone>;
 class CircleCameraController
 {
   public:
@@ -35,6 +40,8 @@ class CircleCameraController
 
     void onTriggerUpdate(sim_controller::TriggerUpdate &cmd);
 
+    void onCheckIfDone(sim_controller::CheckIfDone &cmd) const; 
+
     bool isDone() const;
 
   private:
@@ -45,6 +52,7 @@ class CircleCameraController
     int m_rotationCounter = 0;
     int m_stepCounter = 0;
     ListenForTriggerUpdate<CircleCameraController> m_onTriggerUpdate; 
+    ListenForCheckIfDone<CircleCameraController> m_onListenForDone; 
     star::core::CommandBus *m_cmd = nullptr;
     std::shared_ptr<bool> m_doneFlag = nullptr; 
     bool m_isCameraAtHeight = false; 

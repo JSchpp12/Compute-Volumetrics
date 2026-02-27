@@ -34,6 +34,8 @@ class Application : public star::StarApplication
 
     void frameUpdate(star::core::SystemContext &context) override;
 
+    static bool CheckIfControllerIsDone(star::core::CommandBus &cmd); 
+
     static void TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume, star::StarCamera &camera); 
 
     static float PromptForFloat(const std::string &prompt, const bool &allowNegative = false);

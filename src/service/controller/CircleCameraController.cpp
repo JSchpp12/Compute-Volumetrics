@@ -1,9 +1,9 @@
 #include "service/controller/CircleCameraController.hpp"
 
+#include "MathHelpers.hpp"
 #include "TerrainChunk.hpp"
 #include "TerrainInfoFile.hpp"
 #include "TerrainShapeInfo.hpp"
-#include "MathHelpers.hpp"
 #include "TerrainShapeInfoLoader.hpp"
 #include "service/controller/detail/simulation_bounds_file/Reader.hpp"
 #include "service/controller/detail/simulation_bounds_file/Writer.hpp"
@@ -17,21 +17,22 @@
 
 CircleCameraController::CircleCameraController()
     : m_loadedSteps(), m_loadedInfo(), m_worldHeightAtCenterTerrain(0.0), m_fogTypeTracker(0), m_rotationCounter(0),
-      m_stepCounter(0), m_onTriggerUpdate(*this)
+      m_stepCounter(0), m_onTriggerUpdate(*this), m_onListenForDone(*this)
 {
 }
 
 CircleCameraController::CircleCameraController(std::shared_ptr<bool> doneFlag)
     : m_loadedSteps(), m_loadedInfo(), m_worldHeightAtCenterTerrain(0.0), m_fogTypeTracker(0), m_rotationCounter(0),
-      m_stepCounter(0), m_onTriggerUpdate(*this), m_doneFlag(std::move(doneFlag))
+      m_stepCounter(0), m_onTriggerUpdate(*this), m_onListenForDone(*this), m_doneFlag(std::move(doneFlag))
 {
 }
 
 CircleCameraController::CircleCameraController(CircleCameraController &&other)
     : m_loadedSteps(std::move(other.m_loadedSteps)), m_loadedInfo(std::move(other.m_loadedInfo)),
-      m_worldHeightAtCenterTerrain(std::move(other.m_worldHeightAtCenterTerrain)), m_fogTypeTracker(std::move(other.m_fogTypeTracker)),
-      m_rotationCounter(std::move(other.m_rotationCounter)), m_stepCounter(std::move(other.m_stepCounter)),
-      m_onTriggerUpdate(*this), m_cmd(other.m_cmd), m_doneFlag(other.m_doneFlag)
+      m_worldHeightAtCenterTerrain(std::move(other.m_worldHeightAtCenterTerrain)),
+      m_fogTypeTracker(std::move(other.m_fogTypeTracker)), m_rotationCounter(std::move(other.m_rotationCounter)),
+      m_stepCounter(std::move(other.m_stepCounter)), m_onTriggerUpdate(*this), m_onListenForDone(*this),
+      m_cmd(other.m_cmd), m_doneFlag(other.m_doneFlag)
 {
     if (m_cmd != nullptr)
     {
@@ -66,11 +67,13 @@ CircleCameraController &CircleCameraController::operator=(CircleCameraController
 void CircleCameraController::initListeners(star::core::CommandBus &cmdBus)
 {
     m_onTriggerUpdate.init(cmdBus);
+    m_onListenForDone.init(cmdBus);
 }
 
 void CircleCameraController::cleanupListeners(star::core::CommandBus &cmdBus)
 {
     m_onTriggerUpdate.cleanup(cmdBus);
+    m_onListenForDone.cleanup(cmdBus);
 }
 
 void CircleCameraController::submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path)
@@ -126,7 +129,7 @@ void CircleCameraController::init()
     //    TerrainInfoFile fileInfo((terrainPath / "height_info.json").string());
 
     //    const auto heightFile = terrainPath / std::filesystem::path(fileInfo.getFullHeightFilePath());
-    //    const double worldCenterElevation = TerrainChunk::GetCenterHeightFromGDAL(heightFile.string()); 
+    //    const double worldCenterElevation = TerrainChunk::GetCenterHeightFromGDAL(heightFile.string());
     //    const double elevation =
     //        TerrainChunk::GetHeightAtLocationFromGDAL(heightFile.string(), shapeInfo.center.x, shapeInfo.center.y)
     //            .value();
@@ -180,11 +183,16 @@ void CircleCameraController::switchFogType(int newType, Volume &volume, star::St
     {
         auto camPos = camera.getPosition();
 
-        //cam pos starts at ground level
-        camPos.y += 2; 
+        // cam pos starts at ground level
+        camPos.y += 2;
         camera.setPosition(camPos);
-        m_isCameraAtHeight = true; 
+        m_isCameraAtHeight = true;
     }
+}
+
+void CircleCameraController::onCheckIfDone(sim_controller::CheckIfDone &cmd) const
+{
+    cmd.getReply().set(isDone());
 }
 
 void CircleCameraController::incrementExp(Volume &volume) const
@@ -248,10 +256,6 @@ void CircleCameraController::updateSim(Volume &volume, star::StarCamera &camera)
 
     if (isDone())
     {
-        if (m_doneFlag)
-        {
-            *m_doneFlag = true;
-        }
         return;
     }
 
@@ -280,7 +284,7 @@ void CircleCameraController::updateSim(Volume &volume, star::StarCamera &camera)
         camera.rotateRelative(star::Type::Axis::y, 1.0);
 
         m_rotationCounter++;
-        m_stepCounter = 0;
+        m_stepCounter = 1;
     }
     else if (m_fogTypeTracker < 3)
     {
@@ -289,7 +293,12 @@ void CircleCameraController::updateSim(Volume &volume, star::StarCamera &camera)
         //  set next fog type -- circle done
         switchFogType(m_fogTypeTracker, volume, camera);
 
-        m_rotationCounter = 0;
-        m_stepCounter = 0;
+        m_rotationCounter = 1;
+        m_stepCounter = 1;
+    }
+
+    if (isDone() && m_doneFlag)
+    {
+        *m_doneFlag = true;
     }
 }

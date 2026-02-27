@@ -6,6 +6,7 @@
 #include "TerrainChunk.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
+#include "command/sim_controller/CheckIfDone.hpp"
 
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
@@ -179,8 +180,11 @@ void Application::frameUpdate(star::core::SystemContext &context)
     auto cmd = star::headless_render_result_write::GetFileNameForFrame();
     d.begin().set(cmd).submit();
 
-    TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera()); 
-    triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());
+    if (!CheckIfControllerIsDone(d.getCmdBus()))
+    {
+        TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
+        triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());
+    }
 }
 
 float Application::PromptForFloat(const std::string &prompt, const bool &allowNegatives)
@@ -245,4 +249,11 @@ void Application::TriggerSimUpdate(star::core::CommandBus& cmd, Volume& volume, 
 {
     sim_controller::TriggerUpdate trigger(volume, camera); 
     cmd.submit(trigger); 
+}
+
+bool Application::CheckIfControllerIsDone(star::core::CommandBus& cmd)
+{
+    sim_controller::CheckIfDone check; 
+    cmd.submit(check); 
+    return check.getReply().get();
 }
