@@ -40,14 +40,16 @@ class CircleCameraController
   private:
     controller::simulation_bounds_file::SimulationSteps m_loadedSteps;
     std::future<controller::simulation_bounds_file::SimulationSteps> m_loadedInfo;
+    double m_worldHeightAtCenterTerrain; 
     int m_fogTypeTracker = 0;
     int m_rotationCounter = 0;
     int m_stepCounter = 0;
     ListenForTriggerUpdate<CircleCameraController> m_onTriggerUpdate; 
     star::core::CommandBus *m_cmd = nullptr;
     std::shared_ptr<bool> m_doneFlag = nullptr; 
+    bool m_isCameraAtHeight = false; 
 
-    void switchFogType(int newType, Volume &volume, star::StarCamera &camera) const;
+    void switchFogType(int newType, Volume &volume, star::StarCamera &camera);
     void submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path);
     void incrementLinear(Volume &volume) const;
     void incrementExp(Volume &volume) const;
