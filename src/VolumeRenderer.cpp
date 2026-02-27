@@ -98,7 +98,8 @@ bool VolumeRenderer::isRenderReady(star::core::device::DeviceContext &context)
         context.getPipelineManager().get(linearPipeline)->isReady() &&
         context.getPipelineManager().get(expPipeline)->isReady() &&
         context.getPipelineManager().get(nanoVDBPipeline_hitBoundingBox)->isReady() &&
-        context.getPipelineManager().get(nanoVDBPipeline_surface)->isReady())
+        context.getPipelineManager().get(nanoVDBPipeline_surface)->isReady() &&
+        context.getPipelineManager().get(marchedHomogenousPipeline)->isReady())
     {
         isReady = true;
     }

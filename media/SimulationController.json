@@ -1,5 +1,5 @@
 {
-    "numSteps": 10,
+    "numSteps": 2,
     "startData": {
         "expFogInfo": {
             "density": 0.00001

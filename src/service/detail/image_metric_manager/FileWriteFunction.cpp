@@ -19,33 +19,31 @@ static double Mean(std::span<const float> &span)
     return sum / static_cast<double>(span.size());
 }
 
-FileWriteFunction::FileWriteFunction(FogInfo controlInfo, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
-                                     uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage)
-    : m_controlInfo(std::move(controlInfo)), m_hostVisibleRayDistanceBuffer(std::move(buffer)),
-      m_vkDevice(std::move(vkDevice)), m_copyDone(std::move(done)),
-      m_copyToHostBufferDoneValue(copyToHostBufferDoneValue), m_type(type), m_storage(storage)
+FileWriteFunction::FileWriteFunction(FogInfo controlInfo, glm::vec3 camPosition, star::Handle buffer,
+                                     vk::Device vkDevice, vk::Semaphore done, uint64_t copyToHostBufferDoneValue,
+                                     Fog::Type type, HostVisibleStorage *storage)
+    : m_data(std::make_unique<ImageWriteData>(controlInfo, camPosition, buffer, vkDevice, done, copyToHostBufferDoneValue, type, storage))
 {
 }
 
 void FileWriteFunction::write(const std::string &path) const
 {
-    assert(m_storage != nullptr && "Host storage should have been provided");
-
-    auto fPath = boost::filesystem::path(path);
-    fPath.replace_extension(".json");
+    const auto sourcePath = boost::filesystem::path(path);
+    const auto finalPath = boost::filesystem::path(path).replace_extension(".json");
 
     {
-        const std::string msg = "Beginning file write: " + fPath.string();
+        const std::string msg = "Beginning file write: " + finalPath.string();
         star::core::logging::info(msg);
     }
 
     waitForCopyToDstBufferDone();
 
     double mean = calculateAverageRayDistance();
-    m_storage->returnBuffer(m_hostVisibleRayDistanceBuffer);
+    m_data->storage->returnBuffer(m_data->hostVisibleRayDistanceBuffer);
 
-    std::ofstream out(fPath.string(), std::ofstream::binary);
-    const auto data = ImageMetrics(m_controlInfo, fPath.filename().string(), mean, m_type).toJsonDump();
+    std::ofstream out(finalPath.string(), std::ofstream::binary);
+    const auto data =
+        ImageMetrics(m_data->controlInfo, m_data->camPosition, sourcePath.filename().string(), mean, m_data->type).toJsonDump();
     out << data;
 
     star::core::logging::info("Done");
@@ -53,10 +51,10 @@ void FileWriteFunction::write(const std::string &path) const
 
 void FileWriteFunction::waitForCopyToDstBufferDone() const
 {
-    assert(m_vkDevice != VK_NULL_HANDLE);
+    assert(m_data->vkDevice != VK_NULL_HANDLE);
 
-    vk::Result waitResult = m_vkDevice.waitSemaphores(
-        vk::SemaphoreWaitInfo().setValues(m_copyToHostBufferDoneValue).setSemaphores(m_copyDone), UINT64_MAX);
+    vk::Result waitResult = m_data->vkDevice.waitSemaphores(
+        vk::SemaphoreWaitInfo().setValues(m_data->copyToHostBufferDoneValue).setSemaphores(m_data->copyDone), UINT64_MAX);
 
     if (waitResult != vk::Result::eSuccess)
     {
@@ -139,21 +137,21 @@ static double CalcVisDistanceFromRayBuffers(const star::StarBuffers::Buffer &ray
 
 double FileWriteFunction::calculateAverageRayDistance() const
 {
-    assert(m_storage != nullptr);
+    assert(m_data->storage != nullptr);
 
     const star::StarBuffers::Buffer *rayDistance = nullptr;
     const star::StarBuffers::Buffer *rayAtCutoff = nullptr;
-    m_storage->getRayDistanceBuffers(m_hostVisibleRayDistanceBuffer, &rayDistance, &rayAtCutoff);
+    m_data->storage->getRayDistanceBuffers(m_data->hostVisibleRayDistanceBuffer, &rayDistance, &rayAtCutoff);
     assert(rayDistance != nullptr && rayAtCutoff != nullptr && "Failed to get buffers");
 
     double distance = 0.0;
-    switch (m_type)
+    switch (m_data->type)
     {
     case (Fog::Type::exp):
-        distance = CalcVisDistanceExponential(m_controlInfo, 0.98f);
+        distance = CalcVisDistanceExponential(m_data->controlInfo, 0.98f);
         break;
     case (Fog::Type::linear):
-        distance = CalcVisDistanceLinear(m_controlInfo);
+        distance = CalcVisDistanceLinear(m_data->controlInfo);
         break;
     default:
         distance = CalcVisDistanceFromRayBuffers(*rayDistance, *rayAtCutoff);
