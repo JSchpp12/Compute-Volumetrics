@@ -132,7 +132,7 @@ float linearizeDepth(const float depth, const float camNearClipDist, const float
 float applyHenyeyGreensteinPhase(const float cosTheta, const float g)
 {
     float denom = 1.0 + g*g - 2.0*g*cosTheta;
-    return (1.0 - g*g) / (4.0 * PI * pow(denom, 1.5));
+    return (1.0 - g*g) / (4.0 * PI * (denom * sqrt(denom)));
 }
 
 float sampleRandomTexture(const ivec2 targetPixel, const int offset)
@@ -159,6 +159,7 @@ void forwardMarch(const vec3 backgroundColor, const ivec2 targetPixel, const Ray
                   const float defaultDensity, inout vec3 resultingColor, 
                   inout float rayDistanceTraveled)
 { 
+    const float lightStengthMulti = 13.0;
     rayDistanceTraveled = 0.0; 
 
     Light_Type lChecker = createLightTypeStruct(); 
@@ -186,6 +187,8 @@ void forwardMarch(const vec3 backgroundColor, const ivec2 targetPixel, const Ray
 
             const bool isPoint = ((lightList.lights[j].settings.y & lChecker.point) != 0);
             const bool isDirectional = ((lightList.lights[j].settings.y & lChecker.directional) != 0);
+            vec3 lPos = vec3(0.0);
+            
             if (isPoint)
             {
                 //attenuate the lValue as point lights have distance
@@ -194,7 +197,7 @@ void forwardMarch(const vec3 backgroundColor, const ivec2 targetPixel, const Ray
                 const float dL = length(v); 
                 lDir = v / max(dL, 1e-6); 
 
-                lValue = exp(-sigmaT * defaultDensity * stepSize); 
+                lValue = exp(-sigmaT * defaultDensity); 
             }
             else if (isDirectional)
             {
@@ -206,17 +209,12 @@ void forwardMarch(const vec3 backgroundColor, const ivec2 targetPixel, const Ray
             const float cosTheta = dot(lDir, cDir);
             const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g); 
 
-            lightSums += lightList.lights[j].ambient.rgb * lValue * phase;
+            lightSums += (lightList.lights[j].ambient.rgb * lightStengthMulti) * lValue * phase;
         } 
 
-        const float tau = sigmaT * defaultDensity * stepSize; 
-        float segmentAlpha = (sigmaT > 0.0) ? (1.0 - exp(-tau)) : 0.0;
-        if (sigmaT > 0.0)
-        {
-            resultingRadiance += transparency * (sigmaScattering / sigmaT) * lightSums * segmentAlpha;
-            transparency *= exp(-sigmaT * stepSize * defaultDensity);
-        }
-
+        const float sampleAttenuation = exp(sigmaT * -defaultDensity * stepSize);
+        transparency *= sampleAttenuation; 
+        resultingRadiance += transparency * lightSums * sigmaScattering * defaultDensity * stepSize;
         rayDistanceTraveled = t;
     }
 
