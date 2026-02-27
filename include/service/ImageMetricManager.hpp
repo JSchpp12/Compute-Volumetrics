@@ -45,9 +45,6 @@ class ImageMetricManager
     image_metric_manager::HostVisibleStorage m_storage;
     image_metric_manager::CopyDeviceToHostMemory m_copier;
     ListenForTriggerCapture<ImageMetricManager> m_listenerCapture;
-    star::core::CommandSubmitter m_cmdSubmitter;
-    star::core::CommandSubmitter m_cmdSubmitterUpdater;
-    star::core::CommandSubmitter m_cmdSubmitterTrigger;
     star::core::CommandBus *m_cmdBus = nullptr;
     star::core::device::StarDevice *m_device = nullptr;
     star::common::EventBus *m_eb = nullptr;

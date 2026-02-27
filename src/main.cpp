@@ -35,15 +35,21 @@ int runHeadless()
 
 int main()
 {
-
+    try
+    {
         star::ConfigFile::load("./StarEngine.cfg");
+    }
+    catch (...)
+    {
+        std::cerr << "Failed to load config file for engine";
+        std::exit(EXIT_FAILURE);
+    }
 
-        openvdb::initialize();
+    openvdb::initialize();
 
 #ifdef STAR_ENABLE_PRESENTATION
-        return runWindow();
+    return runWindow();
 #else
-        return runHeadless();
+    return runHeadless();
 #endif
-
 }

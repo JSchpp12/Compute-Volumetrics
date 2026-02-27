@@ -3,7 +3,10 @@
 #include "ManagerController_RenderResource_GlobalInfo.hpp"
 #include "OffscreenRenderer.hpp"
 #include "Terrain.hpp"
+#include "TerrainChunk.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
+#include "command/sim_controller/TriggerUpdate.hpp"
+#include "command/sim_controller/CheckIfDone.hpp"
 
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
@@ -16,6 +19,8 @@
 #include <starlight/core/renderer/HeadlessRenderer.hpp>
 #include <starlight/event/RegisterMainGraphicsRenderer.hpp>
 #include <starlight/virtual/StarCamera.hpp>
+
+#include <star_common/helper/PathHelpers.hpp>
 
 #include <sstream>
 #include <string>
@@ -52,6 +57,19 @@ OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &con
     // }
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
+}
+
+static std::string CreateImageDir()
+{
+    const auto fullDir = star::file_helpers::GetExecutableDirectory() / "images"; 
+    star::file_helpers::CreateDirectoryIfDoesNotExist(fullDir);
+
+    return fullDir.string();
+}
+
+Application::Application()
+    : m_captureTrigger(), m_imageOutputDir(CreateImageDir())
+{
 }
 
 std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::DeviceContext &context,
@@ -137,16 +155,16 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
                                               std::move(camera), std::move(sc), std::move(additionals));
     }
 
-    m_volume->getFogControlInfo().marchedInfo.defaultDensity = 0.0001f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist = 3.0f;
-    m_volume->getFogControlInfo().marchedInfo.stepSizeDist_light = 5.0f;
-    m_volume->getFogControlInfo().marchedInfo.setSigmaAbsorption(0.00001f);
-    m_volume->getFogControlInfo().marchedInfo.setSigmaScattering(0.8f);
-    m_volume->getFogControlInfo().marchedInfo.setLightPropertyDirG(0.3f);
-    m_volume->setFogType(Fog::Type::marched);
-    m_volume->getFogControlInfo().linearInfo.nearDist = 0.01f;
-    m_volume->getFogControlInfo().linearInfo.farDist = 1000.0f;
-    m_volume->getFogControlInfo().expFogInfo.density = 0.6f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0001f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 3.0f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 5.0f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.00001f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.8f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.3f);
+    m_volume->getRenderer().setFogType(Fog::Type::marched);
+    m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
+    m_volume->getRenderer().getFogInfo().linearInfo.farDist = 1000.0f;
+    m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.6f;
     return m_mainScene;
 }
 
@@ -158,16 +176,15 @@ void Application::shutdown(star::core::device::DeviceContext &context)
 
 void Application::frameUpdate(star::core::SystemContext &context)
 {
-    // m_volume->renderVolume(glm::radians(this->scene.getCamera()->getFieldOfView()),
-    // this->scene.getCamera()->getPosition(),
-    // glm::inverse(this->scene.getCamera()->getViewMatrix()),
-    // this->scene.getCamera()->getProjectionMatrix());
-
     auto &d = context.getAllDevices().getData()[0];
     auto cmd = star::headless_render_result_write::GetFileNameForFrame();
     d.begin().set(cmd).submit();
 
-    triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());
+    if (!CheckIfControllerIsDone(d.getCmdBus()))
+    {
+        TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
+        triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());
+    }
 }
 
 float Application::PromptForFloat(const std::string &prompt, const bool &allowNegatives)
@@ -226,4 +243,17 @@ void Application::triggerImageRecord(star::core::device::DeviceContext &context,
 {
     image_metrics::TriggerCapture trigger(targetImageFileName, *m_volume);
     m_captureTrigger.update(trigger).submit();
+}
+
+void Application::TriggerSimUpdate(star::core::CommandBus& cmd, Volume& volume, star::StarCamera& camera)
+{
+    sim_controller::TriggerUpdate trigger(volume, camera); 
+    cmd.submit(trigger); 
+}
+
+bool Application::CheckIfControllerIsDone(star::core::CommandBus& cmd)
+{
+    sim_controller::CheckIfDone check; 
+    cmd.submit(check); 
+    return check.getReply().get();
 }

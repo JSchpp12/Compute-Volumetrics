@@ -24,6 +24,8 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
 
     virtual vk::Format getDepthAttachmentFormat(star::core::device::DeviceContext &device) const override;
 
+    virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoColorAttachment(const star::common::FrameTracker &frameTracker) override;
+
   private:
     uint32_t graphicsQueueFamilyIndex = 0;
     uint32_t computeQueueFamilyIndex = 0;

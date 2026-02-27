@@ -18,9 +18,9 @@
 
 static std::string FindMatchingTextureFile(const std::string &textureFileName)
 {
-    const boost::filesystem::path *found = nullptr;
+    const std::filesystem::path *found = nullptr;
     const auto terrainDir =
-        boost::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) / "terrains";
+        std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) / "terrains";
 
     auto files =
         star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(terrainDir.string(), textureFileName);
@@ -61,6 +61,9 @@ double TerrainChunk::GetCenterHeightFromGDAL(const std::string &geoTiff)
     float *line = nullptr;
 
     GDALRasterBand *band = dataset->GetRasterBand(1);
+    const char *unit = band->GetUnitType();
+    double scale = band->GetScale();
+    std::cout << "Band unit: " << (unit != nullptr ? unit : "None") << std::endl;
 
     int nXSize = band->GetXSize();
     int nYSize = band->GetYSize();
@@ -354,6 +357,77 @@ TerrainChunk::TerrainDataset::TerrainDataset(std::string path, const glm::dvec2 
     initGDALBuffer(dataset);
 
     GDALClose(dataset);
+}
+
+std::optional<double> TerrainChunk::GetHeightAtLocationFromGDAL(const std::string &path, double latDeg, double lonDeg)
+{
+    GDALAllRegister();
+    GDALDataset *ds = static_cast<GDALDataset *>(GDALOpen(path.c_str(), GA_ReadOnly));
+    if (!ds)
+        return std::nullopt;
+
+    double gt[6];
+    if (ds->GetGeoTransform(gt) != CE_None)
+    {
+        GDALClose(ds);
+        return std::nullopt;
+    }
+
+    // Assume north-up, no rotation:
+    // gt[2] (rotation x) == 0 and gt[4] (rotation y) == 0
+    // If not north-up, use the general approach in section 2.
+    if (gt[2] != 0.0 || gt[4] != 0.0)
+    {
+        GDALClose(ds);
+        return std::nullopt;
+    }
+
+    GDALRasterBand *band = ds->GetRasterBand(1);
+    if (!band)
+    {
+        GDALClose(ds);
+        return std::nullopt;
+    }
+
+    const int nx = band->GetXSize();
+    const int ny = band->GetYSize();
+
+    // Convert georef (lon, lat) -> pixel (x, y)
+    // Note: gt[5] is typically negative; that's normal.
+    const double px = (lonDeg - gt[0]) / gt[1];
+    const double py = (latDeg - gt[3]) / gt[5];
+
+    // Clamp or early-exit if outside
+    if (px < 0 || py < 0 || px >= nx || py >= ny)
+    {
+        GDALClose(ds);
+        return std::nullopt;
+    }
+
+    // Read the nearest pixel. For bilinear, see section 1b below.
+    const int ix = static_cast<int>(std::floor(px + 0.5));
+    const int iy = static_cast<int>(std::floor(py + 0.5));
+
+    float val = 0.0f;
+    if (band->RasterIO(GF_Read, ix, iy, 1, 1, &val, 1, 1, GDT_Float32, 0, 0) != CE_None)
+    {
+        GDALClose(ds);
+        return std::nullopt;
+    }
+
+    int hasNoData = 0;
+    const double nodata = band->GetNoDataValue(&hasNoData);
+    bool isNoData = (hasNoData && static_cast<double>(val) == nodata);
+
+    double scale = band->GetScale();
+    if (scale == 0.0)
+        scale = 1.0; // GDAL returns 0 if undefined
+    const double offset = band->GetOffset();
+
+    const char *unit = band->GetUnitType(); // typically "m" for meters (can be nullptr)
+
+    GDALClose(ds);
+    return (static_cast<double>(val) * scale + offset);
 }
 
 glm::ivec2 TerrainChunk::TerrainDataset::getTexCoordsFromLatLon(const glm::dvec2 &latLon) const

@@ -5,7 +5,7 @@
 std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createStagingBuffer(vk::Device &device,
                                                                                        VmaAllocator &allocator) const
 {
-    const vk::DeviceSize size = sizeof(FogInfo::FinalizedInfo); 
+    const vk::DeviceSize size = sizeof(FogInfo::FinalizedInfo);
 
     return star::StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
@@ -73,17 +73,17 @@ void FogInfoController::prepRender(star::core::device::DeviceContext &context, c
 std::unique_ptr<star::TransferRequest::Buffer> FogInfoController::createTransferRequest(
     star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)
 {
-    m_lastFogInfo[frameInFlightIndex] = *m_currentFogInfo;
+    m_lastFogInfo[frameInFlightIndex] = m_currentFogInfo;
 
     const auto &defaultQueueFamilyIndex =
         star::core::helper::GetEngineDefaultQueue(context.getEventBus(), context.getGraphicsManagers().queueManager,
                                                   star::Queue_Type::Tcompute)
             ->getParentQueueFamilyIndex();
 
-    return std::make_unique<FogControlInfoTransfer>(m_currentFogInfo->getInfo(), defaultQueueFamilyIndex);
+    return std::make_unique<FogControlInfoTransfer>(m_currentFogInfo.getInfo(), defaultQueueFamilyIndex);
 }
 
 bool FogInfoController::doesFrameInFlightDataNeedUpdated(const uint8_t &currentFrameInFlightIndex) const
 {
-    return *m_currentFogInfo != m_lastFogInfo[currentFrameInFlightIndex];
+    return m_currentFogInfo != m_lastFogInfo[currentFrameInFlightIndex];
 }

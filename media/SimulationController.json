@@ -1,0 +1,43 @@
+{
+    "numSteps": 10,
+    "startData": {
+        "expFogInfo": {
+            "density": 0.00001
+        },
+        "homogenousInfo": {
+            "maxNumSteps": 256000
+        },
+        "linearInfo": {
+            "farDist": 100.0,
+            "nearDist": 0.1
+        },
+        "marchedInfo": {
+            "defaultDensity": 0.0001,
+            "lightPropertyDirG": 0.1,
+            "sigmaAbsorption": 0.1,
+            "sigmaScattering": 0.9,
+            "stepSizeDist": 0.3,
+            "stepSizeDist_light": 0.3
+        }
+    },
+    "stopData": {
+        "expFogInfo": {
+            "density": 0.001
+        },
+        "homogenousInfo": {
+            "maxNumSteps": 256000
+        },
+        "linearInfo": {
+            "farDist": 5000.0,
+            "nearDist": 0.1
+        },
+        "marchedInfo": {
+            "defaultDensity": 0.1,
+            "lightPropertyDirG": 0.1,
+            "sigmaAbsorption": 0.1,
+            "sigmaScattering": 0.9,
+            "stepSizeDist": 0.3,
+            "stepSizeDist_light": 0.3
+        }
+    }
+}

@@ -18,10 +18,13 @@ namespace image_metric_manager
 class FileWriteFunction
 {
   public:
+    FileWriteFunction() = default; 
     FileWriteFunction(FogInfo controlInfo, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
                       uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage);
 
     void write(const std::string &path) const;
+
+    int operator()(const std::string &filePath); 
 
   private:
     FogInfo m_controlInfo;

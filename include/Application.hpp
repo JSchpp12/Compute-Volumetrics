@@ -9,9 +9,9 @@
 class Application : public star::StarApplication
 {
   public:
-    Application() = default;
-
+    Application();
     virtual ~Application() = default;
+
     virtual void init() override
     {
     }
@@ -23,6 +23,7 @@ class Application : public star::StarApplication
 
   protected:
     star::core::CommandSubmitter m_captureTrigger;
+    std::string m_imageOutputDir;
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
     star::StarObjectInstance *testObject = nullptr;
     std::shared_ptr<Volume> m_volume = nullptr;
@@ -32,6 +33,10 @@ class Application : public star::StarApplication
     bool m_flipScreenshotState = false;
 
     void frameUpdate(star::core::SystemContext &context) override;
+
+    static bool CheckIfControllerIsDone(star::core::CommandBus &cmd); 
+
+    static void TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume, star::StarCamera &camera); 
 
     static float PromptForFloat(const std::string &prompt, const bool &allowNegative = false);
 

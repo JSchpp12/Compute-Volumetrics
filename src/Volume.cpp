@@ -18,8 +18,7 @@ Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePa
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
-      camera(camera), screenDimensions(screenWidth, screenHeight), m_offscreenRenderer(offscreenRenderer),
-      m_fogControlInfo(std::make_shared<FogInfo>())
+      camera(camera), screenDimensions(screenWidth, screenHeight), m_offscreenRenderer(offscreenRenderer)
 {
     initVolume(context, std::move(vdbFilePath), std::move(sceneCameraInfos), std::move(lightInfos),
                std::move(lightList));
@@ -239,8 +238,7 @@ void Volume::initVolume(star::core::device::DeviceContext &context, std::string 
 
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
         m_instanceInfo.getControllerModel(), m_instanceInfo.getControllerNormal(), std::move(sceneCameraInfos),
-        std::move(lightList), std::move(lightInfos), m_offscreenRenderer, vdbFilePath, m_fogControlInfo, this->camera,
-        this->aabbBounds);
+        std::move(lightList), std::move(lightInfos), m_offscreenRenderer, vdbFilePath, this->camera, this->aabbBounds);
 }
 
 void Volume::updateGridTransforms()
