@@ -7,6 +7,7 @@
 #include <starlight/command/command_order/DeclareDependency.hpp>
 #include <starlight/command/command_order/DeclarePass.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
+#include <starlight/core/logging/LoggingFactory.hpp>
 
 ImageMetricManager::ImageMetricManager() : m_storage(), m_copier(), m_listenerCapture(*this)
 {
@@ -80,10 +81,11 @@ void ImageMetricManager::init()
 
 void ImageMetricManager::onCapture(image_metrics::TriggerCapture &cmd)
 {
-    recordThisFrame(cmd.volumeObject, cmd.srcImagePath);
+    recordThisFrame(cmd.volumeObject, cmd.srcImagePath, cmd.camera);
 }
 
-void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string &imageCaptureFileName)
+void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string &imageCaptureFileName,
+                                         const star::StarCamera &camera)
 {
     if (!m_isRegistered)
     {
@@ -123,12 +125,15 @@ void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string
     m_copier.trigger(*m_cb, *m_cmdBus, *rayAtCutoff, *rayDistance, volume.getRenderer().getRayAtCutoffBufferAt(fi),
                      volume.getRenderer().getRayDistanceBufferAt(fi), semaphoreRecord, signalValue);
 
+    const std::string msg = "Submitting write task: " + imageCaptureFileName; 
+    star::core::logging::info(msg); 
+
     {
         auto writePayload = star::job::tasks::io::CreateWriteTask(star::job::tasks::io::WritePayload{
             imageCaptureFileName,
-            image_metric_manager::FileWriteFunction{volume.getRenderer().getFogInfo(), hostResource,
-                                                    m_device->getVulkanDevice(), semaphoreRecord->semaphore,
-                                                    signalValue, volume.getRenderer().getFogType(), &m_storage}});
+            image_metric_manager::FileWriteFunction{
+                volume.getRenderer().getFogInfo(), camera.getPosition(), hostResource, m_device->getVulkanDevice(),
+                semaphoreRecord->semaphore, signalValue, volume.getRenderer().getFogType(), &m_storage}});
         star::command::file_io::WriteToFile writeCmd{std::move(writePayload)};
         m_cmdBus->submit(writeCmd);
     }

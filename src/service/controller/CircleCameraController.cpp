@@ -153,6 +153,7 @@ void CircleCameraController::init()
         WriteDefaultControllerInfo(*m_cmd, filePath.string());
     }
 
+    m_fogTypeTracker = 0;
     m_rotationCounter = 361;
     m_stepCounter = 1000000;
 }
@@ -164,13 +165,13 @@ void CircleCameraController::switchFogType(int newType, Volume &volume, star::St
     switch (newType)
     {
     case (1):
-        type = Fog::Type::linear;
+        type = Fog::Type::marched_homogenous;
         break;
     case (2):
-        type = Fog::Type::exp;
+        type = Fog::Type::linear;
         break;
     case (3):
-        type = Fog::Type::marched_homogenous;
+        type = Fog::Type::exp;
         break;
     default:
         std::cout << "Unknown fog type";
@@ -235,7 +236,7 @@ void CircleCameraController::incrementMarched(Volume &volume) const
 
 bool CircleCameraController::isDone() const
 {
-    return m_stepCounter == m_loadedSteps.numSteps && m_rotationCounter == 3 && m_fogTypeTracker == 3;
+    return m_stepCounter == m_loadedSteps.numSteps && m_rotationCounter == 360 && m_fogTypeTracker == 3;
 }
 
 void CircleCameraController::updateSim(Volume &volume, star::StarCamera &camera)
@@ -264,21 +265,20 @@ void CircleCameraController::updateSim(Volume &volume, star::StarCamera &camera)
         switch (m_fogTypeTracker)
         {
         case (1):
-            // linear fog
-            incrementLinear(volume);
+            incrementMarched(volume);
             break;
         case (2):
-            incrementExp(volume);
+            incrementLinear(volume);
             break;
         case (3):
-            incrementMarched(volume);
+            incrementExp(volume);
             break;
         default:
             return;
         }
         m_stepCounter++;
     }
-    else if (m_rotationCounter < 3)
+    else if (m_rotationCounter < 360)
     {
         volume.getRenderer().setFogInfo(m_loadedSteps.start);
         camera.rotateRelative(star::Type::Axis::y, 1.0);

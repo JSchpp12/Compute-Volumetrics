@@ -5,8 +5,8 @@
 #include "Terrain.hpp"
 #include "TerrainChunk.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
-#include "command/sim_controller/TriggerUpdate.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
+#include "command/sim_controller/TriggerUpdate.hpp"
 
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
@@ -61,14 +61,13 @@ OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &con
 
 static std::string CreateImageDir()
 {
-    const auto fullDir = star::file_helpers::GetExecutableDirectory() / "images"; 
+    const auto fullDir = star::file_helpers::GetExecutableDirectory() / "images";
     star::file_helpers::CreateDirectoryIfDoesNotExist(fullDir);
 
     return fullDir.string();
 }
 
-Application::Application()
-    : m_captureTrigger(), m_imageOutputDir(CreateImageDir())
+Application::Application() : m_captureTrigger(), m_imageOutputDir(CreateImageDir())
 {
 }
 
@@ -84,11 +83,8 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     const glm::vec3 camPos{-50.9314, 135.686, 25.9329};
     const glm::vec3 volumePos{50.0, 10.0, 0.0};
     const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
-    std::shared_ptr<star::StarCamera> camera = std::make_shared<star::StarCamera>(
+        std::shared_ptr<star::StarCamera> camera = std::make_shared<star::StarCamera>(
         context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 1.0f, 20000.0f);
-
-    camera->setPosition(camPos);
-    camera->setForwardVector(volumePos - camera->getPosition());
 
     m_mainLight = std::make_shared<std::vector<star::Light>>(
         std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0})});
@@ -100,6 +96,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         star::common::helper::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
     }
 
+    star::StarObjectInstance *volumeInstance = nullptr; 
     {
         auto oRenderer = star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight));
         auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
@@ -136,10 +133,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
         m_volume->init(context, numFramesInFlight);
 
-        auto &s_i = m_volume->createInstance();
-        s_i.setPosition(camPos);
-        s_i.setScale(glm::vec3{3.0f, 3.0f, 3.0f});
-        s_i.rotateRelative(star::Type::Axis::y, 90);
+        volumeInstance = &m_volume->createInstance();
 
         std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
         std::vector<star::common::Renderer> additionals;
@@ -154,6 +148,10 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
             std::make_shared<star::StarScene>(star::star_scene::makeWaitForAllObjectsReadyPolicy(std::move(allObjects)),
                                               std::move(camera), std::move(sc), std::move(additionals));
     }
+
+    volumeInstance->setPosition(m_mainScene->getCamera()->getPosition());
+    volumeInstance->setScale(glm::vec3{3.0f, 3.0f, 3.0f});
+    volumeInstance->rotateRelative(star::Type::Axis::y, 90);
 
     m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0001f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 3.0f;
@@ -241,19 +239,19 @@ void Application::triggerImageRecord(star::core::device::DeviceContext &context,
                                      const star::common::FrameTracker &frameTracker,
                                      const std::string &targetImageFileName)
 {
-    image_metrics::TriggerCapture trigger(targetImageFileName, *m_volume);
+    image_metrics::TriggerCapture trigger(targetImageFileName, *m_volume, *m_mainScene->getCamera());
     m_captureTrigger.update(trigger).submit();
 }
 
-void Application::TriggerSimUpdate(star::core::CommandBus& cmd, Volume& volume, star::StarCamera& camera)
+void Application::TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume, star::StarCamera &camera)
 {
-    sim_controller::TriggerUpdate trigger(volume, camera); 
-    cmd.submit(trigger); 
+    sim_controller::TriggerUpdate trigger(volume, camera);
+    cmd.submit(trigger);
 }
 
-bool Application::CheckIfControllerIsDone(star::core::CommandBus& cmd)
+bool Application::CheckIfControllerIsDone(star::core::CommandBus &cmd)
 {
-    sim_controller::CheckIfDone check; 
-    cmd.submit(check); 
+    sim_controller::CheckIfDone check;
+    cmd.submit(check);
     return check.getReply().get();
 }

@@ -1,6 +1,6 @@
 #include "service/controller/detail/simulation_bounds_file/Reader.hpp"
 
-#include "fog_info/JsonUtils.hpp"
+#include "util/json/FogInfoStruct.hpp"
 #include "util/Math.hpp"
 
 #include <starlight/common/helpers/FileHelpers.hpp>
@@ -25,8 +25,8 @@ static SimulationBounds LoadBoundsInfoFromFile(const std::string &path)
             json j;
             is >> j;
 
-            fog_info::from_json(j["startData"], bounds.start);
-            fog_info::from_json(j["stopData"], bounds.stop);
+            util::from_json(j["startData"], bounds.start);
+            util::from_json(j["stopData"], bounds.stop);
             bounds.numSteps = j["numSteps"];
         }
     }

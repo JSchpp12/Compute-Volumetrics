@@ -173,7 +173,7 @@ void forwardMarch(const vec3 backgroundColor, const ivec2 targetPixel, const Ray
     {
         float rand = sampleRandomTexture(targetPixel, i); 
         const float t = t0 + (i + rand) * stepSize;  
-        if (t >= cutOffDistance)
+        if (t >= cutOffDistance || transparency < 0.000001)
         {
             break;
         }

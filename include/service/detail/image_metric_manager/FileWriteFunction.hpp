@@ -18,22 +18,27 @@ namespace image_metric_manager
 class FileWriteFunction
 {
   public:
-    FileWriteFunction() = default; 
-    FileWriteFunction(FogInfo controlInfo, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
+    FileWriteFunction() = default;
+    FileWriteFunction(FogInfo controlInfo, glm::vec3 camPosition, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
                       uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage);
 
     void write(const std::string &path) const;
 
-    int operator()(const std::string &filePath); 
+    int operator()(const std::string &filePath);
 
   private:
-    FogInfo m_controlInfo;
-    star::Handle m_hostVisibleRayDistanceBuffer;
-    vk::Device m_vkDevice = VK_NULL_HANDLE;
-    vk::Semaphore m_copyDone;
-    uint64_t m_copyToHostBufferDoneValue;
-    Fog::Type m_type;
-    HostVisibleStorage *m_storage = nullptr;
+    struct ImageWriteData
+    {
+        FogInfo controlInfo;
+        glm::vec3 camPosition;
+        star::Handle hostVisibleRayDistanceBuffer;
+        vk::Device vkDevice = VK_NULL_HANDLE;
+        vk::Semaphore copyDone;
+        uint64_t copyToHostBufferDoneValue;
+        Fog::Type type;
+        HostVisibleStorage *storage = nullptr;
+    };
+    std::unique_ptr<ImageWriteData> m_data = nullptr; 
 
     void waitForCopyToDstBufferDone() const;
     double calculateAverageRayDistance() const;

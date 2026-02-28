@@ -1,6 +1,6 @@
 #include "service/controller/detail/simulation_bounds_file/Writer.hpp"
 
-#include "fog_info/JsonUtils.hpp"
+#include "util/json/FogInfoStruct.hpp"
 
 #include <starlight/core/logging/LoggingFactory.hpp>
 
@@ -14,10 +14,10 @@ namespace controller::simulation_bounds_file
 static void WriteDataToFile(const std::string &path, const SimulationBounds &bounds)
 {
     json startData;
-    fog_info::to_json(startData, bounds.start);
+    util::to_json(startData, bounds.start);
 
     json stopData;
-    fog_info::to_json(stopData, bounds.stop);
+    util::to_json(stopData, bounds.stop);
 
     json fullData;
     fullData["startData"] = startData;
