@@ -1,5 +1,5 @@
 {
-    "numSteps": 2,
+    "numSteps": 10,
     "startData": {
         "expFogInfo": {
             "density": 0.00001
@@ -12,7 +12,7 @@
             "nearDist": 0.1
         },
         "marchedInfo": {
-            "defaultDensity": 0.0001,
+            "defaultDensity": 0.000001,
             "lightPropertyDirG": 0.1,
             "sigmaAbsorption": 0.1,
             "sigmaScattering": 0.9,
@@ -32,7 +32,7 @@
             "nearDist": 0.1
         },
         "marchedInfo": {
-            "defaultDensity": 0.1,
+            "defaultDensity": 0.001,
             "lightPropertyDirG": 0.1,
             "sigmaAbsorption": 0.1,
             "sigmaScattering": 0.9,
