@@ -344,20 +344,32 @@ add_custom_target(format_cpp_files
     DEPENDS ${FORMAT_STAMP}
 )
 
+set_target_properties(${PROJECT_NAME} PROPERTIES
+	INSTALL_RPATH "$ORIGIN/lib"
+)
+
 include(GNUInstallDirs)
-#install
+
+# Ensure RPATH is preserved on install (Linux)
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)          # use build rpath for build tree, install rpath for install tree
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)        # also add rpaths to where linked libs live at install time
+set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")             # runtime: relative to the executable's directory
+
 install(TARGETS ${PROJECT_NAME}
-	RUNTIME DESTINATION .
+    RUNTIME_DEPENDENCIES
+    RUNTIME DESTINATION .
+	LIBRARY DESTINATION lib
+	ARCHIVE DESTINATION lib
 )
-
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/media
-	DESTINATION .
+install(
+    DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/media
+    DESTINATION .
 )
-
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/StarEngine.cfg
-	DESTINATION .
+install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/StarEngine.cfg
+    DESTINATION .
 )
-
 
 # CPack metadata
 set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
