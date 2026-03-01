@@ -1,6 +1,6 @@
 #include "service/detail/image_metric_manager/CopyDeviceToHostMemory.hpp"
 
-namespace image_metric_manager
+namespace service::image_metric_manager
 {
 
 void CopyDeviceToHostMemory::prepRender(star::core::device::StarDevice &device, star::common::EventBus &eb,

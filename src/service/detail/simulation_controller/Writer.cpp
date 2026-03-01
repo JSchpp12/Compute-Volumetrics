@@ -1,4 +1,4 @@
-#include "service/controller/detail/simulation_bounds_file/Writer.hpp"
+#include "service/detail/simulation_controller/Writer.hpp"
 
 #include "util/json/FogInfoStruct.hpp"
 
@@ -8,7 +8,7 @@
 
 using nlohmann::json;
 
-namespace controller::simulation_bounds_file
+namespace service::simulation_controller
 {
 
 static void WriteDataToFile(const std::string &path, const SimulationBounds &bounds)

@@ -4,7 +4,7 @@
 
 #include "service/detail/image_metric_manager/ImageMetrics.hpp"
 
-namespace image_metric_manager
+namespace service::image_metric_manager
 {
 
 // WARNING: may result in slight inconsistency or error in result

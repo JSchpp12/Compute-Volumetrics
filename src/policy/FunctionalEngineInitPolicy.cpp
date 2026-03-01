@@ -1,7 +1,7 @@
 #include "policy/FunctionalEngineInitPolicy.hpp"
 
 #include "service/ImageMetricManager.hpp"
-#include "service/controller/CircleCameraController.hpp"
+#include "service/SimulationController.hpp"
 
 FunctionalEngineInitPolicy::FunctionalEngineInitPolicy(
     std::function<std::vector<star::service::Service>(void)> addServicesFun)
@@ -27,5 +27,5 @@ std::vector<star::service::Service> FunctionalEngineInitPolicy::addAdditionalSer
 
 star::service::Service FunctionalEngineInitPolicy::CreateImageMetricManagerService() const
 {
-    return star::service::Service{ImageMetricManager()};
+    return star::service::Service{service::ImageMetricManager()};
 }

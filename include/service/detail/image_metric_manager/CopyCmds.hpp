@@ -8,7 +8,7 @@
 
 #include <optional>
 
-namespace image_metric_manager
+namespace service::image_metric_manager
 {
 struct CopyResources
 {

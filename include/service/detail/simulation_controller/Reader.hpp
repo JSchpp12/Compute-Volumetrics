@@ -1,12 +1,12 @@
 #pragma once
 
-#include "service/controller/detail/simulation_bounds_file/SimulationBounds.hpp"
-#include "service/controller/detail/simulation_bounds_file/SimulationSteps.hpp"
+#include "service/detail/simulation_controller/SimulationBounds.hpp"
+#include "service/detail/simulation_controller/SimulationSteps.hpp"
 
 #include <future>
 #include <string>
 
-namespace controller::simulation_bounds_file
+namespace service::simulation_controller
 {
 class Reader
 {
@@ -22,4 +22,4 @@ class Reader
   private:
     std::promise<SimulationSteps> m_loadedBounds;
 };
-} // namespace controller::simulation_bounds_file
+} // namespace service::simulation_controller

@@ -8,7 +8,7 @@
 
 #include <absl/container/flat_hash_map.h>
 
-namespace image_metric_manager
+namespace service::image_metric_manager
 {
 struct Extent2DHash
 {

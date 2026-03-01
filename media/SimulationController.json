@@ -1,5 +1,14 @@
 {
     "numSteps": 10,
+    "camera_controller_type": "circle",
+    "circle_controller_settings": {
+         "num_camera_positions": 360, 
+         "start_camera_direction": {
+            "x": 0, 
+            "y": 1, 
+            "z": 0
+        }
+    },
     "startData": {
         "expFogInfo": {
             "density": 0.00001

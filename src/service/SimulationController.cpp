@@ -1,12 +1,12 @@
-#include "service/controller/CircleCameraController.hpp"
+#include "service/SimulationController.hpp"
 
 #include "MathHelpers.hpp"
 #include "TerrainChunk.hpp"
 #include "TerrainInfoFile.hpp"
 #include "TerrainShapeInfo.hpp"
 #include "TerrainShapeInfoLoader.hpp"
-#include "service/controller/detail/simulation_bounds_file/Reader.hpp"
-#include "service/controller/detail/simulation_bounds_file/Writer.hpp"
+#include "service/detail/simulation_controller/Reader.hpp"
+#include "service/detail/simulation_controller/Writer.hpp"
 
 #include <starlight/command/FileIO/ReadFromFile.hpp>
 #include <starlight/command/FileIO/WriteToFile.hpp>
@@ -15,19 +15,19 @@
 
 #include <filesystem>
 
-CircleCameraController::CircleCameraController()
+SimulationControllerService::SimulationControllerService()
     : m_loadedSteps(), m_loadedInfo(), m_worldHeightAtCenterTerrain(0.0), m_fogTypeTracker(0), m_rotationCounter(0),
       m_stepCounter(0), m_onTriggerUpdate(*this), m_onListenForDone(*this)
 {
 }
 
-CircleCameraController::CircleCameraController(std::shared_ptr<bool> doneFlag)
+SimulationControllerService::SimulationControllerService(std::shared_ptr<bool> doneFlag)
     : m_loadedSteps(), m_loadedInfo(), m_worldHeightAtCenterTerrain(0.0), m_fogTypeTracker(0), m_rotationCounter(0),
       m_stepCounter(0), m_onTriggerUpdate(*this), m_onListenForDone(*this), m_doneFlag(std::move(doneFlag))
 {
 }
 
-CircleCameraController::CircleCameraController(CircleCameraController &&other)
+SimulationControllerService::SimulationControllerService(SimulationControllerService &&other)
     : m_loadedSteps(std::move(other.m_loadedSteps)), m_loadedInfo(std::move(other.m_loadedInfo)),
       m_worldHeightAtCenterTerrain(std::move(other.m_worldHeightAtCenterTerrain)),
       m_fogTypeTracker(std::move(other.m_fogTypeTracker)), m_rotationCounter(std::move(other.m_rotationCounter)),
@@ -41,7 +41,7 @@ CircleCameraController::CircleCameraController(CircleCameraController &&other)
     }
 }
 
-CircleCameraController &CircleCameraController::operator=(CircleCameraController &&other)
+SimulationControllerService &SimulationControllerService::operator=(SimulationControllerService &&other)
 {
     if (this != &other)
     {
@@ -64,23 +64,23 @@ CircleCameraController &CircleCameraController::operator=(CircleCameraController
     return *this;
 }
 
-void CircleCameraController::initListeners(star::core::CommandBus &cmdBus)
+void SimulationControllerService::initListeners(star::core::CommandBus &cmdBus)
 {
     m_onTriggerUpdate.init(cmdBus);
     m_onListenForDone.init(cmdBus);
 }
 
-void CircleCameraController::cleanupListeners(star::core::CommandBus &cmdBus)
+void SimulationControllerService::cleanupListeners(star::core::CommandBus &cmdBus)
 {
     m_onTriggerUpdate.cleanup(cmdBus);
     m_onListenForDone.cleanup(cmdBus);
 }
 
-void CircleCameraController::submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path)
+void SimulationControllerService::submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path)
 {
     const auto type = cmdBus.getRegistry().getType(star::command::file_io::ReadFromFile::GetUniqueTypeName());
 
-    controller::simulation_bounds_file::Reader reader{};
+    service::simulation_controller::Reader reader{};
     m_loadedInfo = reader.getFuture();
     star::job::tasks::io::ReadPayload payload{path, std::move(reader)};
 
@@ -92,28 +92,28 @@ void CircleCameraController::submitReadCmd(star::core::CommandBus &cmdBus, const
 
 static void WriteDefaultControllerInfo(star::core::CommandBus &cmdBus, const std::string &path)
 {
-    auto writePayload = star::job::tasks::io::WritePayload{path, controller::simulation_bounds_file::Writer{}};
+    auto writePayload = star::job::tasks::io::WritePayload{path, service::simulation_controller::Writer{}};
     auto writeCmd = star::command::file_io::WriteToFile(star::job::tasks::io::CreateWriteTask(std::move(writePayload)));
     cmdBus.submit(writeCmd);
 }
 
-void CircleCameraController::onTriggerUpdate(sim_controller::TriggerUpdate &cmd)
+void SimulationControllerService::onTriggerUpdate(sim_controller::TriggerUpdate &cmd)
 {
     updateSim(cmd.volume, cmd.camera);
 }
 
-void CircleCameraController::setInitParameters(star::service::InitParameters &params)
+void SimulationControllerService::setInitParameters(star::service::InitParameters &params)
 {
     m_cmd = &params.commandBus;
 }
 
-void CircleCameraController::shutdown()
+void SimulationControllerService::shutdown()
 {
     assert(m_cmd != nullptr);
     cleanupListeners(*m_cmd);
 }
 
-void CircleCameraController::init()
+void SimulationControllerService::init()
 {
     assert(m_cmd && "Command bus should have been registered during setInitParams");
 
@@ -146,7 +146,7 @@ void CircleCameraController::init()
     }
     else
     {
-        std::promise<controller::simulation_bounds_file::SimulationSteps> promise;
+        std::promise<service::simulation_controller::SimulationSteps> promise;
         m_loadedInfo = promise.get_future();
         promise.set_value({});
 
@@ -158,7 +158,7 @@ void CircleCameraController::init()
     m_stepCounter = 1000000;
 }
 
-void CircleCameraController::switchFogType(int newType, Volume &volume, star::StarCamera &camera)
+void SimulationControllerService::switchFogType(int newType, Volume &volume, star::StarCamera &camera)
 {
     auto type = Fog::Type::linear;
 
@@ -191,23 +191,23 @@ void CircleCameraController::switchFogType(int newType, Volume &volume, star::St
     }
 }
 
-void CircleCameraController::onCheckIfDone(sim_controller::CheckIfDone &cmd) const
+void SimulationControllerService::onCheckIfDone(sim_controller::CheckIfDone &cmd) const
 {
     cmd.getReply().set(isDone());
 }
 
-void CircleCameraController::incrementExp(Volume &volume) const
+void SimulationControllerService::incrementExp(Volume &volume) const
 {
     volume.getRenderer().getFogInfo().expFogInfo.density += m_loadedSteps.fogInfoChanges.expFogInfo.density;
 }
 
-void CircleCameraController::incrementLinear(Volume &volume) const
+void SimulationControllerService::incrementLinear(Volume &volume) const
 {
     volume.getRenderer().getFogInfo().linearInfo.farDist += m_loadedSteps.fogInfoChanges.linearInfo.farDist;
     volume.getRenderer().getFogInfo().linearInfo.nearDist += m_loadedSteps.fogInfoChanges.linearInfo.nearDist;
 }
 
-void CircleCameraController::incrementMarched(Volume &volume) const
+void SimulationControllerService::incrementMarched(Volume &volume) const
 {
     volume.getRenderer().getFogInfo().homogenousInfo.maxNumSteps +=
         m_loadedSteps.fogInfoChanges.homogenousInfo.maxNumSteps;
@@ -234,12 +234,12 @@ void CircleCameraController::incrementMarched(Volume &volume) const
     }
 }
 
-bool CircleCameraController::isDone() const
+bool SimulationControllerService::isDone() const
 {
     return m_stepCounter == m_loadedSteps.numSteps && m_rotationCounter == 360 && m_fogTypeTracker == 3;
 }
 
-void CircleCameraController::updateSim(Volume &volume, star::StarCamera &camera)
+void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &camera)
 {
     // check if the bounds are loaded
     if (!m_loadedSteps)

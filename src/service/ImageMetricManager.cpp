@@ -9,6 +9,8 @@
 #include <starlight/command/command_order/TriggerPass.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 
+namespace service
+{
 ImageMetricManager::ImageMetricManager() : m_storage(), m_copier(), m_listenerCapture(*this)
 {
 }
@@ -125,13 +127,13 @@ void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string
     m_copier.trigger(*m_cb, *m_cmdBus, *rayAtCutoff, *rayDistance, volume.getRenderer().getRayAtCutoffBufferAt(fi),
                      volume.getRenderer().getRayDistanceBufferAt(fi), semaphoreRecord, signalValue);
 
-    const std::string msg = "Submitting write task: " + imageCaptureFileName; 
-    star::core::logging::info(msg); 
+    const std::string msg = "Submitting write task: " + imageCaptureFileName;
+    star::core::logging::info(msg);
 
     {
         auto writePayload = star::job::tasks::io::CreateWriteTask(star::job::tasks::io::WritePayload{
             imageCaptureFileName,
-            image_metric_manager::FileWriteFunction{
+            service::image_metric_manager::FileWriteFunction{
                 volume.getRenderer().getFogInfo(), camera.getPosition(), hostResource, m_device->getVulkanDevice(),
                 semaphoreRecord->semaphore, signalValue, volume.getRenderer().getFogType(), &m_storage}});
         star::command::file_io::WriteToFile writeCmd{std::move(writePayload)};
@@ -165,3 +167,4 @@ void ImageMetricManager::cleanupListeners(star::core::CommandBus &cmdBus)
 {
     m_listenerCapture.cleanup(cmdBus);
 }
+} // namespace service

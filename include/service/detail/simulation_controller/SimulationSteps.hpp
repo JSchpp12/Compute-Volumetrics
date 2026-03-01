@@ -2,7 +2,7 @@
 
 #include "FogInfo.hpp"
 
-namespace controller::simulation_bounds_file
+namespace service::simulation_controller
 {
 struct SimulationSteps
 {
@@ -14,4 +14,4 @@ struct SimulationSteps
     FogInfo fogInfoChanges;
     int numSteps = 0;
 };
-} // namespace controller::simulation_bounds_file
+} // namespace service::simulation_controller

@@ -1,4 +1,4 @@
-#include "service/controller/detail/simulation_bounds_file/Reader.hpp"
+#include "service/detail/simulation_controller/Reader.hpp"
 
 #include "util/json/FogInfoStruct.hpp"
 #include "util/Math.hpp"
@@ -11,7 +11,7 @@
 
 using nlohmann::json;
 
-namespace controller::simulation_bounds_file
+namespace service::simulation_controller
 {
 static SimulationBounds LoadBoundsInfoFromFile(const std::string &path)
 {
