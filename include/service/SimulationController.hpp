@@ -2,7 +2,9 @@
 
 #include "command/sim_controller/TriggerUpdate.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
+#include "service/detail/simulation_controller/SimulationData.hpp"
 #include "service/detail/simulation_controller/SimulationSteps.hpp"
+#include "service/detail/simulation_controller/camera_controller/Circle.hpp"
 
 #include <starlight/policy/command/ListenFor.hpp>
 #include <starlight/virtual/StarCamera.hpp>
@@ -48,10 +50,10 @@ class SimulationControllerService
 
   private:
     service::simulation_controller::SimulationSteps m_loadedSteps;
-    std::future<service::simulation_controller::SimulationSteps> m_loadedInfo;
+    service::simulation_controller::CameraController m_loadedController;
+    std::future<service::simulation_controller::SimulationData> m_loadedInfo;
     double m_worldHeightAtCenterTerrain; 
     int m_fogTypeTracker = 0;
-    int m_rotationCounter = 0;
     int m_stepCounter = 0;
     ListenForTriggerUpdate<SimulationControllerService> m_onTriggerUpdate; 
     ListenForCheckIfDone<SimulationControllerService> m_onListenForDone; 

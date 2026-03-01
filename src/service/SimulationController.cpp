@@ -16,23 +16,22 @@
 #include <filesystem>
 
 SimulationControllerService::SimulationControllerService()
-    : m_loadedSteps(), m_loadedInfo(), m_worldHeightAtCenterTerrain(0.0), m_fogTypeTracker(0), m_rotationCounter(0),
-      m_stepCounter(0), m_onTriggerUpdate(*this), m_onListenForDone(*this)
+    : m_loadedSteps(), m_loadedInfo(), m_worldHeightAtCenterTerrain(0.0), m_fogTypeTracker(0), m_stepCounter(0),
+      m_onTriggerUpdate(*this), m_onListenForDone(*this)
 {
 }
 
 SimulationControllerService::SimulationControllerService(std::shared_ptr<bool> doneFlag)
-    : m_loadedSteps(), m_loadedInfo(), m_worldHeightAtCenterTerrain(0.0), m_fogTypeTracker(0), m_rotationCounter(0),
-      m_stepCounter(0), m_onTriggerUpdate(*this), m_onListenForDone(*this), m_doneFlag(std::move(doneFlag))
+    : m_loadedSteps(), m_loadedInfo(), m_worldHeightAtCenterTerrain(0.0), m_fogTypeTracker(0), m_stepCounter(0),
+      m_onTriggerUpdate(*this), m_onListenForDone(*this), m_doneFlag(std::move(doneFlag))
 {
 }
 
 SimulationControllerService::SimulationControllerService(SimulationControllerService &&other)
     : m_loadedSteps(std::move(other.m_loadedSteps)), m_loadedInfo(std::move(other.m_loadedInfo)),
       m_worldHeightAtCenterTerrain(std::move(other.m_worldHeightAtCenterTerrain)),
-      m_fogTypeTracker(std::move(other.m_fogTypeTracker)), m_rotationCounter(std::move(other.m_rotationCounter)),
-      m_stepCounter(std::move(other.m_stepCounter)), m_onTriggerUpdate(*this), m_onListenForDone(*this),
-      m_cmd(other.m_cmd), m_doneFlag(other.m_doneFlag)
+      m_fogTypeTracker(std::move(other.m_fogTypeTracker)), m_stepCounter(std::move(other.m_stepCounter)),
+      m_onTriggerUpdate(*this), m_onListenForDone(*this), m_cmd(other.m_cmd), m_doneFlag(other.m_doneFlag)
 {
     if (m_cmd != nullptr)
     {
@@ -49,7 +48,6 @@ SimulationControllerService &SimulationControllerService::operator=(SimulationCo
         m_loadedInfo = std::move(other.m_loadedInfo);
         m_worldHeightAtCenterTerrain = std::move(other.m_worldHeightAtCenterTerrain);
         m_fogTypeTracker = std::move(other.m_fogTypeTracker);
-        m_rotationCounter = std::move(other.m_rotationCounter);
         m_stepCounter = std::move(other.m_stepCounter);
         m_cmd = other.m_cmd;
         m_doneFlag = other.m_doneFlag;
@@ -116,25 +114,6 @@ void SimulationControllerService::shutdown()
 void SimulationControllerService::init()
 {
     assert(m_cmd && "Command bus should have been registered during setInitParams");
-
-    // todo: this is duplicate code and requires more reads...need to replace later
-    //{
-    //    TerrainShapeInfo shapeInfo;
-    //    const auto terrainPath =
-    //        std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) / "terrains";
-
-    //    auto loader = TerrainShapeInfoLoader((terrainPath / "Shape.json").string());
-    //    shapeInfo = loader.load();
-
-    //    TerrainInfoFile fileInfo((terrainPath / "height_info.json").string());
-
-    //    const auto heightFile = terrainPath / std::filesystem::path(fileInfo.getFullHeightFilePath());
-    //    const double worldCenterElevation = TerrainChunk::GetCenterHeightFromGDAL(heightFile.string());
-    //    const double elevation =
-    //        TerrainChunk::GetHeightAtLocationFromGDAL(heightFile.string(), shapeInfo.center.x, shapeInfo.center.y)
-    //            .value();
-    //}
-
     const auto filePath = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) /
                           "SimulationController.json";
 
@@ -146,7 +125,7 @@ void SimulationControllerService::init()
     }
     else
     {
-        std::promise<service::simulation_controller::SimulationSteps> promise;
+        std::promise<service::simulation_controller::SimulationData> promise;
         m_loadedInfo = promise.get_future();
         promise.set_value({});
 
@@ -154,7 +133,6 @@ void SimulationControllerService::init()
     }
 
     m_fogTypeTracker = 0;
-    m_rotationCounter = 361;
     m_stepCounter = 1000000;
 }
 
@@ -236,7 +214,7 @@ void SimulationControllerService::incrementMarched(Volume &volume) const
 
 bool SimulationControllerService::isDone() const
 {
-    return m_stepCounter == m_loadedSteps.numSteps && m_rotationCounter == 360 && m_fogTypeTracker == 3;
+    return m_stepCounter == m_loadedSteps.numSteps && m_loadedController.isDone() && m_fogTypeTracker == 3;
 }
 
 void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &camera)
@@ -246,7 +224,9 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
     {
         try
         {
-            m_loadedSteps = m_loadedInfo.get();
+            auto data = m_loadedInfo.get();
+            m_loadedSteps = std::move(data.steps);
+            m_loadedController = std::move(data.cameraController);
         }
         catch (...)
         {
@@ -278,12 +258,10 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
         }
         m_stepCounter++;
     }
-    else if (m_rotationCounter < 360)
+    else if (!m_loadedController.isDone())
     {
         volume.getRenderer().setFogInfo(m_loadedSteps.start);
-        camera.rotateRelative(star::Type::Axis::y, 1.0);
-
-        m_rotationCounter++;
+        m_loadedController.tick(camera);
         m_stepCounter = 1;
     }
     else if (m_fogTypeTracker < 3)
@@ -292,8 +270,7 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
         m_fogTypeTracker++;
         //  set next fog type -- circle done
         switchFogType(m_fogTypeTracker, volume, camera);
-
-        m_rotationCounter = 1;
+        m_loadedController.reset(camera);
         m_stepCounter = 1;
     }
 

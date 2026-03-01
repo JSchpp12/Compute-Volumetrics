@@ -4,22 +4,38 @@
 
 #include <glm/glm.hpp>
 
-namespace simulation_controller::camera_controller
+namespace service::simulation_controller::camera_controller
 {
 /// @brief Controller which rotates the camera around in a circle
 class Circle
 {
-    public:
-    Circle(int numCameraPositions, glm::vec3 startCameraDirection); 
+  public:
+    Circle() = default; 
+    Circle(glm::vec3 startCameraDirection, int numCameraPositions);
 
-    void frameUpdate(star::StarCamera &camera); 
+    void tick(star::StarCamera &camera);
+    bool isDone() const;
+    void reset(star::StarCamera &camera);
+    void setNumCameraPositions(int numPositions)
+    {
+        m_numCameraPositions = numPositions;
+    }
+    void setStartCameraDirection(glm::vec3 startCamDirection)
+    {
+        m_startCameraDirection = std::move(startCamDirection);
+    }
+    const glm::vec3 getStartCameraDirection() const
+    {
+        return m_startCameraDirection;
+    }
+    int getNumCameraPositions() const
+    {
+        return m_numCameraPositions;
+    }
 
-    bool isDone() const; 
-
-    void reset(star::StarCamera &camera); 
-
-    private:
-    glm::vec3 m_startCameraDirection; 
-    int m_numCameraPositions; 
+  private:
+    glm::vec3 m_startCameraDirection{};
+    int m_numCameraPositions{0};
+    int m_counter{0};
 };
-} // namespace simulation_controller::frame_controller
+} // namespace service::simulation_controller::camera_controller

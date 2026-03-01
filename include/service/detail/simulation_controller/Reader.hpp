@@ -1,7 +1,6 @@
 #pragma once
 
-#include "service/detail/simulation_controller/SimulationBounds.hpp"
-#include "service/detail/simulation_controller/SimulationSteps.hpp"
+#include "service/detail/simulation_controller/SimulationData.hpp"
 
 #include <future>
 #include <string>
@@ -14,12 +13,12 @@ class Reader
     Reader() = default;
     int operator()(const std::string &filePath);
 
-    std::future<SimulationSteps> getFuture()
+    std::future<SimulationData> getFuture()
     {
         return m_loadedBounds.get_future();
     }
 
   private:
-    std::promise<SimulationSteps> m_loadedBounds;
+    std::promise<SimulationData> m_loadedBounds;
 };
 } // namespace service::simulation_controller

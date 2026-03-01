@@ -61,13 +61,15 @@ endif()
 
 set(${PROJECT_NAME}_SOURCES
 	"src/main.cpp"
-	"src/service/detail/simulation_controller/SimulationBoundsFile.cpp"
+	"src/service/detail/simulation_controller/CameraController.cpp"
+	"src/service/detail/simulation_controller/SimulationData.cpp"
 	"src/service/detail/simulation_controller/SimulationSteps.cpp"
 	"src/service/detail/simulation_controller/SimulationBounds.cpp"
 	"src/service/detail/simulation_controller/Reader.cpp"
 	"src/service/detail/simulation_controller/Writer.cpp"
 	"src/service/SimulationController.cpp"
 	"src/service/detail/simulation_controller/camera_controller/Circle.cpp"
+	"src/service/detail/simulation_controller/camera_controller/Circle_json.cpp"
 	"src/FogType.cpp"
 	"src/VDBTransfer.cpp"
 	"src/AABBTransfer.cpp"
@@ -123,13 +125,15 @@ set(${PROJECT_NAME}_SOURCES
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"
-	"include/service/detail/simulation_controller/SimulationBoundsFile.hpp"
+	"include/service/detail/simulation_controller/CameraController.hpp"
+	"include/service/detail/simulation_controller/SimulationData.hpp"
 	"include/service/detail/simulation_controller/SimulationSteps.hpp"
 	"include/service/detail/simulation_controller/SimulationBounds.hpp"
 	"include/service/detail/simulation_controller/Reader.hpp"
 	"include/service/detail/simulation_controller/Writer.hpp"
 	"include/service/SimulationController.hpp"
 	"include/service/detail/simulation_controller/camera_controller/Circle.hpp"
+	"include/service/detail/simulation_controller/camera_controller/Circle_json.hpp"
 	"include/Application.hpp"
 	"include/VDBTransfer.hpp"
 	"include/AABBTransfer.hpp"
