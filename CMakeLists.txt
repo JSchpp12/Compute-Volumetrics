@@ -358,6 +358,20 @@ set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")             # runtime: relative to the ex
 
 install(TARGETS ${PROJECT_NAME}
     RUNTIME_DEPENDENCIES
+	
+       PRE_EXCLUDE_REGEXES
+            # Exclude glibc core + loader
+            ".*libc\\.so\\..*" ".*libm\\.so\\..*" ".*libpthread\\.so\\..*"
+            ".*librt\\.so\\..*" ".*libdl\\.so\\..*" ".*libresolv\\.so\\..*"
+            ".*ld-linux-.*\\.so\\..*" ".*libnss_.*\\.so\\..*"
+            # (Optional) exclude libgcc_s if you’ll link it statically below
+            ".*libgcc_s\\.so\\..*"
+        POST_EXCLUDE_REGEXES
+            # Same as above to be safe
+            ".*libc\\.so\\..*" ".*libm\\.so\\..*" ".*libpthread\\.so\\..*"
+            ".*librt\\.so\\..*" ".*libdl\\.so\\..*" ".*libresolv\\.so\\..*"
+            ".*ld-linux-.*\\.so\\..*" ".*libnss_.*\\.so\\..*"
+            ".*libgcc_s\\.so\\..*"
     RUNTIME DESTINATION .
 	LIBRARY DESTINATION lib
 	ARCHIVE DESTINATION lib
