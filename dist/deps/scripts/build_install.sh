@@ -2,10 +2,10 @@
 # Resolve script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Project root assumed two levels up from this script; adjust if needed
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 mkdir -p dist/docker_working
-cd extern/StarlightAppBuilder
+cd "${ROOT_DIR}/extern/StarlightAppBuilder"
 /bin/bash ./init.sh
 
 cd ../../dist
