@@ -1,5 +1,7 @@
 #include "service/detail/simulation_controller/Reader.hpp"
 
+#include "service/detail/simulation_controller/FogEnabler.hpp"
+#include "service/detail/simulation_controller/FogEnabler_json.hpp"
 #include "service/detail/simulation_controller/SimulationBounds.hpp"
 #include "service/detail/simulation_controller/camera_controller/Circle.hpp"
 #include "service/detail/simulation_controller/camera_controller/Circle_json.hpp"
@@ -73,7 +75,7 @@ static SimulationData LoadBoundsInfoFromFile(const std::string &path)
         {
             json j;
             is >> j;
-            
+
             SimulationBounds bounds;
             util::from_json(j["startData"], bounds.start);
             util::from_json(j["stopData"], bounds.stop);
@@ -94,14 +96,20 @@ static SimulationData LoadBoundsInfoFromFile(const std::string &path)
 
             bounds.numSteps = j["numSteps"];
 
-            data.steps = CalculateSimSteps(bounds); 
+            data.steps = CalculateSimSteps(bounds);
+            data.initialCameraHeightAboveGround = j["initial_camera_height_above_ground"].get<int>();
+            from_json(j["enabled_fog_types"], data.fogStatus);
         }
     }
-    catch (...)
+    catch (const std::exception &ex)
     {
-        // null
+        std::ostringstream oss;
+        oss << "Failed to parse json file for SimulationData" << std::endl
+            << "File: " << path << std::endl
+            << "Error: " << ex.what();
+        STAR_THROW(oss.str());
     }
-    
+
     return data;
 }
 

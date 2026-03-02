@@ -170,7 +170,7 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
         m_renderingContext.pipeline->bind(commandBuffer);
 
         std::vector<vk::DescriptorSet> sets;
-        if (this->currentFogType == Fog::Type::marched)
+        if (this->currentFogType == Fog::Type::sMarched)
         {
             sets = this->VolumeShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex());
         }
@@ -377,24 +377,24 @@ void VolumeRenderer::updateRenderingContext(star::core::device::DeviceContext &c
 {
     switch (this->currentFogType)
     {
-    case (Fog::Type::marched):
+    case (Fog::Type::sMarched):
         m_renderingContext.pipeline = &context.getPipelineManager().get(this->marchedPipeline)->request.pipeline;
         break;
-    case (Fog::Type::linear):
+    case (Fog::Type::sLinear):
         m_renderingContext.pipeline = &context.getPipelineManager().get(this->linearPipeline)->request.pipeline;
         break;
-    case (Fog::Type::exp):
+    case (Fog::Type::sExponential):
         m_renderingContext.pipeline = &context.getPipelineManager().get(this->expPipeline)->request.pipeline;
         break;
-    case (Fog::Type::marched_homogenous):
+    case (Fog::Type::sMarchedHomogenous):
         m_renderingContext.pipeline =
             &context.getPipelineManager().get(this->marchedHomogenousPipeline)->request.pipeline;
         break;
-    case (Fog::Type::nano_boundingBox):
+    case (Fog::Type::sNanoBoundingBox):
         m_renderingContext.pipeline =
             &context.getPipelineManager().get(this->nanoVDBPipeline_hitBoundingBox)->request.pipeline;
         break;
-    case (Fog::Type::nano_surface):
+    case (Fog::Type::sNanoSurface):
         m_renderingContext.pipeline =
             &context.getPipelineManager().get(this->nanoVDBPipeline_surface)->request.pipeline;
         break;

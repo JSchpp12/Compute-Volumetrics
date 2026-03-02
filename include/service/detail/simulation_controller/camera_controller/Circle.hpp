@@ -16,10 +16,7 @@ class Circle
     void tick(star::StarCamera &camera);
     bool isDone() const;
     void reset(star::StarCamera &camera);
-    void setNumCameraPositions(int numPositions)
-    {
-        m_numCameraPositions = numPositions;
-    }
+    void setNumCameraPositions(int numPositions);
     void setStartCameraDirection(glm::vec3 startCamDirection)
     {
         m_startCameraDirection = std::move(startCamDirection);

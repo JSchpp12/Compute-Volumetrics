@@ -63,9 +63,9 @@ class VolumeRenderer
     {
         return this->computeWriteToImages;
     }
-    void setFogType(const Fog::Type &type)
+    void setFogType(Fog::Type type)
     {
-        this->currentFogType = type;
+        this->currentFogType = std::move(type);
     }
     Fog::Type getFogType() const
     {
@@ -132,7 +132,7 @@ class VolumeRenderer
         marchedHomogenousPipeline;
     std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
-    Fog::Type currentFogType = Fog::Type::marched;
+    Fog::Type currentFogType = Fog::Type::sMarched;
     bool isReady = false;
     bool isFirstPass = true;
     bool transferTriggeredThisFrame = false;

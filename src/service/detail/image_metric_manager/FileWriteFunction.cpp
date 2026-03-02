@@ -147,10 +147,10 @@ double FileWriteFunction::calculateAverageRayDistance() const
     double distance = 0.0;
     switch (m_data->type)
     {
-    case (Fog::Type::exp):
+    case (Fog::Type::sExponential):
         distance = CalcVisDistanceExponential(m_data->controlInfo, 0.98f);
         break;
-    case (Fog::Type::linear):
+    case (Fog::Type::sLinear):
         distance = CalcVisDistanceLinear(m_data->controlInfo);
         break;
     default:

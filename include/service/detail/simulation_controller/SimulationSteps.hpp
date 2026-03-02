@@ -13,5 +13,6 @@ struct SimulationSteps
     FogInfo start;
     FogInfo fogInfoChanges;
     int numSteps = 0;
+    
 };
 } // namespace service::simulation_controller

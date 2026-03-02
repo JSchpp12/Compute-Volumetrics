@@ -6,17 +6,17 @@ std::string TypeToString(const Type &type)
 {
     switch (type)
     {
-    case (Type::linear):
+    case (Type::sLinear):
         return "linear";
-    case (Type::exp):
+    case (Type::sExponential):
         return "exponential";
-    case (Type::marched):
+    case (Type::sMarched):
         return "marched";
-    case (Type::marched_homogenous):
+    case (Type::sMarchedHomogenous):
         return "marched_homogenous";
-    case (Type::nano_boundingBox):
+    case (Type::sNanoBoundingBox):
         return "nano_boundingBox";
-    case (Type::nano_surface):
+    case (Type::sNanoSurface):
         return "nano_surface";
     default:
         return "";

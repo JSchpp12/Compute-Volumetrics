@@ -20,7 +20,7 @@ class CameraController
 
     void tick(star::StarCamera &camera); 
     void reset(star::StarCamera &camera);
-    bool isDone() const; 
+    std::optional<bool> isDone() const; 
 
   private:
     std::optional<std::variant<camera_controller::Circle>> m_controller = std::nullopt;

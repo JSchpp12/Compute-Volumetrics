@@ -18,9 +18,19 @@ bool Circle::isDone() const
     return m_counter == m_numCameraPositions;
 }
 
+void Circle::setNumCameraPositions(int numPositions)
+{
+    if (numPositions > 360 || numPositions < 1)
+    {
+        STAR_THROW("Invalid value provided to setNumCameraPositions(). Must be between 1 and 360");
+    }
+
+    m_numCameraPositions = numPositions;
+}
+
 void Circle::reset(star::StarCamera &camera)
 {
     camera.setForwardVector(m_startCameraDirection);
-    m_counter = 0;
+    m_counter = 1;
 }
 } // namespace service::simulation_controller::camera_controller

@@ -35,7 +35,7 @@ void CameraController::reset(star::StarCamera &camera)
     }
 }
 
-bool CameraController::isDone() const
+std::optional<bool> CameraController::isDone() const
 {
     if (m_controller)
     {
@@ -45,6 +45,8 @@ bool CameraController::isDone() const
             return c->isDone();
         }
     }
+
+    return std::nullopt;
 }
 
 } // namespace service::simulation_controller

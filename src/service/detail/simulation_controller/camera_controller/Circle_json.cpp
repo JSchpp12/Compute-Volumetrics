@@ -22,6 +22,7 @@ void from_json(const nlohmann::json &j, Circle &c)
     util::from_json(j["start_camera_direction"], cameraStartDir);
     int numPositions = j["num_camera_positions"].get<int>();
 
-    c = Circle(std::move(cameraStartDir), numPositions);
+    c.setNumCameraPositions(numPositions); 
+    c.setStartCameraDirection(std::move(cameraStartDir));
 }
 } // namespace service::simulation_controller::camera_controller
