@@ -74,7 +74,6 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     {
         TriggerSimUpdate(context.getAllDevices().getData()[0].getCmdBus(), *m_volume, *m_camera);
         triggerScreenshot(context.getAllDevices().getData()[0]);
-        m_flipScreenshotState = true;
     }
 }
 
