@@ -157,16 +157,6 @@ void SimulationControllerService::switchFogType(int newType, Volume &volume, sta
 
     volume.getRenderer().setFogInfo(m_loadedSteps.start);
     volume.getRenderer().setFogType(type);
-    camera.setForwardVector(glm::vec3{1.0, 0.0, 0.0});
-    if (!m_isCameraAtHeight)
-    {
-        auto camPos = camera.getPosition();
-
-        // cam pos starts at ground level
-        camPos.y += 2;
-        camera.setPosition(camPos);
-        m_isCameraAtHeight = true;
-    }
 }
 
 void SimulationControllerService::onCheckIfDone(sim_controller::CheckIfDone &cmd) const
@@ -233,6 +223,18 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
             STAR_THROW("Attempted to call get on future that has already been consumed. This signifies that the json "
                        "file is not valid");
         }
+    }
+
+    if (!m_isCameraAtHeight)
+    {
+        auto camPos = camera.getPosition();
+
+        // cam pos starts at ground level
+        camPos.y += 2;
+        camera.setPosition(camPos);
+        m_isCameraAtHeight = true;
+        switchFogType(1, volume, camera); 
+        m_fogTypeTracker = 1; 
     }
 
     if (isDone())

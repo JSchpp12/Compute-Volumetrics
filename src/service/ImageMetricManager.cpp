@@ -126,10 +126,7 @@ void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string
     m_storage.getRayDistanceBuffers(hostResource, &rayDistance, &rayAtCutoff);
     m_copier.trigger(*m_cb, *m_cmdBus, *rayAtCutoff, *rayDistance, volume.getRenderer().getRayAtCutoffBufferAt(fi),
                      volume.getRenderer().getRayDistanceBufferAt(fi), semaphoreRecord, signalValue);
-
-    const std::string msg = "Submitting write task: " + imageCaptureFileName;
-    star::core::logging::info(msg);
-
+                     
     {
         auto writePayload = star::job::tasks::io::CreateWriteTask(star::job::tasks::io::WritePayload{
             imageCaptureFileName,

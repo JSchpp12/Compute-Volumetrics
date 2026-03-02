@@ -65,7 +65,6 @@ SimulationSteps CalculateSimSteps(const SimulationBounds &bounds)
 static SimulationData LoadBoundsInfoFromFile(const std::string &path)
 {
     SimulationData data;
-    SimulationBounds bounds;
 
     try
     {
@@ -74,7 +73,8 @@ static SimulationData LoadBoundsInfoFromFile(const std::string &path)
         {
             json j;
             is >> j;
-
+            
+            SimulationBounds bounds;
             util::from_json(j["startData"], bounds.start);
             util::from_json(j["stopData"], bounds.stop);
 
@@ -93,13 +93,15 @@ static SimulationData LoadBoundsInfoFromFile(const std::string &path)
             }
 
             bounds.numSteps = j["numSteps"];
+
+            data.steps = CalculateSimSteps(bounds); 
         }
     }
     catch (...)
     {
         // null
     }
-
+    
     return data;
 }
 
