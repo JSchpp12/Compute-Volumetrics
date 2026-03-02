@@ -383,7 +383,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
                                                         std::move(sc), std::move(additional));
     }
 
-    m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.03f
+    m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.03f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 0.3f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 5.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.0f);
