@@ -5,7 +5,7 @@
 
 #include <string>
 
-namespace image_metric_manager
+namespace service::image_metric_manager
 {
 class ImageMetrics
 {

@@ -15,7 +15,7 @@ TerrainShapeInfo TerrainShapeInfoLoader::load() const
 {
     if (!star::file_helpers::FileExists(m_shapeFilePath))
     {
-        std::string msg = "Failed to load shape file: " + m_shapeFilePath;
+        std::string msg = "Shape file does not exist: " + m_shapeFilePath;
         STAR_THROW(msg);
     }
 

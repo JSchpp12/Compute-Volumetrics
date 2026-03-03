@@ -1,8 +1,8 @@
 #pragma once
 
-#include "service/controller/detail/simulation_bounds_file/SimulationBounds.hpp"
+#include "service/detail/simulation_controller/SimulationBounds.hpp"
 
-namespace controller::simulation_bounds_file
+namespace service::simulation_controller
 {
 class Writer
 {
@@ -16,4 +16,4 @@ class Writer
   private:
     SimulationBounds m_bounds;
 };
-} // namespace controller::simulation_bounds_file
+} // namespace service::simulation_controller

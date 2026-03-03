@@ -7,7 +7,7 @@
 
 #include <boost/functional/hash.hpp>
 
-namespace image_metric_manager
+namespace service::image_metric_manager
 {
 
 std::size_t Extent2DHash::operator()(const vk::Extent2D &e) const noexcept

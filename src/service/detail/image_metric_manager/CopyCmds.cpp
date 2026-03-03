@@ -5,7 +5,7 @@
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
-namespace image_metric_manager
+namespace service::image_metric_manager
 {
 CopyCmds::CopyCmds(CopyResources &cpyResources) : m_cpyResources(cpyResources)
 {

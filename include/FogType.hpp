@@ -4,12 +4,15 @@ namespace Fog
 {
 enum Type
 {
-    linear,
-    exp,
-    marched,
-    marched_homogenous,
-    nano_boundingBox,
-    nano_surface
+    sNone,
+    sLinear,
+    sExponential,
+    sMarchedHomogenous,
+    sMarched,
+    sCountOfNonDebugTypes,
+    sNanoBoundingBox,
+    sNanoSurface,
+    sCount
 };
 
 std::string TypeToString(const Type &type);

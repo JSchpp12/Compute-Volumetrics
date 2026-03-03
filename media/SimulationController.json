@@ -1,5 +1,21 @@
 {
     "numSteps": 10,
+    "initial_camera_height_above_ground": 2,
+    "enabled_fog_types": {
+        "linear": false, 
+        "exponential": true, 
+        "marched_homogenous": false, 
+        "marched": false
+    },
+    "camera_controller_type": "circle",
+    "circle_controller_settings": {
+         "num_camera_positions": 360, 
+         "start_camera_direction": {
+            "x": 1, 
+            "y": 0, 
+            "z": 0
+        }
+    },
     "startData": {
         "expFogInfo": {
             "density": 0.00001

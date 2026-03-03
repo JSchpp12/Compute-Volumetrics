@@ -3,7 +3,7 @@
 #include "util/json/FogInfoStruct.hpp"
 #include "util/json/MathStructs.hpp"
 
-namespace image_metric_manager
+namespace service::image_metric_manager
 {
 
 ImageMetrics::ImageMetrics(const FogInfo &controlInfo, const glm::vec3 &camPosition, const std::string &imageFileName,

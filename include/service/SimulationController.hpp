@@ -2,11 +2,15 @@
 
 #include "command/sim_controller/TriggerUpdate.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
-#include "service/controller/detail/simulation_bounds_file/SimulationSteps.hpp"
+#include "service/detail/simulation_controller/SimulationData.hpp"
+#include "service/detail/simulation_controller/SimulationSteps.hpp"
+#include "service/detail/simulation_controller/FogEnabler.hpp"
 
 #include <starlight/policy/command/ListenFor.hpp>
 #include <starlight/virtual/StarCamera.hpp>
 
+#include <optional>
+#include <variant>
 #include <future>
 
 template <typename T>
@@ -18,15 +22,15 @@ template <typename T>
 using ListenForCheckIfDone =
     star::policy::command::ListenFor<T, sim_controller::CheckIfDone, sim_controller::check_if_done::GetTypeName,
                                      &T::onCheckIfDone>;
-class CircleCameraController
+class SimulationControllerService
 {
   public:
-    CircleCameraController(); 
-    explicit CircleCameraController(std::shared_ptr<bool> doneFlag); 
-    CircleCameraController(const CircleCameraController &) = delete;
-    CircleCameraController &operator=(const CircleCameraController &) = delete;
-    CircleCameraController(CircleCameraController &&); 
-    CircleCameraController &operator=(CircleCameraController &&); 
+    SimulationControllerService(); 
+    explicit SimulationControllerService(std::shared_ptr<bool> doneFlag); 
+    SimulationControllerService(const SimulationControllerService &) = delete;
+    SimulationControllerService &operator=(const SimulationControllerService &) = delete;
+    SimulationControllerService(SimulationControllerService &&); 
+    SimulationControllerService &operator=(SimulationControllerService &&); 
 
     void init();
 
@@ -45,19 +49,20 @@ class CircleCameraController
     bool isDone() const;
 
   private:
-    controller::simulation_bounds_file::SimulationSteps m_loadedSteps;
-    std::future<controller::simulation_bounds_file::SimulationSteps> m_loadedInfo;
+    service::simulation_controller::SimulationSteps m_loadedSteps;
+    service::simulation_controller::CameraController m_loadedController;
+    service::simulation_controller::FogEnabler m_fogEnabledStatus; 
+    std::future<service::simulation_controller::SimulationData> m_loadedInfo;
     double m_worldHeightAtCenterTerrain; 
-    int m_fogTypeTracker = 0;
-    int m_rotationCounter = 0;
     int m_stepCounter = 0;
-    ListenForTriggerUpdate<CircleCameraController> m_onTriggerUpdate; 
-    ListenForCheckIfDone<CircleCameraController> m_onListenForDone; 
+    Fog::Type m_fogTypeTracker = Fog::Type::sNone; 
+    ListenForTriggerUpdate<SimulationControllerService> m_onTriggerUpdate; 
+    ListenForCheckIfDone<SimulationControllerService> m_onListenForDone; 
     star::core::CommandBus *m_cmd = nullptr;
     std::shared_ptr<bool> m_doneFlag = nullptr; 
-    bool m_isCameraAtHeight = false; 
+    bool m_isPrimed = false; 
 
-    void switchFogType(int newType, Volume &volume, star::StarCamera &camera);
+    void switchFogType(Fog::Type newType, Volume &volume, star::StarCamera &camera);
     void submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path);
     void incrementLinear(Volume &volume) const;
     void incrementExp(Volume &volume) const;
@@ -65,4 +70,5 @@ class CircleCameraController
     void updateSim(Volume &volume, star::StarCamera &camera);
     void initListeners(star::core::CommandBus &cmdBus); 
     void cleanupListeners(star::core::CommandBus &cmdBus); 
+    Fog::Type selectNextFogType() const; 
 };

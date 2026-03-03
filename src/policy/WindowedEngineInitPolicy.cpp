@@ -1,14 +1,14 @@
 #include "policy/WindowedEngineInitPolicy.hpp"
 
 #ifdef STAR_ENABLE_PRESENTATION
-#include "service/controller/CircleCameraController.hpp"
+#include "service/SimulationController.hpp"
 #include "service/ImageMetricManager.hpp"
 
 namespace policy
 {
 static star::service::Service CreateCameraControllerService()
 {
-    return star::service::Service{CircleCameraController{}};
+    return star::service::Service{SimulationControllerService{}};
 }
 
 WindowEngineInitPolicy::WindowEngineInitPolicy(star::windowing::WindowingContext &winContext) : m_winPolicy(winContext)
@@ -58,7 +58,7 @@ std::vector<star::service::Service> WindowEngineInitPolicy::getAdditionalDeviceS
 
 star::service::Service WindowEngineInitPolicy::createImageMetricManagerService() const
 {
-    return star::service::Service{ImageMetricManager()};
+    return star::service::Service{service::ImageMetricManager()};
 }
 } // namespace policy
 

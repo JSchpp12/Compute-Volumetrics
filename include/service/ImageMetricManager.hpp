@@ -8,6 +8,8 @@
 #include <starlight/core/device/managers/GraphicsContainer.hpp>
 #include <starlight/policy/command/ListenFor.hpp>
 
+namespace service
+{
 template <typename T>
 using ListenForTriggerCapture =
     star::policy::command::ListenFor<T, image_metrics::TriggerCapture,
@@ -60,3 +62,4 @@ class ImageMetricManager
 
     void cleanupListeners(star::core::CommandBus &cmdBus);
 };
+} // namespace service
