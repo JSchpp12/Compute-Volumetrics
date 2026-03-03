@@ -54,8 +54,8 @@ class SimulationControllerService
     service::simulation_controller::FogEnabler m_fogEnabledStatus; 
     std::future<service::simulation_controller::SimulationData> m_loadedInfo;
     double m_worldHeightAtCenterTerrain; 
-    int m_fogTypeTracker = 0;
     int m_stepCounter = 0;
+    Fog::Type m_fogTypeTracker = Fog::Type::sNone; 
     ListenForTriggerUpdate<SimulationControllerService> m_onTriggerUpdate; 
     ListenForCheckIfDone<SimulationControllerService> m_onListenForDone; 
     star::core::CommandBus *m_cmd = nullptr;

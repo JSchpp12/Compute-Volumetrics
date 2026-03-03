@@ -16,14 +16,14 @@
 #include <filesystem>
 
 SimulationControllerService::SimulationControllerService()
-    : m_loadedSteps(), m_loadedInfo(), m_worldHeightAtCenterTerrain(0.0), m_fogTypeTracker(0), m_stepCounter(0),
-      m_onTriggerUpdate(*this), m_onListenForDone(*this)
+    : m_loadedSteps(), m_loadedInfo(), m_worldHeightAtCenterTerrain(0.0), m_stepCounter(0),
+      m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this), m_onListenForDone(*this)
 {
 }
 
 SimulationControllerService::SimulationControllerService(std::shared_ptr<bool> doneFlag)
     : m_loadedSteps(), m_loadedController(), m_fogEnabledStatus(), m_loadedInfo(), m_worldHeightAtCenterTerrain(0.0),
-      m_fogTypeTracker(0), m_stepCounter(0), m_onTriggerUpdate(*this), m_onListenForDone(*this),
+      m_stepCounter(0), m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this), m_onListenForDone(*this),
       m_doneFlag(std::move(doneFlag))
 {
 }
@@ -32,7 +32,7 @@ SimulationControllerService::SimulationControllerService(SimulationControllerSer
     : m_loadedSteps(std::move(other.m_loadedSteps)), m_loadedController(std::move(other.m_loadedController)),
       m_fogEnabledStatus(std::move(other.m_fogEnabledStatus)), m_loadedInfo(std::move(other.m_loadedInfo)),
       m_worldHeightAtCenterTerrain(std::move(other.m_worldHeightAtCenterTerrain)),
-      m_fogTypeTracker(std::move(other.m_fogTypeTracker)), m_stepCounter(std::move(other.m_stepCounter)),
+      m_stepCounter(std::move(other.m_stepCounter)), m_fogTypeTracker(std::move(other.m_fogTypeTracker)),
       m_onTriggerUpdate(*this), m_onListenForDone(*this), m_cmd(other.m_cmd), m_doneFlag(other.m_doneFlag)
 {
     if (m_cmd != nullptr)
@@ -51,8 +51,8 @@ SimulationControllerService &SimulationControllerService::operator=(SimulationCo
         m_fogEnabledStatus = std::move(other.m_fogEnabledStatus);
         m_loadedInfo = std::move(other.m_loadedInfo);
         m_worldHeightAtCenterTerrain = std::move(other.m_worldHeightAtCenterTerrain);
-        m_fogTypeTracker = std::move(other.m_fogTypeTracker);
         m_stepCounter = std::move(other.m_stepCounter);
+        m_fogTypeTracker = std::move(other.m_fogTypeTracker);
         m_cmd = other.m_cmd;
         m_doneFlag = other.m_doneFlag;
 
@@ -134,7 +134,6 @@ void SimulationControllerService::init()
         WriteDefaultControllerInfo(*m_cmd, filePath.string());
     }
 
-    m_fogTypeTracker = 0;
     m_stepCounter = 1000000;
 }
 
@@ -224,7 +223,7 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
 
     if (!m_isPrimed)
     {
-        m_fogTypeTracker = static_cast<int>(selectNextFogType());
+        m_fogTypeTracker = selectNextFogType();
         if (static_cast<Fog::Type>(m_fogTypeTracker) == Fog::Type::sCount)
         {
             STAR_THROW("Controller does not contain any valid fog types");
@@ -264,7 +263,7 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
     }
     else
     {
-        m_fogTypeTracker = static_cast<int>(selectNextFogType());
+        m_fogTypeTracker = selectNextFogType();
 
         if (m_fogTypeTracker != Fog::Type::sCount)
         {
@@ -286,7 +285,7 @@ Fog::Type SimulationControllerService::selectNextFogType() const
     auto selected = Fog::Type::sCount;
     const size_t count = static_cast<size_t>(Fog::Type::sCountOfNonDebugTypes);
 
-    for (size_t i = static_cast<size_t>(m_fogTypeTracker) + 1; i < count; i++)
+    for (size_t i = static_cast<size_t>(m_fogTypeTracker)+1; i < count; i++)
     {
         if (m_fogEnabledStatus.isEnabled(static_cast<Fog::Type>(i)))
         {

@@ -4,6 +4,7 @@ namespace Fog
 {
 enum Type
 {
+    sNone,
     sLinear,
     sExponential,
     sMarchedHomogenous,
