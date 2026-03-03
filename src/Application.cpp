@@ -27,18 +27,17 @@
 
 using namespace star;
 
-OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
-                                          std::shared_ptr<star::StarCamera> camera,
+OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
+                                          std::shared_ptr<star::StarCamera> camera, const std::string &terrainPath,
                                           std::shared_ptr<std::vector<star::Light>> mainLight)
 {
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
     {
-        auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
         auto cmd = star::command::CreateObject::Builder()
                        .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-                           std::make_shared<Terrain>(context, terrainInfoPath)))
+                           std::make_shared<Terrain>(context, terrainPath)))
                        .setUniqueName("terrain")
                        .build();
         context.begin().set(cmd).submit();
@@ -67,8 +66,14 @@ static std::string CreateImageDir()
     return fullDir.string();
 }
 
-Application::Application() : m_captureTrigger(), m_imageOutputDir(CreateImageDir())
+Application::Application(std::string &&terrainPath)
+    : m_terrainDir(std::move(terrainPath)), m_captureTrigger(), m_imageOutputDir(CreateImageDir())
 {
+    const std::filesystem::path terrain(m_terrainDir);
+    if (!std::filesystem::exists(terrain))
+    {
+        STAR_THROW("Provided terrain path does not exist: " + m_terrainDir);
+    }
 }
 
 std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::DeviceContext &context,
@@ -83,7 +88,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     const glm::vec3 camPos{-50.9314, 135.686, 25.9329};
     const glm::vec3 volumePos{50.0, 10.0, 0.0};
     const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
-        std::shared_ptr<star::StarCamera> camera = std::make_shared<star::StarCamera>(
+    std::shared_ptr<star::StarCamera> camera = std::make_shared<star::StarCamera>(
         context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 1.0f, 20000.0f);
 
     m_mainLight = std::make_shared<std::vector<star::Light>>(
@@ -96,9 +101,9 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         star::common::helper::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
     }
 
-    star::StarObjectInstance *volumeInstance = nullptr; 
+    star::StarObjectInstance *volumeInstance = nullptr;
     {
-        auto oRenderer = star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_mainLight));
+        auto oRenderer = star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_terrainDir, m_mainLight));
         auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
         for (auto &object : offscreenRenderer->getObjects())

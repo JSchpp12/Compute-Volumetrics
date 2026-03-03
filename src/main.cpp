@@ -1,3 +1,5 @@
+#include "util/CmdLine.hpp"
+
 #include <starlight/common/ConfigFile.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -9,12 +11,12 @@
 #ifdef STAR_ENABLE_PRESENTATION
 #include "InteractiveMode.hpp"
 
-int runWindow()
+int runWindow(std::string &&terrainPath)
 {
     try
     {
         InteractiveMode interactiveInstance{};
-        return interactiveInstance.run();
+        return interactiveInstance.run(std::move(terrainPath));
     }
     catch (...)
     {
@@ -25,16 +27,23 @@ int runWindow()
 
 #else
 #include "HeadlessMode.hpp"
-int runHeadless()
+int runHeadless(std::string &&terrainPath)
 {
     HeadlessMode headlessInstance{};
-    return headlessInstance.run();
+    return headlessInstance.run(std::move(terrainPath));
 }
 
 #endif
 
-int main()
+
+int main(int argc, char** argv)
 {
+    auto terrainPath = util::CmdLine::TryGetArgValue(argc, argv, "--terrain");
+    if (!terrainPath.has_value())
+    {
+        std::cerr << "Controller path must be provided with arg '--controller'" << std::endl; 
+        std::exit(EXIT_FAILURE); 
+    }
     try
     {
         star::ConfigFile::load("./StarEngine.cfg");
@@ -48,8 +57,8 @@ int main()
     openvdb::initialize();
 
 #ifdef STAR_ENABLE_PRESENTATION
-    return runWindow();
+    return runWindow(std::move(terrainPath.value()));
 #else
-    return runHeadless();
+    return runHeadless(std::move(terrainPath.value()));
 #endif
 }

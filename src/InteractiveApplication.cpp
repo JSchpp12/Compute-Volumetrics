@@ -20,38 +20,6 @@
 
 #include <boost/filesystem/path.hpp>
 
-OffscreenRenderer InteractiveApplication::createOffscreenRenderer(
-    star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
-    std::shared_ptr<star::windowing::BasicCamera> m_camera, std::shared_ptr<std::vector<star::Light>> mainLight)
-{
-    std::vector<std::shared_ptr<star::StarObject>> objects;
-    const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-
-    {
-        auto terrainInfoPath = mediaDirectoryPath + "terrains/height_info.json";
-        auto cmd = star::command::CreateObject::Builder()
-                       .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-                           std::make_shared<Terrain>(context, terrainInfoPath)))
-                       .setUniqueName("terrain")
-                       .build();
-        context.begin().set(cmd).submit();
-        objects.emplace_back(cmd.getReply().get());
-    }
-
-    //{
-    //    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    //    auto cmd = star::command::CreateObject::Builder()
-    //                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-    //                   .setUniqueName("horse")
-    //                   .build();
-    //    context.begin().set(cmd).submit();
-    //    cmd.getReply().get()->init(context);
-    //    objects.emplace_back(cmd.getReply().get());
-    //}
-
-    return {context, numFramesInFlight, objects, std::move(mainLight), m_camera};
-}
-
 void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
     if (m_flipScreenshotState)
@@ -331,7 +299,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
 
     {
         auto oRenderer =
-            star::common::Renderer(createOffscreenRenderer(context, numFramesInFlight, m_camera, m_mainLight));
+            star::common::Renderer(CreateOffscreenRenderer(context, numFramesInFlight, m_camera, m_terrainDir, m_mainLight));
         auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
         const uint32_t &width = context.getEngineResolution().width;

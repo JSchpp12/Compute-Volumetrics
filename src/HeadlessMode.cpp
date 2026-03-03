@@ -20,14 +20,14 @@ static FunctionalEngineInitPolicy CreateInit(std::shared_ptr<bool> doneFlag)
     return FunctionalEngineInitPolicy(fun);
 }
 
-int HeadlessMode::run()
+int HeadlessMode::run(std::string &&terrainPath)
 {
     using loop = star::policy::DefaultEngineLoopPolicy;
 
     std::shared_ptr<bool> controllerSequenceDone = std::make_shared<bool>(false);
     using exit = EngineExitOnFlag;
 
-    Application application;
+    Application application(std::move(terrainPath));
 
     auto engine = star::StarEngine<FunctionalEngineInitPolicy, loop, exit>(CreateInit(controllerSequenceDone), loop{},
                                                                            exit{controllerSequenceDone}, application);

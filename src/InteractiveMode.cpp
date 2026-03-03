@@ -10,7 +10,7 @@
 #include <star_windowing/policy/EngineMainLoopPolicy.hpp>
 #include <starlight/StarEngine.hpp>
 
-int InteractiveMode::run()
+int InteractiveMode::run(std::string &&terrainDir)
 {
     using win_exit = star::windowing::EngineExitPolicy;
     using win_loop = star::windowing::EngineMainLoopPolicy;
@@ -20,7 +20,7 @@ int InteractiveMode::run()
     win_loop windowLoop{winContext};
     win_exit windowExit{winContext};
 
-    InteractiveApplication application(&winContext);
+    InteractiveApplication application(std::move(terrainDir), &winContext);
     auto engine = star::StarEngine<policy::WindowEngineInitPolicy, win_loop, win_exit>(
         std::move(windowInit), std::move(windowLoop), std::move(windowExit), application);
 

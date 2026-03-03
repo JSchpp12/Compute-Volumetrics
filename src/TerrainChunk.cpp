@@ -19,11 +19,10 @@
 static std::string FindMatchingTextureFile(const std::string &textureFileName)
 {
     const std::filesystem::path *found = nullptr;
-    const auto terrainDir =
-        std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) / "terrains";
 
+    const auto textureDir = star::file_helpers::GetParentDirectory(textureFileName).value(); 
     auto files =
-        star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(terrainDir.string(), textureFileName);
+        star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(textureDir.string(), textureFileName);
     for (const auto &file : files)
     {
         if (file.has_extension() && (file.extension() == ".png" || file.extension() == ".ktx2"))
