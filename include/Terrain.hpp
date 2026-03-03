@@ -28,5 +28,5 @@ class Terrain : public star::StarObject
   private:
     std::string m_terrainDefFile;
 
-    std::vector<std::shared_ptr<star::StarMaterial>> LoadMaterials(std::string terrainInfoFile);
+    static std::vector<std::shared_ptr<star::StarMaterial>> LoadMaterials(const std::string &terrainDir);
 };

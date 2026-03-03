@@ -9,7 +9,7 @@
 class Application : public star::StarApplication
 {
   public:
-    Application();
+    explicit Application(std::string &&terrainPath);
     virtual ~Application() = default;
 
     virtual void init() override
@@ -22,6 +22,7 @@ class Application : public star::StarApplication
     virtual void shutdown(star::core::device::DeviceContext &context) override;
 
   protected:
+    std::string m_terrainDir;
     star::core::CommandSubmitter m_captureTrigger;
     std::string m_imageOutputDir;
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
@@ -34,9 +35,9 @@ class Application : public star::StarApplication
 
     void frameUpdate(star::core::SystemContext &context) override;
 
-    static bool CheckIfControllerIsDone(star::core::CommandBus &cmd); 
+    static bool CheckIfControllerIsDone(star::core::CommandBus &cmd);
 
-    static void TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume, star::StarCamera &camera); 
+    static void TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume, star::StarCamera &camera);
 
     static float PromptForFloat(const std::string &prompt, const bool &allowNegative = false);
 
@@ -49,4 +50,10 @@ class Application : public star::StarApplication
     virtual void triggerImageRecord(star::core::device::DeviceContext &context,
                                     const star::common::FrameTracker &frameTracker,
                                     const std::string &targetImageFileName);
+
+    static OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &context,
+                                                     const uint8_t &numFramesInFlight,
+                                                     std::shared_ptr<star::StarCamera> camera,
+                                                     const std::string &terrainPath,
+                                                     std::shared_ptr<std::vector<star::Light>> mainLight);
 };

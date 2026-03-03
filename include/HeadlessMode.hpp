@@ -5,7 +5,7 @@
 class HeadlessMode
 {
   public:
-    int run();
+    int run(std::string &&terrainPath);
 
   private:
 };

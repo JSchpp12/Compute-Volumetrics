@@ -1,8 +1,8 @@
 #include "Terrain.hpp"
 
+#include "TerrainChunk.hpp"
 #include "TerrainGrid.hpp"
 #include "TerrainShapeInfoLoader.hpp"
-#include "TerrainChunk.hpp"
 
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/helpers/FileHelpers.hpp>
@@ -25,12 +25,13 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
 
 std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::device::DeviceContext &context)
 {
-    TerrainInfoFile fileInfo = TerrainInfoFile(m_terrainDefFile);
-    const auto terrainPath = star::file_helpers::GetParentDirectory(m_terrainDefFile).value();
+    const auto infoPath = std::filesystem::path(m_terrainDefFile) / "height_info.json";
+    TerrainInfoFile fileInfo = TerrainInfoFile(infoPath.string());
 
+    const auto terrainPath = std::filesystem::path(m_terrainDefFile);
     TerrainShapeInfo shapeInfo;
     {
-        const auto terrainShapeFile = std::filesystem::path(terrainPath) / "Shape.json";
+        const auto terrainShapeFile = terrainPath / "Shape.json";
         auto loader = TerrainShapeInfoLoader(terrainShapeFile.string());
 
         shapeInfo = loader.load();
@@ -54,8 +55,10 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
         {
             setWorldCenter = true;
 
-            double height = TerrainChunk::GetHeightAtLocationFromGDAL(fullHeightFilePath.string(), shapeInfo.center.x, shapeInfo.center.y).value();
-            worldCenter.z = height; 
+            double height = TerrainChunk::GetHeightAtLocationFromGDAL(fullHeightFilePath.string(), shapeInfo.center.x,
+                                                                      shapeInfo.center.y)
+                                .value();
+            worldCenter.z = height;
         }
 
         chunks.emplace_back(fullHeightFilePath.string(), infoPath.string(), fileInfo.infos()[i].cornerNE,
@@ -80,11 +83,11 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
     return terrainMeshes;
 }
 
-std::vector<std::shared_ptr<star::StarMaterial>> Terrain::LoadMaterials(std::string terrainInfoFile)
+std::vector<std::shared_ptr<star::StarMaterial>> Terrain::LoadMaterials(const std::string &terrainDir)
 {
-    auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory) + "terrains/";
+    const auto terrainDirPath = std::filesystem::path(terrainDir);
 
-    TerrainInfoFile fileInfo = TerrainInfoFile(terrainInfoFile);
+    TerrainInfoFile fileInfo = TerrainInfoFile((terrainDirPath / "height_info.json").string());
     std::vector<std::shared_ptr<star::StarMaterial>> materials =
         std::vector<std::shared_ptr<star::StarMaterial>>(fileInfo.infos().size());
 
@@ -92,7 +95,7 @@ std::vector<std::shared_ptr<star::StarMaterial>> Terrain::LoadMaterials(std::str
     {
         const std::filesystem::path *found = nullptr;
         auto files = star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(
-            mediaDirectoryPath, fileInfo.infos()[i].textureFile);
+            terrainDir, fileInfo.infos()[i].textureFile);
         for (const auto &file : files)
         {
             if (file.extension() == ".ktx2")
@@ -103,7 +106,10 @@ std::vector<std::shared_ptr<star::StarMaterial>> Terrain::LoadMaterials(std::str
 
         if (found == nullptr)
         {
-            STAR_THROW("Failed to find matching texture for file");
+            std::ostringstream oss;
+            oss << "Failed to find matching texture for file: " << fileInfo.infos()[i].textureFile << std::endl
+                << "Ensure terrains are prepared with compressed textures" << std::endl;
+            STAR_THROW(oss.str());
         }
 
         materials[i] = std::make_shared<star::TextureMaterial>(found->string());

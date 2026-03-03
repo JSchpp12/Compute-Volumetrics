@@ -5,7 +5,7 @@
 class InteractiveMode
 {
   public:
-    int run();
+    int run(std::string &&terrainDir);
 
   private:
 };
