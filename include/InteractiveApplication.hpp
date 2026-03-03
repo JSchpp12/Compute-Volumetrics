@@ -13,8 +13,8 @@ class InteractiveApplication : public Application,
                                private star::windowing::HandleKeyReleasePolicy<InteractiveApplication>
 {
   public:
-    InteractiveApplication(star::windowing::WindowingContext *winContext)
-        : Application(), star::windowing::HandleKeyReleasePolicy<InteractiveApplication>(*this),
+    InteractiveApplication(std::string &&terrainDir, star::windowing::WindowingContext *winContext)
+        : Application(std::move(terrainDir)), star::windowing::HandleKeyReleasePolicy<InteractiveApplication>(*this),
           m_winContext(winContext), m_camera()
     {
     }

@@ -97,6 +97,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/CopyDepthTextureToBuffer.cpp"
 	"src/FogInfo.cpp"
 	"src/util/Math.cpp"
+	"src/util/CmdLine.cpp"
 	"src/util/json/MathStructs.cpp"
 	"src/util/json/FogInfoStruct.cpp"
 	"src/VolumeDataBase.cpp"
@@ -162,6 +163,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/CopyDepthTextureToBuffer.hpp"
 	"include/FogInfo.hpp"
 	"include/util/Math.hpp"
+	"include/util/CmdLine.hpp"
 	"include/util/json/MathStructs.hpp"
 	"include/util/json/FogInfoStruct.hpp"
 	"include/VolumeDataBase.hpp"
@@ -261,7 +263,6 @@ if (NOT ${HEADLESS})
 endif()
 
 set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/StarlightAppBuilder/")
-set(PREP_MEDIA_CMD "${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py")
 set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
 
 set(FINAL_APPLICATION_DIR "")
@@ -279,19 +280,26 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	add_custom_target(prepare_media ALL
-		COMMAND ${Python3_EXECUTABLE} ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps --fastest
+		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsDir=${STARLIGHT_APP_BUILDER_DIR}/deps --fastest
 		DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py
 		COMMENT "Running media prep"
 		VERBATIM
 	)
 else()
 	add_custom_target(prepare_media ALL
-		COMMAND ${Python3_EXECUTABLE} ${PREP_MEDIA_CMD} --builddir=${FINAL_APPLICATION_DIR} --mediadir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsdir=${STARLIGHT_APP_BUILDER_DIR}/deps
+		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsDir=${STARLIGHT_APP_BUILDER_DIR}/deps 
 		DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py
 		COMMENT "Running media prep"
 		VERBATIM
 	)
 endif()
+
+add_custom_target(create_config ALL
+	COMMAND ${Python3_EXECUTABLE} -m star_app_builder create-config --outDir=${FINAL_APPLICATION_DIR}
+	DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py
+	COMMENT "Running config prep"
+	VERBATIM
+)
 
 # The following are for handling code cleanup/extras
 find_program(CPPCHECK_EXECUTABLE cppcheck)
