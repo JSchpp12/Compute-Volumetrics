@@ -15,15 +15,17 @@
 
 #include <filesystem>
 
-SimulationControllerService::SimulationControllerService()
-    : m_loadedSteps(), m_loadedInfo(), m_worldHeightAtCenterTerrain(0.0), m_stepCounter(0),
-      m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this), m_onListenForDone(*this)
+SimulationControllerService::SimulationControllerService(std::string controllerFilePath)
+    : m_loadedSteps(), m_loadedInfo(), m_controllerFilePath(std::move(controllerFilePath)),
+      m_worldHeightAtCenterTerrain(0.0), m_stepCounter(0), m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this),
+      m_onListenForDone(*this)
 {
 }
 
-SimulationControllerService::SimulationControllerService(std::shared_ptr<bool> doneFlag)
-    : m_loadedSteps(), m_loadedController(), m_fogEnabledStatus(), m_loadedInfo(), m_worldHeightAtCenterTerrain(0.0),
-      m_stepCounter(0), m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this), m_onListenForDone(*this),
+SimulationControllerService::SimulationControllerService(std::string controllerFilePath, std::shared_ptr<bool> doneFlag)
+    : m_loadedSteps(), m_loadedController(), m_fogEnabledStatus(), m_loadedInfo(),
+      m_controllerFilePath(std::move(controllerFilePath)), m_worldHeightAtCenterTerrain(0.0), m_stepCounter(0),
+      m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this), m_onListenForDone(*this),
       m_doneFlag(std::move(doneFlag))
 {
 }
@@ -31,6 +33,7 @@ SimulationControllerService::SimulationControllerService(std::shared_ptr<bool> d
 SimulationControllerService::SimulationControllerService(SimulationControllerService &&other)
     : m_loadedSteps(std::move(other.m_loadedSteps)), m_loadedController(std::move(other.m_loadedController)),
       m_fogEnabledStatus(std::move(other.m_fogEnabledStatus)), m_loadedInfo(std::move(other.m_loadedInfo)),
+      m_controllerFilePath(std::move(other.m_controllerFilePath)),
       m_worldHeightAtCenterTerrain(std::move(other.m_worldHeightAtCenterTerrain)),
       m_stepCounter(std::move(other.m_stepCounter)), m_fogTypeTracker(std::move(other.m_fogTypeTracker)),
       m_onTriggerUpdate(*this), m_onListenForDone(*this), m_cmd(other.m_cmd), m_doneFlag(other.m_doneFlag)
@@ -51,6 +54,7 @@ SimulationControllerService &SimulationControllerService::operator=(SimulationCo
         m_fogEnabledStatus = std::move(other.m_fogEnabledStatus);
         m_loadedInfo = std::move(other.m_loadedInfo);
         m_worldHeightAtCenterTerrain = std::move(other.m_worldHeightAtCenterTerrain);
+        m_controllerFilePath = std::move(other.m_controllerFilePath);
         m_stepCounter = std::move(other.m_stepCounter);
         m_fogTypeTracker = std::move(other.m_fogTypeTracker);
         m_cmd = other.m_cmd;
@@ -116,10 +120,9 @@ void SimulationControllerService::shutdown()
 void SimulationControllerService::init()
 {
     assert(m_cmd && "Command bus should have been registered during setInitParams");
-    const auto filePath = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) /
-                          "SimulationController.json";
 
     initListeners(*m_cmd);
+    const auto filePath = std::filesystem::path(m_controllerFilePath); 
 
     if (std::filesystem::exists(filePath))
     {
@@ -127,11 +130,7 @@ void SimulationControllerService::init()
     }
     else
     {
-        std::promise<service::simulation_controller::SimulationData> promise;
-        m_loadedInfo = promise.get_future();
-        promise.set_value({});
-
-        WriteDefaultControllerInfo(*m_cmd, filePath.string());
+        STAR_THROW("Provided controller file path does not exists: " + filePath.string()); 
     }
 
     m_stepCounter = 1000000;
@@ -285,7 +284,7 @@ Fog::Type SimulationControllerService::selectNextFogType() const
     auto selected = Fog::Type::sCount;
     const size_t count = static_cast<size_t>(Fog::Type::sCountOfNonDebugTypes);
 
-    for (size_t i = static_cast<size_t>(m_fogTypeTracker)+1; i < count; i++)
+    for (size_t i = static_cast<size_t>(m_fogTypeTracker) + 1; i < count; i++)
     {
         if (m_fogEnabledStatus.isEnabled(static_cast<Fog::Type>(i)))
         {

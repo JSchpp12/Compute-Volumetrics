@@ -30,12 +30,9 @@ int runWindow(std::string &&terrainPath, std::string &&simControllerPath)
 int runHeadless(std::string &&terrainPath, std::string &&simControllerPath)
 {
     HeadlessMode headlessInstance{};
-    return headlessInstance.run(std::move(terrainPath));
+    return headlessInstance.run(std::move(terrainPath), std::move(simControllerPath));
 }
-
 #endif
-
-static 
 
 int main(int argc, char **argv)
 {
