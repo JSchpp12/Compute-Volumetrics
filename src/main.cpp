@@ -11,12 +11,12 @@
 #ifdef STAR_ENABLE_PRESENTATION
 #include "InteractiveMode.hpp"
 
-int runWindow(std::string &&terrainPath, std::string &&simControllerPath)
+static int runWindow(std::string terrainPath, std::string simControllerPath)
 {
     try
     {
         InteractiveMode interactiveInstance{};
-        return interactiveInstance.run(std::move(terrainPath));
+        return interactiveInstance.run(std::move(terrainPath), std::move(simControllerPath));
     }
     catch (...)
     {
@@ -27,7 +27,7 @@ int runWindow(std::string &&terrainPath, std::string &&simControllerPath)
 
 #else
 #include "HeadlessMode.hpp"
-int runHeadless(std::string &&terrainPath, std::string &&simControllerPath)
+static int runHeadless(std::string &&terrainPath, std::string &&simControllerPath)
 {
     HeadlessMode headlessInstance{};
     return headlessInstance.run(std::move(terrainPath), std::move(simControllerPath));

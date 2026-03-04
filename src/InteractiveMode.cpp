@@ -10,13 +10,13 @@
 #include <star_windowing/policy/EngineMainLoopPolicy.hpp>
 #include <starlight/StarEngine.hpp>
 
-int InteractiveMode::run(std::string &&terrainDir)
+int InteractiveMode::run(std::string terrainDir, std::string controllerFilePath)
 {
     using win_exit = star::windowing::EngineExitPolicy;
     using win_loop = star::windowing::EngineMainLoopPolicy;
 
     star::windowing::WindowingContext winContext;
-    policy::WindowEngineInitPolicy windowInit{winContext};
+    policy::WindowEngineInitPolicy windowInit{std::move(controllerFilePath), winContext};
     win_loop windowLoop{winContext};
     win_exit windowExit{winContext};
 
