@@ -12,3 +12,5 @@ build_vs/*
 CMakeUserPresets.json
 CMakePresets.json
 media/terrains/*
+terrains/*
+outTerrains/*

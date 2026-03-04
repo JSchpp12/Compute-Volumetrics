@@ -153,11 +153,8 @@ void SimulationControllerService::incrementExp(Volume &volume, float t) const
 
 void SimulationControllerService::incrementLinear(Volume &volume, float t) const
 {
-    auto val = t * m_loadedSteps.fogInfoChanges.linearInfo.farDist;
-    star::core::logging::info(std::to_string(val)); 
-
     volume.getRenderer().getFogInfo().linearInfo.farDist =
-        m_loadedSteps.start.linearInfo.farDist + val;
+        m_loadedSteps.start.linearInfo.farDist + t * m_loadedSteps.fogInfoChanges.linearInfo.farDist;
     volume.getRenderer().getFogInfo().linearInfo.nearDist =
         m_loadedSteps.start.linearInfo.nearDist + t * m_loadedSteps.fogInfoChanges.linearInfo.nearDist;
 }
@@ -238,21 +235,18 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
         if (camDone)
         {
             m_fogTypeTracker = selectNextFogType();
+            m_loadedController.reset(camera);
 
             if (m_fogTypeTracker != Fog::Type::sCount)
             {
                 //  set next fog type -- circle done
                 volume.getRenderer().setFogType(m_fogTypeTracker); 
-                m_loadedController.reset(camera);
                 m_stepCounter = 0;
-
-                star::core::logging::info("Setting new fog type");
             }
         }
         else
         {
             m_loadedController.tick(camera);
-            star::core::logging::info("Setting new camera pos");
             m_stepCounter = 0;
         }
     }
@@ -262,7 +256,6 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
     }
 
     float t = (m_stepCounter > 0) ? float(m_stepCounter) / float(m_loadedSteps.numSteps - 1) : 0.0f;
-    star::core::logging::info(std::to_string(t));
 
     switch (static_cast<Fog::Type>(m_fogTypeTracker))
     {

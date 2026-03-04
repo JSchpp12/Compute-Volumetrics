@@ -40,8 +40,13 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 
     if (m_triggerScreenshot)
     {
-        TriggerSimUpdate(context.getAllDevices().getData()[0].getCmdBus(), *m_volume, *m_camera);
-        triggerScreenshot(context.getAllDevices().getData()[0]);
+        auto &d = context.getAllDevices().getData()[0];
+        TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_camera);
+        triggerScreenshot(d);
+        if (Application::CheckIfControllerIsDone(d.getCmdBus()))
+        {
+            m_flipScreenshotState = true; 
+        }
     }
 }
 

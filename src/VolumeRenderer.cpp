@@ -443,7 +443,7 @@ std::vector<std::shared_ptr<star::StarTextures::Texture>> VolumeRenderer::create
                                .setTiling(vk::ImageTiling::eOptimal)
                                .setInitialLayout(vk::ImageLayout::eUndefined)
                                .setSamples(vk::SampleCountFlagBits::e1)
-                               .setSharingMode(vk::SharingMode::eExclusive),
+                               .setSharingMode(vk::SharingMode::eConcurrent),
                            "VolumeRendererImages")
             .setBaseFormat(vk::Format::eR8G8B8A8Unorm)
             .addViewInfo(vk::ImageViewCreateInfo()

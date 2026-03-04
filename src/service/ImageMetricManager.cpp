@@ -126,13 +126,16 @@ void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string
     m_storage.getRayDistanceBuffers(hostResource, &rayDistance, &rayAtCutoff);
     m_copier.trigger(*m_cb, *m_cmdBus, *rayAtCutoff, *rayDistance, volume.getRenderer().getRayAtCutoffBufferAt(fi),
                      volume.getRenderer().getRayDistanceBufferAt(fi), semaphoreRecord, signalValue);
-                     
+
+    star::core::logging::info("Submitting write task for file: " +
+                              std::filesystem::path(imageCaptureFileName).replace_extension(".json").string());
     {
         auto writePayload = star::job::tasks::io::CreateWriteTask(star::job::tasks::io::WritePayload{
             imageCaptureFileName,
             service::image_metric_manager::FileWriteFunction{
-                volume.getRenderer().getFogInfo(), camera.getPosition(), hostResource, m_device->getVulkanDevice(),
-                semaphoreRecord->semaphore, signalValue, volume.getRenderer().getFogType(), &m_storage}});
+                volume.getRenderer().getFogInfo(), camera.getPosition(), camera.getForwardVector(), hostResource,
+                m_device->getVulkanDevice(), semaphoreRecord->semaphore, signalValue, volume.getRenderer().getFogType(),
+                &m_storage}});
         star::command::file_io::WriteToFile writeCmd{std::move(writePayload)};
         m_cmdBus->submit(writeCmd);
     }
