@@ -20,7 +20,7 @@ static FunctionalEngineInitPolicy CreateInit(std::shared_ptr<bool> doneFlag)
     return FunctionalEngineInitPolicy(fun);
 }
 
-int HeadlessMode::run(std::string &&terrainPath)
+int HeadlessMode::run(std::string &&terrainPath, std::string &&controllerPath)
 {
     using loop = star::policy::DefaultEngineLoopPolicy;
 

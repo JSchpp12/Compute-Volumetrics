@@ -11,7 +11,7 @@
 #ifdef STAR_ENABLE_PRESENTATION
 #include "InteractiveMode.hpp"
 
-int runWindow(std::string &&terrainPath)
+int runWindow(std::string &&terrainPath, std::string &&simControllerPath)
 {
     try
     {
@@ -27,7 +27,7 @@ int runWindow(std::string &&terrainPath)
 
 #else
 #include "HeadlessMode.hpp"
-int runHeadless(std::string &&terrainPath)
+int runHeadless(std::string &&terrainPath, std::string &&simControllerPath)
 {
     HeadlessMode headlessInstance{};
     return headlessInstance.run(std::move(terrainPath));
@@ -35,15 +35,10 @@ int runHeadless(std::string &&terrainPath)
 
 #endif
 
+static 
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-    auto terrainPath = util::CmdLine::TryGetArgValue(argc, argv, "--terrain");
-    if (!terrainPath.has_value())
-    {
-        std::cerr << "Controller path must be provided with arg '--controller'" << std::endl; 
-        std::exit(EXIT_FAILURE); 
-    }
     try
     {
         star::ConfigFile::load("./StarEngine.cfg");
@@ -57,8 +52,8 @@ int main(int argc, char** argv)
     openvdb::initialize();
 
 #ifdef STAR_ENABLE_PRESENTATION
-    return runWindow(std::move(terrainPath.value()));
+    return runWindow(util::CmdLine::GetTerrainPath(argc, argv), util::CmdLine::GetSimControllerFilePath(argc, argv));
 #else
-    return runHeadless(std::move(terrainPath.value()));
+    return runHeadless(util::CmdLine::GetTerrainPath(argc, argv), util::CmdLine::GetSimControllerFilePath(argc, argv));
 #endif
 }
