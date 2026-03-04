@@ -122,7 +122,7 @@ void SimulationControllerService::init()
     assert(m_cmd && "Command bus should have been registered during setInitParams");
 
     initListeners(*m_cmd);
-    const auto filePath = std::filesystem::path(m_controllerFilePath); 
+    const auto filePath = std::filesystem::path(m_controllerFilePath);
 
     if (std::filesystem::exists(filePath))
     {
@@ -130,7 +130,7 @@ void SimulationControllerService::init()
     }
     else
     {
-        STAR_THROW("Provided controller file path does not exists: " + filePath.string()); 
+        STAR_THROW("Provided controller file path does not exists: " + filePath.string());
     }
 
     m_stepCounter = 1000000;
@@ -138,7 +138,6 @@ void SimulationControllerService::init()
 
 void SimulationControllerService::switchFogType(Fog::Type newType, Volume &volume, star::StarCamera &camera)
 {
-    volume.getRenderer().setFogInfo(m_loadedSteps.start);
     volume.getRenderer().setFogType(newType);
 }
 
@@ -147,48 +146,46 @@ void SimulationControllerService::onCheckIfDone(sim_controller::CheckIfDone &cmd
     cmd.getReply().set(isDone());
 }
 
-void SimulationControllerService::incrementExp(Volume &volume) const
+void SimulationControllerService::incrementExp(Volume &volume, float t) const
 {
-    volume.getRenderer().getFogInfo().expFogInfo.density += m_loadedSteps.fogInfoChanges.expFogInfo.density;
+    volume.getRenderer().getFogInfo().expFogInfo.density =
+        m_loadedSteps.start.expFogInfo.density + t * m_loadedSteps.fogInfoChanges.expFogInfo.density;
 }
 
-void SimulationControllerService::incrementLinear(Volume &volume) const
+void SimulationControllerService::incrementLinear(Volume &volume, float t) const
 {
-    volume.getRenderer().getFogInfo().linearInfo.farDist += m_loadedSteps.fogInfoChanges.linearInfo.farDist;
-    volume.getRenderer().getFogInfo().linearInfo.nearDist += m_loadedSteps.fogInfoChanges.linearInfo.nearDist;
+    volume.getRenderer().getFogInfo().linearInfo.farDist =
+        m_loadedSteps.start.linearInfo.farDist + t * m_loadedSteps.fogInfoChanges.linearInfo.farDist;
+    volume.getRenderer().getFogInfo().linearInfo.nearDist =
+        m_loadedSteps.start.linearInfo.nearDist + t * m_loadedSteps.fogInfoChanges.linearInfo.nearDist;
 }
 
-void SimulationControllerService::incrementMarched(Volume &volume) const
+void SimulationControllerService::incrementMarched(Volume &volume, float t) const
 {
-    volume.getRenderer().getFogInfo().homogenousInfo.maxNumSteps +=
-        m_loadedSteps.fogInfoChanges.homogenousInfo.maxNumSteps;
-    volume.getRenderer().getFogInfo().marchedInfo.defaultDensity +=
-        m_loadedSteps.fogInfoChanges.marchedInfo.defaultDensity;
-    volume.getRenderer().getFogInfo().marchedInfo.stepSizeDist += m_loadedSteps.fogInfoChanges.marchedInfo.stepSizeDist;
-    volume.getRenderer().getFogInfo().marchedInfo.stepSizeDist_light +=
-        m_loadedSteps.fogInfoChanges.marchedInfo.stepSizeDist_light;
-
-    {
-        const auto value = volume.getRenderer().getFogInfo().marchedInfo.getLightPropertyDirG();
-        const auto inc = m_loadedSteps.fogInfoChanges.marchedInfo.getLightPropertyDirG();
-        volume.getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(value + inc);
-    }
-    {
-        const auto value = volume.getRenderer().getFogInfo().marchedInfo.getSigmaAbsorption();
-        const auto inc = m_loadedSteps.fogInfoChanges.marchedInfo.getSigmaAbsorption();
-        volume.getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(value + inc);
-    }
-    {
-        const auto value = volume.getRenderer().getFogInfo().marchedInfo.getSigmaScattering();
-        const auto inc = volume.getRenderer().getFogInfo().marchedInfo.getSigmaScattering();
-        volume.getRenderer().getFogInfo().marchedInfo.setSigmaScattering(value + inc);
-    }
+    volume.getRenderer().getFogInfo().homogenousInfo.maxNumSteps =
+        m_loadedSteps.start.homogenousInfo.maxNumSteps + t * m_loadedSteps.fogInfoChanges.homogenousInfo.maxNumSteps;
+    volume.getRenderer().getFogInfo().marchedInfo.defaultDensity =
+        m_loadedSteps.start.marchedInfo.defaultDensity + t * m_loadedSteps.fogInfoChanges.marchedInfo.defaultDensity;
+    volume.getRenderer().getFogInfo().marchedInfo.stepSizeDist =
+        m_loadedSteps.start.marchedInfo.stepSizeDist + t * m_loadedSteps.fogInfoChanges.marchedInfo.stepSizeDist;
+    volume.getRenderer().getFogInfo().marchedInfo.stepSizeDist_light =
+        m_loadedSteps.start.marchedInfo.stepSizeDist_light +
+        t * m_loadedSteps.fogInfoChanges.marchedInfo.stepSizeDist_light;
+    volume.getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(
+        m_loadedSteps.start.marchedInfo.getLightPropertyDirG() +
+        t * m_loadedSteps.fogInfoChanges.marchedInfo.getLightPropertyDirG());
+    volume.getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(
+        m_loadedSteps.start.marchedInfo.getSigmaAbsorption() +
+        t * m_loadedSteps.fogInfoChanges.marchedInfo.getSigmaAbsorption());
+    volume.getRenderer().getFogInfo().marchedInfo.setSigmaScattering(
+        m_loadedSteps.start.marchedInfo.getSigmaScattering() +
+        t * m_loadedSteps.fogInfoChanges.marchedInfo.getSigmaScattering());
 }
 
 bool SimulationControllerService::isDone() const
 {
-    return m_stepCounter == m_loadedSteps.numSteps && m_loadedController.isDone() &&
-           m_fogTypeTracker == static_cast<size_t>(Fog::Type::sCount);
+    return m_stepCounter == m_loadedSteps.numSteps && m_loadedController.isDone().value() &&
+           selectNextFogType() == Fog::Type::sCount;
 }
 
 void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &camera)
@@ -203,10 +200,10 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
             m_loadedController = std::move(data.cameraController);
             m_fogEnabledStatus = std::move(data.fogStatus);
 
-            auto camPos = camera.getPosition();
+            const auto &camPos = camera.getPosition();
             // cam pos starts at ground level
-            camPos.y += static_cast<float>(data.initialCameraHeightAboveGround);
-            camera.setPosition(camPos);
+            camera.setPosition(
+                {camPos.x, camPos.y + static_cast<float>(data.initialCameraHeightAboveGround), camPos.z});
 
             if (data.initialCameraHeightAboveGround <= 0)
             {
@@ -231,51 +228,56 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
         switchFogType(static_cast<Fog::Type>(m_fogTypeTracker), volume, camera);
 
         m_loadedController.reset(camera);
-        m_stepCounter = 1;
+        m_stepCounter = 0;
         m_isPrimed = true;
-        return;
     }
 
-    if (m_stepCounter < m_loadedSteps.numSteps)
+    if (m_stepCounter == m_loadedSteps.numSteps)
     {
-        switch (static_cast<Fog::Type>(m_fogTypeTracker))
+        const bool camDone = m_loadedController.isDone().value();
+        if (camDone)
         {
-        case (Fog::Type::sMarchedHomogenous):
-            incrementMarched(volume);
-            break;
-        case (Fog::Type::sLinear):
-            incrementLinear(volume);
-            break;
-        case (Fog::Type::sExponential):
-            incrementExp(volume);
-            break;
-        default:
-            return;
+            m_fogTypeTracker = selectNextFogType();
+
+            if (m_fogTypeTracker != Fog::Type::sCount)
+            {
+                //  set next fog type -- circle done
+                switchFogType(static_cast<Fog::Type>(m_fogTypeTracker), volume, camera);
+                m_loadedController.reset(camera);
+            }
         }
-        m_stepCounter++;
-    }
-    else if (!m_loadedController.isDone().value())
-    {
-        volume.getRenderer().setFogInfo(m_loadedSteps.start);
-        m_loadedController.tick(camera);
+        else
+        {
+            m_loadedController.tick(camera);
+        }
         m_stepCounter = 1;
     }
     else
     {
-        m_fogTypeTracker = selectNextFogType();
+        m_stepCounter++;
+    }
 
-        if (m_fogTypeTracker != Fog::Type::sCount)
-        {
-            //  set next fog type -- circle done
-            switchFogType(static_cast<Fog::Type>(m_fogTypeTracker), volume, camera);
-            m_loadedController.reset(camera);
-            m_stepCounter = 1;
-        }
+    float t = float(m_stepCounter-1) / float(m_loadedSteps.numSteps - 2);
+
+    switch (static_cast<Fog::Type>(m_fogTypeTracker))
+    {
+    case (Fog::Type::sMarchedHomogenous):
+        incrementMarched(volume, t);
+        break;
+    case (Fog::Type::sLinear):
+        incrementLinear(volume, t);
+        break;
+    case (Fog::Type::sExponential):
+        incrementExp(volume, t);
+        break;
+    default:
+        return;
     }
 
     if (isDone() && m_doneFlag)
     {
         *m_doneFlag = true;
+        return;
     }
 }
 

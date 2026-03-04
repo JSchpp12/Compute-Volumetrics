@@ -72,13 +72,13 @@ void cartesian_product(const std::vector<std::size_t>& dims, Fn fn) {
     }
 }
 
-template <typename T> inline T CalcDiff(T n, const T &start, const T &stop)
+template <typename T> inline T CalcDiff(const T &start, const T &stop)
 {
     if (start == stop)
     {
         return 0;
     }
 
-    return (stop - start) / n;
+    return (stop - start);
 }
 }

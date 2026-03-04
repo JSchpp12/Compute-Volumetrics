@@ -65,9 +65,9 @@ class SimulationControllerService
 
     void switchFogType(Fog::Type newType, Volume &volume, star::StarCamera &camera);
     void submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path);
-    void incrementLinear(Volume &volume) const;
-    void incrementExp(Volume &volume) const;
-    void incrementMarched(Volume &volume) const; 
+    void incrementLinear(Volume &volume, float t) const;
+    void incrementExp(Volume &volume, float t) const;
+    void incrementMarched(Volume &volume, float t) const; 
     void updateSim(Volume &volume, star::StarCamera &camera);
     void initListeners(star::core::CommandBus &cmdBus); 
     void cleanupListeners(star::core::CommandBus &cmdBus); 

@@ -19,34 +19,30 @@ using nlohmann::json;
 
 namespace service::simulation_controller
 {
-static FogInfo::LinearFogInfo CalcSteps(int numSteps, const FogInfo::LinearFogInfo &start,
-                                        const FogInfo::LinearFogInfo &stop)
+static FogInfo::LinearFogInfo CalcSteps(const FogInfo::LinearFogInfo &start, const FogInfo::LinearFogInfo &stop)
 {
-    return {util::CalcDiff(static_cast<float>(numSteps), start.nearDist, stop.nearDist),
-            util::CalcDiff(static_cast<float>(numSteps), start.farDist, stop.farDist)};
+    return {util::CalcDiff(start.nearDist, stop.nearDist), util::CalcDiff(start.farDist, stop.farDist)};
 }
 
-static FogInfo::ExpFogInfo CalcSteps(int numSteps, const FogInfo::ExpFogInfo &start, const FogInfo::ExpFogInfo &stop)
+static FogInfo::ExpFogInfo CalcSteps(const FogInfo::ExpFogInfo &start, const FogInfo::ExpFogInfo &stop)
 {
-    return {util::CalcDiff(static_cast<float>(numSteps), start.density, stop.density)};
+    return {util::CalcDiff(start.density, stop.density)};
 }
 
-static FogInfo::MarchedFogInfo CalcSteps(int numSteps, const FogInfo::MarchedFogInfo &start,
-                                         const FogInfo::MarchedFogInfo &stop)
+static FogInfo::MarchedFogInfo CalcSteps(const FogInfo::MarchedFogInfo &start, const FogInfo::MarchedFogInfo &stop)
 {
-    return {util::CalcDiff(static_cast<float>(numSteps), start.defaultDensity, stop.defaultDensity),
-            util::CalcDiff(static_cast<float>(numSteps), start.getSigmaAbsorption(), stop.getSigmaAbsorption()),
-            util::CalcDiff(static_cast<float>(numSteps), start.getSigmaScattering(), stop.getSigmaScattering()),
-            util::CalcDiff(static_cast<float>(numSteps), start.getLightPropertyDirG(), stop.getLightPropertyDirG()),
-            util::CalcDiff(static_cast<float>(numSteps), start.stepSizeDist, stop.stepSizeDist),
-            util::CalcDiff(static_cast<float>(numSteps), start.stepSizeDist_light, stop.stepSizeDist_light)};
+    return {util::CalcDiff(start.defaultDensity, stop.defaultDensity),
+            util::CalcDiff(start.getSigmaAbsorption(), stop.getSigmaAbsorption()),
+            util::CalcDiff(start.getSigmaScattering(), stop.getSigmaScattering()),
+            util::CalcDiff(start.getLightPropertyDirG(), stop.getLightPropertyDirG()),
+            util::CalcDiff(start.stepSizeDist, stop.stepSizeDist),
+            util::CalcDiff(start.stepSizeDist_light, stop.stepSizeDist_light)};
 }
 
-static FogInfo::HomogenousRendering CalcSteps(int numSteps, const FogInfo::HomogenousRendering &start,
+static FogInfo::HomogenousRendering CalcSteps(const FogInfo::HomogenousRendering &start,
                                               const FogInfo::HomogenousRendering &stop)
 {
-    return FogInfo::HomogenousRendering(
-        util::CalcDiff(static_cast<uint32_t>(numSteps), start.maxNumSteps, stop.maxNumSteps));
+    return FogInfo::HomogenousRendering(util::CalcDiff(start.maxNumSteps, stop.maxNumSteps));
 }
 
 SimulationSteps CalculateSimSteps(const SimulationBounds &bounds)
@@ -55,11 +51,10 @@ SimulationSteps CalculateSimSteps(const SimulationBounds &bounds)
 
     steps.numSteps = bounds.numSteps;
     steps.start = bounds.start;
-    steps.fogInfoChanges.linearInfo = CalcSteps(bounds.numSteps, bounds.start.linearInfo, bounds.stop.linearInfo);
-    steps.fogInfoChanges.expFogInfo = CalcSteps(bounds.numSteps, bounds.start.expFogInfo, bounds.stop.expFogInfo);
-    steps.fogInfoChanges.marchedInfo = CalcSteps(bounds.numSteps, bounds.start.marchedInfo, bounds.stop.marchedInfo);
-    steps.fogInfoChanges.homogenousInfo =
-        CalcSteps(bounds.numSteps, bounds.start.homogenousInfo, bounds.stop.homogenousInfo);
+    steps.fogInfoChanges.linearInfo = CalcSteps(bounds.start.linearInfo, bounds.stop.linearInfo);
+    steps.fogInfoChanges.expFogInfo = CalcSteps(bounds.start.expFogInfo, bounds.stop.expFogInfo);
+    steps.fogInfoChanges.marchedInfo = CalcSteps(bounds.start.marchedInfo, bounds.stop.marchedInfo);
+    steps.fogInfoChanges.homogenousInfo = CalcSteps(bounds.start.homogenousInfo, bounds.stop.homogenousInfo);
 
     return steps;
 }
