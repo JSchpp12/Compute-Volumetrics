@@ -183,7 +183,7 @@ void Application::frameUpdate(star::core::SystemContext &context)
     auto cmd = star::headless_render_result_write::GetFileNameForFrame();
     d.begin().set(cmd).submit();
 
-    if (!CheckIfControllerIsDone(d.getCmdBus()))
+    if (d.getFrameTracker().getCurrent().getGlobalFrameCounter() > 1 && !CheckIfControllerIsDone(d.getCmdBus()))
     {
         TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
         triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());

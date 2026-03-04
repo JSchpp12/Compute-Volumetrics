@@ -138,7 +138,6 @@ void SimulationControllerService::init()
 
 void SimulationControllerService::switchFogType(Fog::Type newType, Volume &volume, star::StarCamera &camera)
 {
-    volume.getRenderer().setFogType(newType);
 }
 
 void SimulationControllerService::onCheckIfDone(sim_controller::CheckIfDone &cmd) const
@@ -154,8 +153,11 @@ void SimulationControllerService::incrementExp(Volume &volume, float t) const
 
 void SimulationControllerService::incrementLinear(Volume &volume, float t) const
 {
+    auto val = t * m_loadedSteps.fogInfoChanges.linearInfo.farDist;
+    star::core::logging::info(std::to_string(val)); 
+
     volume.getRenderer().getFogInfo().linearInfo.farDist =
-        m_loadedSteps.start.linearInfo.farDist + t * m_loadedSteps.fogInfoChanges.linearInfo.farDist;
+        m_loadedSteps.start.linearInfo.farDist + val;
     volume.getRenderer().getFogInfo().linearInfo.nearDist =
         m_loadedSteps.start.linearInfo.nearDist + t * m_loadedSteps.fogInfoChanges.linearInfo.nearDist;
 }
@@ -184,7 +186,7 @@ void SimulationControllerService::incrementMarched(Volume &volume, float t) cons
 
 bool SimulationControllerService::isDone() const
 {
-    return m_stepCounter == m_loadedSteps.numSteps && m_loadedController.isDone().value() &&
+    return m_stepCounter == m_loadedSteps.numSteps - 1 && m_loadedController.isDone().value() &&
            selectNextFogType() == Fog::Type::sCount;
 }
 
@@ -225,14 +227,12 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
             STAR_THROW("Controller does not contain any valid fog types");
         }
 
-        switchFogType(static_cast<Fog::Type>(m_fogTypeTracker), volume, camera);
-
+        volume.getRenderer().setFogType(m_fogTypeTracker);
         m_loadedController.reset(camera);
         m_stepCounter = 0;
         m_isPrimed = true;
     }
-
-    if (m_stepCounter == m_loadedSteps.numSteps)
+    else if (m_stepCounter == m_loadedSteps.numSteps - 1)
     {
         const bool camDone = m_loadedController.isDone().value();
         if (camDone)
@@ -242,22 +242,27 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
             if (m_fogTypeTracker != Fog::Type::sCount)
             {
                 //  set next fog type -- circle done
-                switchFogType(static_cast<Fog::Type>(m_fogTypeTracker), volume, camera);
+                volume.getRenderer().setFogType(m_fogTypeTracker); 
                 m_loadedController.reset(camera);
+                m_stepCounter = 0;
+
+                star::core::logging::info("Setting new fog type");
             }
         }
         else
         {
             m_loadedController.tick(camera);
+            star::core::logging::info("Setting new camera pos");
+            m_stepCounter = 0;
         }
-        m_stepCounter = 1;
     }
     else
     {
         m_stepCounter++;
     }
 
-    float t = float(m_stepCounter-1) / float(m_loadedSteps.numSteps - 2);
+    float t = (m_stepCounter > 0) ? float(m_stepCounter) / float(m_loadedSteps.numSteps - 1) : 0.0f;
+    star::core::logging::info(std::to_string(t));
 
     switch (static_cast<Fog::Type>(m_fogTypeTracker))
     {
