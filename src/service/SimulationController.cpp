@@ -235,17 +235,23 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
         if (camDone)
         {
             m_fogTypeTracker = selectNextFogType();
+            star::core::logging::info("Resetting camera controller"); 
+
             m_loadedController.reset(camera);
 
             if (m_fogTypeTracker != Fog::Type::sCount)
             {
                 //  set next fog type -- circle done
+                star::core::logging::info("Setting next fog type"); 
+
                 volume.getRenderer().setFogType(m_fogTypeTracker); 
                 m_stepCounter = 0;
             }
         }
         else
         {
+            star::core::logging::info("Incrementing camera controller"); 
+
             m_loadedController.tick(camera);
             m_stepCounter = 0;
         }
