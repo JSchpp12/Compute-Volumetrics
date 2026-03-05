@@ -285,14 +285,12 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	add_custom_target(prepare_media ALL
 		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsDir=${STARLIGHT_APP_BUILDER_DIR}/deps --fastest
-		DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py
 		COMMENT "Running media prep"
 		VERBATIM
 	)
 else()
 	add_custom_target(prepare_media ALL
 		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsDir=${STARLIGHT_APP_BUILDER_DIR}/deps 
-		DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py
 		COMMENT "Running media prep"
 		VERBATIM
 	)
@@ -300,7 +298,6 @@ endif()
 
 add_custom_target(create_config ALL
 	COMMAND ${Python3_EXECUTABLE} -m star_app_builder create-config --outDir=${FINAL_APPLICATION_DIR}
-	DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py
 	COMMENT "Running config prep"
 	VERBATIM
 )
@@ -352,13 +349,6 @@ set(FORMAT_STAMP "${CMAKE_BINARY_DIR}/format.stamp")
 set(ALL_FILES ${${PROJECT_NAME}_HEADERS} ${${PROJECT_NAME}_SOURCES})
 # Convert to space-separated string
 string(REPLACE ";" " " FILE_LIST "${ALL_FILES}")
-
-add_custom_target(
-    COMMAND ${Python3_EXECUTABLE} ${STARLIGHT_APP_BUILDER_DIR}/scripts/SourceCodeFormatter.py ${FILE_LIST} --dir ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_BINARY_DIR}/format.stamp
-    DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/SourceCodeFormatter.py
-    COMMENT "Running clang-format"
-)
 
 add_custom_target(format_cpp_files
     DEPENDS ${FORMAT_STAMP}
@@ -420,6 +410,4 @@ find_package(GTest CONFIG REQUIRED)
 # Optional: make a toggle to build tests
 option(BUILD_UNIT_TESTS "Build unit tests" ON)
 
-
 add_subdirectory(tests)
-
