@@ -9,7 +9,7 @@ namespace policy
 class WindowEngineInitPolicy
 {
   public:
-    explicit WindowEngineInitPolicy(star::windowing::WindowingContext &winContext);
+    WindowEngineInitPolicy(std::string controllerFilePath, star::windowing::WindowingContext &winContext);
 
     star::core::RenderingInstance createRenderingInstance(std::string appName); 
 
@@ -27,6 +27,7 @@ class WindowEngineInitPolicy
 
     std::vector<star::service::Service> getAdditionalDeviceServices(); 
   private:
+    std::string m_controllerFilePath;
     star::windowing::EngineInitPolicy m_winPolicy;
 
     star::service::Service createImageMetricManagerService() const;

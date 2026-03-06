@@ -344,7 +344,7 @@ std::vector<std::pair<vk::DescriptorType, const uint32_t>> VolumeRenderer::getDe
         std::make_pair(vk::DescriptorType::eStorageImage, 1 + (3 * numFramesInFlight * 50)),
         std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + (4 * numFramesInFlight * 50)),
         std::make_pair(vk::DescriptorType::eStorageBuffer, 6 * numFramesInFlight),
-        std::make_pair(vk::DescriptorType::eCombinedImageSampler, 800 * numFramesInFlight)};
+        std::make_pair(vk::DescriptorType::eCombinedImageSampler, 805 * numFramesInFlight)};
 }
 
 void VolumeRenderer::recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer,
@@ -443,7 +443,7 @@ std::vector<std::shared_ptr<star::StarTextures::Texture>> VolumeRenderer::create
                                .setTiling(vk::ImageTiling::eOptimal)
                                .setInitialLayout(vk::ImageLayout::eUndefined)
                                .setSamples(vk::SampleCountFlagBits::e1)
-                               .setSharingMode(vk::SharingMode::eExclusive),
+                               .setSharingMode(vk::SharingMode::eConcurrent),
                            "VolumeRendererImages")
             .setBaseFormat(vk::Format::eR8G8B8A8Unorm)
             .addViewInfo(vk::ImageViewCreateInfo()

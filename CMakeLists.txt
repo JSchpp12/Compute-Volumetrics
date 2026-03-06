@@ -60,7 +60,6 @@ if (NOT HEADLESS)
 endif()
 
 set(${PROJECT_NAME}_SOURCES
-	"src/main.cpp"
 	"src/service/detail/simulation_controller/CameraController.cpp"
 	"src/service/detail/simulation_controller/SimulationData.cpp"
 	"src/service/detail/simulation_controller/SimulationSteps.cpp"
@@ -192,22 +191,19 @@ set(${PROJECT_NAME}_HEADERS
 	"include/service/detail/image_metric_manager/ImageMetrics.hpp"
 )
 
-set(${PROJECT_NAME}_INCLUDE_DIRS
-	"include"
+add_library(${PROJECT_NAME}_lib 
+    ${${PROJECT_NAME}_SOURCES}
+    ${${PROJECT_NAME}_HEADERS}
 )
-
-add_executable(${PROJECT_NAME} "${${PROJECT_NAME}_SOURCES};${${PROJECT_NAME}_HEADERS}")
-
-target_include_directories(${PROJECT_NAME}
-	PRIVATE "include"
+target_include_directories(${PROJECT_NAME}_lib 
+	PUBLIC include
 )
-
 if (WIN32)
 	cmake_policy(SET CMP0091 NEW)
 
 	if (HEADLESS)
-		target_link_libraries(${PROJECT_NAME}
-		PRIVATE 
+		target_link_libraries(${PROJECT_NAME}_lib
+		PUBLIC 
 			Starlight::starlight
 			OpenVDB::openvdb
 			GDAL::GDAL
@@ -215,8 +211,8 @@ if (WIN32)
 			zstd::libzstd
 	)
 	else()
-		target_link_libraries(${PROJECT_NAME}
-		PRIVATE
+		target_link_libraries(${PROJECT_NAME}_lib
+		PUBLIC
 			Starlight::windowing
 			OpenVDB::openvdb
 			GDAL::GDAL
@@ -228,8 +224,8 @@ if (WIN32)
 else()
 	# add_link_options("-latomic")
 	if (HEADLESS)
-		target_link_libraries(${PROJECT_NAME}
-			PRIVATE 
+		target_link_libraries(${PROJECT_NAME}_lib
+			PUBLIC 
 				Starlight::starlight
 				OpenVDB::openvdb
 				GDAL::GDAL
@@ -238,8 +234,8 @@ else()
 				atomic
 		)
 	else()
-		target_link_libraries(${PROJECT_NAME}
-			PRIVATE 
+		target_link_libraries(${PROJECT_NAME}_lib
+			PUBLIC 
 				starlight_windowing
 				OpenVDB::openvdb
 				GDAL::GDAL
@@ -250,45 +246,51 @@ else()
 	endif()
 endif()
 
-if (NOT ${HEADLESS})
-    target_compile_definitions(${PROJECT_NAME} PRIVATE STAR_ENABLE_PRESENTATION "NANOVDB_USE_OPENVDB" "GLM_FORCE_DEPTH_ZERO_TO_ONE")
-	message("STAR - Enabling Presentation")
-else()
-	target_compile_definitions(${PROJECT_NAME} PRIVATE "NANOVDB_USE_OPENVDB" "GLM_FORCE_DEPTH_ZERO_TO_ONE")
-	message("STAR - Disable Presentation")
-endif()
-
-if (NOT ${HEADLESS})
-    target_compile_definitions(${PROJECT_NAME} PRIVATE STAR_ENABLE_PRESENTATION)
-endif()
-
-set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/StarlightAppBuilder/")
-set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
-
 set(FINAL_APPLICATION_DIR "")
-
 if (MSVC)
     set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
-	target_compile_options(${PROJECT_NAME} PRIVATE 
+	target_compile_options(${PROJECT_NAME}_lib PUBLIC 
 		$<$<CXX_COMPILER_ID:MSVC>:/bigobj /MP /EHsc /Zc:__cplusplus> 
 	)
 else()
 	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 endif()
 
+if (NOT ${HEADLESS})
+    target_compile_definitions(${PROJECT_NAME}_lib PUBLIC STAR_ENABLE_PRESENTATION "NANOVDB_USE_OPENVDB" "GLM_FORCE_DEPTH_ZERO_TO_ONE")
+	message("STAR - Enabling Presentation")
+else()
+	target_compile_definitions(${PROJECT_NAME}_lib PUBLIC "NANOVDB_USE_OPENVDB" "GLM_FORCE_DEPTH_ZERO_TO_ONE")
+	message("STAR - Disable Presentation")
+endif()
+
+if (NOT ${HEADLESS})
+    target_compile_definitions(${PROJECT_NAME}_lib PUBLIC STAR_ENABLE_PRESENTATION)
+endif()
+
+add_executable(${PROJECT_NAME} "src/main.cpp")
+
+target_include_directories(${PROJECT_NAME}
+	PRIVATE "include"
+)
+target_link_libraries(${PROJECT_NAME}
+	PRIVATE ${PROJECT_NAME}_lib
+)
+
+set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/StarlightAppBuilder/")
+set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
+
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	add_custom_target(prepare_media ALL
 		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsDir=${STARLIGHT_APP_BUILDER_DIR}/deps --fastest
-		DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py
 		COMMENT "Running media prep"
 		VERBATIM
 	)
 else()
 	add_custom_target(prepare_media ALL
 		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsDir=${STARLIGHT_APP_BUILDER_DIR}/deps 
-		DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py
 		COMMENT "Running media prep"
 		VERBATIM
 	)
@@ -296,7 +298,6 @@ endif()
 
 add_custom_target(create_config ALL
 	COMMAND ${Python3_EXECUTABLE} -m star_app_builder create-config --outDir=${FINAL_APPLICATION_DIR}
-	DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/PrepareMedia.py
 	COMMENT "Running config prep"
 	VERBATIM
 )
@@ -349,13 +350,6 @@ set(ALL_FILES ${${PROJECT_NAME}_HEADERS} ${${PROJECT_NAME}_SOURCES})
 # Convert to space-separated string
 string(REPLACE ";" " " FILE_LIST "${ALL_FILES}")
 
-add_custom_target(
-    COMMAND ${Python3_EXECUTABLE} ${STARLIGHT_APP_BUILDER_DIR}/scripts/SourceCodeFormatter.py ${FILE_LIST} --dir ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_BINARY_DIR}/format.stamp
-    DEPENDS ${ALL_FILES} ${STARLIGHT_APP_BUILDER_DIR}/scripts/SourceCodeFormatter.py
-    COMMENT "Running clang-format"
-)
-
 add_custom_target(format_cpp_files
     DEPENDS ${FORMAT_STAMP}
 )
@@ -405,3 +399,15 @@ install(
 set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
 set(CPACK_PACKAGE_VERSION "1.0.0")
 include(CPack)
+
+include(CTest)
+enable_testing()
+
+# If you're using vcpkg toolchain, the CONFIG package is available.
+# (This won't interfere if you vendor gtest elsewhere; only one approach should be used.)
+find_package(GTest CONFIG REQUIRED)
+
+# Optional: make a toggle to build tests
+option(BUILD_UNIT_TESTS "Build unit tests" ON)
+
+add_subdirectory(tests)

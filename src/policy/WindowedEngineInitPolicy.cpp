@@ -6,12 +6,15 @@
 
 namespace policy
 {
-static star::service::Service CreateCameraControllerService()
+static star::service::Service CreateCameraControllerService(std::string controllerFilePath)
 {
-    return star::service::Service{SimulationControllerService{}};
+    return star::service::Service{SimulationControllerService(std::move(controllerFilePath))};
 }
 
-WindowEngineInitPolicy::WindowEngineInitPolicy(star::windowing::WindowingContext &winContext) : m_winPolicy(winContext)
+WindowEngineInitPolicy::WindowEngineInitPolicy(std::string controllerFilePath,
+                                               star::windowing::WindowingContext &winContext)
+    : m_controllerFilePath(std::move(controllerFilePath)),
+    m_winPolicy(winContext)
 {
 }
 
@@ -52,7 +55,7 @@ std::vector<star::service::Service> WindowEngineInitPolicy::getAdditionalDeviceS
 {
     auto services = m_winPolicy.getAdditionalDeviceServices();
     services.emplace_back(createImageMetricManagerService());
-    services.emplace_back(CreateCameraControllerService());
+    services.emplace_back(CreateCameraControllerService(std::move(m_controllerFilePath)));
     return services;
 }
 

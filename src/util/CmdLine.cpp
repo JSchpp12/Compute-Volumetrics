@@ -1,5 +1,7 @@
 #include "util/CmdLine.hpp"
 
+#include <optional>
+
 namespace util::CmdLine
 {
 std::optional<std::string> TryGetArgValue(int argc, char **argv, const std::string &arg) noexcept
@@ -18,5 +20,29 @@ std::optional<std::string> TryGetArgValue(int argc, char **argv, const std::stri
     }
 
     return parsed;
+}
+
+std::string GetTerrainPath(int argc, char **argv)
+{
+    auto terrainPath = util::CmdLine::TryGetArgValue(argc, argv, "--terrain");
+    if (!terrainPath.has_value())
+    {
+        std::cerr << "Terrain dir must be provided with arg '--terrain'" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    return terrainPath.value();
+}
+
+std::string GetSimControllerFilePath(int argc, char **argv)
+{
+    auto controllerPath = util::CmdLine::TryGetArgValue(argc, argv, "--controller");
+    if (!controllerPath.has_value())
+    {
+        std::cerr << "Simulation controller path file must be provided with arg '--controller'" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    return controllerPath.value();
 }
 } // namespace util::CmdLine

@@ -19,7 +19,7 @@ class FileWriteFunction
 {
   public:
     FileWriteFunction() = default;
-    FileWriteFunction(FogInfo controlInfo, glm::vec3 camPosition, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
+    FileWriteFunction(FogInfo controlInfo, glm::vec3 camPosition, glm::vec3 cameraLookDir, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
                       uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage);
 
     void write(const std::string &path) const;
@@ -31,6 +31,7 @@ class FileWriteFunction
     {
         FogInfo controlInfo;
         glm::vec3 camPosition;
+        glm::vec3 camLookDir;
         star::Handle hostVisibleRayDistanceBuffer;
         vk::Device vkDevice = VK_NULL_HANDLE;
         vk::Semaphore copyDone;

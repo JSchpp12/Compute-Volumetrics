@@ -25,8 +25,8 @@ using ListenForCheckIfDone =
 class SimulationControllerService
 {
   public:
-    SimulationControllerService(); 
-    explicit SimulationControllerService(std::shared_ptr<bool> doneFlag); 
+    explicit SimulationControllerService(std::string controllerFilePath); 
+    explicit SimulationControllerService(std::string controllerFilePath, std::shared_ptr<bool> doneFlag); 
     SimulationControllerService(const SimulationControllerService &) = delete;
     SimulationControllerService &operator=(const SimulationControllerService &) = delete;
     SimulationControllerService(SimulationControllerService &&); 
@@ -53,6 +53,7 @@ class SimulationControllerService
     service::simulation_controller::CameraController m_loadedController;
     service::simulation_controller::FogEnabler m_fogEnabledStatus; 
     std::future<service::simulation_controller::SimulationData> m_loadedInfo;
+    std::string m_controllerFilePath; 
     double m_worldHeightAtCenterTerrain; 
     int m_stepCounter = 0;
     Fog::Type m_fogTypeTracker = Fog::Type::sNone; 
@@ -64,9 +65,9 @@ class SimulationControllerService
 
     void switchFogType(Fog::Type newType, Volume &volume, star::StarCamera &camera);
     void submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path);
-    void incrementLinear(Volume &volume) const;
-    void incrementExp(Volume &volume) const;
-    void incrementMarched(Volume &volume) const; 
+    void incrementLinear(Volume &volume, float t) const;
+    void incrementExp(Volume &volume, float t) const;
+    void incrementMarched(Volume &volume, float t) const; 
     void updateSim(Volume &volume, star::StarCamera &camera);
     void initListeners(star::core::CommandBus &cmdBus); 
     void cleanupListeners(star::core::CommandBus &cmdBus); 

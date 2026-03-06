@@ -19,10 +19,11 @@ static double Mean(std::span<const float> &span)
     return sum / static_cast<double>(span.size());
 }
 
-FileWriteFunction::FileWriteFunction(FogInfo controlInfo, glm::vec3 camPosition, star::Handle buffer,
-                                     vk::Device vkDevice, vk::Semaphore done, uint64_t copyToHostBufferDoneValue,
-                                     Fog::Type type, HostVisibleStorage *storage)
-    : m_data(std::make_unique<ImageWriteData>(controlInfo, camPosition, buffer, vkDevice, done, copyToHostBufferDoneValue, type, storage))
+FileWriteFunction::FileWriteFunction(FogInfo controlInfo, glm::vec3 camPosition, glm::vec3 camLookDir,
+                                     star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
+                                     uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage)
+    : m_data(std::make_unique<ImageWriteData>(controlInfo, camPosition, camLookDir, buffer, vkDevice, done,
+                                              copyToHostBufferDoneValue, type, storage))
 {
 }
 
@@ -42,8 +43,9 @@ void FileWriteFunction::write(const std::string &path) const
     m_data->storage->returnBuffer(m_data->hostVisibleRayDistanceBuffer);
 
     std::ofstream out(finalPath.string(), std::ofstream::binary);
-    const auto data =
-        ImageMetrics(m_data->controlInfo, m_data->camPosition, sourcePath.filename().string(), mean, m_data->type).toJsonDump();
+    const auto data = ImageMetrics(m_data->controlInfo, m_data->camPosition, m_data->camLookDir,
+                                   sourcePath.filename().string(), mean, m_data->type)
+                          .toJsonDump();
     out << data;
 
     star::core::logging::info("Done");
@@ -54,7 +56,8 @@ void FileWriteFunction::waitForCopyToDstBufferDone() const
     assert(m_data->vkDevice != VK_NULL_HANDLE);
 
     vk::Result waitResult = m_data->vkDevice.waitSemaphores(
-        vk::SemaphoreWaitInfo().setValues(m_data->copyToHostBufferDoneValue).setSemaphores(m_data->copyDone), UINT64_MAX);
+        vk::SemaphoreWaitInfo().setValues(m_data->copyToHostBufferDoneValue).setSemaphores(m_data->copyDone),
+        UINT64_MAX);
 
     if (waitResult != vk::Result::eSuccess)
     {
@@ -168,4 +171,4 @@ int FileWriteFunction::operator()(const std::string &filePath)
     return 0;
 }
 
-} // namespace image_metric_manager
+} // namespace service::image_metric_manager

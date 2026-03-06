@@ -9,18 +9,18 @@
 #include <starlight/StarEngine.hpp>
 #include <starlight/policy/DefaultEngineLoopPolicy.hpp>
 
-static FunctionalEngineInitPolicy CreateInit(std::shared_ptr<bool> doneFlag)
+static FunctionalEngineInitPolicy CreateInit(std::shared_ptr<bool> doneFlag, std::string controllerFilePath)
 {
-    auto fun = [doneFlag](void) -> std::vector<star::service::Service> {
+    auto fun = [doneFlag, controllerFilePath](void) -> std::vector<star::service::Service> {
         auto serv = std::vector<star::service::Service>(1);
-        serv[0] = star::service::Service{SimulationControllerService(doneFlag)};
+        serv[0] = star::service::Service{SimulationControllerService(std::move(controllerFilePath), doneFlag)};
 
         return serv;
     };
     return FunctionalEngineInitPolicy(fun);
 }
 
-int HeadlessMode::run(std::string &&terrainPath)
+int HeadlessMode::run(std::string terrainPath, std::string controllerPath)
 {
     using loop = star::policy::DefaultEngineLoopPolicy;
 
@@ -29,8 +29,9 @@ int HeadlessMode::run(std::string &&terrainPath)
 
     Application application(std::move(terrainPath));
 
-    auto engine = star::StarEngine<FunctionalEngineInitPolicy, loop, exit>(CreateInit(controllerSequenceDone), loop{},
-                                                                           exit{controllerSequenceDone}, application);
+    auto engine = star::StarEngine<FunctionalEngineInitPolicy, loop, exit>(
+        CreateInit(controllerSequenceDone, std::move(controllerPath)), loop{}, exit{controllerSequenceDone},
+        application);
     engine.run();
 
     return 0;
