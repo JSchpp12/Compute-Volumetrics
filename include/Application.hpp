@@ -56,4 +56,8 @@ class Application : public star::StarApplication
                                                      std::shared_ptr<star::StarCamera> camera,
                                                      const std::string &terrainPath,
                                                      std::shared_ptr<std::vector<star::Light>> mainLight);
+
+    static star::Light CreateMainLight(glm::vec3 position); 
+
+    static void SetVolumeToCamera(Volume &volume, star::StarCamera &camera); 
 };

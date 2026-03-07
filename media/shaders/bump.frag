@@ -29,20 +29,22 @@ struct Light_Type{
 	uint spot;
 };
 
-struct Light{
-	vec4 position;
-	vec4 direction;
+struct Light
+{
+    vec4 position;
+    vec4 direction;
 
-	//properties
-	vec4 ambient; 
-	vec4 diffuse;
-	vec4 specular; 
-	//controls.x = inner cutoff angle 
-	//controls.y = outer cutoff angle
-	vec4 controls; 
-	//settings.x = enabled
-	//settings.y = type
-	uvec4 settings; 
+    // properties
+    vec4 ambient;
+    vec4 diffuse;
+    vec4 specular;
+    // controls.x = inner cutoff angle
+    // controls.y = outer cutoff angle
+    vec4 controls;
+    // settings.x = enabled
+    // settings.y = type
+    uvec4 settings;
+    uint luminance;
 };
 layout(binding = 0, set = 0) uniform GlobalUniformBufferObject {
 	mat4 proj;
