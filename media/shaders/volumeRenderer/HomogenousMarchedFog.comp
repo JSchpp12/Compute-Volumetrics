@@ -10,7 +10,6 @@ struct Light_Type
     uint directional;
     uint spot;
 };
-
 struct Light
 {
     vec4 position;
@@ -26,6 +25,7 @@ struct Light
     // settings.x = enabled
     // settings.y = type
     uvec4 settings;
+    uint luminance;
 };
 
 Light_Type createLightTypeStruct()
@@ -159,7 +159,6 @@ void forwardMarch(const vec3 backgroundColor, const ivec2 targetPixel, const Ray
                   const float defaultDensity, inout vec3 resultingColor, 
                   inout float rayDistanceTraveled)
 { 
-    const float lightStengthMulti = 13.0;
     rayDistanceTraveled = 0.0; 
 
     Light_Type lChecker = createLightTypeStruct(); 
@@ -208,8 +207,9 @@ void forwardMarch(const vec3 backgroundColor, const ivec2 targetPixel, const Ray
             const vec3 cDir = normalize(-ray.direction.xyz);
             const float cosTheta = dot(lDir, cDir);
             const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g); 
+            const vec3 lightColor = lightList.lights[j].ambient.rgb * lightList.lights[j].luminance; 
 
-            lightSums += (lightList.lights[j].ambient.rgb * lightStengthMulti) * lValue * phase;
+            lightSums += lightColor * lValue * phase;
         } 
 
         const float sampleAttenuation = exp(sigmaT * -defaultDensity * stepSize);

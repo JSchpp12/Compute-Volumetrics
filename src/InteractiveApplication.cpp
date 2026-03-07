@@ -356,7 +356,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
                                                                    const uint8_t &numFramesInFlight)
 {
     star::windowing::HandleKeyReleasePolicy<InteractiveApplication>::init(context.getEventBus());
-    star::windowing::HandleKeyPressPolicy<InteractiveApplication>::init(context.getEventBus()); 
+    star::windowing::HandleKeyPressPolicy<InteractiveApplication>::init(context.getEventBus());
 
     star::windowing::InteractivityBus::Init(&context.getEventBus(), m_winContext);
 
@@ -373,8 +373,8 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
     m_camera->init(context.getEventBus());
     m_camera->setForwardVector(volumePos - m_camera->getPosition());
 
-    m_mainLight = std::make_shared<std::vector<star::Light>>(
-        std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{0.0, -1.0, 0.0})});
+    m_mainLight =
+        std::make_shared<std::vector<star::Light>>(std::vector<star::Light>{Application::CreateMainLight(lightPos)});
 
     {
         auto oRenderer = star::common::Renderer(

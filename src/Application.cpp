@@ -27,9 +27,11 @@
 
 using namespace star;
 
-OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
-                                          std::shared_ptr<star::StarCamera> camera, const std::string &terrainPath,
-                                          std::shared_ptr<std::vector<star::Light>> mainLight)
+OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::DeviceContext &context,
+                                                       const uint8_t &numFramesInFlight,
+                                                       std::shared_ptr<star::StarCamera> camera,
+                                                       const std::string &terrainPath,
+                                                       std::shared_ptr<std::vector<star::Light>> mainLight)
 {
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
@@ -44,16 +46,16 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
         objects.emplace_back(cmd.getReply().get());
     }
 
-    // {
-    // auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    // auto cmd = star::command::CreateObject::Builder()
-    //                .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-    //                .setUniqueName("horse")
-    //                .build();
-    // context.begin().set(cmd).submit();
-    // cmd.getReply().get()->init(context);
-    // objects.emplace_back(cmd.getReply().get());
-    // }
+    //{
+    //    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    //    auto cmd = star::command::CreateObject::Builder()
+    //                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+    //                   .setUniqueName("horse")
+    //                   .build();
+    //    context.begin().set(cmd).submit();
+    //    cmd.getReply().get()->init(context);
+    //    objects.emplace_back(cmd.getReply().get());
+    //}
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
@@ -91,9 +93,8 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     std::shared_ptr<star::StarCamera> camera = std::make_shared<star::StarCamera>(
         context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 1.0f, 20000.0f);
 
-    m_mainLight = std::make_shared<std::vector<star::Light>>(
-        std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{-1.0, 0.0, 0.0})});
-    m_mainLight->at(0).ambient = glm::vec4{1.0, 1.0, 1.0, 1.0};
+    m_mainLight =
+        std::make_shared<std::vector<star::Light>>(std::vector<star::Light>{Application::CreateMainLight(lightPos)});
 
     uint8_t numInFlight;
     {
@@ -103,7 +104,8 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
     star::StarObjectInstance *volumeInstance = nullptr;
     {
-        auto oRenderer = star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_terrainDir, m_mainLight));
+        auto oRenderer =
+            star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_terrainDir, m_mainLight));
         auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
         for (auto &object : offscreenRenderer->getObjects())
@@ -259,4 +261,16 @@ bool Application::CheckIfControllerIsDone(star::core::CommandBus &cmd)
     sim_controller::CheckIfDone check;
     cmd.submit(check);
     return check.getReply().get();
+}
+
+void Application::SetVolumeToCamera(Volume &volume, star::StarCamera &camera)
+{
+}
+
+star::Light Application::CreateMainLight(glm::vec3 position)
+{
+    return star::Light()
+        .setPosition(std::move(position))
+        .setType(star::Type::Light::directional)
+        .setDirection({0.0f, -1.0f, 0.0f});
 }
