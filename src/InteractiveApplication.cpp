@@ -100,10 +100,10 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         auto &d = context.getAllDevices().getData()[0];
         TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_camera);
         triggerScreenshot(d);
-        if (Application::CheckIfControllerIsDone(d.getCmdBus()))
-        {
-            m_flipScreenshotState = true;
-        }
+
+        //only step once
+        m_triggerScreenshot = false; 
+        m_flipScreenshotState = false;
     }
 }
 
@@ -412,10 +412,10 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
 
         m_volume->init(context, numFramesInFlight);
 
-        auto &s_i = m_volume->createInstance();
-        s_i.setPosition(m_camera->getPosition());
-        s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
-        s_i.rotateRelative(star::Type::Axis::y, 90);
+        //auto &s_i = m_volume->createInstance();
+        //s_i.setPosition(m_camera->getPosition());
+        //s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
+        //s_i.rotateRelative(star::Type::Axis::y, 90);
 
         std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
         std::vector<star::common::Renderer> additional;

@@ -129,7 +129,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
                                                 offscreenRenderer->getLightListBuffers());
             auto cmd = star::command::CreateObject::Builder()
                            .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
-                           .setUniqueName("flat_plane_wind")
+                           .setUniqueName("flatWind")
                            .build();
 
             context.begin().set(cmd).submit();
@@ -139,8 +139,6 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         }
 
         m_volume->init(context, numFramesInFlight);
-
-        volumeInstance = &m_volume->createInstance();
 
         std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
         std::vector<star::common::Renderer> additionals;
@@ -156,9 +154,9 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
                                               std::move(camera), std::move(sc), std::move(additionals));
     }
 
-    volumeInstance->setPosition(m_mainScene->getCamera()->getPosition());
-    volumeInstance->setScale(glm::vec3{3.0f, 3.0f, 3.0f});
-    volumeInstance->rotateRelative(star::Type::Axis::y, 90);
+    //volumeInstance->setPosition(m_mainScene->getCamera()->getPosition());
+    //volumeInstance->setScale(glm::vec3{3.0f, 3.0f, 3.0f});
+    //volumeInstance->rotateRelative(star::Type::Axis::y, 90);
 
     m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0001f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 3.0f;
@@ -272,5 +270,6 @@ star::Light Application::CreateMainLight(glm::vec3 position)
     return star::Light()
         .setPosition(std::move(position))
         .setType(star::Type::Light::directional)
+        .setLuminance(13)
         .setDirection({0.0f, -1.0f, 0.0f});
 }
