@@ -265,6 +265,7 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
 
     switch (static_cast<Fog::Type>(m_fogTypeTracker))
     {
+    case (Fog::Type::sMarched):
     case (Fog::Type::sMarchedHomogenous):
         incrementMarched(volume, t);
         break;

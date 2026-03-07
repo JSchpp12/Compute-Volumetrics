@@ -22,6 +22,48 @@
 
 void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
+    if (m_actDir[star::Type::Axis::x])
+    {
+        if (m_mode == ModifyMode::movement)
+        {
+            const glm::vec3 dir{1.0f, 0.0f, 0.0f};
+            m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
+        }
+        else
+        {
+            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::x, 90);
+            m_actDir[star::Type::Axis::x] = false;
+        }
+    }
+    else if (m_actDir[star::Type::Axis::y])
+    {
+        if (m_mode == ModifyMode::movement)
+        {
+            const glm::vec3 dir{0.0f, 1.0f, 0.0f};
+            m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
+        }
+        else
+        {
+            const float amt{90.0f};
+            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, m_invAct ? -amt : amt);
+            m_actDir[star::Type::Axis::y] = false;
+        }
+    }
+    else if (m_actDir[star::Type::Axis::z])
+    {
+        if (m_mode == ModifyMode::movement)
+        {
+            const glm::vec3 dir{0.0f, 0.0f, 1.0f};
+            m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
+        }
+        else
+        {
+            const float amt{90.0f};
+            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::z, m_invAct ? -amt : amt);
+            m_actDir[star::Type::Axis::z] = false;
+        }
+    }
+
     if (m_flipScreenshotState)
     {
         m_triggerScreenshot = !m_triggerScreenshot;
@@ -38,6 +80,21 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         star::core::logging::info(oss.str());
     }
 
+    if (m_switchMode)
+    {
+        if (m_mode == ModifyMode::movement)
+        {
+            m_mode = ModifyMode::rotation;
+            star::core::logging::info("Set mode: rotation");
+        }
+        else
+        {
+            m_mode = ModifyMode::movement;
+            star::core::logging::info("Set mode: movement");
+        }
+        m_switchMode = false;
+    }
+
     if (m_triggerScreenshot)
     {
         auto &d = context.getAllDevices().getData()[0];
@@ -45,7 +102,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         triggerScreenshot(d);
         if (Application::CheckIfControllerIsDone(d.getCmdBus()))
         {
-            m_flipScreenshotState = true; 
+            m_flipScreenshotState = true;
         }
     }
 }
@@ -231,14 +288,6 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         m_volume->setFogType(Fog::Type::sMarchedHomogenous);
     }
 
-    if (key == GLFW_KEY_P)
-    {
-        auto pos = m_volume->getInstance(0).getPosition();
-        pos.x += 10;
-        pos.y += 10;
-        m_volume->getInstance(0).setPosition(pos);
-    }
-
     if (key == GLFW_KEY_V)
     {
         const auto camPos = this->m_mainScene->getCamera()->getPosition();
@@ -259,24 +308,47 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         m_volume->getInstance(0).setScale(newScale);
     }
 
-    if (key == GLFW_KEY_I)
+    if (key == GLFW_KEY_Y)
     {
-        m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90);
+        m_actDir[star::Type::Axis::x] = false;
     }
 
     if (key == GLFW_KEY_U)
     {
-        m_volume->getInstance(0).rotateGlobal(star::Type::Axis::z, 90);
+        m_actDir[star::Type::Axis::y] = false;
     }
 
+    if (key == GLFW_KEY_I)
+    {
+        m_actDir[star::Type::Axis::z] = false;
+    }
+
+    if (key == GLFW_KEY_P)
+    {
+        m_switchMode = true;
+    }
+
+    if (key == GLFW_KEY_M)
+    {
+        m_invAct = !m_invAct;
+    }
+}
+
+void InteractiveApplication::onKeyPress(const int &key, const int &scancode, const int &mods)
+{
     if (key == GLFW_KEY_Y)
     {
-        m_volume->getInstance(0).rotateGlobal(star::Type::Axis::x, 90);
+        m_actDir[star::Type::Axis::x] = true;
     }
 
-    if (key == GLFW_KEY_Q)
+    if (key == GLFW_KEY_U)
     {
-        m_mainScene->getCamera()->setForwardVector(glm::vec3{1.0, 0.0, 0.0});
+        m_actDir[star::Type::Axis::y] = true;
+    }
+
+    if (key == GLFW_KEY_I)
+    {
+        m_actDir[star::Type::Axis::z] = true;
     }
 }
 
@@ -284,6 +356,8 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
                                                                    const uint8_t &numFramesInFlight)
 {
     star::windowing::HandleKeyReleasePolicy<InteractiveApplication>::init(context.getEventBus());
+    star::windowing::HandleKeyPressPolicy<InteractiveApplication>::init(context.getEventBus()); 
+
     star::windowing::InteractivityBus::Init(&context.getEventBus(), m_winContext);
 
     m_captureTrigger = context.begin();
@@ -303,8 +377,8 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
         std::vector<star::Light>{star::Light(lightPos, star::Type::Light::directional, glm::vec3{0.0, -1.0, 0.0})});
 
     {
-        auto oRenderer =
-            star::common::Renderer(CreateOffscreenRenderer(context, numFramesInFlight, m_camera, m_terrainDir, m_mainLight));
+        auto oRenderer = star::common::Renderer(
+            CreateOffscreenRenderer(context, numFramesInFlight, m_camera, m_terrainDir, m_mainLight));
         auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
         const uint32_t &width = context.getEngineResolution().width;
