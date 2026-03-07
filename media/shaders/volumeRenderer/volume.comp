@@ -27,6 +27,15 @@ struct Light
     uvec4 settings;
     uint luminance;
 };
+Light_Type createLightTypeStruct()
+{
+	Light_Type lightChecker = {
+		0x0, 
+		0x1, 
+		0x2
+	};
+	return(lightChecker);
+}
 
 layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
 {
@@ -133,6 +142,8 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                   const float jitterAmount, const float defaultDensity, inout vec3 resultingColor, 
                   inout float rayDistanceTraveled)
 { 
+    Light_Type lChecker = createLightTypeStruct(); 
+    
     pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
     pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
     pnanovdb_readaccessor_t acc;
@@ -160,8 +171,17 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
         if (densityP > 0.0f){
             for (int j = 0; j < lightInfo.numLights; j++){
                 //might need to check if light is within volume later
-                const vec3 lightPos = (inverseModelMatrix * lightList.lights[j].position).xyz; 
-                const Ray rayToLight = createRay(pos, normalize(lightPos - pos));
+                vec3 lightPos;
+
+                const bool isPoint = ((lightList.lights[j].settings.y & lChecker.point) != 0);
+                const bool isDirectional = ((lightList.lights[j].settings.y & lChecker.directional) != 0);
+
+                if (isPoint){
+                    lightPos = (inverseModelMatrix * lightList.lights[j].position).xyz; 
+                }else{
+                    lightPos = pos + (-lightList.lights[j].direction.xyz * 16000); 
+                }
+                const Ray rayToLight = createRay(pos, normalize(lightPos - pos)); 
 
                 float lt0 = 0;
                 float lt1 = 0;  
@@ -174,12 +194,13 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                         const vec3 lPos = pos + (lt * rayToLight.direction.xyz); 
                         const float lDensity = gridReadAt(grid, acc, type, lPos); 
                         lTau += lDensity;
-                    } 
+                    }
 
                     const float lRayAttenuation = exp(-lTau * lightStepSize * sigmaT);
-                    const float cosTheta = dot(-ray.direction.xyz, rayToLight.direction.xyz);
+                    const float cosTheta = dot(rayToLight.direction.xyz, -ray.direction.xyz);
                     const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g); 
-                    resultingRadiance += lightList.lights[j].ambient.rgb * lRayAttenuation * phase * sigmaScattering * densityP * mainStepSize; 
+                    const vec3 lightColor = lightList.lights[j].ambient.rgb * lightList.lights[j].luminance;
+                    resultingRadiance += lightColor * lRayAttenuation * phase * sigmaScattering * densityP * mainStepSize; 
                 }
             } 
         }
