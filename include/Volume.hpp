@@ -122,6 +122,11 @@ class Volume : public star::StarObject
     virtual void frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
                              const star::Handle &targetCommandBuffer) override;
 
+    glm::vec3 getCenterOfVDB() const
+    {
+        const auto middle = (aabbBounds[1] + aabbBounds[0]) * 0.5f;
+        return middle; 
+    }
     void setFogType(const Fog::Type &fogType)
     {
         this->volumeRenderer->setFogType(fogType);

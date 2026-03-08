@@ -112,7 +112,7 @@ void HostVisibleStorage::createResourcePoolForResolution(const vk::Extent2D &res
 
     {
         uint16_t t = 0;
-        star::common::helper::SafeCast(m_pools.size() - 1, t);
+        star::common::casts::SafeCast(m_pools.size() - 1, t);
 
         star::Handle nh{.type = t};
 
