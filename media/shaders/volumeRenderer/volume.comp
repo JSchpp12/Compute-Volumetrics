@@ -29,12 +29,8 @@ struct Light
 };
 Light_Type createLightTypeStruct()
 {
-	Light_Type lightChecker = {
-		0x0, 
-		0x1, 
-		0x2
-	};
-	return(lightChecker);
+    Light_Type lightChecker = {0x0, 0x1, 0x2};
+    return (lightChecker);
 }
 
 layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
@@ -42,15 +38,20 @@ layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
     mat4 proj;
     mat4 view;
     mat4 invView;
-} globalUbo;
+}
+globalUbo;
 
-layout(set = 0, binding = 1) uniform GlobalLightInfo{
+layout(set = 0, binding = 1) uniform GlobalLightInfo
+{
     int numLights;
-} lightInfo; 
+}
+lightInfo;
 
-layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer{
+layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer
+{
     Light lights[];
- } lightList;
+}
+lightList;
 
 layout(set = 1, binding = 0) uniform additionalCameraInfo
 {
@@ -62,7 +63,8 @@ layout(set = 1, binding = 0) uniform additionalCameraInfo
     float scale;
 }
 addCamInfo;
-layout(std430, set = 1, binding = 1) buffer PNanoVDBBuffer{
+layout(std430, set = 1, binding = 1) buffer PNanoVDBBuffer
+{
     uint pnanovdb_buf_data[];
 };
 layout(r32f, set = 1, binding = 2) uniform readonly image2D randomTexture;
@@ -70,10 +72,12 @@ layout(r32f, set = 1, binding = 2) uniform readonly image2D randomTexture;
 layout(set = 2, binding = 0, rgba8) uniform readonly image2D inputSceneColor;
 layout(set = 2, binding = 1) uniform sampler2D inputSceneDepth;
 layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
-layout(set = 2, binding = 3) buffer RayDistanceResult{
-    float rayDistData[]; 
+layout(set = 2, binding = 3) buffer RayDistanceResult
+{
+    float rayDistData[];
 };
-layout(std430, set = 2, binding = 4) buffer IsRayAtMaxDistance{
+layout(std430, set = 2, binding = 4) buffer IsRayAtMaxDistance
+{
     uint isAtMaxDistance[];
 };
 
@@ -81,7 +85,8 @@ layout(set = 3, binding = 0) uniform InstanceModelMatrix
 {
     mat4 instanceModelMatrix[1024];
 };
-layout(set = 3, binding = 1) uniform InstanceInverseModelMatrix{
+layout(set = 3, binding = 1) uniform InstanceInverseModelMatrix
+{
     mat4 instanceInverseMatrix[1024];
 };
 layout(set = 3, binding = 2) uniform aabbInfo
@@ -131,82 +136,96 @@ bool checkForThreadOutsideOfTarget()
     return true;
 }
 
-float applyHenyeyGreensteinPhase(const float cosTheta, const float g){
-    float denom = 1.0 + g*g - 2.0*g*cosTheta;
-    return (1.0 / (4.0 * PI)) * (1.0 - g*g) / pow(denom, 1.5);
+float applyHenyeyGreensteinPhase(const float cosTheta, const float g)
+{
+    float denom = 1.0 + g * g - 2.0 * g * cosTheta;
+    return (1.0 / (4.0 * PI)) * (1.0 - g * g) / pow(denom, 1.5);
 }
 
-void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
-                  const mat4 inverseModelMatrix, const float volumeUniformScale, float sigmaAbsorption, float sigmaScattering, float lightPropertyDir_g,
-                  float mainStepSize, float lightStepSize, const float cutOffDistance, 
-                  const float jitterAmount, const float defaultDensity, inout vec3 resultingColor, 
-                  inout float rayDistanceTraveled)
-{ 
-    Light_Type lChecker = createLightTypeStruct(); 
-    
+void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, const Ray ray, const float t0,
+                  const float t1, const mat4 inverseModelMatrix, const float volumeUniformScale, float sigmaAbsorption,
+                  float sigmaScattering, float lightPropertyDir_g, float mainStepSize, float lightStepSize,
+                  const float cutOffDistance, const float jitterAmount, const float defaultDensity,
+                  inout vec3 resultingColor, inout float rayDistanceTraveled)
+{
+    Light_Type lChecker = createLightTypeStruct();
+
     pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
     pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
     pnanovdb_readaccessor_t acc;
     pnanovdb_readaccessor_init(acc, root);
-    pnanovdb_grid_type_t type = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid); 
+    pnanovdb_grid_type_t type = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid);
 
     const int fittedNumSteps = max(1, int(ceil(t1 / mainStepSize)));
     const float sigmaT = sigmaAbsorption + sigmaScattering;
-    const float jitter = jitterAmount * mainStepSize; 
-    const float lJitter = jitterAmount * lightStepSize; 
+    const float jitter = jitterAmount * mainStepSize;
+    const float lJitter = jitterAmount * lightStepSize;
 
-	float transparency = 1.0;
+    float transparency = 1.0;
     vec3 resultingRadiance = vec3(0.0);
-    for (int i = 0; i < fittedNumSteps; i++){
+    for (int i = 0; i < fittedNumSteps; i++)
+    {
         // setting to middle
         const float t = (t0 + (mainStepSize * (i + 0.5))) + jitter;
         if (t > cutOffDistance)
-            break; 
+            break;
 
-		const vec3 pos = ray.origin.xyz + (t * ray.direction.xyz); 
-        const float densityP = gridReadAt(grid, acc, type, pos);
+        const vec3 pos = ray.origin.xyz + (t * ray.direction.xyz);
+        const float densityP = gridReadAt(grid, acc, type, pos, true);
         const float pTransmission = exp(-mainStepSize * densityP * sigmaT);
         transparency *= pTransmission;
 
-        if (densityP > 0.0f){
-            for (int j = 0; j < lightInfo.numLights; j++){
-                //might need to check if light is within volume later
-                vec3 lightPos;
+        if (densityP > 0.0f)
+        {
+            for (int j = 0; j < lightInfo.numLights; j++)
+            {
+                // might need to check if light is within volume later
 
                 const bool isPoint = ((lightList.lights[j].settings.y & lChecker.point) != 0);
                 const bool isDirectional = ((lightList.lights[j].settings.y & lChecker.directional) != 0);
 
-                if (isPoint){
-                    lightPos = (inverseModelMatrix * lightList.lights[j].position).xyz; 
-                }else{
-                    lightPos = pos + (-lightList.lights[j].direction.xyz * 16000); 
+                Ray rayToLight;
+                {
+                    vec3 lightDir;
+                    if (isPoint)
+                    {
+                        const vec3 lightPos = (inverseModelMatrix * lightList.lights[j].position).xyz;
+                        lightDir = normalize(lightPos - pos);
+                    }
+                    else
+                    {
+                        lightDir = normalize(lightList.lights[j].direction.xyz);
+                    }
+                    rayToLight = createRay(pos, lightDir);
                 }
-                const Ray rayToLight = createRay(pos, normalize(lightPos - pos)); 
 
                 float lt0 = 0;
-                float lt1 = 0;  
-                if (rayBoxIntersect(grid, rayToLight, lt0, lt1)){ 
+                float lt1 = 0;
+                if (rayBoxIntersect(grid, rayToLight, lt0, lt1))
+                {
                     float lTau = 0.0;
 
                     const int fittedNumStepsLight = max(1, int(ceil(lt1 / lightStepSize)));
-                    for (int k = 0; k < fittedNumStepsLight; k++){
+                    for (int k = 0; k < fittedNumStepsLight; k++)
+                    {
                         const float lt = lt0 + (lightStepSize * (k + 0.5)) + lJitter;
-                        const vec3 lPos = pos + (lt * rayToLight.direction.xyz); 
-                        const float lDensity = gridReadAt(grid, acc, type, lPos); 
+                        const vec3 lPos = pos + (lt * rayToLight.direction.xyz);
+                        const float lDensity = gridReadAt(grid, acc, type, lPos, true);
                         lTau += lDensity;
                     }
 
                     const float lRayAttenuation = exp(-lTau * lightStepSize * sigmaT);
                     const float cosTheta = dot(rayToLight.direction.xyz, -ray.direction.xyz);
-                    const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g); 
+                    const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g);
                     const vec3 lightColor = lightList.lights[j].ambient.rgb * lightList.lights[j].luminance;
-                    resultingRadiance += lightColor * lRayAttenuation * phase * sigmaScattering * densityP * mainStepSize; 
+                    resultingRadiance +=
+                        lightColor * lRayAttenuation * phase * sigmaScattering * densityP * mainStepSize;
                 }
-            } 
+            }
         }
     }
 
-    resultingColor = backgroundColor * transparency + resultingRadiance; 
+    resultingColor = backgroundColor * transparency + resultingRadiance;
 }
 
 void writeMaxDistanceTraveled(const float d, const uint index)
@@ -219,7 +238,6 @@ void writeMaxDistanceTraveled(const float d, const uint index)
     {
         rayDistData[index] = d;
     }
-
 }
 
 void writeDistanceStencilInfo(const float d, const uint index)
@@ -236,7 +254,7 @@ void writeDistanceStencilInfo(const float d, const uint index)
 
 void writeDistanceInfo(const float d, const ivec2 tPix, const uvec2 cSize)
 {
-    const uint index = tPix.x + (tPix.y * cSize.x);  
+    const uint index = tPix.x + (tPix.y * cSize.x);
     writeMaxDistanceTraveled(d, index);
     writeDistanceStencilInfo(d, index);
 }
@@ -245,51 +263,43 @@ void main()
 {
     uvec2 gid = gl_GlobalInvocationID.xy;
     uvec2 imageSize = uvec2(imageSize(outputImage));
-    if (any(greaterThanEqual(gid, imageSize))) return;
+    if (any(greaterThanEqual(gid, imageSize)))
+        return;
 
-    const ivec2 targetPixel = ivec2(gid); 
+    const ivec2 targetPixel = ivec2(gid);
     pnanovdb_grid_handle_t grid = makeNanoGrid(0);
     const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]);
     const float randomValue = imageLoad(randomTexture, targetPixel).r;
-    
+
     float targetPixelInputDepth = texelFetch(inputSceneDepth, targetPixel, 0).r;
-    const float linearDepth = linearizeDepth(targetPixelInputDepth, addCamInfo.nearClipDist, addCamInfo.farClipDist); 
+    const float linearDepth = linearizeDepth(targetPixelInputDepth, addCamInfo.nearClipDist, addCamInfo.farClipDist);
     vec3 resultingColor = imageLoad(inputSceneColor, targetPixel).rgb;
 
-    vec3 viewDirScene = vec3(0.0); 
+    vec3 viewDirScene = vec3(0.0);
     vec3 orgScene = vec3(0.0);
-    getSceneViewInfoForPix(targetPixel, uvec2(addCamInfo.cameraDimensions.x, addCamInfo.cameraDimensions.y), targetPixelInputDepth, orgScene, viewDirScene); 
+    getSceneViewInfoForPix(targetPixel, uvec2(addCamInfo.cameraDimensions.x, addCamInfo.cameraDimensions.y),
+                           targetPixelInputDepth, orgScene, viewDirScene);
 
-    const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]); 
-    Ray worldRay = createRay(orgScene.xyz, viewDirScene.xyz);  
-    Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix); 
+    const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]);
+    Ray worldRay = createRay(orgScene.xyz, viewDirScene.xyz);
+    Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix);
 
     float t0 = 0;
     float t1 = 0;
-    float rayDistanceTraveled; 
-    if (rayBoxIntersect(grid, localRay, t0, t1) && t0 < linearDepth){
-         forwardMarch(grid,
-            resultingColor, 
-            localRay, 
-            t0, 
-            t1, 
-            inverseModelMatrix, 
-            volumeUniformScale,
-            fogInfo.marchedFog_sigmaAbsorption,
-            fogInfo.marchedFog_sigmaScattering,
-            fogInfo.marchedFog_lightPropertyDirG, 
-            fogInfo.marchedFog_stepSizeDist,
-            fogInfo.marchedFog_stepSizeDist_light,
-            linearDepth,
-            randomValue,
-            fogInfo.marchedFog_defaultDensity,
-            resultingColor,
-            rayDistanceTraveled
-        );
-    }else{
+    float rayDistanceTraveled;
+    if (rayBoxIntersect(grid, localRay, t0, t1) && t0 < linearDepth)
+    {
+        forwardMarch(grid, resultingColor, localRay, t0, t1, inverseModelMatrix, volumeUniformScale,
+                     fogInfo.marchedFog_sigmaAbsorption, fogInfo.marchedFog_sigmaScattering,
+                     fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_stepSizeDist,
+                     fogInfo.marchedFog_stepSizeDist_light, linearDepth, randomValue, fogInfo.marchedFog_defaultDensity,
+                     resultingColor, rayDistanceTraveled);
+    }
+    else
+    {
         rayDistanceTraveled = linearDepth;
     }
 
-    writeDistanceInfo(rayDistanceTraveled, targetPixel, imageSize); 
+    writeDistanceInfo(rayDistanceTraveled, targetPixel, imageSize);
     imageStore(outputImage, targetPixel, vec4(resultingColor, 1.0));
 }

@@ -1,56 +1,104 @@
-pnanovdb_buf_t nanoVDBBuffer; 
+pnanovdb_buf_t nanoVDBBuffer;
 
-//make sure to include ray_helpers.comp in parent
+// make sure to include ray_helpers.comp in parent
 
-Ray transformWorldRayToGridLocal(const in Ray worldRay, const in mat4 inverseModelMatrix){
+Ray transformWorldRayToGridLocal(const in Ray worldRay, const in mat4 inverseModelMatrix)
+{
     vec3 direction = mat3(inverseModelMatrix) * worldRay.direction.xyz; // do NOT normalize
     vec3 inverseDirection = 1.0 / direction;
 
-    return Ray(vec4((inverseModelMatrix * worldRay.origin).xyz, 1.0),
-               vec4(direction, 0.0),
-               vec4(inverseDirection, 0.0),
+    return Ray(vec4((inverseModelMatrix * worldRay.origin).xyz, 1.0), vec4(direction, 0.0), vec4(inverseDirection, 0.0),
                bool[3](inverseDirection.x < 0.0, inverseDirection.y < 0.0, inverseDirection.z < 0.0));
 }
 
-Ray createGridLocalRay(vec3 origin, vec3 viewDirection, const in mat4 inverseModelMatrix){
+Ray createGridLocalRay(vec3 origin, vec3 viewDirection, const in mat4 inverseModelMatrix)
+{
     origin = mat3(inverseModelMatrix) * origin;
     viewDirection = mat3(inverseModelMatrix) * viewDirection.xyz;
     return createRay(origin, viewDirection);
 }
 
-pnanovdb_grid_handle_t makeNanoGrid(uint baseByteOffset) {
-    pnanovdb_grid_handle_t h; 
-    h.address.byte_offset = baseByteOffset; 
+pnanovdb_grid_handle_t makeNanoGrid(uint baseByteOffset)
+{
+    pnanovdb_grid_handle_t h;
+    h.address.byte_offset = baseByteOffset;
     return h;
 }
 
-float gridReadAt(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccessor_t acc,in pnanovdb_grid_type_t type, const in vec3 position){
-    pnanovdb_vec3_t indexCoord = pnanovdb_grid_world_to_indexf(nanoVDBBuffer, grid, position.xyz); 
-    pnanovdb_coord_t ijk; 
-    ijk.x = int(floor(indexCoord.x)); 
+float gridReadAtIndex(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccessor_t acc, in pnanovdb_grid_type_t type,
+                      const in vec3 indexCoord)
+{
+    pnanovdb_coord_t ijk;
+    ijk.x = int(floor(indexCoord.x));
     ijk.y = int(floor(indexCoord.y));
-    ijk.z = int(floor(indexCoord.z)); 
+    ijk.z = int(floor(indexCoord.z));
 
-    pnanovdb_address_t address = pnanovdb_readaccessor_get_value_address(type,
-                            nanoVDBBuffer, acc, ijk);
-    return float(pnanovdb_read_float(nanoVDBBuffer, address)); 
+    pnanovdb_address_t address = pnanovdb_readaccessor_get_value_address(type, nanoVDBBuffer, acc, ijk);
+    return pnanovdb_read_float(nanoVDBBuffer, address);
+}
+
+float gridReadAtNearest(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccessor_t acc, in pnanovdb_grid_type_t type,
+                        const in vec3 position)
+{
+    pnanovdb_vec3_t indexCoord = pnanovdb_grid_world_to_indexf(nanoVDBBuffer, grid, position.xyz);
+    return gridReadAtIndex(grid, acc, type, indexCoord);
+}
+
+float gridReadAtTrilinear(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccessor_t acc, in pnanovdb_grid_type_t type,
+                          const in vec3 position)
+{
+    // World to index space
+    pnanovdb_vec3_t indexCoord = pnanovdb_grid_world_to_indexf(nanoVDBBuffer, grid, position.xyz);
+
+    // Fractional part for interpolation weights
+    vec3 f = vec3(indexCoord.x - floor(indexCoord.x), indexCoord.y - floor(indexCoord.y),
+                  indexCoord.z - floor(indexCoord.z));
+
+    // Sample all 8 corners of the surrounding voxel cube
+    vec3 i000 = vec3(floor(indexCoord.x), floor(indexCoord.y), floor(indexCoord.z));
+    float v000 = gridReadAtIndex(grid, acc, type, i000);
+    float v100 = gridReadAtIndex(grid, acc, type, i000 + vec3(1, 0, 0));
+    float v010 = gridReadAtIndex(grid, acc, type, i000 + vec3(0, 1, 0));
+    float v110 = gridReadAtIndex(grid, acc, type, i000 + vec3(1, 1, 0));
+    float v001 = gridReadAtIndex(grid, acc, type, i000 + vec3(0, 0, 1));
+    float v101 = gridReadAtIndex(grid, acc, type, i000 + vec3(1, 0, 1));
+    float v011 = gridReadAtIndex(grid, acc, type, i000 + vec3(0, 1, 1));
+    float v111 = gridReadAtIndex(grid, acc, type, i000 + vec3(1, 1, 1));
+
+    // Trilinear interpolation - lerp along x, then y, then z
+    float v00 = mix(v000, v100, f.x);
+    float v10 = mix(v010, v110, f.x);
+    float v01 = mix(v001, v101, f.x);
+    float v11 = mix(v011, v111, f.x);
+
+    float v0 = mix(v00, v10, f.y);
+    float v1 = mix(v01, v11, f.y);
+
+    return mix(v0, v1, f.z);
+}
+
+float gridReadAt(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccessor_t acc, in pnanovdb_grid_type_t type,
+                 const in vec3 position, bool useTrilinearInterpolation)
+{
+    if (useTrilinearInterpolation)
+    {
+        return gridReadAtTrilinear(grid, acc, type, position);
+    }
+    else
+    {
+        return gridReadAtNearest(grid, acc, type, position);
+    }
 }
 
 bool rayBoxIntersect(in pnanovdb_grid_handle_t grid, in Ray gridRay, inout float t0, inout float t1)
 {
     vec4 bounds[2];
-    bounds[0] = vec4(
-        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 0)),
-        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 1)),
-        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 2)),
-        1.0
-    );
-    bounds[1] = vec4(
-        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 3)),
-        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 4)), 
-        float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 5)),
-        1.0
-    );
+    bounds[0] = vec4(float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 0)),
+                     float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 1)),
+                     float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 2)), 1.0);
+    bounds[1] = vec4(float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 3)),
+                     float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 4)),
+                     float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 5)), 1.0);
 
     float tmin = -(1.0 / 0.0);
     float tmax = (1.0 / 0.0);
@@ -80,6 +128,7 @@ bool rayBoxIntersect(in pnanovdb_grid_handle_t grid, in Ray gridRay, inout float
     return tmax >= max(0.0, tmin);
 }
 
-float extractUniformVolumeScale(const mat4 modelMatrix){
-    return (length(modelMatrix[0].xyz) + length(modelMatrix[1].xyz) + length(modelMatrix[2].xyz)) / 3.0f; 
+float extractUniformVolumeScale(const mat4 modelMatrix)
+{
+    return (length(modelMatrix[0].xyz) + length(modelMatrix[1].xyz) + length(modelMatrix[2].xyz)) / 3.0f;
 }

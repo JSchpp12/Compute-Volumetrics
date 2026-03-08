@@ -387,7 +387,7 @@ std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::d
         std::vector<star::Handle> lightInfos(numFramesInFlight);
 
         size_t fNumFramesInFlight = 0;
-        star::common::helper::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
+        star::common::casts::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
         {
             std::string vdbPath;

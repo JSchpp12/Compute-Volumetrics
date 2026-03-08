@@ -99,7 +99,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     uint8_t numInFlight;
     {
         int framesInFlight = std::stoi(star::ConfigFile::getSetting(star::Config_Settings::frames_in_flight));
-        star::common::helper::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
+        star::common::casts::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
     }
 
     star::StarObjectInstance *volumeInstance = nullptr;
@@ -119,7 +119,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         std::vector<star::Handle> lightInfos(numInFlight);
 
         size_t fNumFramesInFlight = 0;
-        star::common::helper::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
+        star::common::casts::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
         {
             std::string vdbPath = mediaDirectoryPath + "volumes/flat_plane_wind";
