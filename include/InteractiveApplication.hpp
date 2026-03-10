@@ -16,7 +16,7 @@ class InteractiveApplication : public Application,
   public:
     InteractiveApplication(std::string &&terrainDir, star::windowing::WindowingContext *winContext)
         : Application(std::move(terrainDir)), star::windowing::HandleKeyReleasePolicy<InteractiveApplication>(*this),
-          star::windowing::HandleKeyPressPolicy<InteractiveApplication>(*this), m_winContext(winContext), m_camera()
+          star::windowing::HandleKeyPressPolicy<InteractiveApplication>(*this), m_winContext(winContext)
     {
     }
 
@@ -26,10 +26,10 @@ class InteractiveApplication : public Application,
                                               std::shared_ptr<std::vector<star::Light>> mainLight);
     virtual ~InteractiveApplication() = default;
 
-    virtual std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context,
-                                                       const uint8_t &numFramesInFlight) override;
-
     virtual void frameUpdate(star::core::SystemContext &context) override;
+
+  protected:
+    virtual void initListeners(star::core::device::DeviceContext &context) override;
 
   private:
     enum ModifyMode
@@ -39,9 +39,8 @@ class InteractiveApplication : public Application,
     };
 
     friend class star::windowing::HandleKeyReleasePolicy<InteractiveApplication>;
-    friend class star::windowing::HandleKeyPressPolicy<InteractiveApplication>; 
+    friend class star::windowing::HandleKeyPressPolicy<InteractiveApplication>;
     star::windowing::WindowingContext *m_winContext = nullptr;
-    std::shared_ptr<star::windowing::BasicCamera> m_camera;
     ModifyMode m_mode{ModifyMode::movement};
     bool m_switchMode{false};
     bool m_actDir[3]{false, false, false};
@@ -49,9 +48,17 @@ class InteractiveApplication : public Application,
 
     void onKeyRelease(const int &key, const int &scancode, const int &mods);
 
-    void onKeyPress(const int &key, const int &scancode, const int &mods); 
+    void onKeyPress(const int &key, const int &scancode, const int &mods);
+
+    virtual void initImageOutputDir(star::core::CommandBus &bus) override; 
 
     virtual void triggerScreenshot(star::core::device::DeviceContext &context);
+
+    virtual std::shared_ptr<star::StarCamera> createMainCamera(star::core::device::DeviceContext &context) override;
+
+    virtual star::common::Renderer createOffscreenRenderer(star::core::device::DeviceContext &context,
+                                                           std::vector<std::shared_ptr<star::StarObject>> objects,
+                                                           std::shared_ptr<star::StarCamera> camera) override;
 };
 
 #endif

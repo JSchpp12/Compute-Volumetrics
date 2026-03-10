@@ -7,12 +7,10 @@ void util::to_json(nlohmann::json &j, const ::FogInfo::LinearFogInfo &v)
 
 void util::from_json(const nlohmann::json &j, ::FogInfo::LinearFogInfo &v)
 {
-    // Preserve defaults if keys are absent
     v.nearDist = j.value("nearDist", v.nearDist);
     v.farDist = j.value("farDist", v.farDist);
 }
 
-// -------------------- ExpFogInfo --------------------
 void util::to_json(nlohmann::json & j, const FogInfo::ExpFogInfo &v)
 {
     j = nlohmann::json{{"density", v.density}};
@@ -23,7 +21,6 @@ void util::from_json(const nlohmann::json &j, FogInfo::ExpFogInfo &v)
     v.density = j.value("density", v.density);
 }
 
-// -------------------- MarchedFogInfo --------------------
 void util::to_json(nlohmann::json &j, const FogInfo::MarchedFogInfo &v)
 {
     j = nlohmann::json{{"defaultDensity", v.defaultDensity},
@@ -51,7 +48,6 @@ void util::from_json(const nlohmann::json &j, FogInfo::MarchedFogInfo &v)
     v.setLightPropertyDirG(g);
 }
 
-// -------------------- HomogenousRendering --------------------
 void util::to_json(nlohmann::json &j, const FogInfo::HomogenousRendering &v)
 {
     j = nlohmann::json{{"maxNumSteps", v.maxNumSteps}};
@@ -62,7 +58,6 @@ void util::from_json(const nlohmann::json &j, FogInfo::HomogenousRendering &v)
     v.maxNumSteps = j.value("maxNumSteps", v.maxNumSteps);
 }
 
-// -------------------- FogInfo (root) --------------------
 void util::to_json(nlohmann::json &j, const FogInfo &v)
 {
     nlohmann::json linearData;

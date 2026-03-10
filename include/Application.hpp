@@ -16,15 +16,14 @@ class Application : public star::StarApplication
     {
     }
 
-    virtual std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context,
+    std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context,
                                                        const uint8_t &numFramesInFlight) override;
 
     virtual void shutdown(star::core::device::DeviceContext &context) override;
 
   protected:
+    std::filesystem::path m_imageOutputDir;
     std::string m_terrainDir;
-    star::core::CommandSubmitter m_captureTrigger;
-    std::string m_imageOutputDir;
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
     star::StarObjectInstance *testObject = nullptr;
     std::shared_ptr<Volume> m_volume = nullptr;
@@ -33,7 +32,23 @@ class Application : public star::StarApplication
     bool m_triggerScreenshot = false;
     bool m_flipScreenshotState = false;
 
+    virtual void initImageOutputDir(star::core::CommandBus &bus);
+
     void frameUpdate(star::core::SystemContext &context) override;
+
+    void setHeadlessServiceOutputDir(star::core::device::DeviceContext &context) const;
+
+    virtual std::shared_ptr<star::StarCamera> createMainCamera(star::core::device::DeviceContext &context);
+
+    virtual star::common::Renderer createOffscreenRenderer(star::core::device::DeviceContext &context,
+                                                           std::vector<std::shared_ptr<star::StarObject>> objects,
+                                                           std::shared_ptr<star::StarCamera> camera);
+
+    virtual void triggerImageRecord(star::core::device::DeviceContext &context,
+                                    const star::common::FrameTracker &frameTracker,
+                                    const std::string &targetImageFileName);
+
+    virtual void initListeners(star::core::device::DeviceContext &context) {};
 
     static bool CheckIfControllerIsDone(star::core::CommandBus &cmd);
 
@@ -47,17 +62,13 @@ class Application : public star::StarApplication
 
     static int ProcessIntInput();
 
-    virtual void triggerImageRecord(star::core::device::DeviceContext &context,
-                                    const star::common::FrameTracker &frameTracker,
-                                    const std::string &targetImageFileName);
-
     static OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &context,
                                                      const uint8_t &numFramesInFlight,
                                                      std::shared_ptr<star::StarCamera> camera,
                                                      const std::string &terrainPath,
                                                      std::shared_ptr<std::vector<star::Light>> mainLight);
 
-    static star::Light CreateMainLight(glm::vec3 position); 
+    static star::Light CreateMainLight(glm::vec3 position);
 
-    static void SetVolumeToCamera(Volume &volume, star::StarCamera &camera); 
+    static void SetVolumeToCamera(Volume &volume, star::StarCamera &camera);
 };

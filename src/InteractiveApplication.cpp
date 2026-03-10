@@ -14,6 +14,8 @@
 #include <starlight/common/objects/BasicObject.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
 
+#include <star_common/helper/StringHelpers.hpp>
+
 #include <star_windowing/InteractivityBus.hpp>
 #include <star_windowing/SwapChainRenderer.hpp>
 #include <star_windowing/event/RequestSwapChainFromService.hpp>
@@ -31,7 +33,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         }
         else
         {
-            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::x, 90);
+            m_volume->getInstance(0).rotateRelative(star::Type::Axis::x, 90);
             m_actDir[star::Type::Axis::x] = false;
         }
     }
@@ -45,7 +47,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         else
         {
             const float amt{90.0f};
-            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, m_invAct ? -amt : amt);
+            m_volume->getInstance(0).rotateRelative(star::Type::Axis::y, m_invAct ? -amt : amt);
             m_actDir[star::Type::Axis::y] = false;
         }
     }
@@ -59,7 +61,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         else
         {
             const float amt{90.0f};
-            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::z, m_invAct ? -amt : amt);
+            m_volume->getInstance(0).rotateRelative(star::Type::Axis::z, m_invAct ? -amt : amt);
             m_actDir[star::Type::Axis::z] = false;
         }
     }
@@ -98,13 +100,23 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     if (m_triggerScreenshot)
     {
         auto &d = context.getAllDevices().getData()[0];
-        TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_camera);
+        TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
         triggerScreenshot(d);
 
-        //only step once
-        m_triggerScreenshot = false; 
+        // only step once
+        m_triggerScreenshot = false;
         m_flipScreenshotState = false;
     }
+}
+
+void InteractiveApplication::initListeners(star::core::device::DeviceContext &context)
+{
+    star::windowing::InteractivityBus::Init(&context.getEventBus(), m_winContext);
+
+    star::windowing::HandleKeyReleasePolicy<InteractiveApplication>::init(context.getEventBus());
+    star::windowing::HandleKeyPressPolicy<InteractiveApplication>::init(context.getEventBus());
+
+    m_screenshotRegistrations.resize(context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
 }
 
 void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, const int &mods)
@@ -151,12 +163,12 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
     if (key == GLFW_KEY_RIGHT)
     {
-        m_camera->rotateGlobal(star::Type::Axis::y, 1.0);
+        m_mainScene->getCamera()->rotateGlobal(star::Type::Axis::y, 1.0);
     }
 
     if (key == GLFW_KEY_LEFT)
     {
-        m_camera->rotateRelative(star::Type::Axis::y, -1.0);
+        m_mainScene->getCamera()->rotateRelative(star::Type::Axis::y, -1.0);
     }
 
     if (key == GLFW_KEY_B)
@@ -351,96 +363,83 @@ void InteractiveApplication::onKeyPress(const int &key, const int &scancode, con
         m_actDir[star::Type::Axis::z] = true;
     }
 }
-
-std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::device::DeviceContext &context,
-                                                                   const uint8_t &numFramesInFlight)
+void InteractiveApplication::initImageOutputDir(star::core::CommandBus &bus)
 {
-    star::windowing::HandleKeyReleasePolicy<InteractiveApplication>::init(context.getEventBus());
-    star::windowing::HandleKeyPressPolicy<InteractiveApplication>::init(context.getEventBus());
-
-    star::windowing::InteractivityBus::Init(&context.getEventBus(), m_winContext);
-
-    m_captureTrigger = context.begin();
-    m_captureTrigger.setType(image_metrics::TriggerCapture::GetUniqueTypeName());
-
-    m_screenshotRegistrations.resize(context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
-
-    auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-    const glm::vec3 volumePos{50.0, 10.0, 0.0};
-    const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
-    m_camera = std::make_shared<star::windowing::BasicCamera>(
-        context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 0.5f, 25000.0f, 100.0f, 0.1f);
-    m_camera->init(context.getEventBus());
-    m_camera->setForwardVector(volumePos - m_camera->getPosition());
-
-    m_mainLight =
-        std::make_shared<std::vector<star::Light>>(std::vector<star::Light>{Application::CreateMainLight(lightPos)});
-
-    {
-        auto oRenderer = star::common::Renderer(
-            CreateOffscreenRenderer(context, numFramesInFlight, m_camera, m_terrainDir, m_mainLight));
-        auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
-
-        const uint32_t &width = context.getEngineResolution().width;
-        const uint32_t &height = context.getEngineResolution().height;
-        std::vector<star::Handle> globalInfos(numFramesInFlight);
-        std::vector<star::Handle> lightInfos(numFramesInFlight);
-
-        size_t fNumFramesInFlight = 0;
-        star::common::casts::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
-
-        {
-            std::string vdbPath;
-            {
-                boost::filesystem::path rPath =
-                    boost::filesystem::path(mediaDirectoryPath) / "volumes" / "flat_plane_wind";
-                vdbPath = rPath.string();
-            }
-
-            m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, m_camera, width, height,
-                                                offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
-                                                offscreenRenderer->getLightInfoBuffers(),
-                                                offscreenRenderer->getLightListBuffers());
-            auto cmd = star::command::CreateObject::Builder()
-                           .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
-                           .setUniqueName("flatWind")
-                           .build();
-
-            context.begin().set(cmd).submit();
-            auto shared = cmd.getReply().get();
-        }
-
-        m_volume->init(context, numFramesInFlight);
-
-        //auto &s_i = m_volume->createInstance();
-        //s_i.setPosition(m_camera->getPosition());
-        //s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
-        //s_i.rotateRelative(star::Type::Axis::y, 90);
-
-        std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
-        std::vector<star::common::Renderer> additional;
-        additional.emplace_back(std::move(oRenderer));
-
-        vk::SwapchainKHR swapchain{VK_NULL_HANDLE};
-        context.getEventBus().emit(star::windowing::event::RequestSwapChainFromService{swapchain});
-        star::common::Renderer sc{star::windowing::SwapChainRenderer{
-            m_winContext, std::move(swapchain), context, numFramesInFlight, objects, m_mainLight, m_camera}};
-        m_mainScene = std::make_shared<star::StarScene>(star::star_scene::makeAlwaysReadyPolicy(), m_camera,
-                                                        std::move(sc), std::move(additional));
-    }
-
-    m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.03f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 0.3f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 5.0f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.0f);
-    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.8f);
-    m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.7f);
-    m_volume->setFogType(Fog::Type::sMarched);
-    m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
-    m_volume->getRenderer().getFogInfo().linearInfo.farDist = 1000.0f;
-    m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.03f;
-    return m_mainScene;
+    m_imageOutputDir = std::filesystem::path(star::common::strings::GetStartTime());
 }
+
+//
+// std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::device::DeviceContext &context,
+//                                                                   const uint8_t &numFramesInFlight)
+//{
+//    auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
+//    const glm::vec3 volumePos{50.0, 10.0, 0.0};
+//    const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
+//
+//    m_mainLight =
+//        std::make_shared<std::vector<star::Light>>(std::vector<star::Light>{Application::CreateMainLight(lightPos)});
+//
+//    {
+//        auto oRenderer = star::common::Renderer(
+//            CreateOffscreenRenderer(context, numFramesInFlight, m_camera, m_terrainDir, m_mainLight));
+//        auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
+//
+//        const uint32_t &width = context.getEngineResolution().width;
+//        const uint32_t &height = context.getEngineResolution().height;
+//        std::vector<star::Handle> globalInfos(numFramesInFlight);
+//        std::vector<star::Handle> lightInfos(numFramesInFlight);
+//
+//        size_t fNumFramesInFlight = 0;
+//        star::common::casts::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
+//
+//        {
+//            std::string vdbPath;
+//            {
+//                boost::filesystem::path rPath =
+//                    boost::filesystem::path(mediaDirectoryPath) / "volumes" / "flat_plane_wind";
+//                vdbPath = rPath.string();
+//            }
+//
+//            m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, m_camera, width, height,
+//                                                offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
+//                                                offscreenRenderer->getLightInfoBuffers(),
+//                                                offscreenRenderer->getLightListBuffers());
+//            auto cmd = star::command::CreateObject::Builder()
+//                           .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
+//                           .setUniqueName("flatWind")
+//                           .build();
+//
+//            context.begin().set(cmd).submit();
+//            auto shared = cmd.getReply().get();
+//        }
+//
+//        m_volume->init(context, numFramesInFlight);
+//
+//        // auto &s_i = m_volume->createInstance();
+//        // s_i.setPosition(m_camera->getPosition());
+//        // s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
+//        // s_i.rotateRelative(star::Type::Axis::y, 90);
+//
+//        std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
+//        std::vector<star::common::Renderer> additional;
+//        additional.emplace_back(std::move(oRenderer));
+//
+//        m_mainScene = std::make_shared<star::StarScene>(star::star_scene::makeAlwaysReadyPolicy(), m_camera,
+//                                                        std::move(sc), std::move(additional));
+//    }
+//
+//    m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.03f;
+//    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 0.3f;
+//    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 5.0f;
+//    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.0f);
+//    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.8f);
+//    m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.7f);
+//    m_volume->setFogType(Fog::Type::sMarched);
+//    m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
+//    m_volume->getRenderer().getFogInfo().linearInfo.farDist = 1000.0f;
+//    m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.03f;
+//    return m_mainScene;
+//}
 
 void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext &context)
 {
@@ -459,6 +458,26 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
                                        path, render->getCommandBuffer(), m_screenshotRegistrations[index]));
 
     triggerImageRecord(context, frameTracker, path);
+}
+
+std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star::core::device::DeviceContext &context)
+{
+    auto camera = std::make_shared<star::windowing::BasicCamera>(
+        context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 0.5f, 25000.0f, 100.0f, 0.1f);
+
+    camera->init(context.getEventBus());
+    return camera;
+}
+
+star::common::Renderer InteractiveApplication::createOffscreenRenderer(
+    star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
+    std::shared_ptr<star::StarCamera> camera)
+{
+    vk::SwapchainKHR swapchain{VK_NULL_HANDLE};
+    context.getEventBus().emit(star::windowing::event::RequestSwapChainFromService{swapchain});
+    return star::common::Renderer{star::windowing::SwapChainRenderer{
+        m_winContext, std::move(swapchain), context, context.getFrameTracker().getSetup().getNumFramesInFlight(),
+        objects, m_mainLight, camera}};
 }
 
 #endif
