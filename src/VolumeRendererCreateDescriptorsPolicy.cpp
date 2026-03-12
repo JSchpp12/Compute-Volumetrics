@@ -26,58 +26,57 @@ std::unique_ptr<star::StarShaderInfo> VolumeRendererCreateDescriptorsPolicy::bui
                               .build(*m_device))
             .addSetLayout(star::StarDescriptorSetLayout::Builder()
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                              .build(*m_device))
-            .addSetLayout(
-                star::StarDescriptorSetLayout::Builder()
-                    .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                    .addBinding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
-                    .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                    .addBinding(3, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                    .addBinding(4, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                    .build(*m_device))
-            .addSetLayout(star::StarDescriptorSetLayout::Builder()
-                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .build(*m_device))
+            .addSetLayout(star::StarDescriptorSetLayout::Builder()
+                              .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                              .build(*m_device))
+            .addSetLayout(star::StarDescriptorSetLayout::Builder()
+                              .addBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .build(*m_device))
+            .addSetLayout(
+                star::StarDescriptorSetLayout::Builder()
+                    .addBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
+                    .addBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                    .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                    .build(*m_device))
+            .addSetLayout(star::StarDescriptorSetLayout::Builder()
+                              .addBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
                               .build(*m_device));
 
     for (uint8_t i = 0; i < m_numFramesInFlight; i++)
     {
+        auto *colorTex = &m_graphicsManagers->imageManager.get(m_offscreenRenderToColors->at(i))->texture;
+        auto *depthTex = &m_graphicsManagers->imageManager.get(m_offscreenRenderToDepths->at(i))->texture;
+
         shaderInfoBuilder.startOnFrameIndex(i)
             .startSet()
             .add(m_infoManagerGlobalCamera->getHandle(i))
             .add(m_infoManagerSceneLightList->getHandle(i))
             .add(m_infoManagerSceneLightInfo->getHandle(i))
             .startSet()
-            .add(*m_cameraShaderInfo);
-        if (useSDF)
-        {
-            shaderInfoBuilder.add(*m_vdbInfoSDF);
-        }
-        else
-        {
-            shaderInfoBuilder.add(*m_vdbInfoFog);
-        }
-        shaderInfoBuilder.add(*m_randomValueTexture, vk::ImageLayout::eGeneral, vk::Format::eR32Sfloat);
-
-        auto *colorTex = &m_graphicsManagers->imageManager.get(m_offscreenRenderToColors->at(i))->texture;
-        auto *depthTex = &m_graphicsManagers->imageManager.get(m_offscreenRenderToDepths->at(i))->texture;
-        shaderInfoBuilder.startSet()
-            .add(*colorTex, vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
-            .add(*depthTex, vk::ImageLayout::eShaderReadOnlyOptimal)
-            .add(*m_computeWriteToImages->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
-            .add(m_computeRayDistBuffers->at(i))
-            .add(m_computeRayAtCutoffBuffer->at(i))
-            .startSet()
+            .add(*m_cameraShaderInfo)
             .add(m_infoManagerInstanceModel->getHandle(i))
             .add(m_infoManagerInstanceNormal->getHandle(i))
-            .add(m_aabbInfoBuffers->at(i))
             .add(m_fogController->getHandle(i),
                  &m_resourceManager->get<star::StarBuffers::Buffer>(*m_deviceID, m_fogController->getHandle(i))
-                      ->resourceSemaphore);
+                      ->resourceSemaphore)
+            .startSet()
+            .add(*m_randomValueTexture, vk::ImageLayout::eGeneral, vk::Format::eR32Sfloat)
+            .startSet()
+            .add(useSDF ? *m_vdbInfoSDF : *m_vdbInfoFog)
+            .add(m_aabbInfoBuffers->at(i))
+            .startSet()
+            .add(*depthTex, vk::ImageLayout::eShaderReadOnlyOptimal)
+            .add(*colorTex, vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
+            .add(*m_computeWriteToImages->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
+            .startSet()
+            .add(m_computeRayDistBuffers->at(i))
+            .add(m_computeRayAtCutoffBuffer->at(i));
     }
 
     return shaderInfoBuilder.build();
