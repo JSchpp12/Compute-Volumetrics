@@ -1,0 +1,114 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+struct Light_Type
+{
+    uint point;
+    uint directional;
+    uint spot;
+};
+struct Light
+{
+    vec4 position;
+    vec4 direction;
+
+    // properties
+    vec4 ambient;
+    vec4 diffuse;
+    vec4 specular;
+    // controls.x = inner cutoff angle
+    // controls.y = outer cutoff angle
+    vec4 controls;
+    // settings.x = enabled
+    // settings.y = type
+    uvec4 settings;
+    uint luminance;
+};
+
+Light_Type createLightTypeStruct()
+{
+	Light_Type lightChecker = {
+		0x0, 
+		0x1, 
+		0x2
+	};
+	return(lightChecker);
+}
+//globals
+layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
+{
+    mat4 proj;
+    mat4 view;
+    mat4 invView;
+} globalUbo;
+layout(set = 0, binding = 1) uniform GlobalLightInfo{
+    int numLights;
+} lightInfo; 
+layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer{
+    Light lights[];
+ } lightList;
+//per frames
+layout(set = 1, binding = 0) uniform additionalCameraInfo
+{
+    mat4 invProj;
+    vec2 cameraDimensions;
+    float aspectRatio;
+    float farClipDist;
+    float nearClipDist;
+    float scale;
+}
+addCamInfo;
+layout(set = 1, binding = 1) uniform InstanceModelMatrix
+{
+    mat4 instanceModelMatrix[1024];
+};
+layout(set = 1, binding = 2) uniform InstanceInverseModelMatrix
+{
+    mat4 instanceInverseMatrix[1024];
+};
+layout(set = 1, binding = 3) uniform FogControllerInfo
+{
+    float linearFog_nearDistance;
+    float linearFog_farDistance;
+    float expFog_density;
+    float marchedFog_defaultDensity;
+    float marchedFog_sigmaAbsorption;
+    float marchedFog_sigmaScattering;
+    float marchedFog_lightPropertyDirG;
+    float marchedFog_stepSizeDist;
+    float marchedFog_stepSizeDist_light;
+    uint marchedFog_uniform_maxNumSteps;
+    uint gridType;
+}
+fogInfo;
+//all ray marchers
+layout(r32f, set = 2, binding = 0) uniform readonly image2D randomTexture;
+
+//hetero ray marching info
+layout(std430, set = 3, binding = 0) buffer PNanoVDBBuffer{
+    uint pnanovdb_buf_data[];
+};
+layout(set = 3, binding = 1) uniform aabbInfo
+{
+    vec4 bounds[2];
+}
+aabb;
+//input
+layout(set = 4, binding = 0) uniform sampler2D inputSceneDepth;
+layout(set = 4, binding = 1, rgba8) uniform readonly image2D inputSceneColor;
+layout(set = 4, binding = 2, rgba8) uniform writeonly image2D outputImage;
+//non-depth related
+layout(set = 5, binding = 0) buffer RayDistanceResult
+{
+    float rayDistData[]; 
+};
+layout(set = 5, binding = 1) buffer IsRayAtMaxDistance
+{
+    uint isAtMaxDistance[];
+};
+
+#include "PNanoVDB.h"
+#include "ray_helpers.comp"
+#include "volume_helpers.comp"
+#include "volume_functions.comp"
+

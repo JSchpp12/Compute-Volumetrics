@@ -11,6 +11,7 @@
 #include "StarComputePipeline.hpp"
 #include "StarObjectInstance.hpp"
 #include "StarShaderInfo.hpp"
+#include "VisibilityDistanceCompute.hpp"
 #include "VolumeDirectoryProcessor.hpp"
 #include "VolumeRendererCreateDescriptorsPolicy.hpp"
 #include "core/renderer/RenderingContext.hpp"
@@ -26,11 +27,11 @@
 #include <memory>
 #include <string_view>
 #include <vector>
-
 class VolumeRenderer
 {
   public:
-    VolumeRenderer(std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
+    VolumeRenderer(star::core::device::DeviceContext &context,
+                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceNormalInfo,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalLightList,
@@ -38,7 +39,7 @@ class VolumeRenderer
                    OffscreenRenderer *offscreenRenderer, std::string vdbFilePath,
                    const std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds);
 
-    void init(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight);
+    void init(star::core::device::DeviceContext &context);
 
     bool isRenderReady(star::core::device::DeviceContext &context);
 
@@ -132,6 +133,8 @@ class VolumeRenderer
         marchedHomogenousPipeline;
     std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
+    VisibilityDistanceCompute m_distanceComputer;
+
     Fog::Type currentFogType = Fog::Type::sMarched;
     bool isReady = false;
     bool isFirstPass = true;

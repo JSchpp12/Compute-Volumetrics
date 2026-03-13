@@ -1,4 +1,4 @@
-#include "VolumeRendererCreateDescriptorsPolicy.hpp"
+#include "renderer/VolumeRendererCreateDescriptorsPolicy.hpp"
 
 #include "ConfigFile.hpp"
 
@@ -50,33 +50,33 @@ std::unique_ptr<star::StarShaderInfo> VolumeRendererCreateDescriptorsPolicy::bui
 
     for (uint8_t i = 0; i < m_numFramesInFlight; i++)
     {
-        auto *colorTex = &m_graphicsManagers->imageManager.get(m_offscreenRenderToColors->at(i))->texture;
-        auto *depthTex = &m_graphicsManagers->imageManager.get(m_offscreenRenderToDepths->at(i))->texture;
+        auto *colorTex = &m_graphicsManagers->imageManager.get(m_data.inputs.offscreenRenderToColors->at(i))->texture;
+        auto *depthTex = &m_graphicsManagers->imageManager.get(m_data.inputs.offscreenRenderToDepths->at(i))->texture;
 
         shaderInfoBuilder.startOnFrameIndex(i)
             .startSet()
-            .add(m_infoManagerGlobalCamera->getHandle(i))
-            .add(m_infoManagerSceneLightList->getHandle(i))
-            .add(m_infoManagerSceneLightInfo->getHandle(i))
+            .add(m_data.inputs.globalInfoBuffers->getHandle(i))
+            .add(m_data.inputs.globalLightList->getHandle(i))
+            .add(m_data.inputs.globalLightInfo->getHandle(i))
             .startSet()
-            .add(*m_cameraShaderInfo)
-            .add(m_infoManagerInstanceModel->getHandle(i))
-            .add(m_infoManagerInstanceNormal->getHandle(i))
-            .add(m_fogController->getHandle(i),
-                 &m_resourceManager->get<star::StarBuffers::Buffer>(*m_deviceID, m_fogController->getHandle(i))
+            .add(*m_data.inputs.cameraShaderInfo)
+            .add(m_data.inputs.instanceManagerInfo->getHandle(i))
+            .add(m_data.inputs.instanceNormalInfo->getHandle(i))
+            .add(m_data.inputs.fogController->getHandle(i),
+                 &m_resourceManager->get<star::StarBuffers::Buffer>(*m_deviceID, m_data.inputs.fogController->getHandle(i))
                       ->resourceSemaphore)
             .startSet()
-            .add(*m_randomValueTexture, vk::ImageLayout::eGeneral, vk::Format::eR32Sfloat)
+            .add(*m_data.inputs.randomValueTexture, vk::ImageLayout::eGeneral, vk::Format::eR32Sfloat)
             .startSet()
-            .add(useSDF ? *m_vdbInfoSDF : *m_vdbInfoFog)
-            .add(m_aabbInfoBuffers->at(i))
+            .add(useSDF ? *m_data.inputs.vdbInfoSDF : *m_data.inputs.vdbInfoFog)
+            .add(m_data.inputs.aabbInfoBuffers->at(i))
             .startSet()
             .add(*depthTex, vk::ImageLayout::eShaderReadOnlyOptimal)
             .add(*colorTex, vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
-            .add(*m_computeWriteToImages->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
+            .add(*m_data.outputs.computeWriteToImages->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
             .startSet()
-            .add(m_computeRayDistBuffers->at(i))
-            .add(m_computeRayAtCutoffBuffer->at(i));
+            .add(m_data.outputs.computeRayDistBuffers->at(i))
+            .add(m_data.outputs.computeRayAtCutoffBuffer->at(i));
     }
 
     return shaderInfoBuilder.build();
@@ -97,7 +97,7 @@ void VolumeRendererCreateDescriptorsPolicy::createDescriptors()
 {
     {
         *m_SDFShaderInfo = buildShaderInfo(true);
-        *m_VolumeShaderInfo = buildShaderInfo(false);
+        *m_volumeShaderInfo = buildShaderInfo(false);
     }
 
     {
@@ -120,7 +120,7 @@ void VolumeRendererCreateDescriptorsPolicy::createDescriptors()
     *m_nanoVDBPipeline_hitBoundingBox =
         BuildPipeline(shaderDir, "nanoVDBHitBoundingBox.comp", cLay, m_graphicsManagers);
     *m_nanoVDBPipeline_surface = BuildPipeline(shaderDir, "nanoVDBSurface.comp", cLay, m_graphicsManagers);
-    *m_marchedPipeline = BuildPipeline(shaderDir, "volume.comp", cLay, m_graphicsManagers);
+    *m_marchedPipeline = BuildPipeline(shaderDir, "volume_color.comp", cLay, m_graphicsManagers);
     *m_linearPipeline = BuildPipeline(shaderDir, "linearFog.comp", cLay, m_graphicsManagers);
     *m_expPipeline = BuildPipeline(shaderDir, "expFog.comp", cLay, m_graphicsManagers);
     *m_marchedHomogenousPipeline = BuildPipeline(shaderDir, "HomogenousMarchedFog.comp", cLay, m_graphicsManagers);

@@ -63,14 +63,6 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
 
-static std::string CreateImageDir()
-{
-    // const auto fullDir = star::file_helpers::GetExecutableDirectory() / "images";
-    // star::file_helpers::CreateDirectoryIfDoesNotExist(fullDir);
-
-    // return fullDir.string();
-}
-
 Application::Application(std::string &&terrainPath) : m_terrainDir(std::move(terrainPath))
 {
     // const std::filesystem::path terrain(m_terrainDir);
@@ -138,8 +130,6 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
             allObjects.emplace_back(shared);
         }
-
-        m_volume->init(context, numFramesInFlight);
 
         std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
         std::vector<star::common::Renderer> additionals;

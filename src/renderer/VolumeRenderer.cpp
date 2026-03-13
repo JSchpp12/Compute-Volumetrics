@@ -1,4 +1,4 @@
-#include "VolumeRenderer.hpp"
+#include "renderer/VolumeRenderer.hpp"
 
 #include "AABBTransfer.hpp"
 #include "CameraInfo.hpp"
@@ -10,9 +10,10 @@
 #include "RandomValueTexture.hpp"
 #include "VDBTransfer.hpp"
 #include "VolumeDirectoryProcessor.hpp"
-#include "VolumeRendererCreateDescriptorsPolicy.hpp"
 #include "core/device/managers/DescriptorPool.hpp"
 #include "event/EnginePhaseComplete.hpp"
+#include "renderer/VolumeRendererCreateDescriptorsPolicy.hpp"
+#include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "wrappers/graphics/policies/CreateDescriptorsOnEventPolicy.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
 
@@ -21,7 +22,8 @@
 
 #include <star_common/HandleTypeRegistry.hpp>
 
-VolumeRenderer::VolumeRenderer(std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
+VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
+                               std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceNormalInfo,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
@@ -32,16 +34,18 @@ VolumeRenderer::VolumeRenderer(std::shared_ptr<star::ManagerController::RenderRe
     : m_infoManagerInstanceModel(instanceManagerInfo), m_infoManagerInstanceNormal(instanceNormalInfo),
       m_infoManagerGlobalCamera(globalInfoBuffers), m_infoManagerSceneLightInfo(sceneLightInfoBuffers),
       m_infoManagerSceneLightList(sceneLightList), m_offscreenRenderer(offscreenRenderer),
-      m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(volumeTexture)
+      m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(volumeTexture),
+      m_distanceComputer(computePipelineLayout.get())
 {
+    init(context);
 }
 
-void VolumeRenderer::init(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight)
+void VolumeRenderer::init(star::core::device::DeviceContext &context)
 {
     using registry = star::common::HandleTypeRegistry;
 
     auto submitter = std::make_shared<star::wrappers::graphics::policies::SubmitDescriptorRequestsPolicy>(
-        getDescriptorRequests(numFramesInFlight));
+        getDescriptorRequests(context.getFrameTracker().getSetup().getNumFramesInFlight()));
 
     submitter->init(context.getEventBus());
 
@@ -50,41 +54,33 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context, const uint
         registry::instance().registerType(star::event::GetEnginePhaseCompleteLoadTypeName());
     }
 
-    auto trigger = star::wrappers::graphics::policies::CreateDescriptorsOnEventPolicy<
-                       VolumeRendererCreateDescriptorsPolicy>::Builder(context.getEventBus())
-                       .setEventType(registry::instance().getTypeGuaranteedExist(
-                           star::event::GetEnginePhaseCompleteLoadTypeName()))
-                       .setPolicy(VolumeRendererCreateDescriptorsPolicy{&context.getDeviceID(),
-                                                                        &m_fogController,
-                                                                        &aabbInfoBuffers,
-                                                                        &m_offscreenRenderer->getRenderToColorImages(),
-                                                                        &m_offscreenRenderer->getRenderToDepthImages(),
-                                                                        &computeWriteToImages,
-                                                                        &computeRayDistanceBuffers,
-                                                                        &computeRayAtCutoffDistanceBuffers,
-                                                                        &marchedHomogenousPipeline,
-                                                                        &nanoVDBPipeline_hitBoundingBox,
-                                                                        &nanoVDBPipeline_surface,
-                                                                        &marchedPipeline,
-                                                                        &linearPipeline,
-                                                                        &expPipeline,
-                                                                        &cameraShaderInfo,
-                                                                        &vdbInfoSDF,
-                                                                        &vdbInfoFog,
-                                                                        &randomValueTexture,
-                                                                        &SDFShaderInfo,
-                                                                        &VolumeShaderInfo,
-                                                                        &computePipelineLayout,
-                                                                        m_infoManagerInstanceModel,
-                                                                        m_infoManagerInstanceNormal,
-                                                                        m_infoManagerGlobalCamera,
-                                                                        m_infoManagerSceneLightInfo,
-                                                                        m_infoManagerSceneLightList,
-                                                                        &context.getDevice(),
-                                                                        &context.getGraphicsManagers(),
-                                                                        &context.getManagerRenderResource(),
-                                                                        numFramesInFlight})
-                       .buildShared();
+    renderer::volume::ContainerRenderResourceData pipelineData{
+        .inputs{.fogController = &m_fogController,
+                .aabbInfoBuffers = &aabbInfoBuffers,
+                .offscreenRenderToColors = &m_offscreenRenderer->getRenderToColorImages(),
+                .offscreenRenderToDepths = &m_offscreenRenderer->getRenderToDepthImages(),
+                .instanceManagerInfo = m_infoManagerInstanceModel,
+                .instanceNormalInfo = m_infoManagerInstanceNormal,
+                .globalInfoBuffers = m_infoManagerGlobalCamera,
+                .globalLightList = m_infoManagerSceneLightList,
+                .globalLightInfo = m_infoManagerSceneLightInfo,
+                .cameraShaderInfo = &cameraShaderInfo,
+                .vdbInfoSDF = &vdbInfoSDF,
+                .vdbInfoFog = &vdbInfoFog,
+                .randomValueTexture = &randomValueTexture},
+        .outputs{.computeWriteToImages = &computeWriteToImages,
+                 .computeRayDistBuffers = &computeRayDistanceBuffers,
+                 .computeRayAtCutoffBuffer = &computeRayAtCutoffDistanceBuffers}};
+
+    star::wrappers::graphics::policies::CreateDescriptorsOnEventPolicy<VolumeRendererCreateDescriptorsPolicy>::Builder(
+        context.getEventBus())
+        .setEventType(registry::instance().getTypeGuaranteedExist(star::event::GetEnginePhaseCompleteLoadTypeName()))
+        .setPolicy(VolumeRendererCreateDescriptorsPolicy{
+            &context.getDeviceID(), pipelineData, &SDFShaderInfo, &VolumeShaderInfo, &marchedHomogenousPipeline,
+            &nanoVDBPipeline_hitBoundingBox, &nanoVDBPipeline_surface, &marchedPipeline, &linearPipeline, &expPipeline,
+            &computePipelineLayout, &context.getDevice(), &context.getGraphicsManagers(),
+            &context.getManagerRenderResource(), context.getFrameTracker().getSetup().getNumFramesInFlight()})
+        .buildShared();
 }
 
 bool VolumeRenderer::isRenderReady(star::core::device::DeviceContext &context)
@@ -183,6 +179,8 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
 
         commandBuffer.dispatch(this->workgroupSize.x, this->workgroupSize.y, 1);
     }
+
+    m_distanceComputer.recordCommandBuffer(commandBuffer, workgroupSize, *VolumeShaderInfo, currentFogType);
 
     {
         const bool giveToTransfer = tNeighbor != nullptr && tNeighbor->isTriggeredThisFrame;
@@ -307,6 +305,8 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
         auto &dh = m_offscreenRenderer->getRenderToDepthImages()[i];
         m_renderingContext.recordDependentImage.manualInsert(dh, &context.getImageManager().get(dh)->texture);
     }
+
+    m_distanceComputer.prepRender(context);
 }
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)

@@ -24,18 +24,6 @@ Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePa
                std::move(lightList));
 }
 
-void Volume::init(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight)
-{
-    init(context);
-
-    volumeRenderer->init(context, numFramesInFlight);
-}
-
-void Volume::init(star::core::device::DeviceContext &context)
-{
-    star::StarObject::init(context);
-}
-
 std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
 {
     std::unordered_map<star::Shader_Stage, star::StarShader> shaders;
@@ -237,7 +225,7 @@ void Volume::initVolume(star::core::device::DeviceContext &context, std::string 
     loadModel(context, vdbFilePath);
 
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
-        m_instanceInfo.getControllerModel(), m_instanceInfo.getControllerNormal(), std::move(sceneCameraInfos),
+        context, m_instanceInfo.getControllerModel(), m_instanceInfo.getControllerNormal(), std::move(sceneCameraInfos),
         std::move(lightList), std::move(lightInfos), m_offscreenRenderer, vdbFilePath, this->camera, this->aabbBounds);
 }
 

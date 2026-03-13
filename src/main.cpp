@@ -18,9 +18,9 @@ static int runWindow(std::string terrainPath, std::string simControllerPath)
         InteractiveMode interactiveInstance{};
         return interactiveInstance.run(std::move(terrainPath), std::move(simControllerPath));
     }
-    catch (...)
+    catch (const std::exception &ex)
     {
-        std::cerr << "Fatal exception...exiting" << std::endl;
+        std::cerr << "Fatal exception encountered: " << ex.what() << std::endl;
         std::exit(EXIT_FAILURE);
     }
 }
