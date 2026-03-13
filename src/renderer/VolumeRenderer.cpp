@@ -12,8 +12,8 @@
 #include "VolumeDirectoryProcessor.hpp"
 #include "core/device/managers/DescriptorPool.hpp"
 #include "event/EnginePhaseComplete.hpp"
-#include "renderer/VolumeRendererCreateDescriptorsPolicy.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
+#include "renderer/volume/DescriptorBuilder.hpp"
 #include "wrappers/graphics/policies/CreateDescriptorsOnEventPolicy.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
 
@@ -34,10 +34,9 @@ VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
     : m_infoManagerInstanceModel(instanceManagerInfo), m_infoManagerInstanceNormal(instanceNormalInfo),
       m_infoManagerGlobalCamera(globalInfoBuffers), m_infoManagerSceneLightInfo(sceneLightInfoBuffers),
       m_infoManagerSceneLightList(sceneLightList), m_offscreenRenderer(offscreenRenderer),
-      m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(volumeTexture),
-      m_distanceComputer(computePipelineLayout.get())
+      m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(volumeTexture)
+// m_distanceComputer(computePipelineLayout.get())
 {
-    init(context);
 }
 
 void VolumeRenderer::init(star::core::device::DeviceContext &context)
@@ -49,9 +48,9 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
 
     submitter->init(context.getEventBus());
 
-    if (!registry::instance().contains(star::event::GetEnginePhaseCompleteLoadTypeName()))
+    if (!registry::instance().contains(star::event::EnginePhaseComplete::GetUniqueTypeName()))
     {
-        registry::instance().registerType(star::event::GetEnginePhaseCompleteLoadTypeName());
+        registry::instance().registerType(star::event::EnginePhaseComplete::GetUniqueTypeName());
     }
 
     renderer::volume::ContainerRenderResourceData pipelineData{
@@ -72,10 +71,11 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
                  .computeRayDistBuffers = &computeRayDistanceBuffers,
                  .computeRayAtCutoffBuffer = &computeRayAtCutoffDistanceBuffers}};
 
-    star::wrappers::graphics::policies::CreateDescriptorsOnEventPolicy<VolumeRendererCreateDescriptorsPolicy>::Builder(
+    star::wrappers::graphics::policies::CreateDescriptorsOnEventPolicy<DescriptorBuilder>::Builder(
         context.getEventBus())
-        .setEventType(registry::instance().getTypeGuaranteedExist(star::event::GetEnginePhaseCompleteLoadTypeName()))
-        .setPolicy(VolumeRendererCreateDescriptorsPolicy{
+        .setEventType(
+            registry::instance().getTypeGuaranteedExist(star::event::EnginePhaseComplete::GetUniqueTypeName()))
+        .setPolicy(DescriptorBuilder{
             &context.getDeviceID(), pipelineData, &SDFShaderInfo, &VolumeShaderInfo, &marchedHomogenousPipeline,
             &nanoVDBPipeline_hitBoundingBox, &nanoVDBPipeline_surface, &marchedPipeline, &linearPipeline, &expPipeline,
             &computePipelineLayout, &context.getDevice(), &context.getGraphicsManagers(),
@@ -205,9 +205,10 @@ void VolumeRenderer::recordQueueFamilyInfo(star::core::device::DeviceContext &co
             ->getParentQueueFamilyIndex();
 }
 
-void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &screensize,
-                                const uint8_t &numFramesInFlight)
+void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &screensize)
 {
+    init(context);
+
     m_checkForDepsSubmitter = context.begin();
     m_checkForDepsSubmitter.setType(star::command_order::get_pass_info::GetPassInfoTypeName());
 
@@ -260,7 +261,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
     {
-        const size_t n = static_cast<size_t>(numFramesInFlight);
+        const size_t n = static_cast<size_t>(context.getFrameTracker().getSetup().getNumFramesInFlight());
         this->computeWriteToImages = createComputeWriteToImages(context, screensize, n);
         this->computeRayDistanceBuffers =
             createComputeWriteToBuffers(context, screensize, sizeof(float), "RayDistanceBuffer", n);
@@ -268,9 +269,9 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
             createComputeWriteToBuffers(context, screensize, sizeof(uint32_t), "RayScissorBuffer", n);
     }
 
-    m_fogController.prepRender(context, numFramesInFlight);
+    m_fogController.prepRender(context, context.getFrameTracker().getSetup().getNumFramesInFlight());
 
-    for (uint8_t i = 0; i < numFramesInFlight; i++)
+    for (uint8_t i = 0; i < context.getFrameTracker().getSetup().getNumFramesInFlight(); i++)
     {
         const auto aabbSemaphore =
             context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
@@ -298,7 +299,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     auto cmd = star::command_order::DeclarePass(m_commandBuffer, this->computeQueueFamilyIndex);
     context.begin().set(cmd).submit();
 
-    for (size_t i = 0; i < static_cast<size_t>(numFramesInFlight); i++)
+    for (size_t i = 0; i < static_cast<size_t>(context.getFrameTracker().getSetup().getNumFramesInFlight()); i++)
     {
         auto &ch = m_offscreenRenderer->getRenderToColorImages()[i];
         m_renderingContext.recordDependentImage.manualInsert(ch, &context.getImageManager().get(ch)->texture);
@@ -306,7 +307,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
         m_renderingContext.recordDependentImage.manualInsert(dh, &context.getImageManager().get(dh)->texture);
     }
 
-    m_distanceComputer.prepRender(context);
+    // m_distanceComputer.prepRender(context);
 }
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)

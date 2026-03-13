@@ -3,11 +3,11 @@
 #include <memory>
 #include <vector>
 
-#include <starlight/wrappers/graphics/StarDescriptorBuilders.hpp>
-#include <starlight/virtual/StarMaterial.hpp>
 #include "StarMaterial.hpp"
 #include "StarShaderInfo.hpp"
 #include "StarTextures/Texture.hpp"
+#include "starlight/virtual/StarMaterial.hpp"
+#include "starlight/wrappers/graphics/StarDescriptorBuilders.hpp"
 
 class ScreenMaterial : public star::StarMaterial
 {

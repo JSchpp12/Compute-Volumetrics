@@ -97,14 +97,7 @@ class Volume : public star::StarObject
     /// </summary>
     void updateGridTransforms();
 
-    virtual void prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
-                            const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder,
-                            vk::PipelineLayout pipelineLayout,
-                            star::core::renderer::RenderingTargetInfo renderingInfo) override;
-
-    virtual void prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
-                            const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder,
-                            star::Handle sharedPipeline) override;
+    virtual void prepRender(star::core::device::DeviceContext &context) override;
 
     virtual void cleanupRender(star::core::device::DeviceContext &context) override;
 
@@ -121,7 +114,7 @@ class Volume : public star::StarObject
     glm::vec3 getCenterOfVDB() const
     {
         const auto middle = (aabbBounds[1] + aabbBounds[0]) * 0.5f;
-        return middle; 
+        return middle;
     }
     void setFogType(const Fog::Type &fogType)
     {

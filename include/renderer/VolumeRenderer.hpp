@@ -13,7 +13,6 @@
 #include "StarShaderInfo.hpp"
 #include "VisibilityDistanceCompute.hpp"
 #include "VolumeDirectoryProcessor.hpp"
-#include "VolumeRendererCreateDescriptorsPolicy.hpp"
 #include "core/renderer/RenderingContext.hpp"
 
 #include <star_common/Handle.hpp>
@@ -45,8 +44,7 @@ class VolumeRenderer
 
     void frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
 
-    void prepRender(star::core::device::DeviceContext &device, const vk::Extent2D &screensize,
-                    const uint8_t &numFramesInFlight);
+    void prepRender(star::core::device::DeviceContext &device, const vk::Extent2D &screensize);
 
     void cleanupRender(star::core::device::DeviceContext &device);
 
@@ -151,10 +149,6 @@ class VolumeRenderer
                                                           star::core::device::manager::DescriptorPool &poolManager,
                                                           star::ManagerRenderResource &resourceManager,
                                                           const uint8_t &numFramesInFlight, const bool &useSDF) const;
-
-    void createDescriptors(const star::Handle &deviceID, star::core::device::StarDevice &device,
-                           star::core::device::manager::DescriptorPool &poolManager,
-                           star::ManagerRenderResource &resourceManager, const uint8_t &numFramesInFlight);
 
     void recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer, const uint8_t &frameinFlightIndex,
                                              const uint64_t &frameIndex);

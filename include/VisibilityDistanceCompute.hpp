@@ -8,10 +8,6 @@
 class VisibilityDistanceCompute
 {
   public:
-    explicit VisibilityDistanceCompute(vk::PipelineLayout *pipelineLayout) : m_sharedPipelineLayout(pipelineLayout)
-    {
-    }
-
     void prepRender(star::core::device::DeviceContext &context);
 
     void recordCommandBuffer(vk::CommandBuffer commandBuffer, const glm::uvec2 &workgroupSize,
@@ -19,7 +15,6 @@ class VisibilityDistanceCompute
 
   private:
     star::Handle m_pipelineMarched;
-    vk::PipelineLayout *m_sharedPipelineLayout = nullptr;
 
     void buildPipelines(star::core::device::manager::GraphicsContainer &graphicsManagers);
     // void addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,

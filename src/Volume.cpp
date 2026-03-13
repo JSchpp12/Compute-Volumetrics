@@ -170,11 +170,9 @@ void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8
     }
 }
 
-void Volume::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
-                        const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder,
-                        vk::PipelineLayout pipelineLayout, star::core::renderer::RenderingTargetInfo renderingInfo)
+void Volume::prepRender(star::core::device::DeviceContext &context)
 {
-    volumeRenderer->prepRender(context, swapChainExtent, numSwapChainImages);
+    volumeRenderer->prepRender(context, context.getEngineResolution());
 
     for (size_t i = 0; i < this->volumeRenderer->getRenderToImages().size(); i++)
     {
@@ -184,25 +182,7 @@ void Volume::prepRender(star::core::device::DeviceContext &context, const vk::Ex
 
     RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
 
-    star::StarObject::prepRender(context, swapChainExtent, numSwapChainImages, fullEngineBuilder, pipelineLayout,
-                                 renderingInfo);
-}
-
-void Volume::prepRender(star::core::device::DeviceContext &context, const vk::Extent2D &swapChainExtent,
-                        const uint8_t &numSwapChainImages, star::StarShaderInfo::Builder fullEngineBuilder,
-                        star::Handle sharedPipeline)
-{
-    volumeRenderer->prepRender(context, swapChainExtent, numSwapChainImages);
-
-    for (size_t i = 0; i < this->volumeRenderer->getRenderToImages().size(); i++)
-    {
-        static_cast<ScreenMaterial *>(m_meshMaterials[0].get())
-            ->addComputeWriteToImage(this->volumeRenderer->getRenderToImages()[i]);
-    }
-
-    RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
-
-    this->star::StarObject::prepRender(context, swapChainExtent, numSwapChainImages, fullEngineBuilder, sharedPipeline);
+    star::StarObject::prepRender(context);
 }
 
 void Volume::cleanupRender(star::core::device::DeviceContext &context)
