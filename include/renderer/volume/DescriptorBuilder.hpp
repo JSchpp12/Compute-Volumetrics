@@ -14,16 +14,17 @@ class DescriptorBuilder
   public:
     DescriptorBuilder() = default;
 
-    DescriptorBuilder(
-        star::Handle *deviceID, renderer::volume::ContainerRenderResourceData data,
-        std::unique_ptr<star::StarShaderInfo> *SDFShaderInfo, std::unique_ptr<star::StarShaderInfo> *volumeShaderInfo,
-        star::Handle *marchedHomogenousPipeline, star::Handle *nanoVDBPipeline_hitBoundingBox,
-        star::Handle *nanoVDBPipeline_surface, star::Handle *marchedPipeline, star::Handle *linearPipeline,
-        star::Handle *expPipeline, std::unique_ptr<vk::PipelineLayout> *computePipelineLayout,
-        star::core::device::StarDevice *device, star::core::device::manager::GraphicsContainer *graphicsManagers,
-        star::ManagerRenderResource *resourceManager, uint8_t numFramesInFlight)
-        : m_deviceID(deviceID), m_data(std::move(data)), m_SDFShaderInfo(SDFShaderInfo),
-          m_volumeShaderInfo(volumeShaderInfo), m_marchedHomogenousPipeline(marchedHomogenousPipeline),
+    DescriptorBuilder(star::Handle *deviceID, renderer::volume::ContainerRenderResourceData data,
+                      std::unique_ptr<star::StarShaderInfo> *staticShaderInfo,
+                      std::unique_ptr<star::StarShaderInfo> *dynamicShaderInfo, star::Handle *marchedHomogenousPipeline,
+                      star::Handle *nanoVDBPipeline_hitBoundingBox, star::Handle *nanoVDBPipeline_surface,
+                      star::Handle *marchedPipeline, star::Handle *linearPipeline, star::Handle *expPipeline,
+                      std::unique_ptr<vk::PipelineLayout> *computePipelineLayout,
+                      star::core::device::StarDevice *device,
+                      star::core::device::manager::GraphicsContainer *graphicsManagers,
+                      star::ManagerRenderResource *resourceManager, uint8_t numFramesInFlight)
+        : m_deviceID(deviceID), m_data(std::move(data)), m_staticShaderInfo(staticShaderInfo),
+          m_dynamicShaderInfo(dynamicShaderInfo), m_marchedHomogenousPipeline(marchedHomogenousPipeline),
           m_nanoVDBPipeline_hitBoundingBox(nanoVDBPipeline_hitBoundingBox),
           m_nanoVDBPipeline_surface(nanoVDBPipeline_surface), m_marchedPipeline(marchedPipeline),
           m_linearPipeline(linearPipeline), m_expPipeline(expPipeline), m_computePipelineLayout(computePipelineLayout),
@@ -39,8 +40,8 @@ class DescriptorBuilder
   private:
     star::Handle *m_deviceID{nullptr};
     renderer::volume::ContainerRenderResourceData m_data;
-    std::unique_ptr<star::StarShaderInfo> *m_SDFShaderInfo;
-    std::unique_ptr<star::StarShaderInfo> *m_volumeShaderInfo;
+    std::unique_ptr<star::StarShaderInfo> *m_staticShaderInfo{nullptr};
+    std::unique_ptr<star::StarShaderInfo> *m_dynamicShaderInfo{nullptr};
     star::Handle *m_marchedHomogenousPipeline{nullptr};
     star::Handle *m_nanoVDBPipeline_hitBoundingBox{nullptr};
     star::Handle *m_nanoVDBPipeline_surface{nullptr};
@@ -53,7 +54,8 @@ class DescriptorBuilder
     star::ManagerRenderResource *m_resourceManager{nullptr};
     uint8_t m_numFramesInFlight;
 
-    std::unique_ptr<star::StarShaderInfo> buildShaderInfo(bool useSDF);
+    std::unique_ptr<star::StarShaderInfo> buildStaticShaderInfo();
+    std::unique_ptr<star::StarShaderInfo> buildShaderInfo();
 
     void createDescriptors();
     void create();

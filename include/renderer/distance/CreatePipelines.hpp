@@ -16,8 +16,7 @@ struct CreatePipelines
     std::shared_ptr<star::ManagerController::RenderResource::Buffer> infoManagerGlobalCamera;
     std::shared_ptr<star::ManagerController::RenderResource::Buffer> infoManagerSceneLightInfo;
     std::shared_ptr<star::ManagerController::RenderResource::Buffer> infoManagerSceneLightList;
-    std::unique_ptr<star::StarShaderInfo> *SDFShaderInfo;
-    std::unique_ptr<star::StarShaderInfo> *VolumeShaderInfo;
+    std::unique_ptr<star::StarShaderInfo> *m_volumeShaderInfo{nullptr};
     FogInfoController *fogController;
     std::vector<star::Handle> *aabbInfoBuffers;
     std::vector<star::StarBuffers::Buffer> *computeRayDistBuffers;
@@ -26,8 +25,17 @@ struct CreatePipelines
     star::Handle *randomValueTexture;
     star::Handle *m_resultMarchedPipeline;
 
-    void create();
+    star::core::device::manager::GraphicsContainer *m_graphicsManagers{nullptr};
+    star::core::device::StarDevice *m_device{nullptr};
+    star::ManagerRenderResource *m_resourceManager{nullptr};
+
+    int operator()()
+    {
+        create();
+        return 0;
+    }
 
   private:
+    void create();
 };
 } // namespace renderer::distance

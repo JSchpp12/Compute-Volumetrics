@@ -93,16 +93,12 @@ layout(set = 3, binding = 1) uniform aabbInfo
     vec4 bounds[2];
 }
 aabb;
-//input
-layout(set = 4, binding = 0) uniform sampler2D inputSceneDepth;
-layout(set = 4, binding = 1, rgba8) uniform readonly image2D inputSceneColor;
-layout(set = 4, binding = 2, rgba8) uniform writeonly image2D outputImage;
 //non-depth related
-layout(set = 5, binding = 0) buffer RayDistanceResult
+layout(set = 4, binding = 0) buffer RayDistanceResult
 {
     float rayDistData[]; 
 };
-layout(set = 5, binding = 1) buffer IsRayAtMaxDistance
+layout(set = 4, binding = 1) buffer IsRayAtMaxDistance
 {
     uint isAtMaxDistance[];
 };
@@ -112,3 +108,66 @@ layout(set = 5, binding = 1) buffer IsRayAtMaxDistance
 #include "volume_helpers.comp"
 #include "volume_functions.comp"
 
+void writeDistanceStencilInfo(const float d, const uint index)
+{
+    if (d >= addCamInfo.farClipDist)
+    {
+        isAtMaxDistance[index] = 1;
+    }
+    else
+    {
+        isAtMaxDistance[index] = 0;
+    }
+}
+
+void writeMaxDistanceTraveled(const float d, const uint index)
+{
+    if (d >= addCamInfo.farClipDist)
+    {
+        rayDistData[index] = 0;
+    }
+    else
+    {
+        rayDistData[index] = d;
+    }
+}
+
+void writeDistanceInfo(const float d, const ivec2 tPix, const uvec2 cSize)
+{
+    const uint index = tPix.x + (tPix.y * cSize.x);
+    writeMaxDistanceTraveled(d, index);
+    writeDistanceStencilInfo(d, index);
+}
+
+void main()
+{
+    uvec2 gid = gl_GlobalInvocationID.xy;
+    uvec2 imageSize = uvec2(imageSize(outputImage));
+    if (any(greaterThanEqual(gid, imageSize)))
+        return;
+
+    const ivec2 targetPixel = ivec2(gid);
+    pnanovdb_grid_handle_t grid = makeNanoGrid(0);
+    const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]);
+    const float randomValue = imageLoad(randomTexture, targetPixel).r;
+    const float linearDepth = addCamInfo.farClipDist; 
+    const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]);
+    Ray worldRay = createRay(orgScene.xyz, viewDirScene.xyz);
+    Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix);
+
+    float t0 = 0; 
+    float t1 = 0; 
+    float rayDistanceTraveled; 
+    if (rayBoxIntersect(grid, localRay, t0, t1) && t0 < linearDepth)
+    {
+        forwardMarch(grid, resultingColor, localRay, t0, t1, inverseModelMatrix, volumeUniformScale,
+                fogInfo.marchedFog_sigmaAbsorption, fogInfo.marchedFog_sigmaScattering,
+                fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_stepSizeDist,
+                fogInfo.marchedFog_stepSizeDist_light, linearDepth, randomValue, fogInfo.marchedFog_defaultDensity,
+                resultingColor, rayDistanceTraveled);
+    }else{
+        rayDistanceTraveled = linearDepth; 
+    }
+
+    writeDistanceInfo(rayDistanceTraveled, targetPixel, imageSize); 
+}

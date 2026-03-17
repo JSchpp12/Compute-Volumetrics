@@ -16,42 +16,48 @@ static star::Handle DefaultPoolHandle()
             .id = 0};
 }
 
-std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildShaderInfo(bool useSDF)
+std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildStaticShaderInfo()
 {
+    return star::StarShaderInfo::Builder(*m_deviceID, *m_device,
+                                         *m_graphicsManagers->descriptorPoolManager->get(DefaultPoolHandle())->pool, 1)
+        .addSetLayout(star::StarDescriptorSetLayout::Builder()
+                          .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                          .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
+                          .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                          .addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                          .build(*m_device))
+        .startOnFrameIndex(0)
+        .startSet()
+        .add(star::StarShaderInfo::TextureInfo{*m_data.inputs.randomValueTexture, vk::ImageLayout::eGeneral,
+                                               vk::Format::eR32Sfloat})
+        .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.vdbInfoFog})
+        .add(star::StarShaderInfo::BufferInfo{m_data.inputs.aabbInfoBuffers->at(0)})
+        .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.cameraShaderInfo})
+        .build();
+}
+
+std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildShaderInfo()
+{
+
     auto shaderInfoBuilder =
-        star::StarShaderInfo::Builder(
-            *m_deviceID, *m_device,
-            *m_graphicsManagers->descriptorPoolManager->get(DefaultPoolHandle())
-                 ->pool,
-            m_numFramesInFlight)
+        star::StarShaderInfo::Builder(*m_deviceID, *m_device,
+                                      *m_graphicsManagers->descriptorPoolManager->get(DefaultPoolHandle())->pool,
+                                      m_numFramesInFlight)
+
             .addSetLayout(star::StarDescriptorSetLayout::Builder()
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .build(*m_device))
-            .addSetLayout(star::StarDescriptorSetLayout::Builder()
-                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .build(*m_device))
-            .addSetLayout(star::StarDescriptorSetLayout::Builder()
-                              .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                              .build(*m_device))
-            .addSetLayout(star::StarDescriptorSetLayout::Builder()
-                              .addBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(4, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(5, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .build(*m_device))
             .addSetLayout(
                 star::StarDescriptorSetLayout::Builder()
                     .addBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
                     .addBinding(1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
                     .addBinding(2, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                    .build(*m_device))
-            .addSetLayout(star::StarDescriptorSetLayout::Builder()
-                              .addBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .build(*m_device));
+                    .build(*m_device));
 
     for (uint8_t i = 0; i < m_numFramesInFlight; i++)
     {
@@ -60,29 +66,20 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildShaderInfo(bool us
 
         shaderInfoBuilder.startOnFrameIndex(i)
             .startSet()
-            .add(m_data.inputs.globalInfoBuffers->getHandle(i))
-            .add(m_data.inputs.globalLightList->getHandle(i))
-            .add(m_data.inputs.globalLightInfo->getHandle(i))
-            .startSet()
-            .add(*m_data.inputs.cameraShaderInfo)
-            .add(m_data.inputs.instanceManagerInfo->getHandle(i))
-            .add(m_data.inputs.instanceNormalInfo->getHandle(i))
-            .add(m_data.inputs.fogController->getHandle(i),
+            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalInfoBuffers->getHandle(i)})
+            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalLightList->getHandle(i)})
+            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalLightInfo->getHandle(i)})
+            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.instanceManagerInfo->getHandle(i)})
+            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.instanceNormalInfo->getHandle(i)})
+            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.fogController->getHandle(i)},
                  &m_resourceManager
                       ->get<star::StarBuffers::Buffer>(*m_deviceID, m_data.inputs.fogController->getHandle(i))
                       ->resourceSemaphore)
             .startSet()
-            .add(*m_data.inputs.randomValueTexture, vk::ImageLayout::eGeneral, vk::Format::eR32Sfloat)
-            .startSet()
-            .add(useSDF ? *m_data.inputs.vdbInfoSDF : *m_data.inputs.vdbInfoFog)
-            .add(m_data.inputs.aabbInfoBuffers->at(i))
-            .startSet()
-            .add(*depthTex, vk::ImageLayout::eShaderReadOnlyOptimal)
-            .add(*colorTex, vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
-            .add(*m_data.outputs.computeWriteToImages->at(i), vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm)
-            .startSet()
-            .add(m_data.outputs.computeRayDistBuffers->at(i))
-            .add(m_data.outputs.computeRayAtCutoffBuffer->at(i));
+            .add(star::StarShaderInfo::TextureInfo{depthTex, vk::ImageLayout::eShaderReadOnlyOptimal})
+            .add(star::StarShaderInfo::TextureInfo{colorTex, vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm})
+            .add(star::StarShaderInfo::TextureInfo{m_data.outputs.computeWriteToImages->at(i).get(),
+                                                   vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm});
     }
 
     return shaderInfoBuilder.build();
@@ -101,13 +98,16 @@ static star::Handle BuildPipeline(const std::filesystem::path &shaderDir, const 
 
 void DescriptorBuilder::createDescriptors()
 {
-    {
-        *m_SDFShaderInfo = buildShaderInfo(true);
-        *m_volumeShaderInfo = buildShaderInfo(false);
-    }
+    *m_staticShaderInfo = buildStaticShaderInfo();
+    *m_dynamicShaderInfo = buildShaderInfo();
 
     {
-        auto sets = m_SDFShaderInfo->get()->getDescriptorSetLayouts();
+        auto sets = m_staticShaderInfo->get()->getDescriptorSetLayouts();
+        {
+            auto dynamicSets = m_dynamicShaderInfo->get()->getDescriptorSetLayouts();
+            sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end());
+        }
+
         vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = vk::StructureType::ePipelineLayoutCreateInfo;
         pipelineLayoutInfo.pSetLayouts = sets.data();

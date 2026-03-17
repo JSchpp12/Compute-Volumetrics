@@ -112,34 +112,3 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
 
     resultingColor = backgroundColor * transparency + resultingRadiance;
 }
-
-void writeMaxDistanceTraveled(const float d, const uint index)
-{
-    if (d >= addCamInfo.farClipDist)
-    {
-        rayDistData[index] = 0;
-    }
-    else
-    {
-        rayDistData[index] = d;
-    }
-}
-
-void writeDistanceStencilInfo(const float d, const uint index)
-{
-    if (d >= addCamInfo.farClipDist)
-    {
-        isAtMaxDistance[index] = 1;
-    }
-    else
-    {
-        isAtMaxDistance[index] = 0;
-    }
-}
-
-void writeDistanceInfo(const float d, const ivec2 tPix, const uvec2 cSize)
-{
-    const uint index = tPix.x + (tPix.y * cSize.x);
-    writeMaxDistanceTraveled(d, index);
-    writeDistanceStencilInfo(d, index);
-}

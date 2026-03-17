@@ -76,7 +76,7 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
         .setEventType(
             registry::instance().getTypeGuaranteedExist(star::event::EnginePhaseComplete::GetUniqueTypeName()))
         .setPolicy(DescriptorBuilder{
-            &context.getDeviceID(), pipelineData, &SDFShaderInfo, &VolumeShaderInfo, &marchedHomogenousPipeline,
+            &context.getDeviceID(), pipelineData, &m_staticShaderInfo, &m_dynamicShaderInfo, &marchedHomogenousPipeline,
             &nanoVDBPipeline_hitBoundingBox, &nanoVDBPipeline_surface, &marchedPipeline, &linearPipeline, &expPipeline,
             &computePipelineLayout, &context.getDevice(), &context.getGraphicsManagers(),
             &context.getManagerRenderResource(), context.getFrameTracker().getSetup().getNumFramesInFlight()})
@@ -165,22 +165,19 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
     {
         m_renderingContext.pipeline->bind(commandBuffer);
 
-        std::vector<vk::DescriptorSet> sets;
-        if (this->currentFogType == Fog::Type::sMarched)
+        auto sets = m_staticShaderInfo->getDescriptors(0); 
         {
-            sets = this->VolumeShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex());
+            auto dynamicSets = m_dynamicShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex()); 
+            sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end()); 
         }
-        else
-        {
-            sets = this->SDFShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex());
-        }
+
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0,
                                          static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
 
         commandBuffer.dispatch(this->workgroupSize.x, this->workgroupSize.y, 1);
     }
 
-    m_distanceComputer.recordCommandBuffer(commandBuffer, workgroupSize, *VolumeShaderInfo, currentFogType);
+    //m_distanceComputer.recordCommandBuffer(commandBuffer, workgroupSize, *VolumeShaderInfo, currentFogType);
 
     {
         const bool giveToTransfer = tNeighbor != nullptr && tNeighbor->isTriggeredThisFrame;
@@ -312,11 +309,8 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
 {
-    this->SDFShaderInfo->cleanupRender(context.getDevice());
-    this->SDFShaderInfo.reset();
-
-    this->VolumeShaderInfo->cleanupRender(context.getDevice());
-    this->VolumeShaderInfo.reset();
+    m_staticShaderInfo->cleanupRender(context.getDevice()); 
+    m_dynamicShaderInfo->cleanupRender(context.getDevice()); 
 
     for (auto &image : computeWriteToImages)
     {

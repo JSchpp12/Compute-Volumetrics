@@ -64,6 +64,19 @@ class VolumeRenderer
     }
     void setFogType(Fog::Type type)
     {
+        if (m_staticShaderInfo != nullptr)
+        {
+            if (type == Fog::Type::sNanoSurface)
+            {
+                m_staticShaderInfo->setNewResource(0, 0, 1, star::StarShaderInfo::BufferInfo{vdbInfoSDF});
+            }
+            else if ((type == Fog::Type::sMarched || type == Fog::Type::sNanoBoundingBox) &&
+                     (currentFogType != Fog::Type::sMarched || currentFogType != Fog::Type::sNanoBoundingBox))
+            {
+                m_staticShaderInfo->setNewResource(0, 0, 1, star::StarShaderInfo::BufferInfo{vdbInfoSDF});
+            }
+        }
+
         this->currentFogType = std::move(type);
     }
     Fog::Type getFogType() const
@@ -120,7 +133,7 @@ class VolumeRenderer
     glm::uvec2 workgroupSize = glm::uvec2();
     star::Handle cameraShaderInfo, m_commandBuffer, vdbInfoSDF, vdbInfoFog, randomValueTexture;
     FogInfoController m_fogController;
-    std::unique_ptr<star::StarShaderInfo> SDFShaderInfo, VolumeShaderInfo;
+    std::unique_ptr<star::StarShaderInfo> m_staticShaderInfo{nullptr}, m_dynamicShaderInfo{nullptr};
     std::vector<star::Handle> aabbInfoBuffers;
     uint32_t graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex;
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
@@ -143,12 +156,6 @@ class VolumeRenderer
     void registerListenForEngineInitDone(star::common::EventBus &eventBus);
 
     std::vector<std::pair<vk::DescriptorType, const uint32_t>> getDescriptorRequests(const int &numFramesInFlight);
-
-    std::unique_ptr<star::StarShaderInfo> buildShaderInfo(const star::Handle &deviceID,
-                                                          star::core::device::StarDevice &device,
-                                                          star::core::device::manager::DescriptorPool &poolManager,
-                                                          star::ManagerRenderResource &resourceManager,
-                                                          const uint8_t &numFramesInFlight, const bool &useSDF) const;
 
     void recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer, const uint8_t &frameinFlightIndex,
                                              const uint64_t &frameIndex);
