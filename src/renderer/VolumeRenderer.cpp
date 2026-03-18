@@ -181,7 +181,8 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
 
         commandBuffer.dispatch(this->workgroupSize.x, this->workgroupSize.y, 1);
 
-        m_distanceComputer.recordCommandBuffer(commandBuffer, frameTracker, workgroupSize, currentFogType);
+        if (this->currentFogType == Fog::Type::sMarched)
+            m_distanceComputer.recordCommandBuffer(commandBuffer, frameTracker, workgroupSize, currentFogType);
     }
 
     {
