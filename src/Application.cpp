@@ -167,11 +167,12 @@ void Application::initImageOutputDir(star::core::CommandBus &bus)
 void Application::frameUpdate(star::core::SystemContext &context)
 {
     auto &d = context.getAllDevices().getData()[0];
-    auto cmd = star::headless_render_result_write::GetFileNameForFrame();
-    d.begin().set(cmd).submit();
 
-    if (d.getFrameTracker().getCurrent().getGlobalFrameCounter() > 1 && !CheckIfControllerIsDone(d.getCmdBus()))
+    if (d.getFrameTracker().getCurrent().getGlobalFrameCounter() > 0 && !CheckIfControllerIsDone(d.getCmdBus()))
     {
+        auto cmd = star::headless_render_result_write::GetFileNameForFrame();
+        d.begin().set(cmd).submit();
+
         TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
         triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());
     }
