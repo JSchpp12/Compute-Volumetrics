@@ -6,8 +6,8 @@
 #include <starlight/wrappers/graphics/StarShaderInfo.hpp>
 
 namespace renderer::volume
-
 {
+
 struct ContainerRenderResourceData
 {
     struct Inputs

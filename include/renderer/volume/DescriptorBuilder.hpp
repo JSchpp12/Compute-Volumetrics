@@ -14,7 +14,7 @@ class DescriptorBuilder
   public:
     DescriptorBuilder() = default;
 
-    DescriptorBuilder(star::Handle *deviceID, renderer::volume::ContainerRenderResourceData data,
+    DescriptorBuilder(const star::Handle *deviceID, renderer::volume::ContainerRenderResourceData data,
                       std::unique_ptr<star::StarShaderInfo> *staticShaderInfo,
                       std::unique_ptr<star::StarShaderInfo> *dynamicShaderInfo, star::Handle *marchedHomogenousPipeline,
                       star::Handle *nanoVDBPipeline_hitBoundingBox, star::Handle *nanoVDBPipeline_surface,
@@ -38,7 +38,7 @@ class DescriptorBuilder
     }
 
   private:
-    star::Handle *m_deviceID{nullptr};
+    const star::Handle *m_deviceID{nullptr};
     renderer::volume::ContainerRenderResourceData m_data;
     std::unique_ptr<star::StarShaderInfo> *m_staticShaderInfo{nullptr};
     std::unique_ptr<star::StarShaderInfo> *m_dynamicShaderInfo{nullptr};

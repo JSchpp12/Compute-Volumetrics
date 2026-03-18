@@ -41,12 +41,7 @@ layout(r32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
 layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer{
     uint pnanovdb_buf_data[];
 };
-layout(set = 0, binding = 2) uniform aabbInfo
-{
-    vec4 bounds[2];
-}
-aabb;
-layout(set = 0, binding = 3) uniform additionalCameraInfo
+layout(set = 0, binding = 2) uniform additionalCameraInfo
 {
     mat4 invProj;
     vec2 cameraDimensions;
@@ -56,7 +51,6 @@ layout(set = 0, binding = 3) uniform additionalCameraInfo
     float scale;
 }
 addCamInfo;
-
 //per-frame update data
 layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
 {
@@ -89,6 +83,7 @@ layout(set = 1, binding = 5) uniform FogControllerInfo
     float marchedFog_lightPropertyDirG;
     float marchedFog_stepSizeDist;
     float marchedFog_stepSizeDist_light;
+    float marchedFog_densityMultiplier;
     uint marchedFog_uniform_maxNumSteps;
     uint gridType;
 }

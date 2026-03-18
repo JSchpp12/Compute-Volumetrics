@@ -1,31 +1,24 @@
 #include "Application.hpp"
 
-#include "ManagerController_RenderResource_GlobalInfo.hpp"
 #include "OffscreenRenderer.hpp"
 #include "Terrain.hpp"
-#include "TerrainChunk.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
 
-
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
 #include <starlight/command/detail/create_object/DirectObjCreation.hpp>
-#include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/command/headless_render_result_write/GetFileNameForFrame.hpp>
 #include <starlight/command/headless_render_result_write/GetSetOutputDir.hpp>
 #include <starlight/common/ConfigFile.hpp>
-#include <starlight/common/objects/BasicObject.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/core/renderer/HeadlessRenderer.hpp>
 #include <starlight/event/RegisterMainGraphicsRenderer.hpp>
 #include <starlight/virtual/StarCamera.hpp>
 
 #include <star_common/helper/StringHelpers.hpp>
-#include <star_common/helper/PathHelpers.hpp>
 
-#include <sstream>
 #include <string>
 
 using namespace star;
@@ -115,7 +108,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         star::common::casts::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
         {
-            std::string vdbPath = mediaDirectoryPath + "volumes/flat_plane_wind";
+            std::string vdbPath = mediaDirectoryPath + "volumes/ambient";
             m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
                                                 offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
                                                 offscreenRenderer->getLightInfoBuffers(),
@@ -155,6 +148,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
     m_volume->getRenderer().getFogInfo().linearInfo.farDist = 1000.0f;
     m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.6f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(0.3f);
     return m_mainScene;
 }
 
@@ -167,7 +161,6 @@ void Application::shutdown(star::core::device::DeviceContext &context)
 void Application::initImageOutputDir(star::core::CommandBus &bus)
 {
     m_imageOutputDir = std::filesystem::path(star::common::strings::GetStartTime());
-
     bus.submit(star::headless_render_result_write::GetSetOutputDir::Builder().setSetDir(m_imageOutputDir).build());
 }
 
@@ -264,8 +257,8 @@ void Application::triggerImageRecord(star::core::device::DeviceContext &context,
                                      const star::common::FrameTracker &frameTracker,
                                      const std::string &targetImageFileName)
 {
-    context.getCmdBus().submit(image_metrics::TriggerCapture{(m_imageOutputDir / targetImageFileName).string(),
-                                                             *m_volume, *m_mainScene->getCamera()});
+    const std::string outputFilePath = (m_imageOutputDir / targetImageFileName).string();
+    context.getCmdBus().submit(image_metrics::TriggerCapture{outputFilePath, *m_volume, *m_mainScene->getCamera()});
 }
 
 void Application::TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume, star::StarCamera &camera)

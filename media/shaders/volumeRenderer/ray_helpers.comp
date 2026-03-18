@@ -35,7 +35,7 @@ vec4 getClipSpaceCoordsFromPixel(const uvec2 pixelCoords, const uvec2 resolution
     return vec4(uv.x, uv.y, 1.0, 1.0);  
 }
 
-void getSceneViewInfoForPix(in const uvec2 pixelCoords, in const uvec2 resolution, in float depth, out vec3 camPos, out vec3 dirWorld) {
+void getSceneViewInfoForPix(in const uvec2 pixelCoords, in const uvec2 resolution, out vec3 camPos, out vec3 dirWorld) {
     vec4 clipPos = getClipSpaceCoordsFromPixel(pixelCoords, resolution);
 
     vec4 view = addCamInfo.invProj * clipPos;

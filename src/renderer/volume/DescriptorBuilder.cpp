@@ -18,22 +18,45 @@ static star::Handle DefaultPoolHandle()
 
 std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildStaticShaderInfo()
 {
-    return star::StarShaderInfo::Builder(*m_deviceID, *m_device,
-                                         *m_graphicsManagers->descriptorPoolManager->get(DefaultPoolHandle())->pool, 1)
-        .addSetLayout(star::StarDescriptorSetLayout::Builder()
-                          .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-                          .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                          .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                          .addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                          .build(*m_device))
-        .startOnFrameIndex(0)
-        .startSet()
-        .add(star::StarShaderInfo::TextureInfo{*m_data.inputs.randomValueTexture, vk::ImageLayout::eGeneral,
-                                               vk::Format::eR32Sfloat})
-        .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.vdbInfoFog})
-        .add(star::StarShaderInfo::BufferInfo{m_data.inputs.aabbInfoBuffers->at(0)})
-        .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.cameraShaderInfo})
-        .build();
+    auto shaderBuilder =
+        star::StarShaderInfo::Builder(*m_deviceID, *m_device,
+                                      *m_graphicsManagers->descriptorPoolManager->get(DefaultPoolHandle())->pool,
+                                      m_numFramesInFlight)
+            .addSetLayout(star::StarDescriptorSetLayout::Builder()
+                              .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .build(*m_device))
+            .addSetLayout(star::StarDescriptorSetLayout::Builder()
+                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(4, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(5, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .build(*m_device));
+
+    for (uint8_t i{0}; i < m_numFramesInFlight; i++)
+    {
+        shaderBuilder.startOnFrameIndex(i)
+            .startSet()
+            .add(star::StarShaderInfo::TextureInfo{*m_data.inputs.randomValueTexture, vk::ImageLayout::eGeneral,
+                                                   vk::Format::eR32Sfloat})
+            .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.vdbInfoFog})
+            .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.cameraShaderInfo})
+            .startSet()
+            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalInfoBuffers->getHandle(i)})
+            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalLightList->getHandle(i)})
+            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalLightInfo->getHandle(i)})
+            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.instanceManagerInfo->getHandle(i)})
+            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.instanceNormalInfo->getHandle(i)})
+            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.fogController->getHandle(i)},
+                 &m_resourceManager
+                      ->get<star::StarBuffers::Buffer>(*m_deviceID, m_data.inputs.fogController->getHandle(i))
+                      ->resourceSemaphore);
+    }
+
+    return shaderBuilder.build();
 }
 
 std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildShaderInfo()
@@ -43,15 +66,6 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildShaderInfo()
         star::StarShaderInfo::Builder(*m_deviceID, *m_device,
                                       *m_graphicsManagers->descriptorPoolManager->get(DefaultPoolHandle())->pool,
                                       m_numFramesInFlight)
-
-            .addSetLayout(star::StarDescriptorSetLayout::Builder()
-                              .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(3, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(4, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(5, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .build(*m_device))
             .addSetLayout(
                 star::StarDescriptorSetLayout::Builder()
                     .addBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
@@ -65,16 +79,6 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildShaderInfo()
         auto *depthTex = &m_graphicsManagers->imageManager.get(m_data.inputs.offscreenRenderToDepths->at(i))->texture;
 
         shaderInfoBuilder.startOnFrameIndex(i)
-            .startSet()
-            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalInfoBuffers->getHandle(i)})
-            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalLightList->getHandle(i)})
-            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalLightInfo->getHandle(i)})
-            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.instanceManagerInfo->getHandle(i)})
-            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.instanceNormalInfo->getHandle(i)})
-            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.fogController->getHandle(i)},
-                 &m_resourceManager
-                      ->get<star::StarBuffers::Buffer>(*m_deviceID, m_data.inputs.fogController->getHandle(i))
-                      ->resourceSemaphore)
             .startSet()
             .add(star::StarShaderInfo::TextureInfo{depthTex, vk::ImageLayout::eShaderReadOnlyOptimal})
             .add(star::StarShaderInfo::TextureInfo{colorTex, vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm})

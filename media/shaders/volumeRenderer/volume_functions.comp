@@ -9,18 +9,6 @@ float linearizeDepth(const float depth, const float camNearClipDist, const float
     return (camNearClipDist * camFarClipDist) / (camFarClipDist - depth * (camFarClipDist - camNearClipDist));
 }
 
-bool checkForThreadOutsideOfTarget()
-{
-    ivec2 imageSize = imageSize(inputSceneColor);
-    uvec2 coords = gl_GlobalInvocationID.xy;
-    if (coords.x > imageSize.x || coords.y > imageSize.y)
-    {
-        return false;
-    }
-
-    return true;
-}
-
 float applyHenyeyGreensteinPhase(const float cosTheta, const float g)
 {
     float denom = 1.0 + g * g - 2.0 * g * cosTheta;
@@ -31,7 +19,7 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                   const float t1, const mat4 inverseModelMatrix, const float volumeUniformScale, float sigmaAbsorption,
                   float sigmaScattering, float lightPropertyDir_g, float mainStepSize, float lightStepSize,
                   const float cutOffDistance, const float jitterAmount, const float defaultDensity,
-                  inout vec3 resultingColor, inout float rayDistanceTraveled)
+                  const float densityMultiplier, inout vec3 resultingColor, inout float rayDistanceTraveled)
 {
     Light_Type lChecker = createLightTypeStruct();
 
@@ -52,11 +40,12 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
     {
         // setting to middle
         const float t = (t0 + (mainStepSize * (i + 0.5))) + jitter;
-        if (t > cutOffDistance)
+        rayDistanceTraveled = t;
+        if (t > cutOffDistance || transparency < 0.0005)
             break;
 
         const vec3 pos = ray.origin.xyz + (t * ray.direction.xyz);
-        const float densityP = gridReadAt(grid, acc, type, pos, true);
+        const float densityP = gridReadAt(grid, acc, type, pos, true) * densityMultiplier;
         const float pTransmission = exp(-mainStepSize * densityP * sigmaT);
         transparency *= pTransmission;
 
@@ -95,7 +84,7 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                     {
                         const float lt = lt0 + (lightStepSize * (k + 0.5)) + lJitter;
                         const vec3 lPos = pos + (lt * rayToLight.direction.xyz);
-                        const float lDensity = gridReadAt(grid, acc, type, lPos, true);
+                        const float lDensity = gridReadAt(grid, acc, type, lPos, true) * densityMultiplier;
                         lTau += lDensity;
                     }
 

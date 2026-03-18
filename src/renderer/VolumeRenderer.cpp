@@ -14,7 +14,7 @@
 #include "event/EnginePhaseComplete.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "renderer/volume/DescriptorBuilder.hpp"
-#include "wrappers/graphics/policies/CreateDescriptorsOnEventPolicy.hpp"
+#include "starlight/core/waiter/one_shot/CreateDescriptorsOnEventPolicy.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
 
 #include <starlight/command/command_order/DeclarePass.hpp>
@@ -34,8 +34,8 @@ VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
     : m_infoManagerInstanceModel(instanceManagerInfo), m_infoManagerInstanceNormal(instanceNormalInfo),
       m_infoManagerGlobalCamera(globalInfoBuffers), m_infoManagerSceneLightInfo(sceneLightInfoBuffers),
       m_infoManagerSceneLightList(sceneLightList), m_offscreenRenderer(offscreenRenderer),
-      m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(volumeTexture)
-// m_distanceComputer(computePipelineLayout.get())
+      m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(volumeTexture),
+      m_distanceComputer()
 {
 }
 
@@ -71,8 +71,7 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
                  .computeRayDistBuffers = &computeRayDistanceBuffers,
                  .computeRayAtCutoffBuffer = &computeRayAtCutoffDistanceBuffers}};
 
-    star::wrappers::graphics::policies::CreateDescriptorsOnEventPolicy<DescriptorBuilder>::Builder(
-        context.getEventBus())
+    star::core::waiter::one_shot::CreateDescriptorsOnEventPolicy<DescriptorBuilder>::Builder(context.getEventBus())
         .setEventType(
             registry::instance().getTypeGuaranteedExist(star::event::EnginePhaseComplete::GetUniqueTypeName()))
         .setPolicy(DescriptorBuilder{
@@ -81,9 +80,11 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
             &computePipelineLayout, &context.getDevice(), &context.getGraphicsManagers(),
             &context.getManagerRenderResource(), context.getFrameTracker().getSetup().getNumFramesInFlight()})
         .buildShared();
+
+    m_distanceComputer.prepRender(context, pipelineData, &this->m_staticShaderInfo);
 }
 
-bool VolumeRenderer::isRenderReady(star::core::device::DeviceContext &context)
+bool VolumeRenderer::isRenderReady(const star::core::device::DeviceContext &context)
 {
     if (isReady)
     {
@@ -95,7 +96,9 @@ bool VolumeRenderer::isRenderReady(star::core::device::DeviceContext &context)
         context.getPipelineManager().get(expPipeline)->isReady() &&
         context.getPipelineManager().get(nanoVDBPipeline_hitBoundingBox)->isReady() &&
         context.getPipelineManager().get(nanoVDBPipeline_surface)->isReady() &&
-        context.getPipelineManager().get(marchedHomogenousPipeline)->isReady())
+        context.getPipelineManager().get(marchedHomogenousPipeline)->isReady() 
+        && m_distanceComputer.isReady(context)
+        )
     {
         isReady = true;
     }
@@ -103,7 +106,7 @@ bool VolumeRenderer::isRenderReady(star::core::device::DeviceContext &context)
     return isReady;
 }
 
-void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)
+void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context, uint8_t frameInFlightIndex)
 {
     updateRenderingContext(context, frameInFlightIndex);
 
@@ -111,6 +114,8 @@ void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context, con
     {
         updateDependentData(context, frameInFlightIndex);
         gatherDependentExternalDataOrderingInfo(context, frameInFlightIndex);
+
+        m_distanceComputer.frameUpdate(context);
     }
 }
 
@@ -165,19 +170,19 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
     {
         m_renderingContext.pipeline->bind(commandBuffer);
 
-        auto sets = m_staticShaderInfo->getDescriptors(0); 
+        auto sets = m_staticShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex());
         {
-            auto dynamicSets = m_dynamicShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex()); 
-            sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end()); 
+            auto dynamicSets = m_dynamicShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex());
+            sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end());
         }
 
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0,
                                          static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
 
         commandBuffer.dispatch(this->workgroupSize.x, this->workgroupSize.y, 1);
-    }
 
-    //m_distanceComputer.recordCommandBuffer(commandBuffer, workgroupSize, *VolumeShaderInfo, currentFogType);
+        m_distanceComputer.recordCommandBuffer(commandBuffer, frameTracker, workgroupSize, currentFogType);
+    }
 
     {
         const bool giveToTransfer = tNeighbor != nullptr && tNeighbor->isTriggeredThisFrame;
@@ -227,7 +232,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     // need to find a way to tell what type the volume is...
     // dragon is level set
     const auto tmpDir = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::tmp_directory));
-    VolumeDirectoryProcessor processor(m_vdbFilePath, std::move(tmpDir));
+    VolumeDirectoryProcessor processor(m_vdbFilePath, tmpDir);
     processor.init();
 
     const auto &frontPath = processor.getProcessedFiles().front().getDataFilePath();
@@ -303,14 +308,14 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
         auto &dh = m_offscreenRenderer->getRenderToDepthImages()[i];
         m_renderingContext.recordDependentImage.manualInsert(dh, &context.getImageManager().get(dh)->texture);
     }
-
-    // m_distanceComputer.prepRender(context);
 }
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
 {
-    m_staticShaderInfo->cleanupRender(context.getDevice()); 
-    m_dynamicShaderInfo->cleanupRender(context.getDevice()); 
+    m_distanceComputer.cleanupRender(context); 
+
+    m_staticShaderInfo->cleanupRender(context.getDevice());
+    m_dynamicShaderInfo->cleanupRender(context.getDevice());
 
     for (auto &image : computeWriteToImages)
     {

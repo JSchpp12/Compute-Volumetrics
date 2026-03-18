@@ -1,31 +1,46 @@
 #pragma once
 
 #include "FogType.hpp"
+#include "renderer/volume/ContainerRenderResourceData.hpp"
 
-#include <StarShaderInfo.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
+#include <starlight/wrappers/graphics/StarShaderInfo.hpp>
+
+#include <star_common/Handle.hpp>
+
+#include <vulkan/vulkan_core.h>
+
+#include <memory>
 
 class VisibilityDistanceCompute
 {
   public:
-    void prepRender(star::core::device::DeviceContext &context);
+    void cleanupRender(star::core::device::DeviceContext &context);
 
-    void recordCommandBuffer(vk::CommandBuffer commandBuffer, const glm::uvec2 &workgroupSize,
-                             const star::StarShaderInfo &volumeShaderInfo, Fog::Type type);
+    void prepRender(star::core::device::DeviceContext &context, renderer::volume::ContainerRenderResourceData data,
+                    std::unique_ptr<star::StarShaderInfo> *sharedComputePipelineLayout);
+
+    void recordCommandBuffer(vk::CommandBuffer commandBuffer, const star::common::FrameTracker &frameTracker,
+                             const glm::uvec2 &workgroupSize, Fog::Type type);
+
+    void frameUpdate(star::core::device::DeviceContext &context);
+
+    bool isReady(const star::core::device::DeviceContext &context);
 
   private:
-    star::Handle m_pipelineMarched;
+    struct PipelineData
+    {
+        star::Handle handle;
+        vk::Pipeline vkPipeline{VK_NULL_HANDLE};
+        vk::PipelineLayout vkLayout{VK_NULL_HANDLE};
+    };
+    PipelineData m_marchedPipeline{};
+    std::unique_ptr<star::StarShaderInfo> m_dynamicShaderInfo{nullptr};
+    bool m_isReady{false};
 
-    void buildPipelines(star::core::device::manager::GraphicsContainer &graphicsManagers);
-    // void addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
-    //                                  const bool getBuffersBackFromTransfer) const;
+    void createBuildPipelineWaiter(star::core::device::DeviceContext &context,
+                                   renderer::volume::ContainerRenderResourceData data,
+                                   std::unique_ptr<star::StarShaderInfo> *sharedComputePipelineLayout);
 
-    // void addPostComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
-    //                                   const bool giveBuffersToTransfer) const;
-
-    // std::vector<star::StarBuffers::Buffer> createComputeWriteToBuffers(star::core::device::DeviceContext &context,
-    //                                                                    const vk::Extent2D &screenSize,
-    //                                                                    const size_t &dataTypeSize,
-    // const std::string &debugName,
-    // const size_t &numToCreate) const;
+    void updateRenderingContext(const star::core::device::DeviceContext &context);
 };

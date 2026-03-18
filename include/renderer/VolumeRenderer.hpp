@@ -24,8 +24,8 @@
 #include <vulkan/vulkan.hpp>
 
 #include <memory>
-#include <string_view>
 #include <vector>
+
 class VolumeRenderer
 {
   public:
@@ -40,9 +40,9 @@ class VolumeRenderer
 
     void init(star::core::device::DeviceContext &context);
 
-    bool isRenderReady(star::core::device::DeviceContext &context);
+    bool isRenderReady(const star::core::device::DeviceContext &context);
 
-    void frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
+    void frameUpdate(star::core::device::DeviceContext &context, uint8_t frameInFlightIndex);
 
     void prepRender(star::core::device::DeviceContext &device, const vk::Extent2D &screensize);
 

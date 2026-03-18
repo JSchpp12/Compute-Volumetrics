@@ -184,6 +184,7 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         std::cout << "8 - MarchedFog: Step Size" << std::endl;
         std::cout << "9 - MarchedFog: Step Size Light" << std::endl;
         std::cout << "10 - HomogenousRendering: Max Num Steps" << std::endl;
+        std::cout << "11 - MarchedFog: VDB Density Multiplier" << std::endl;
 
         int selectedMode;
 
@@ -258,6 +259,11 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
             std::cout << oss.str() << std::endl;
             m_volume->getRenderer().getFogInfo().homogenousInfo.setMaxNumSteps(
                 PromptForInt("Select max number of steps"));
+            break;
+        case (11):
+            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.getDensityMultiplier());
+            std::cout << oss.str() << std::endl;
+            m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(PromptForFloat("Select multipler"));
             break;
         default:
             std::cout << "Unknown option" << std::endl;
@@ -368,79 +374,6 @@ void InteractiveApplication::initImageOutputDir(star::core::CommandBus &bus)
     m_imageOutputDir = std::filesystem::path(star::common::strings::GetStartTime());
 }
 
-//
-// std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::device::DeviceContext &context,
-//                                                                   const uint8_t &numFramesInFlight)
-//{
-//    auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-//    const glm::vec3 volumePos{50.0, 10.0, 0.0};
-//    const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
-//
-//    m_mainLight =
-//        std::make_shared<std::vector<star::Light>>(std::vector<star::Light>{Application::CreateMainLight(lightPos)});
-//
-//    {
-//        auto oRenderer = star::common::Renderer(
-//            CreateOffscreenRenderer(context, numFramesInFlight, m_camera, m_terrainDir, m_mainLight));
-//        auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
-//
-//        const uint32_t &width = context.getEngineResolution().width;
-//        const uint32_t &height = context.getEngineResolution().height;
-//        std::vector<star::Handle> globalInfos(numFramesInFlight);
-//        std::vector<star::Handle> lightInfos(numFramesInFlight);
-//
-//        size_t fNumFramesInFlight = 0;
-//        star::common::casts::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
-//
-//        {
-//            std::string vdbPath;
-//            {
-//                boost::filesystem::path rPath =
-//                    boost::filesystem::path(mediaDirectoryPath) / "volumes" / "flat_plane_wind";
-//                vdbPath = rPath.string();
-//            }
-//
-//            m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, m_camera, width, height,
-//                                                offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
-//                                                offscreenRenderer->getLightInfoBuffers(),
-//                                                offscreenRenderer->getLightListBuffers());
-//            auto cmd = star::command::CreateObject::Builder()
-//                           .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
-//                           .setUniqueName("flatWind")
-//                           .build();
-//
-//            context.begin().set(cmd).submit();
-//            auto shared = cmd.getReply().get();
-//        }
-//
-//        m_volume->init(context, numFramesInFlight);
-//
-//        // auto &s_i = m_volume->createInstance();
-//        // s_i.setPosition(m_camera->getPosition());
-//        // s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
-//        // s_i.rotateRelative(star::Type::Axis::y, 90);
-//
-//        std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
-//        std::vector<star::common::Renderer> additional;
-//        additional.emplace_back(std::move(oRenderer));
-//
-//        m_mainScene = std::make_shared<star::StarScene>(star::star_scene::makeAlwaysReadyPolicy(), m_camera,
-//                                                        std::move(sc), std::move(additional));
-//    }
-//
-//    m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.03f;
-//    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 0.3f;
-//    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 5.0f;
-//    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.0f);
-//    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.8f);
-//    m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.7f);
-//    m_volume->setFogType(Fog::Type::sMarched);
-//    m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
-//    m_volume->getRenderer().getFogInfo().linearInfo.farDist = 1000.0f;
-//    m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.03f;
-//    return m_mainScene;
-//}
-
 void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext &context)
 {
     const auto &frameTracker = context.getFrameTracker();
@@ -457,7 +390,7 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
         star::event::TriggerScreenshot(context.getImageManager().get(render->getRenderToColorImages()[index])->texture,
                                        path, render->getCommandBuffer(), m_screenshotRegistrations[index]));
 
-    triggerImageRecord(context, frameTracker, path);
+    triggerImageRecord(context, frameTracker, name);
 }
 
 std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star::core::device::DeviceContext &context)
