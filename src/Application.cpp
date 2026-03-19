@@ -168,7 +168,7 @@ void Application::frameUpdate(star::core::SystemContext &context)
 {
     auto &d = context.getAllDevices().getData()[0];
 
-    if (d.getFrameTracker().getCurrent().getGlobalFrameCounter() > 0 && !CheckIfControllerIsDone(d.getCmdBus()))
+    if (!CheckIfControllerIsDone(d.getCmdBus()))
     {
         auto cmd = star::headless_render_result_write::GetFileNameForFrame();
         d.begin().set(cmd).submit();
@@ -284,6 +284,6 @@ star::Light Application::CreateMainLight(glm::vec3 position)
     return star::Light()
         .setPosition(std::move(position))
         .setType(star::Type::Light::directional)
-        .setLuminance(13)
+        .setLuminance(20)
         .setDirection({0.0f, -1.0f, 0.0f});
 }
