@@ -16,10 +16,10 @@ float applyHenyeyGreensteinPhase(const float cosTheta, const float g)
 }
 
 void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, const Ray ray, const float t0,
-                  const float t1, const mat4 inverseModelMatrix, const float volumeUniformScale, float sigmaAbsorption,
-                  float sigmaScattering, float lightPropertyDir_g, float mainStepSize, float lightStepSize,
-                  const float cutOffDistance, const float jitterAmount, const float defaultDensity,
-                  const float densityMultiplier, inout vec3 resultingColor, inout float rayDistanceTraveled)
+                  const float t1, const mat4 inverseModelMatrix, float sigmaAbsorption, float sigmaScattering,
+                  float lightPropertyDir_g, float mainStepSize, float lightStepSize, const float cutOffDistance,
+                  const float jitterAmount, const float defaultDensity, const float densityMultiplier,
+                  inout vec3 resultingColor, inout float rayDistanceTraveled)
 {
     Light_Type lChecker = createLightTypeStruct();
 
@@ -29,79 +29,79 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
     pnanovdb_readaccessor_init(acc, root);
     pnanovdb_grid_type_t type = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid);
 
-    const int fittedNumSteps = max(1, int(ceil((t1 - t0) / mainStepSize)));
+    const int fittedNumSteps = max(1, int(ceil((max(t1, cutOffDistance) - t0) / mainStepSize)));
     const float sigmaT = sigmaAbsorption + sigmaScattering;
     const float jitter = jitterAmount * mainStepSize;
     const float lJitter = jitterAmount * lightStepSize;
 
     float transparency = 1.0;
     vec3 resultingRadiance = vec3(0.0);
-    rayDistanceTraveled = t1; 
+    rayDistanceTraveled = t1;
     for (int i = 0; i < fittedNumSteps; i++)
     {
         // setting to middle
         const float t = (t0 + (mainStepSize * (i + 0.5))) + jitter;
-        if (t > cutOffDistance || transparency < 0.0005)
+        if (transparency < 0.0005)
         {
-            rayDistanceTraveled = t; 
+            rayDistanceTraveled = t;
             break;
         }
 
-        const vec3 pos = ray.origin.xyz + (t * ray.direction.xyz);
-        const float densityP = gridReadAt(grid, acc, type, pos, true) * densityMultiplier;
-        const float pTransmission = exp(-mainStepSize * densityP * sigmaT);
-        transparency *= pTransmission;
-
-        if (densityP > 0.0f)
+        const vec3 marchPos = ray.origin.xyz + (t * ray.direction.xyz);
+        const float pDensity = gridReadAt(grid, acc, type, marchPos, true) * densityMultiplier;
+        if (pDensity > 0.0f)
         {
             for (int j = 0; j < lightInfo.numLights; j++)
             {
                 // might need to check if light is within volume later
-                const bool isPoint = ((lightList.lights[j].settings.y & lChecker.point) != 0);
-                const bool isDirectional = ((lightList.lights[j].settings.y & lChecker.directional) != 0);
+                const uint type = lightList.lights[j].settings.y;
+                const bool isDirectional = ((type & lChecker.directional) != 0);
 
                 Ray rayToLight;
+                vec3 lDir;
+                vec3 lPos;
+                if (isDirectional)
                 {
-                    vec3 lightDir;
-                    if (isPoint)
-                    {
-                        const vec3 lightPos = (inverseModelMatrix * lightList.lights[j].position).xyz;
-                        
-                        lightDir = normalize(lightPos - pos);
-                    }
-                    else
-                    {
-                        lightDir = normalize(inverseModelMatrix * vec4(lightList.lights[j].direction.xyz, 0.0)).xyz;
-                    }
-                    rayToLight = createRay(pos, lightDir);
+                    lDir = mat3(inverseModelMatrix) * -lightList.lights[j].direction.xyz;
+                    lPos = vec3(marchPos + (lDir * 1000)); // TODO: implement finding location on bounding box
                 }
+                else
+                {
+                    lPos = (inverseModelMatrix * lightList.lights[j].position).xyz;
+                    lDir = normalize(lPos - marchPos);
+                }
+                rayToLight = createRay(marchPos, lDir);
 
                 float lt0 = 0;
                 float lt1 = 0;
-                if (rayBoxIntersect(grid, rayToLight, lt0, lt1))
+                if (rayBoxIntersect(grid, rayToLight, lt0, lt1) && lt1 > 0)
                 {
-                    float lDensity = 0.0;
+                    float lTau = 0.0;
 
-                    const int fittedNumStepsLight = max(1, int(ceil(lt1 / lightStepSize)));
+                    const int fittedNumStepsLight =
+                        max(1, int(ceil(min(lt1, length(lPos - marchPos)) / lightStepSize)));
                     for (int k = 0; k < fittedNumStepsLight; k++)
                     {
                         const float lt = lightStepSize * (k + 0.5) + lJitter;
-                        const vec3 lPos = pos + (lt * rayToLight.direction.xyz);
-                        lDensity += (gridReadAt(grid, acc, type, lPos, true) * densityMultiplier);
-                        // lTau += lDensity;
+                        const vec3 lMarchPos = marchPos + (lt * rayToLight.direction.xyz);
+                        const float lDensity = (gridReadAt(grid, acc, type, lMarchPos, true) * densityMultiplier);
+                        lTau += lDensity * sigmaT * lightStepSize;
                     }
 
-                    const float lRayAttenuation = exp(-lDensity * lightStepSize * sigmaT);
+                    const float lRayAttenuation = exp(-lTau);
                     const float cosTheta = dot(-ray.direction.xyz, rayToLight.direction.xyz);
                     const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g);
-                    const vec3 lightColor = lightList.lights[j].ambient.rgb * lightList.lights[j].luminance;
-                    resultingRadiance +=
-                        lightColor * lRayAttenuation * phase * sigmaScattering * transparency * mainStepSize * densityP;
+                    const vec3 lightColor = lightList.lights[j].ambient.rgb;
+                    const float luminance = lightList.lights[j].luminance;
+                    resultingRadiance += lightColor * luminance * lRayAttenuation * phase * sigmaScattering *
+                                         transparency * mainStepSize * pDensity;
                 }
             }
+
+            const float pTransmission = exp(-mainStepSize * pDensity * sigmaT);
+            transparency *= pTransmission;
         }
     }
 
     resultingColor = backgroundColor * transparency + resultingRadiance;
 }
-
