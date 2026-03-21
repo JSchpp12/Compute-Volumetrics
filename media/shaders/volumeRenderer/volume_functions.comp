@@ -29,20 +29,23 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
     pnanovdb_readaccessor_init(acc, root);
     pnanovdb_grid_type_t type = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid);
 
-    const int fittedNumSteps = max(1, int(ceil(t1 / mainStepSize)));
+    const int fittedNumSteps = max(1, int(ceil((t1 - t0) / mainStepSize)));
     const float sigmaT = sigmaAbsorption + sigmaScattering;
     const float jitter = jitterAmount * mainStepSize;
     const float lJitter = jitterAmount * lightStepSize;
 
     float transparency = 1.0;
     vec3 resultingRadiance = vec3(0.0);
+    rayDistanceTraveled = t1; 
     for (int i = 0; i < fittedNumSteps; i++)
     {
         // setting to middle
         const float t = (t0 + (mainStepSize * (i + 0.5))) + jitter;
-        rayDistanceTraveled = t;
         if (t > cutOffDistance || transparency < 0.0005)
+        {
+            rayDistanceTraveled = t; 
             break;
+        }
 
         const vec3 pos = ray.origin.xyz + (t * ray.direction.xyz);
         const float densityP = gridReadAt(grid, acc, type, pos, true) * densityMultiplier;
@@ -54,7 +57,6 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
             for (int j = 0; j < lightInfo.numLights; j++)
             {
                 // might need to check if light is within volume later
-
                 const bool isPoint = ((lightList.lights[j].settings.y & lChecker.point) != 0);
                 const bool isDirectional = ((lightList.lights[j].settings.y & lChecker.directional) != 0);
 
@@ -64,11 +66,12 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                     if (isPoint)
                     {
                         const vec3 lightPos = (inverseModelMatrix * lightList.lights[j].position).xyz;
+                        
                         lightDir = normalize(lightPos - pos);
                     }
                     else
                     {
-                        lightDir = normalize(lightList.lights[j].direction.xyz);
+                        lightDir = normalize(inverseModelMatrix * vec4(lightList.lights[j].direction.xyz, 0.0)).xyz;
                     }
                     rayToLight = createRay(pos, lightDir);
                 }
@@ -77,23 +80,23 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                 float lt1 = 0;
                 if (rayBoxIntersect(grid, rayToLight, lt0, lt1))
                 {
-                    float lTau = 0.0;
+                    float lDensity = 0.0;
 
                     const int fittedNumStepsLight = max(1, int(ceil(lt1 / lightStepSize)));
                     for (int k = 0; k < fittedNumStepsLight; k++)
                     {
-                        const float lt = lt0 + (lightStepSize * (k + 0.5)) + lJitter;
+                        const float lt = lightStepSize * (k + 0.5) + lJitter;
                         const vec3 lPos = pos + (lt * rayToLight.direction.xyz);
-                        const float lDensity = gridReadAt(grid, acc, type, lPos, true) * densityMultiplier;
-                        lTau += lDensity;
+                        lDensity += (gridReadAt(grid, acc, type, lPos, true) * densityMultiplier);
+                        // lTau += lDensity;
                     }
 
-                    const float lRayAttenuation = exp(-lTau * lightStepSize * sigmaT);
-                    const float cosTheta = dot(rayToLight.direction.xyz, -ray.direction.xyz);
+                    const float lRayAttenuation = exp(-lDensity * lightStepSize * sigmaT);
+                    const float cosTheta = dot(-ray.direction.xyz, rayToLight.direction.xyz);
                     const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g);
                     const vec3 lightColor = lightList.lights[j].ambient.rgb * lightList.lights[j].luminance;
                     resultingRadiance +=
-                        lightColor * lRayAttenuation * phase * sigmaScattering * densityP * mainStepSize;
+                        lightColor * lRayAttenuation * phase * sigmaScattering * transparency * mainStepSize * densityP;
                 }
             }
         }
@@ -101,3 +104,4 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
 
     resultingColor = backgroundColor * transparency + resultingRadiance;
 }
+

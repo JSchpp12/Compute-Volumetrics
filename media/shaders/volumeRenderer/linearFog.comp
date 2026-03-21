@@ -38,11 +38,14 @@ Light_Type createLightTypeStruct()
 }
 //static data
 layout(r32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
-layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer{
+layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer
+{
     uint pnanovdb_buf_data[];
 };
-layout(set = 0, binding = 2) uniform additionalCameraInfo
+layout(set = 0, binding = 2) uniform additionalTransformInfo
 {
+    mat4 vdbWorldFromIndex; 
+    mat4 indexFromVdbWorld;
     mat4 invProj;
     vec2 cameraDimensions;
     float aspectRatio;
@@ -51,19 +54,25 @@ layout(set = 0, binding = 2) uniform additionalCameraInfo
     float scale;
 }
 addCamInfo;
-//per-frame update data
+
+// per-frame update data
 layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
 {
     mat4 proj;
     mat4 view;
     mat4 invView;
-} globalUbo;
-layout(set = 1, binding = 1) uniform GlobalLightInfo{
+}
+globalUbo;
+layout(set = 1, binding = 1) uniform GlobalLightInfo
+{
     int numLights;
-} lightInfo; 
-layout(set = 1, binding = 2) readonly buffer GlobalLightBuffer{
+}
+lightInfo;
+layout(set = 1, binding = 2) readonly buffer GlobalLightBuffer
+{
     Light lights[];
- } lightList;
+}
+lightList;
 layout(set = 1, binding = 3) uniform InstanceModelMatrix
 {
     mat4 instanceModelMatrix[1024];

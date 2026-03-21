@@ -1,0 +1,35 @@
+// make sure to include ray_helpers.comp in parent before this file
+
+//Creates the actual position in world coordinates where the provided depth value is located
+vec3 reconstructWorldPosFromDepth(const uvec2 pixelCoords, const uvec2 resolution, const float depth)
+{
+    vec2 uv = (vec2(pixelCoords) + 0.5) / vec2(resolution);
+    vec2 ndc = uv * 2.0 - 1.0;
+
+    // Vulkan depth is already in [0, 1]
+    vec4 clip = vec4(ndc, depth, 1.0);
+
+    vec4 view = addCamInfo.invProj * clip;
+    view /= view.w;
+
+    return (globalUbo.invView * view).xyz;
+}
+
+float reconstructDepthDistanceInObjectLocalSpace(const Ray localRay, const mat4 invObjectModel, const uvec2 pixelCoords,
+                                                 const uvec2 resolution, const float depth)
+{
+    vec4 depthPoint = vec4(reconstructWorldPosFromDepth(pixelCoords, resolution, depth).xyz, 1.0);
+    depthPoint = (invObjectModel * depthPoint);
+    return length(depthPoint.xyz - localRay.origin.xyz);
+}
+
+bool testForLocalDistanceDepthBehindHitPoint(const float t0, const Ray localRay, const mat4 invObjectModel,
+                                             const uvec2 pixelCoords, const uvec2 resolution, const float depth,
+                                             inout float localDepthDistance)
+{
+    float hitPointLocalDistance = length((localRay.origin.xyz + (localRay.direction.xyz * t0)) - localRay.origin.xyz);
+    localDepthDistance =
+        reconstructDepthDistanceInObjectLocalSpace(localRay, invObjectModel, pixelCoords, uvec2(addCamInfo.cameraDimensions.xy), depth);
+
+    return hitPointLocalDistance < localDepthDistance; 
+}

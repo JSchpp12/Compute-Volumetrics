@@ -2,29 +2,27 @@ struct Ray
 {
     vec4 origin;
     vec4 direction;
-    vec4 invDirection;
-    bool signed[3];
 };
+
+void inverseRayForAABB(const Ray ray, inout vec3 inverseDir, inout bool signed[3]){
+    const vec3 d = ray.direction.xyz; 
+
+    inverseDir = vec3(
+        d.x != 0.0 ? 1.0 / d.x : 1e30,
+        d.y != 0.0 ? 1.0 / d.y : 1e30,
+        d.z != 0.0 ? 1.0 / d.z : 1e30
+    );
+
+    signed[0] = d.x < 0.0;
+    signed[1] = d.y < 0.0;
+    signed[2] = d.z < 0.0;
+}
 
 Ray createRay(const vec3 origin, const vec3 direction)
 {
-    const vec3 d = normalize(direction); 
-
-    const vec3 invD = vec3(
-        d.x != 0.0 ? 1.0/d.x : (d.x > 0.0 ? 1e30 : -1e30),
-        d.y != 0.0 ? 1.0/d.y : (d.y > 0.0 ? 1e30 : -1e30),
-        d.z != 0.0 ? 1.0/d.z : (d.z > 0.0 ? 1e30 : -1e30)
-    );
-
-    const bool sx = d.x < 0.0; 
-    const bool sy = d.y < 0.0; 
-    const bool sz = d.z < 0.0;
-
     return Ray(
         vec4(origin, 1.0), 
-        vec4(d, 0.0), 
-        vec4(normalize(invD), 0.0),
-        bool[3](sx, sy, sz)
+        vec4(normalize(direction), 0.0)
     );
 }
 
@@ -35,14 +33,14 @@ vec4 getClipSpaceCoordsFromPixel(const uvec2 pixelCoords, const uvec2 resolution
     return vec4(uv.x, uv.y, 1.0, 1.0);  
 }
 
-void getSceneViewInfoForPix(in const uvec2 pixelCoords, in const uvec2 resolution, out vec3 camPos, out vec3 dirWorld) {
+void getSceneViewInfoForPix(in const uvec2 pixelCoords, in const uvec2 resolution, out vec3 worldPos, out vec3 worldDir) {
     vec4 clipPos = getClipSpaceCoordsFromPixel(pixelCoords, resolution);
 
     vec4 view = addCamInfo.invProj * clipPos;
     view /= view.w;
 
-    vec3 worldFar = (globalUbo.invView * view).xyz; 
+    vec3 worldFarPoint = (globalUbo.invView * view).xyz; 
 
-    camPos = (globalUbo.invView * vec4(0.0, 0.0, 0.0, 1.0)).xyz; 
-    dirWorld = normalize(worldFar - camPos); 
+    worldPos = (globalUbo.invView * vec4(0.0, 0.0, 0.0, 1.0)).xyz; 
+    worldDir = normalize(worldFarPoint - worldPos); 
 }
