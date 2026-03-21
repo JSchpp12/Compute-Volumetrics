@@ -89,7 +89,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/CameraInfo.cpp"
 	"src/Screen.cpp"
 	"src/VolumeSampler.cpp"
-	"src/SampledVolumeTexture.cpp"
+	
 	"src/TerrainInfoFile.cpp"
 	"src/TerrainChunk.cpp"
 	"src/MathHelpers.cpp"
@@ -158,7 +158,6 @@ set(${PROJECT_NAME}_HEADERS
 	"include/CameraInfo.hpp"
 	"include/Screen.hpp"
 	"include/VolumeSampler.hpp"
-	"include/SampledVolumeTexture.hpp"
 	"include/TerrainInfoFile.hpp"
 	"include/TerrainChunk.hpp"
 	"include/MathHelpers.hpp"

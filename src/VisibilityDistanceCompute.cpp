@@ -68,9 +68,6 @@ void VisibilityDistanceCompute::createBuildPipelineWaiter(
     star::core::device::DeviceContext &context, renderer::volume::ContainerRenderResourceData data,
     std::unique_ptr<star::StarShaderInfo> *sharedComputePipelineLayout)
 {
-    auto shaderPath = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) /
-                      "shaders" / "volumeRenderer" / "volume_distance.comp";
-
     star::core::waiter::one_shot::CreateDescriptorsOnEventPolicy<renderer::distance::CreatePipelines>::Builder(
         context.getEventBus())
         .setEventType(star::common::HandleTypeRegistry::instance().getTypeGuaranteedExist(

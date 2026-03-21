@@ -28,7 +28,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     {
         if (m_mode == ModifyMode::movement)
         {
-            const glm::vec3 dir{1.0f, 0.0f, 0.0f};
+            const glm::vec3 dir{10.0f, 0.0f, 0.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
         }
         else
@@ -41,7 +41,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     {
         if (m_mode == ModifyMode::movement)
         {
-            const glm::vec3 dir{0.0f, 1.0f, 0.0f};
+            const glm::vec3 dir{0.0f, 10.0f, 0.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
         }
         else
@@ -55,7 +55,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     {
         if (m_mode == ModifyMode::movement)
         {
-            const glm::vec3 dir{0.0f, 0.0f, 1.0f};
+            const glm::vec3 dir{0.0f, 0.0f, 10.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
         }
         else
@@ -349,6 +349,13 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     if (key == GLFW_KEY_M)
     {
         m_invAct = !m_invAct;
+    }
+
+    if (key == GLFW_KEY_SPACE)
+    {
+        m_actDir[0] = false; 
+        m_actDir[1] = false; 
+        m_actDir[2] = false; 
     }
 }
 

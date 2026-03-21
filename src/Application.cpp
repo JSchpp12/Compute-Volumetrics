@@ -75,12 +75,9 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     std::vector<std::shared_ptr<star::StarObject>> allObjects;
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-    const glm::vec3 camPos{-50.9314, 135.686, 25.9329};
-    const glm::vec3 volumePos{50.0, 10.0, 0.0};
-    const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
 
     m_mainLight =
-        std::make_shared<std::vector<star::Light>>(std::vector<star::Light>{Application::CreateMainLight(lightPos)});
+        std::make_shared<std::vector<star::Light>>(std::vector<star::Light>{Application::CreateMainLight({0.0, 4.0, 0.0})});
 
     uint8_t numInFlight;
     {
@@ -119,9 +116,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
                            .build();
 
             context.begin().set(cmd).submit();
-            auto shared = cmd.getReply().get();
-
-            allObjects.emplace_back(shared);
+            allObjects.emplace_back(cmd.getReply().get());
         }
 
         std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
@@ -142,13 +137,13 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 3.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 5.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.00001f);
-    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.8f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.40f);
     m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.3f);
     m_volume->getRenderer().setFogType(Fog::Type::sMarched);
-    m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
+    m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;   
     m_volume->getRenderer().getFogInfo().linearInfo.farDist = 1000.0f;
     m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.6f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(0.3f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(1.0f);
     return m_mainScene;
 }
 
@@ -284,6 +279,7 @@ star::Light Application::CreateMainLight(glm::vec3 position)
     return star::Light()
         .setPosition(std::move(position))
         .setType(star::Type::Light::directional)
-        .setLuminance(20)
+        .setAmbient({1.0f, 1.0f, 1.0f})
+        .setLuminance(40)
         .setDirection({0.0f, -1.0f, 0.0f});
 }
