@@ -134,7 +134,7 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
     pnanovdb_readaccessor_init(acc, root);
     pnanovdb_grid_type_t type = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid);
 
-    const int fittedNumSteps = max(1, int(ceil((t1 - t0) / mainStepSize)));
+    const int fittedNumSteps = max(1, int(ceil((max(t1, cutOffDistance) - t0) / mainStepSize)));
     const float sigmaT = sigmaAbsorption + sigmaScattering;
     const float jitter = jitterAmount * mainStepSize;
     const float lJitter = jitterAmount * lightStepSize;
@@ -146,7 +146,7 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
     {
         // setting to middle
         const float t = (t0 + (mainStepSize * (i + 0.5))) + jitter;
-        if (t > cutOffDistance || transparency < 0.0005)
+        if (transparency < 0.0005)
         {
             rayDistanceTraveled = t;
             break;
@@ -167,8 +167,8 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                 vec3 lPos;
                 if (isDirectional)
                 {
-                    lDir = -lightList.lights[j].direction.xyz;
-                    lPos = vec3(0.0, 0.0, 0.0); // TODO: implement finding location on bounding box
+                    lDir = mat3(inverseModelMatrix) * -lightList.lights[j].direction.xyz;
+                    lPos = vec3(marchPos + (lDir * 1000)); // TODO: implement finding location on bounding box
                 }
                 else
                 {
