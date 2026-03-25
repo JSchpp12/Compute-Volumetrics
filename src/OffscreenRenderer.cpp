@@ -171,14 +171,12 @@ vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoColorA
 
     const size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
 
-    auto real = vk::RenderingAttachmentInfo()
+    return vk::RenderingAttachmentInfo()
         .setImageView(m_renderingContext.recordDependentImage.get(m_renderToImages[index])->getImageView())
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore)
         .setClearValue(vk::ClearValue().setColor({1.0f, 1.0f, 1.0f, 1.0f}));
-
-    return real;
 }
 
 std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages(
@@ -334,7 +332,8 @@ star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::ge
         .orderIndex = star::Command_Buffer_Order_Index::first,
         .waitStage = vk::PipelineStageFlagBits::eEarlyFragmentTests,
         .willBeSubmittedEachFrame = true,
-        .recordOnce = false};
+        .recordOnce = false
+    };
 }
 
 void OffscreenRenderer::prepRender(star::common::IDeviceContext &c)

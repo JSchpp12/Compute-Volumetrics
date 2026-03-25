@@ -5,7 +5,6 @@
 #include "ConfigFile.hpp"
 #include "FogControlInfo.hpp"
 #include "FogData.hpp"
-#include "LevelSetData.hpp"
 #include "ManagerRenderResource.hpp"
 #include "RandomValueTexture.hpp"
 #include "VDBTransfer.hpp"
@@ -18,9 +17,122 @@
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
 
 #include <starlight/command/command_order/DeclarePass.hpp>
+#include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
 #include <star_common/HandleTypeRegistry.hpp>
+
+static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus,
+                                                  const star::common::FrameTracker &ft) noexcept
+{
+    const size_t num = static_cast<size_t>(ft.getSetup().getNumFramesInFlight());
+
+    auto handles = std::vector<star::Handle>(num);
+    for (size_t i{0}; i < handles.size(); i++)
+    {
+        void *r = nullptr;
+        evtBus.emit(star::core::device::system::event::ManagerRequest(
+            star::common::HandleTypeRegistry::instance().getTypeGuaranteedExist(
+                star::core::device::manager::GetSemaphoreEventTypeName),
+            star::core::device::manager::SemaphoreRequest{true}, handles[i], &r));
+
+        if (r == nullptr)
+        {
+            STAR_THROW("Unable to create new semaphore");
+        }
+    }
+
+    return handles;
+}
+
+static std::unique_ptr<star::command_order::get_pass_info::GatheredPassInfo> GetTransferNeighborInfo(
+    const star::core::CommandBus &cmdBus, const star::Handle &commandBuffer)
+{
+    std::unique_ptr<star::command_order::get_pass_info::GatheredPassInfo> transferNeighborInfo = nullptr;
+
+    auto getCmd = star::command_order::GetPassInfo(commandBuffer);
+    cmdBus.submit(getCmd);
+
+    // command deps
+    const star::command_order::get_pass_info::GatheredPassInfo &ele = getCmd.getReply().get();
+
+    if (ele.edges != nullptr)
+    {
+        const auto &edge = ele.edges->front();
+        const star::Handle f = edge.producer == commandBuffer ? edge.consumer : edge.producer;
+
+        auto nGetCmd = star::command_order::GetPassInfo(f);
+        cmdBus.submit(nGetCmd);
+
+        transferNeighborInfo =
+            std::make_unique<star::command_order::get_pass_info::GatheredPassInfo>(nGetCmd.getReply().get());
+    }
+
+    return transferNeighborInfo;
+}
+
+static vk::Semaphore GetBinarySemaphoreFromOffscreenRenderer(const star::core::CommandBus &cmdBus,
+                                                             const star::Handle &commandBuffer)
+{
+    vk::Semaphore semaphore{VK_NULL_HANDLE};
+
+    auto getCmd = star::command_order::GetPassInfo{commandBuffer};
+    cmdBus.submit(getCmd);
+
+    const star::command_order::get_pass_info::GatheredPassInfo &ele = getCmd.getReply().get();
+    if (ele.edges != nullptr)
+    {
+        for (const auto &edge : *ele.edges)
+        {
+            if (edge.consumer == commandBuffer)
+            {
+                // take first consumer labeled since we are hoping to only find one
+                auto nCmd = star::command_order::GetPassInfo{edge.producer};
+                cmdBus.submit(nCmd);
+                semaphore = nCmd.getReply().get().signaledSemaphore;
+            }
+        }
+    }
+    else
+    {
+        STAR_THROW("Unable to get binary semaphore from offscreen renderer");
+    }
+
+    return semaphore;
+}
+
+static void GetTimelineSemaphoreInfo(const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
+                                     const star::Handle &cmdBuff, vk::Semaphore &semaphore, uint64_t &value) noexcept
+{
+    auto cmd = star::command_order::GetPassInfo{cmdBuff};
+    cmdBus.submit(cmd);
+
+    semaphore = cmd.getReply().get().signaledSemaphore;
+    value = cmd.getReply().get().toSignalValue;
+}
+
+static void GetTimelineSemaphoreInfo(const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
+                                     const star::Handle &cmdBuff, vk::Semaphore &semaphore, uint64_t &value, uint64_t &currentValue) noexcept
+{
+    auto cmd = star::command_order::GetPassInfo{cmdBuff};
+    cmdBus.submit(cmd);
+
+    semaphore = cmd.getReply().get().signaledSemaphore;
+    value = cmd.getReply().get().toSignalValue;
+    currentValue = cmd.getReply().get().currentSignalValue;
+}
+
+static vk::SemaphoreSubmitInfo GetSignalSemaphoreInfo(const star::core::CommandBus &cmdBus,
+                                                      const star::common::FrameTracker &ft,
+                                                      const star::Handle &cmdBuff) noexcept
+{
+    vk::Semaphore signalSemaphore{VK_NULL_HANDLE};
+    uint64_t value{0};
+    uint64_t currentSignalValue{0};
+    GetTimelineSemaphoreInfo(cmdBus, ft, cmdBuff, signalSemaphore, value);
+
+    return vk::SemaphoreSubmitInfo().setSemaphore(std::move(signalSemaphore)).setValue(std::move(value));
+}
 
 VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
@@ -42,6 +154,11 @@ VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
 void VolumeRenderer::init(star::core::device::DeviceContext &context)
 {
     using registry = star::common::HandleTypeRegistry;
+
+    m_device = context.getDevice().getVulkanDevice();
+    m_cmdBus = &context.getCmdBus();
+
+    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.getFrameTracker());
 
     auto submitter = std::make_shared<star::wrappers::graphics::policies::SubmitDescriptorRequestsPolicy>(
         getDescriptorRequests(context.getFrameTracker().getSetup().getNumFramesInFlight()));
@@ -96,9 +213,7 @@ bool VolumeRenderer::isRenderReady(const star::core::device::DeviceContext &cont
         context.getPipelineManager().get(expPipeline)->isReady() &&
         context.getPipelineManager().get(nanoVDBPipeline_hitBoundingBox)->isReady() &&
         context.getPipelineManager().get(nanoVDBPipeline_surface)->isReady() &&
-        context.getPipelineManager().get(marchedHomogenousPipeline)->isReady() 
-        && m_distanceComputer.isReady(context)
-        )
+        context.getPipelineManager().get(marchedHomogenousPipeline)->isReady() && m_distanceComputer.isReady(context))
     {
         isReady = true;
     }
@@ -122,6 +237,24 @@ void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context, uin
 void VolumeRenderer::recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
                                          const star::common::FrameTracker &frameTracker, const uint64_t &frameIndex)
 {
+    {
+        vk::Semaphore semaphore;
+        uint64_t value;
+        uint64_t currentValue; 
+        GetTimelineSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer, semaphore, value, currentValue);
+
+        if (frameTracker.getCurrent().getNumTimesFrameProcessed() == currentValue)
+        {
+            const auto result =
+                m_device.waitSemaphores(vk::SemaphoreWaitInfo().setValues(currentValue).setSemaphores(semaphore), UINT64_MAX);
+
+            if (result != vk::Result::eSuccess)
+            {
+                STAR_THROW("Failed to wait for timeline semaphores");
+            }
+        }
+    }
+
     commandBuffer.begin(frameTracker.getCurrent().getFrameInFlightIndex());
 
     recordCommands(commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()), frameTracker, frameIndex);
@@ -129,35 +262,10 @@ void VolumeRenderer::recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
     commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()).end();
 }
 
-std::unique_ptr<star::command_order::get_pass_info::GatheredPassInfo> VolumeRenderer::getTransferNeighborInfo()
-{
-    std::unique_ptr<star::command_order::get_pass_info::GatheredPassInfo> transferNeighborInfo = nullptr;
-
-    auto getCmd = star::command_order::GetPassInfo(m_commandBuffer);
-    m_checkForDepsSubmitter.update(getCmd).submit();
-
-    // command deps
-    const star::command_order::get_pass_info::GatheredPassInfo &ele = getCmd.getReply().get();
-
-    if (ele.edges != nullptr)
-    {
-        const auto &edge = ele.edges->front();
-        const star::Handle f = edge.producer == m_commandBuffer ? edge.consumer : edge.producer;
-
-        auto nGetCmd = star::command_order::GetPassInfo(f);
-        m_checkForDepsSubmitter.update(nGetCmd).submit();
-
-        transferNeighborInfo =
-            std::make_unique<star::command_order::get_pass_info::GatheredPassInfo>(nGetCmd.getReply().get());
-    }
-
-    return transferNeighborInfo;
-}
-
 void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                                     const uint64_t &frameIndex)
 {
-    auto tNeighbor = getTransferNeighborInfo();
+    auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer);
 
     // check if other dep was run this frame
     {
@@ -181,14 +289,62 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
 
         commandBuffer.dispatch(this->workgroupSize.x, this->workgroupSize.y, 1);
 
-        if (this->currentFogType == Fog::Type::sMarched)
-            m_distanceComputer.recordCommandBuffer(commandBuffer, frameTracker, workgroupSize, currentFogType);
+        // if (this->currentFogType == Fog::Type::sMarched)
+        //     m_distanceComputer.recordCommandBuffer(commandBuffer, frameTracker, workgroupSize, currentFogType);
     }
 
     {
         const bool giveToTransfer = tNeighbor != nullptr && tNeighbor->isTriggeredThisFrame;
         addPostComputeMemoryBarriers(commandBuffer, frameTracker, giveToTransfer);
     }
+}
+
+vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
+                                           const star::common::FrameTracker &frameTracker,
+                                           std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
+                                           std::vector<vk::Semaphore> dataSemaphores,
+                                           std::vector<vk::PipelineStageFlags> dataWaitPoints,
+                                           std::vector<std::optional<uint64_t>> previousSignaledValues,
+                                           star::StarQueue &queue)
+{
+    const size_t ii = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
+    assert(m_cmdBus != nullptr);
+
+    const auto cbInfo = vk::CommandBufferSubmitInfo().setCommandBuffer(
+        buffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()));
+
+    // get neighbors and look for the offscreen renderer
+    auto offscreenSemaphore = GetBinarySemaphoreFromOffscreenRenderer(*m_cmdBus, m_commandBuffer);
+    auto waitInfo = std::vector<vk::SemaphoreSubmitInfo>{
+        vk::SemaphoreSubmitInfo()
+            .setSemaphore(GetBinarySemaphoreFromOffscreenRenderer(*m_cmdBus, m_commandBuffer))
+            .setStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+            .setValue(0)};
+
+    assert(dataSemaphores.size() == dataWaitPoints.size());
+    for (size_t i{0}; i < dataWaitPoints.size(); i++)
+    {
+        waitInfo.emplace_back(vk::SemaphoreSubmitInfo()
+                                  .setSemaphore(dataSemaphores[i])
+                                  .setStageMask(vk::PipelineStageFlagBits2::eComputeShader)); 
+    }
+
+    vk::Semaphore binarySemaphore{buffer.getCompleteSemaphores()[ii]};
+    const vk::SemaphoreSubmitInfo signalInfo[2]{
+        GetSignalSemaphoreInfo(*m_cmdBus, frameTracker,
+                               m_commandBuffer), // semaphore provided from external source through command_order
+        vk::SemaphoreSubmitInfo()
+            .setSemaphore(binarySemaphore)
+            .setValue(0)
+            .setStageMask(vk::PipelineStageFlagBits2::eComputeShader)};
+
+    const auto submitInfo =
+        vk::SubmitInfo2().setWaitSemaphoreInfos(waitInfo).setCommandBufferInfos(cbInfo).setSignalSemaphoreInfos(
+            signalInfo);
+
+    queue.getVulkanQueue().submit2(submitInfo);
+
+    return binarySemaphore;
 }
 
 void VolumeRenderer::recordQueueFamilyInfo(star::core::device::DeviceContext &context)
@@ -212,8 +368,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 {
     init(context);
 
-    m_checkForDepsSubmitter = context.begin();
-    m_checkForDepsSubmitter.setType(star::command_order::get_pass_info::GetPassInfoTypeName());
+    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.getFrameTracker());
 
     recordQueueFamilyInfo(context);
 
@@ -294,9 +449,13 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
             .order = star::Command_Buffer_Order::before_render_pass,
             .orderIndex = star::Command_Buffer_Order_Index::second,
             .type = star::Queue_Type::Tcompute,
-            .waitStage = vk::PipelineStageFlagBits::eComputeShader,
+            .waitStage = vk::PipelineStageFlagBits::eAllCommands,
             .willBeSubmittedEachFrame = true,
-            .recordOnce = false},
+            .recordOnce = false,
+            .overrideBufferSubmissionCallback =
+                std::bind(&VolumeRenderer::submitBuffer, this, std::placeholders::_1, std::placeholders::_2,
+                          std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6,
+                          std::placeholders::_7)},
         context.getFrameTracker().getSetup().getNumFramesInFlight());
 
     auto cmd = star::command_order::DeclarePass(m_commandBuffer, this->computeQueueFamilyIndex);
@@ -313,7 +472,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
 {
-    m_distanceComputer.cleanupRender(context); 
+    m_distanceComputer.cleanupRender(context);
 
     m_staticShaderInfo->cleanupRender(context.getDevice());
     m_dynamicShaderInfo->cleanupRender(context.getDevice());
@@ -332,10 +491,6 @@ void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
     }
 
     context.getDevice().getVulkanDevice().destroyPipelineLayout(*this->computePipelineLayout);
-}
-
-void VolumeRenderer::registerListenForEngineInitDone(star::common::EventBus &eventBus)
-{
 }
 
 std::vector<std::pair<vk::DescriptorType, const uint32_t>> VolumeRenderer::getDescriptorRequests(
@@ -368,7 +523,6 @@ void VolumeRenderer::updateDependentData(star::core::device::DeviceContext &cont
             .m_manager.get(m_commandBuffer)
             .oneTimeWaitSemaphoreInfo.insert(m_fogController.getHandle(frameInFlightIndex), std::move(dataSemaphore),
                                              vk::PipelineStageFlagBits::eComputeShader);
-
         m_renderingContext.addBufferToRenderingContext(context, m_fogController.getHandle(frameInFlightIndex));
     }
 }
@@ -577,6 +731,26 @@ void VolumeRenderer::addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, con
                                          .setBaseArrayLayer(0)
                                          .setLayerCount(1)));
     }
+    else
+    {
+        prepareImages.push_back(
+            vk::ImageMemoryBarrier2()
+                .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
+                .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setNewLayout(vk::ImageLayout::eGeneral)
+                .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
+                .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+                .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
+                .setSubresourceRange(vk::ImageSubresourceRange()
+                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                         .setBaseMipLevel(0)
+                                         .setLevelCount(1)
+                                         .setBaseArrayLayer(0)
+                                         .setLayerCount(1)));
+    }
 
     std::vector<vk::BufferMemoryBarrier2> buffBarriers;
     if (getBuffersBackFromTransfer)
@@ -690,23 +864,24 @@ void VolumeRenderer::addPostComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, co
                                          .setBaseMipLevel(0)
                                          .setLevelCount(1)
                                          .setBaseArrayLayer(0)
-                                         .setLayerCount(1)),
-            vk::ImageMemoryBarrier2()
-                .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
-                .setOldLayout(vk::ImageLayout::eGeneral)
-                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
-                .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-                .setDstAccessMask(vk::AccessFlagBits2::eNone)
-                .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
-                .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
-                .setSubresourceRange(vk::ImageSubresourceRange()
-                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                         .setBaseMipLevel(0)
-                                         .setLevelCount(1)
-                                         .setBaseArrayLayer(0)
-                                         .setLayerCount(1))};
+                                         .setLayerCount(1))
+            // vk::ImageMemoryBarrier2()
+            //     .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
+            //     .setOldLayout(vk::ImageLayout::eGeneral)
+            //     .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+            //     .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+            //     .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
+            //     .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
+            //     .setDstAccessMask(vk::AccessFlagBits2::eNone)
+            //     .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+            //     .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+            //     .setSubresourceRange(vk::ImageSubresourceRange()
+            //                              .setAspectMask(vk::ImageAspectFlagBits::eColor)
+            //                              .setBaseMipLevel(0)
+            //                              .setLevelCount(1)
+            //                              .setBaseArrayLayer(0)
+            //                              .setLayerCount(1))
+        };
     }
 
     std::vector<vk::BufferMemoryBarrier2> buffBarriers;

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "CopyDepthTextureToBuffer.hpp"
 #include "FogControlInfo.hpp"
 #include "FogInfo.hpp"
 #include "FogType.hpp"
@@ -8,16 +7,12 @@
 #include "OffscreenRenderer.hpp"
 #include "StarBuffers/Buffer.hpp"
 #include "StarCamera.hpp"
-#include "StarComputePipeline.hpp"
-#include "StarObjectInstance.hpp"
 #include "StarShaderInfo.hpp"
 #include "VisibilityDistanceCompute.hpp"
 #include "VolumeDirectoryProcessor.hpp"
 #include "core/renderer/RenderingContext.hpp"
 
 #include <star_common/Handle.hpp>
-
-#include <starlight/command/command_order/GetPassInfo.hpp>
 
 #include <vma/vk_mem_alloc.h>
 
@@ -103,7 +98,7 @@ class VolumeRenderer
         transferTriggeredThisFrame = value;
     }
 
-    star::Handle getCommandBuffer() const
+    const star::Handle &getCommandBuffer() const
     {
         return m_commandBuffer;
     }
@@ -118,6 +113,10 @@ class VolumeRenderer
     void setFogInfo(FogInfo newInfo)
     {
         m_fogController.setFogInfo(std::move(newInfo));
+    }
+    const std::vector<star::Handle> &getTimelineSemaphores() const
+    {
+        return m_timelineSemaphores;
     }
 
   private:
@@ -144,16 +143,25 @@ class VolumeRenderer
         marchedHomogenousPipeline;
     std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
+    std::vector<star::Handle> m_timelineSemaphores;
     VisibilityDistanceCompute m_distanceComputer;
 
     Fog::Type currentFogType = Fog::Type::sMarched;
     bool isReady = false;
     bool isFirstPass = true;
     bool transferTriggeredThisFrame = false;
-    star::core::CommandSubmitter m_checkForDepsSubmitter;
+    star::core::CommandBus *m_cmdBus{nullptr};
+    star::core::device::manager::Semaphore *m_mgrSemaphore{nullptr};
+    vk::Device m_device{VK_NULL_HANDLE}; 
+    
+
+    vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
+                               std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
+                               std::vector<vk::Semaphore> dataSemaphores,
+                               std::vector<vk::PipelineStageFlags> dataWaitPoints,
+                               std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue);
 
     void recordQueueFamilyInfo(star::core::device::DeviceContext &context);
-    void registerListenForEngineInitDone(star::common::EventBus &eventBus);
 
     std::vector<std::pair<vk::DescriptorType, const uint32_t>> getDescriptorRequests(const int &numFramesInFlight);
 
@@ -187,6 +195,4 @@ class VolumeRenderer
                                                                        const size_t &dataTypeSize,
                                                                        const std::string &debugName,
                                                                        const size_t &numToCreate) const;
-
-    std::unique_ptr<star::command_order::get_pass_info::GatheredPassInfo> getTransferNeighborInfo();
 };

@@ -2,12 +2,12 @@
 
 #include "textures/TransferRequest_TextureData.hpp"
 
-class RandomValueTexture : public star::TransferRequest::TextureData<float, 1>
+class RandomValueTexture : public star::TransferRequest::TextureData<float, 4>
 {
   public:
     RandomValueTexture(uint32_t width, uint32_t height, uint32_t computeQueueFamilyIndex,
                        const vk::PhysicalDeviceProperties &deviceProps)
-        : star::TransferRequest::TextureData<float, 1>(width, height, computeQueueFamilyIndex, deviceProps,
+        : star::TransferRequest::TextureData<float, 4>(width, height, computeQueueFamilyIndex, deviceProps,
                                                        vk::ImageLayout::eGeneral)
     {
     }

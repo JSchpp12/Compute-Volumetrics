@@ -45,6 +45,7 @@ class InteractiveApplication : public Application,
     bool m_switchMode{false};
     bool m_actDir[3]{false, false, false};
     bool m_invAct{false};
+    bool m_triggerScreenshot{true};
 
     void onKeyRelease(const int &key, const int &scancode, const int &mods);
 
@@ -56,7 +57,7 @@ class InteractiveApplication : public Application,
 
     virtual std::shared_ptr<star::StarCamera> createMainCamera(star::core::device::DeviceContext &context) override;
 
-    virtual star::common::Renderer createOffscreenRenderer(star::core::device::DeviceContext &context,
+    virtual star::common::Renderer createMainRenderer(star::core::device::DeviceContext &context,
                                                            std::vector<std::shared_ptr<star::StarObject>> objects,
                                                            std::shared_ptr<star::StarCamera> camera) override;
 };

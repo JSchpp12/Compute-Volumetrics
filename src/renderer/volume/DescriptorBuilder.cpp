@@ -41,7 +41,7 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildStaticShaderInfo()
         shaderBuilder.startOnFrameIndex(i)
             .startSet()
             .add(star::StarShaderInfo::TextureInfo{*m_data.inputs.randomValueTexture, vk::ImageLayout::eGeneral,
-                                                   vk::Format::eR32Sfloat})
+                                                   vk::Format::eR32G32B32A32Sfloat})
             .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.vdbInfoFog})
             .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.cameraShaderInfo})
             .startSet()

@@ -29,8 +29,9 @@ class CopyDeviceToHostMemory
     void trigger(star::core::device::manager::ManagerCommandBuffer &bufferManager, star::core::CommandBus &cmdBus,
                  const star::StarBuffers::Buffer &hostRayCutoff, const star::StarBuffers::Buffer &hostRayDist,
                  const star::StarBuffers::Buffer &targetRayCutoffBuffer,
-                 const star::StarBuffers::Buffer &targetRayDistanceBuffer,
-                 star::core::device::manager::SemaphoreRecord *timeline, const uint64_t &valueToSignal);
+                 const star::StarBuffers::Buffer &targetRayDistanceBuffer, star::Handle timlineRecordHandle,
+                 star::core::device::manager::SemaphoreRecord *timeline, const uint64_t &valueToSignal,
+                 star::Handle fogRendererRegistration);
 
     const star::Handle &getCommandBuffer()
     {
@@ -41,4 +42,4 @@ class CopyDeviceToHostMemory
     CopyResources m_resources;
     CopyCmds m_cpyCmds;
 };
-} // namespace image_metric_manager
+} // namespace service::image_metric_manager

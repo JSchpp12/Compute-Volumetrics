@@ -17,13 +17,17 @@ void CopyDeviceToHostMemory::trigger(star::core::device::manager::ManagerCommand
                                      const star::StarBuffers::Buffer &hostRayDist,
                                      const star::StarBuffers::Buffer &targetRayCutoffBuffer,
                                      const star::StarBuffers::Buffer &targetRayDistanceBuffer,
+                                     star::Handle timelineRecordHandle,
                                      star::core::device::manager::SemaphoreRecord *timeline,
-                                     const uint64_t &valueToSignal)
+                                     const uint64_t &valueToSignal, star::Handle fogRendererRegistration)
 {
     m_resources.signalValue = valueToSignal;
     m_resources.timelineRecord = timeline;
     m_resources.rayAtCutoff = &hostRayCutoff;
     m_resources.rayDistance = &hostRayDist;
-    m_cpyCmds.trigger(bufferManager, cmdBus, targetRayCutoffBuffer, targetRayDistanceBuffer);
+    m_resources.semaphoreRecordHandle = std::move(timelineRecordHandle); 
+
+    m_cpyCmds.trigger(bufferManager, cmdBus, targetRayCutoffBuffer, targetRayDistanceBuffer,
+                      std::move(fogRendererRegistration));
 }
-} // namespace image_metric_manager
+} // namespace service::image_metric_manager

@@ -1,17 +1,6 @@
 #include "InteractiveApplication.hpp"
 
 #ifdef STAR_ENABLE_PRESENTATION
-
-#include "Terrain.hpp"
-#include "command/image_metrics/TriggerCapture.hpp"
-
-#include <starlight/command/CreateObject.hpp>
-#include <starlight/command/command_order/DeclareDependency.hpp>
-#include <starlight/command/command_order/DeclarePass.hpp>
-#include <starlight/command/detail/create_object/DirectObjCreation.hpp>
-#include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
-#include <starlight/common/ConfigFile.hpp>
-#include <starlight/common/objects/BasicObject.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
 
 #include <star_common/helper/StringHelpers.hpp>
@@ -19,8 +8,6 @@
 #include <star_windowing/InteractivityBus.hpp>
 #include <star_windowing/SwapChainRenderer.hpp>
 #include <star_windowing/event/RequestSwapChainFromService.hpp>
-
-#include <boost/filesystem/path.hpp>
 
 void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
@@ -103,9 +90,10 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
         triggerScreenshot(d);
 
-        // only step once
-        m_triggerScreenshot = false;
-        m_flipScreenshotState = false;
+        if (CheckIfControllerIsDone(d.getCmdBus()))
+        {
+            m_triggerScreenshot = false;
+        }
     }
 }
 
@@ -409,7 +397,7 @@ std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star:
     return camera;
 }
 
-star::common::Renderer InteractiveApplication::createOffscreenRenderer(
+star::common::Renderer InteractiveApplication::createMainRenderer(
     star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
     std::shared_ptr<star::StarCamera> camera)
 {

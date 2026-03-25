@@ -195,14 +195,7 @@ class FogInfo
         }
         void setDensityMultiplier(const float &value)
         {
-            if (densityMultiplier < 0.0 || densityMultiplier > 1.0)
-            {
-                densityMultiplier = 1.0;
-            }
-            else
-            {
-                densityMultiplier = value;
-            }
+            densityMultiplier = value;
         }
         float getDensityMultiplier() const
         {

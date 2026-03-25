@@ -9,7 +9,7 @@ Circle::Circle(glm::vec3 startCameraDirection, int numCameraPositions)
 
 void Circle::tick(star::StarCamera &camera)
 {
-    camera.rotateRelative(star::Type::Axis::y, 10.0);
+    camera.rotateRelative(star::Type::Axis::y, 1.0);
     m_counter++;
 }
     

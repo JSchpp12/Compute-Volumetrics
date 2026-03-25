@@ -1,5 +1,6 @@
 #include "Application.hpp"
 
+#include "DeclareDependentPasses.hpp"
 #include "OffscreenRenderer.hpp"
 #include "Terrain.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
@@ -8,7 +9,11 @@
 
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
+#include <starlight/command/command_order/TriggerPass.hpp>
+
+#include <starlight/command/command_order/DeclareDependency.hpp>
 #include <starlight/command/detail/create_object/DirectObjCreation.hpp>
+#include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/command/headless_render_result_write/GetFileNameForFrame.hpp>
 #include <starlight/command/headless_render_result_write/GetSetOutputDir.hpp>
 #include <starlight/common/ConfigFile.hpp>
@@ -23,6 +28,39 @@
 
 using namespace star;
 
+static void CreateWaiterForDefineDependencies(star::common::EventBus &eventBus, const star::core::CommandBus &cmdBus,
+                                              const Volume &volume, const OffscreenRenderer &offscreenRenderer) noexcept
+{
+    DeclareDependentPasses::Builder(eventBus, cmdBus).setVolume(volume).setOffscreenRenderer(offscreenRenderer).build();
+}
+
+static void TriggerSubmissionOfOffscreenPass(star::core::device::manager::ManagerCommandBuffer &mgrCmdBuff,
+                                             const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
+                                             const OffscreenRenderer &offscreenRenderer) noexcept
+{
+    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+    const auto &c = offscreenRenderer.getCommandBuffer();
+
+    auto completeSemaphore = mgrCmdBuff.get(c).commandBuffer->getCompleteSemaphores()[ii];
+
+    cmdBus.submit(star::command_order::TriggerPass().setBinarySemaphore(completeSemaphore).setPass(c));
+};
+
+static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
+                                       star::core::device::manager::Semaphore &mgrSemaphore,
+                                       star::common::EventBus &evtBus, const Volume &volume,
+                                       const star::common::FrameTracker &ft) noexcept
+{
+    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+
+    const auto value = ft.getCurrent().getNumTimesFrameProcessed() + 1; 
+
+    cmdBus.submit(star::command_order::TriggerPass()
+                      .setPass(volume.getRenderer().getCommandBuffer())
+                      .setTimelineSemaphore(volume.getRenderer().getTimelineSemaphores()[ii])
+                      .setSignalValue(std::move(value)));
+}
+
 OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::DeviceContext &context,
                                                        const uint8_t &numFramesInFlight,
                                                        std::shared_ptr<star::StarCamera> camera,
@@ -32,26 +70,26 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    {
-        auto cmd = star::command::CreateObject::Builder()
-                       .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-                           std::make_shared<Terrain>(context, terrainPath)))
-                       .setUniqueName("terrain")
-                       .build();
-        context.begin().set(cmd).submit();
-        objects.emplace_back(cmd.getReply().get());
-    }
-
     //{
-    //    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
     //    auto cmd = star::command::CreateObject::Builder()
-    //                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-    //                   .setUniqueName("horse")
+    //                   .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
+    //                       std::make_shared<Terrain>(context, terrainPath)))
+    //                   .setUniqueName("terrain")
     //                   .build();
     //    context.begin().set(cmd).submit();
-    //    cmd.getReply().get()->init(context);
     //    objects.emplace_back(cmd.getReply().get());
     //}
+
+    {
+        auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+        auto cmd = star::command::CreateObject::Builder()
+                       .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+                       .setUniqueName("horse")
+                       .build();
+        context.begin().set(cmd).submit();
+        cmd.getReply().get()->init(context);
+        objects.emplace_back(cmd.getReply().get());
+    }
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
@@ -70,14 +108,15 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 {
     initImageOutputDir(context.getCmdBus());
     initListeners(context);
+
     auto camera = createMainCamera(context);
 
     std::vector<std::shared_ptr<star::StarObject>> allObjects;
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    m_mainLight =
-        std::make_shared<std::vector<star::Light>>(std::vector<star::Light>{Application::CreateMainLight({0.0, 4.0, 0.0})});
+    m_mainLight = std::make_shared<std::vector<star::Light>>(
+        std::vector<star::Light>{Application::CreateMainLight({0.0, 4.0, 0.0})});
 
     uint8_t numInFlight;
     {
@@ -89,9 +128,9 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     {
         auto oRenderer =
             star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_terrainDir, m_mainLight));
-        auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
+        m_offRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
-        for (auto &object : offscreenRenderer->getObjects())
+        for (auto &object : m_offRenderer->getObjects())
         {
             allObjects.emplace_back(object);
         }
@@ -106,10 +145,10 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
         {
             std::string vdbPath = mediaDirectoryPath + "volumes/ambient";
-            m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
-                                                offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
-                                                offscreenRenderer->getLightInfoBuffers(),
-                                                offscreenRenderer->getLightListBuffers());
+            m_volume =
+                std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height, m_offRenderer,
+                                         m_offRenderer->getCameraInfoBuffers(), m_offRenderer->getLightInfoBuffers(),
+                                         m_offRenderer->getLightListBuffers());
             auto cmd = star::command::CreateObject::Builder()
                            .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
                            .setUniqueName("flatWind")
@@ -123,25 +162,23 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         std::vector<star::common::Renderer> additionals;
         additionals.emplace_back(std::move(oRenderer));
 
-        auto sc = createOffscreenRenderer(context, objects, camera);
+        auto sc = createMainRenderer(context, objects, camera);
         m_mainScene =
             std::make_shared<star::StarScene>(star::star_scene::makeWaitForAllObjectsReadyPolicy(std::move(allObjects)),
                                               std::move(camera), std::move(sc), std::move(additionals));
     }
 
-    // volumeInstance->setPosition(m_mainScene->getCamera()->getPosition());
-    // volumeInstance->setScale(glm::vec3{3.0f, 3.0f, 3.0f});
-    // volumeInstance->rotateRelative(star::Type::Axis::y, 90);
+    CreateWaiterForDefineDependencies(context.getEventBus(), context.getCmdBus(), *m_volume, *m_offRenderer);
 
     m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0001f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 3.0f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 5.0f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 100.0f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 250.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.00001f);
     m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.40f);
     m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.3f);
-    m_volume->getRenderer().setFogType(Fog::Type::sMarched);
-    m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;   
-    m_volume->getRenderer().getFogInfo().linearInfo.farDist = 1000.0f;
+    m_volume->getRenderer().setFogType(Fog::Type::sLinear);
+    m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
+    m_volume->getRenderer().getFogInfo().linearInfo.farDist = 16000.0f;
     m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.6f;
     m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(1.0f);
     return m_mainScene;
@@ -162,6 +199,10 @@ void Application::initImageOutputDir(star::core::CommandBus &bus)
 void Application::frameUpdate(star::core::SystemContext &context)
 {
     auto &d = context.getAllDevices().getData()[0];
+
+    TriggerSubmissionOfCompute(d.getCmdBus(), d.getSemaphoreManager(), d.getEventBus(), *m_volume, d.getFrameTracker());
+    TriggerSubmissionOfOffscreenPass(d.getManagerCommandBuffer().m_manager, d.getCmdBus(), d.getFrameTracker(),
+                                     *m_offRenderer);
 
     if (!CheckIfControllerIsDone(d.getCmdBus()))
     {
@@ -230,12 +271,13 @@ int Application::ProcessIntInput()
     return selectedValue;
 }
 
-star::common::Renderer Application::createOffscreenRenderer(star::core::device::DeviceContext &context,
-                                                            std::vector<std::shared_ptr<star::StarObject>> objects,
-                                                            std::shared_ptr<star::StarCamera> camera)
+star::common::Renderer Application::createMainRenderer(star::core::device::DeviceContext &context,
+                                                       std::vector<std::shared_ptr<star::StarObject>> objects,
+                                                       std::shared_ptr<star::StarCamera> camera)
 {
-    star::common::Renderer sc{star::core::renderer::HeadlessRenderer{
-        context, context.getFrameTracker().getSetup().getNumFramesInFlight(), objects, m_mainLight, camera}};
+    star::common::Renderer sc{
+        star::core::renderer::HeadlessRenderer{context, context.getFrameTracker().getSetup().getNumFramesInFlight(),
+                                               objects, m_mainLight, camera, vk::PipelineStageFlagBits::eAllCommands}};
 
     auto *renderer = sc.getRaw<star::core::renderer::HeadlessRenderer>();
     context.getEventBus().emit(star::event::RegisterMainGraphicsRenderer{renderer});
