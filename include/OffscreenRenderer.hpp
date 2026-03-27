@@ -26,12 +26,24 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoColorAttachment(const star::common::FrameTracker &frameTracker) override;
 
+    virtual void recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
+                                     const star::common::FrameTracker &frameInFlightIndex,
+                                     const uint64_t &frameIndex) override;
+
+    const std::vector<star::Handle> getTimelineSemaphroes() const
+    {
+        return m_timelineSemaphores;
+    }
   private:
     uint32_t graphicsQueueFamilyIndex = 0;
     uint32_t computeQueueFamilyIndex = 0;
     uint32_t firstFramePassCounter = 0;
     bool isFirstPass = true;
     std::vector<std::shared_ptr<star::StarBuffers::Buffer>> depthInfoStorageBuffers;
+    std::vector<star::Handle> m_timelineSemaphores; 
+
+    vk::Device m_device{VK_NULL_HANDLE};
+    const star::core::CommandBus *m_cmdBus{nullptr};
 
     std::vector<star::StarTextures::Texture> createRenderToImages(star::core::device::DeviceContext &device,
                                                                   const uint8_t &numFramesInFlight) override;
@@ -43,4 +55,12 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
         const star::common::FrameTracker &frameTracker) override;
+
+    vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
+                               std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
+                               std::vector<vk::Semaphore> dataSemaphores,
+                               std::vector<vk::PipelineStageFlags> dataWaitPoints,
+                               std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue);
+
+    void waitForSemaphore(const star::common::FrameTracker &ft) const; 
 };

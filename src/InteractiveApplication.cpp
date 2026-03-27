@@ -5,12 +5,54 @@
 
 #include <star_common/helper/StringHelpers.hpp>
 
+#include <starlight/command/command_order/TriggerPass.hpp>
+
 #include <star_windowing/InteractivityBus.hpp>
 #include <star_windowing/SwapChainRenderer.hpp>
 #include <star_windowing/event/RequestSwapChainFromService.hpp>
 
+static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerCommandBuffer &mgrCmdBuff,
+                                           const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
+                                           const OffscreenRenderer &offscreenRenderer) noexcept
+{
+    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+    const auto &c = offscreenRenderer.getCommandBuffer();
+
+    cmdBus.submit(star::command_order::TriggerPass()
+                      .setTimelineSemaphore(offscreenRenderer.getTimelineSemaphroes()[ii])
+                      .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
+                      .setPass(c));
+};
+
+static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
+                                       star::core::device::manager::Semaphore &mgrSemaphore,
+                                       star::common::EventBus &evtBus, const Volume &volume,
+                                       const star::common::FrameTracker &ft) noexcept
+{
+    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+
+    const auto value = ft.getCurrent().getNumTimesFrameProcessed() + 1;
+
+    cmdBus.submit(star::command_order::TriggerPass()
+                      .setPass(volume.getRenderer().getCommandBuffer())
+                      .setTimelineSemaphore(volume.getRenderer().getTimelineSemaphores()[ii])
+                      .setSignalValue(std::move(value)));
+}
+
+static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus,
+                                            const star::core::renderer::HeadlessRenderer &finalizationRenderer,
+                                            size_t currentNumTimesFrameProcessed, size_t currentFrameInFlight)
+{
+    cmdBus.submit(star::command_order::TriggerPass()
+                      .setPass(finalizationRenderer.getCommandBuffer())
+                      .setTimelineSemaphore(finalizationRenderer.getTimelineSemaphores()[currentFrameInFlight])
+                      .setSignalValue(++currentNumTimesFrameProcessed));
+}
+
 void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
+    this->Application::frameUpdate(context);
+
     if (m_actDir[star::Type::Axis::x])
     {
         if (m_mode == ModifyMode::movement)

@@ -27,9 +27,8 @@ bool testForLocalDistanceDepthBehindHitPoint(const float t0, const Ray localRay,
                                              const uvec2 pixelCoords, const uvec2 resolution, const float depth,
                                              inout float localDepthDistance)
 {
-    float hitPointLocalDistance = length((localRay.origin.xyz + (localRay.direction.xyz * t0)) - localRay.origin.xyz);
     localDepthDistance =
         reconstructDepthDistanceInObjectLocalSpace(localRay, invObjectModel, pixelCoords, uvec2(addCamInfo.cameraDimensions.xy), depth);
 
-    return hitPointLocalDistance < localDepthDistance; 
+    return t0 < localDepthDistance; 
 }

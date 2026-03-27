@@ -117,46 +117,49 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
 void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
                                          const uint64_t &frameIndex)
 {
-    commandBuffer.pipelineBarrier2(
-        vk::DependencyInfo().setImageMemoryBarriers(vk::ArrayProxyNoTemporaries<const vk::ImageMemoryBarrier2>{
-            vk::ImageMemoryBarrier2()
-                .setImage(this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage())
-                .setOldLayout(vk::ImageLayout::eGeneral)
-                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-                .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-                .setDstStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
-                .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-                .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                .setSubresourceRange(vk::ImageSubresourceRange()
-                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                         .setBaseMipLevel(0)
-                                         .setLevelCount(1)
-                                         .setBaseArrayLayer(0)
-                                         .setLayerCount(1))}));
+    vk::Image cImage = this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
+
+    std::vector<vk::ImageMemoryBarrier2> imgBarriers{
+        vk::ImageMemoryBarrier2()
+            .setImage(cImage)
+            .setOldLayout(vk::ImageLayout::eGeneral)
+            .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+            .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
+            .setDstStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
+            .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
+            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setSubresourceRange(vk::ImageSubresourceRange()
+                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                     .setBaseMipLevel(0)
+                                     .setLevelCount(1)
+                                     .setBaseArrayLayer(0)
+                                     .setLayerCount(1))};
+
+    commandBuffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(imgBarriers));
 }
 
 void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
 {
-    //commandBuffer.pipelineBarrier2(
-    //    vk::DependencyInfo().setImageMemoryBarriers(vk::ArrayProxyNoTemporaries<const vk::ImageMemoryBarrier2>{
-    //        vk::ImageMemoryBarrier2()
-    //            .setImage(this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage())
-    //            .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-    //            .setNewLayout(vk::ImageLayout::eGeneral)
-    //            .setSrcStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
-    //            .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
-    //            .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
-    //            .setDstAccessMask(vk::AccessFlagBits2::eNone)
-    //            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-    //            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-    //            .setSubresourceRange(vk::ImageSubresourceRange()
-    //                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-    //                                     .setBaseMipLevel(0)
-    //                                     .setLevelCount(1)
-    //                                     .setBaseArrayLayer(0)
-    //                                     .setLayerCount(1))}));
+    // commandBuffer.pipelineBarrier2(
+    //     vk::DependencyInfo().setImageMemoryBarriers(vk::ArrayProxyNoTemporaries<const vk::ImageMemoryBarrier2>{
+    //         vk::ImageMemoryBarrier2()
+    //             .setImage(this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage())
+    //             .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+    //             .setNewLayout(vk::ImageLayout::eGeneral)
+    //             .setSrcStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
+    //             .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
+    //             .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
+    //             .setDstAccessMask(vk::AccessFlagBits2::eNone)
+    //             .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+    //             .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+    //             .setSubresourceRange(vk::ImageSubresourceRange()
+    //                                      .setAspectMask(vk::ImageAspectFlagBits::eColor)
+    //                                      .setBaseMipLevel(0)
+    //                                      .setLevelCount(1)
+    //                                      .setBaseArrayLayer(0)
+    //                                      .setLayerCount(1))}));
 }
 
 void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,

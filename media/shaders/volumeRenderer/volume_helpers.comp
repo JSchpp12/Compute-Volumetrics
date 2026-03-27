@@ -4,7 +4,7 @@ pnanovdb_buf_t nanoVDBBuffer;
 
 Ray transformWorldRayToGridLocal(const in Ray worldRay, const in mat4 inverseModelMatrix)
 {
-    vec3 direction = mat3(inverseModelMatrix) * worldRay.direction.xyz; // do NOT normalize
+    vec3 direction = normalize(mat3(inverseModelMatrix) * worldRay.direction.xyz);
 
     return Ray(vec4((inverseModelMatrix * worldRay.origin).xyz, 1.0), vec4(direction, 0.0));
 }

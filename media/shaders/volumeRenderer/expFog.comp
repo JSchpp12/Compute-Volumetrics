@@ -37,7 +37,7 @@ Light_Type createLightTypeStruct()
 	return(lightChecker);
 }
 //static data
-layout(r32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
+layout(rgba32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
 layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer{
     uint pnanovdb_buf_data[];
 };

@@ -20,10 +20,6 @@ class InteractiveApplication : public Application,
     {
     }
 
-    OffscreenRenderer createOffscreenRenderer(star::core::device::DeviceContext &context,
-                                              const uint8_t &numFramesInFlight,
-                                              std::shared_ptr<star::windowing::BasicCamera> camera,
-                                              std::shared_ptr<std::vector<star::Light>> mainLight);
     virtual ~InteractiveApplication() = default;
 
     virtual void frameUpdate(star::core::SystemContext &context) override;

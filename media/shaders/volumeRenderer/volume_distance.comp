@@ -31,7 +31,7 @@ Light_Type createLightTypeStruct()
     return (lightChecker);
 }
 // globals
-layout(r32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
+layout(rgba32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
 layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer
 {
     uint pnanovdb_buf_data[];
@@ -147,7 +147,6 @@ void main()
     const ivec2 targetPixel = ivec2(gid);
     pnanovdb_grid_handle_t grid = makeNanoGrid(0);
     const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]);
-    const float randomValue = imageLoad(randomTexture, targetPixel).r;
     vec3 resultingColor = vec3(0.0, 0.0, 0.0);
 
     vec3 viewDirScene = vec3(0.0);
@@ -164,11 +163,14 @@ void main()
     float rayDistanceTraveled = 0;
     if (rayBoxIntersect(grid, localRay, t0, t1))
     {
+        const float scale = extractUniformVolumeScale(instanceModelMatrix[0]);
+
         forwardMarch(grid, resultingColor, localRay, t0, t1, inverseModelMatrix, fogInfo.marchedFog_sigmaAbsorption,
                      fogInfo.marchedFog_sigmaScattering, fogInfo.marchedFog_lightPropertyDirG,
-                     fogInfo.marchedFog_stepSizeDist, fogInfo.marchedFog_stepSizeDist_light, addCamInfo.farClipDist,
-                     randomValue, fogInfo.marchedFog_defaultDensity, fogInfo.marchedFog_densityMultiplier,
-                     resultingColor, rayDistanceTraveled);
+                     fogInfo.marchedFog_stepSizeDist / scale, fogInfo.marchedFog_stepSizeDist_light / scale,
+                     addCamInfo.farClipDist / scale, imageLoad(randomTexture, targetPixel),
+                     fogInfo.marchedFog_defaultDensity, fogInfo.marchedFog_densityMultiplier, resultingColor,
+                     rayDistanceTraveled);
     }
     else
     {

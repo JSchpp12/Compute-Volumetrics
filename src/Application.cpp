@@ -1,17 +1,18 @@
 #include "Application.hpp"
 
 #include "DeclareDependentPasses.hpp"
+#include "GetCmdBuffer.hpp"
 #include "OffscreenRenderer.hpp"
-#include "Terrain.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
+#include "renderer/FinalizationRenderer.hpp"
 
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
 
-#include <starlight/command/command_order/DeclareDependency.hpp>
+#include <starlight/command/GetScreenCaptureSyncInfo.hpp>
 #include <starlight/command/detail/create_object/DirectObjCreation.hpp>
 #include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/command/headless_render_result_write/GetFileNameForFrame.hpp>
@@ -31,19 +32,19 @@ using namespace star;
 static void CreateWaiterForDefineDependencies(star::common::EventBus &eventBus, const star::core::CommandBus &cmdBus,
                                               const Volume &volume, const OffscreenRenderer &offscreenRenderer) noexcept
 {
-    DeclareDependentPasses::Builder(eventBus, cmdBus).setVolume(volume).setOffscreenRenderer(offscreenRenderer).build();
 }
 
-static void TriggerSubmissionOfOffscreenPass(star::core::device::manager::ManagerCommandBuffer &mgrCmdBuff,
-                                             const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
-                                             const OffscreenRenderer &offscreenRenderer) noexcept
+static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerCommandBuffer &mgrCmdBuff,
+                                           const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
+                                           const OffscreenRenderer &offscreenRenderer) noexcept
 {
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
     const auto &c = offscreenRenderer.getCommandBuffer();
 
-    auto completeSemaphore = mgrCmdBuff.get(c).commandBuffer->getCompleteSemaphores()[ii];
-
-    cmdBus.submit(star::command_order::TriggerPass().setBinarySemaphore(completeSemaphore).setPass(c));
+    cmdBus.submit(star::command_order::TriggerPass()
+                      .setTimelineSemaphore(offscreenRenderer.getTimelineSemaphroes()[ii])
+                      .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
+                      .setPass(c));
 };
 
 static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
@@ -53,12 +54,22 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
 {
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
 
-    const auto value = ft.getCurrent().getNumTimesFrameProcessed() + 1; 
+    const auto value = ft.getCurrent().getNumTimesFrameProcessed() + 1;
 
     cmdBus.submit(star::command_order::TriggerPass()
                       .setPass(volume.getRenderer().getCommandBuffer())
                       .setTimelineSemaphore(volume.getRenderer().getTimelineSemaphores()[ii])
                       .setSignalValue(std::move(value)));
+}
+
+static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus,
+                                            const star::core::renderer::HeadlessRenderer &finalizationRenderer,
+                                            size_t currentNumTimesFrameProcessed, size_t currentFrameInFlight)
+{
+    cmdBus.submit(star::command_order::TriggerPass()
+                      .setPass(finalizationRenderer.getCommandBuffer())
+                      .setTimelineSemaphore(finalizationRenderer.getTimelineSemaphores()[currentFrameInFlight])
+                      .setSignalValue(++currentNumTimesFrameProcessed));
 }
 
 OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::DeviceContext &context,
@@ -163,12 +174,25 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         additionals.emplace_back(std::move(oRenderer));
 
         auto sc = createMainRenderer(context, objects, camera);
+        m_finalizationCmds = sc.getRaw<star::core::renderer::DefaultRenderer>();
         m_mainScene =
             std::make_shared<star::StarScene>(star::star_scene::makeWaitForAllObjectsReadyPolicy(std::move(allObjects)),
                                               std::move(camera), std::move(sc), std::move(additionals));
     }
 
-    CreateWaiterForDefineDependencies(context.getEventBus(), context.getCmdBus(), *m_volume, *m_offRenderer);
+    DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
+        .setConsumer([this]() -> star::Handle { return this->m_volume->getRenderer().getCommandBuffer(); }) //volume
+        .setProducer([this]() -> star::Handle { return this->m_offRenderer->getCommandBuffer(); })  //terrain
+        .build();
+    DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
+        .setConsumer([this]() -> star::Handle { return m_finalizationCmds->getCommandBuffer(); }) //final square screen renderer thing
+        .setProducer([this]() -> star::Handle { return m_volume->getRenderer().getCommandBuffer(); })   //volume
+        .build();
+    // find a way to declare dependency between the headless renderer and the copy commands
+    // DeclareDependentPasses<star::core::renderer::HeadlessRenderer, GetCmdBuffer>::Builder(context.getEventBus(),
+    // context.getCmdBus())
+    //     .setConsumer()
+    //     .setProducer()
 
     m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0001f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 100.0f;
@@ -200,18 +224,25 @@ void Application::frameUpdate(star::core::SystemContext &context)
 {
     auto &d = context.getAllDevices().getData()[0];
 
-    TriggerSubmissionOfCompute(d.getCmdBus(), d.getSemaphoreManager(), d.getEventBus(), *m_volume, d.getFrameTracker());
-    TriggerSubmissionOfOffscreenPass(d.getManagerCommandBuffer().m_manager, d.getCmdBus(), d.getFrameTracker(),
-                                     *m_offRenderer);
-
-    if (!CheckIfControllerIsDone(d.getCmdBus()))
     {
-        auto cmd = star::headless_render_result_write::GetFileNameForFrame();
-        d.begin().set(cmd).submit();
+        size_t fi = static_cast<size_t>(d.getFrameTracker().getCurrent().getFrameInFlightIndex());
+        size_t gfProcessed = static_cast<size_t>(d.getFrameTracker().getCurrent().getNumTimesFrameProcessed());
 
-        TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
-        triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());
+        TriggerSubmissionOfCompute(d.getCmdBus(), d.getSemaphoreManager(), d.getEventBus(), *m_volume,
+                                   d.getFrameTracker());
+        TriggerSubmissionOfTerrainDraw(d.getManagerCommandBuffer().m_manager, d.getCmdBus(), d.getFrameTracker(),
+                                       *m_offRenderer);
+        TriggerSubmissionOfFinalization(d.getCmdBus(), *m_finalizationCmds, gfProcessed, fi);
     }
+
+    //if (!CheckIfControllerIsDone(d.getCmdBus()))
+    //{
+    //    auto cmd = star::headless_render_result_write::GetFileNameForFrame();
+    //    d.begin().set(cmd).submit();
+
+    //    TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
+    //    triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());
+    //}
 }
 
 void Application::setHeadlessServiceOutputDir(star::core::device::DeviceContext &context) const

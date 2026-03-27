@@ -18,7 +18,7 @@ float applyHenyeyGreensteinPhase(const float cosTheta, const float g)
 void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, const Ray ray, const float t0,
                   const float t1, const mat4 inverseModelMatrix, float sigmaAbsorption, float sigmaScattering,
                   float lightPropertyDir_g, float mainStepSize, float lightStepSize, const float cutOffDistance,
-                  const float jitterAmount, const float defaultDensity, const float densityMultiplier,
+                  const vec4 randomValues, const float defaultDensity, const float densityMultiplier,
                   inout vec3 resultingColor, inout float rayDistanceTraveled)
 {
     Light_Type lChecker = createLightTypeStruct();
@@ -29,10 +29,12 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
     pnanovdb_readaccessor_init(acc, root);
     pnanovdb_grid_type_t type = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid);
 
-    const int fittedNumSteps = max(1, int(ceil((max(t1, cutOffDistance) - t0) / mainStepSize)));
+    const float marchStopDistance = min(t1, cutOffDistance);
+    const int fittedNumSteps = max(1, int(ceil((marchStopDistance - t0) / mainStepSize)));
     const float sigmaT = sigmaAbsorption + sigmaScattering;
-    const float jitter = jitterAmount * mainStepSize;
-    const float lJitter = jitterAmount * lightStepSize;
+    const float jitter = randomValues.x * mainStepSize;
+    const float lJitter = randomValues.y * lightStepSize;
+    const mat3 prepInverseModelMat = mat3(inverseModelMatrix);
 
     float transparency = 1.0;
     vec3 resultingRadiance = vec3(0.0);
@@ -40,7 +42,8 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
     for (int i = 0; i < fittedNumSteps; i++)
     {
         // setting to middle
-        const float t = (t0 + (mainStepSize * (i + 0.5))) + jitter;
+        const float t = (t0 + (mainStepSize * (i + 0.5)));
+
         if (transparency < 0.0005)
         {
             rayDistanceTraveled = t;
@@ -62,7 +65,7 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                 vec3 lPos;
                 if (isDirectional)
                 {
-                    lDir = mat3(inverseModelMatrix) * -lightList.lights[j].direction.xyz;
+                    lDir = normalize(prepInverseModelMat * -lightList.lights[j].direction.xyz);
                     lPos = vec3(marchPos + (lDir * 1000)); // TODO: implement finding location on bounding box
                 }
                 else
@@ -77,18 +80,19 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                 if (rayBoxIntersect(grid, rayToLight, lt0, lt1) && lt1 > 0)
                 {
                     float lTau = 0.0;
+                    const float distToLight = length(lPos - rayToLight.origin.xyz);
+                    const float lMarchStopDistance = min(distToLight, lt1);
+                    const int fittedNumStepsLight = max(1, int(ceil(lMarchStopDistance / lightStepSize)));
 
-                    const int fittedNumStepsLight =
-                        max(1, int(ceil(min(lt1, length(lPos - marchPos)) / lightStepSize)));
                     for (int k = 0; k < fittedNumStepsLight; k++)
                     {
-                        const float lt = lightStepSize * (k + 0.5) + lJitter;
-                        const vec3 lMarchPos = marchPos + (lt * rayToLight.direction.xyz);
+                        const float lt = lightStepSize * (k + 0.5);
+                        const vec3 lMarchPos = rayToLight.origin.xyz + (lt * rayToLight.direction.xyz);
                         const float lDensity = (gridReadAt(grid, acc, type, lMarchPos, true) * densityMultiplier);
-                        lTau += lDensity * sigmaT * lightStepSize;
+                        lTau += lDensity;
                     }
 
-                    const float lRayAttenuation = exp(-lTau);
+                    const float lRayAttenuation = exp(-lTau * lightStepSize * sigmaT);
                     const float cosTheta = dot(-ray.direction.xyz, rayToLight.direction.xyz);
                     const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g);
                     const vec3 lightColor = lightList.lights[j].ambient.rgb;
