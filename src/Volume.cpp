@@ -41,36 +41,6 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
     return shaders;
 }
 
-// star::Handle Volume::buildPipeline(star::core::device::DeviceContext &device,
-//                                                           vk::Extent2D swapChainExtent,
-//                                                           vk::PipelineLayout pipelineLayout,
-//                                                           star::RenderingTargetInfo renderingInfo)
-// {
-//     star::StarGraphicsPipeline::PipelineConfigSettings settings;
-//     star::StarGraphicsPipeline::defaultPipelineConfigInfo(settings, swapChainExtent, pipelineLayout, renderingInfo);
-
-//     // enable alpha blending
-//     settings.colorBlendAttachment.blendEnable = VK_TRUE;
-//     settings.colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-//     settings.colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
-//     settings.colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
-//     settings.colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
-//     settings.colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
-//     settings.colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
-
-//     settings.colorBlendInfo.logicOpEnable = VK_FALSE;
-//     settings.colorBlendInfo.logicOp = vk::LogicOp::eCopy;
-
-//     auto graphicsShaders = this->getShaders();
-
-//     auto newPipeline =
-//         std::make_unique<star::StarGraphicsPipeline>(graphicsShaders.at(star::Shader_Stage::vertex),
-//                                                      graphicsShaders.at(star::Shader_Stage::fragment));
-//     newPipeline->init(device, pipelineLayout);
-
-//     return newPipeline;
-// }
-
 void Volume::loadModel(star::core::device::DeviceContext &context, const std::string &filePath)
 {
     VolumeDirectoryProcessor contentProcessor(filePath,
@@ -124,8 +94,8 @@ void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const
             .setImage(cImage)
             .setOldLayout(vk::ImageLayout::eGeneral)
             .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
+            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
             .setDstStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
             .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
             .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
@@ -142,24 +112,25 @@ void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const
 
 void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
 {
-    // commandBuffer.pipelineBarrier2(
-    //     vk::DependencyInfo().setImageMemoryBarriers(vk::ArrayProxyNoTemporaries<const vk::ImageMemoryBarrier2>{
-    //         vk::ImageMemoryBarrier2()
-    //             .setImage(this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage())
-    //             .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-    //             .setNewLayout(vk::ImageLayout::eGeneral)
-    //             .setSrcStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
-    //             .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
-    //             .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
-    //             .setDstAccessMask(vk::AccessFlagBits2::eNone)
-    //             .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-    //             .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-    //             .setSubresourceRange(vk::ImageSubresourceRange()
-    //                                      .setAspectMask(vk::ImageAspectFlagBits::eColor)
-    //                                      .setBaseMipLevel(0)
-    //                                      .setLevelCount(1)
-    //                                      .setBaseArrayLayer(0)
-    //                                      .setLayerCount(1))}));
+    //vk::Image cImage = renderingContext.recordDependentImage.get()
+     //commandBuffer.pipelineBarrier2(
+     //    vk::DependencyInfo().setImageMemoryBarriers(vk::ArrayProxyNoTemporaries<const vk::ImageMemoryBarrier2>{
+     //        vk::ImageMemoryBarrier2()
+     //            .setImage(this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage())
+     //            .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+     //            .setNewLayout(vk::ImageLayout::eGeneral)
+     //            .setSrcStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
+     //            .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
+     //            .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
+     //            .setDstAccessMask(vk::AccessFlagBits2::eNone)
+     //            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+     //            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+     //            .setSubresourceRange(vk::ImageSubresourceRange()
+     //                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
+     //                                     .setBaseMipLevel(0)
+     //                                     .setLevelCount(1)
+     //                                     .setBaseArrayLayer(0)
+     //                                     .setLayerCount(1))}));
 }
 
 void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,

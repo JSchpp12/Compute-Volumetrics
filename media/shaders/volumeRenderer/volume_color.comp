@@ -135,10 +135,11 @@ void main()
     {
         const float scale = extractUniformVolumeScale(instanceModelMatrix[0]);
 
-        forwardMarch(grid, resultingColor, localRay, t0, t1, inverseModelMatrix, fogInfo.marchedFog_sigmaAbsorption,
-                     fogInfo.marchedFog_sigmaScattering, fogInfo.marchedFog_lightPropertyDirG,
-                     fogInfo.marchedFog_stepSizeDist / scale, fogInfo.marchedFog_stepSizeDist_light / scale,
-                     localDepthDistance, imageLoad(randomTexture, targetPixel), fogInfo.marchedFog_defaultDensity,
+        forwardMarch(grid, resultingColor, localRay, t0, t1, inverseModelMatrix,
+                     fogInfo.marchedFog_sigmaAbsorption * scale, fogInfo.marchedFog_sigmaScattering * scale,
+                     fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_stepSizeDist / scale,
+                     fogInfo.marchedFog_stepSizeDist_light / scale, localDepthDistance,
+                     imageLoad(randomTexture, targetPixel), fogInfo.marchedFog_defaultDensity,
                      fogInfo.marchedFog_densityMultiplier, resultingColor, rayDistanceTraveled);
     }
     else

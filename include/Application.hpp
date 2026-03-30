@@ -32,7 +32,7 @@ class Application : public star::StarApplication
     OffscreenRenderer *m_offRenderer{nullptr}; 
     std::shared_ptr<std::vector<star::Light>> m_mainLight;
     std::vector<star::Handle> m_screenshotRegistrations;
-    star::core::renderer::DefaultRenderer *m_finalizationCmds{nullptr};
+    star::core::renderer::HeadlessRenderer *m_finalizationCmds{nullptr};
     bool m_flipScreenshotState = false;
 
     virtual void initImageOutputDir(star::core::CommandBus &bus);

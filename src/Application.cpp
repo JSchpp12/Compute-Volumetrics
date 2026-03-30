@@ -3,6 +3,7 @@
 #include "DeclareDependentPasses.hpp"
 #include "GetCmdBuffer.hpp"
 #include "OffscreenRenderer.hpp"
+#include "Terrain.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
@@ -81,26 +82,26 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    //{
-    //    auto cmd = star::command::CreateObject::Builder()
-    //                   .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-    //                       std::make_shared<Terrain>(context, terrainPath)))
-    //                   .setUniqueName("terrain")
-    //                   .build();
-    //    context.begin().set(cmd).submit();
-    //    objects.emplace_back(cmd.getReply().get());
-    //}
-
     {
-        auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
         auto cmd = star::command::CreateObject::Builder()
-                       .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-                       .setUniqueName("horse")
+                       .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
+                           std::make_shared<Terrain>(context, terrainPath)))
+                       .setUniqueName("terrain")
                        .build();
         context.begin().set(cmd).submit();
-        cmd.getReply().get()->init(context);
         objects.emplace_back(cmd.getReply().get());
     }
+
+    //{
+    //    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    //    auto cmd = star::command::CreateObject::Builder()
+    //                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+    //                   .setUniqueName("horse")
+    //                   .build();
+    //    context.begin().set(cmd).submit();
+    //    cmd.getReply().get()->init(context);
+    //    objects.emplace_back(cmd.getReply().get());
+    //}
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
@@ -174,19 +175,21 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         additionals.emplace_back(std::move(oRenderer));
 
         auto sc = createMainRenderer(context, objects, camera);
-        m_finalizationCmds = sc.getRaw<star::core::renderer::DefaultRenderer>();
+        m_finalizationCmds = sc.getRaw<star::core::renderer::HeadlessRenderer>();
         m_mainScene =
             std::make_shared<star::StarScene>(star::star_scene::makeWaitForAllObjectsReadyPolicy(std::move(allObjects)),
                                               std::move(camera), std::move(sc), std::move(additionals));
     }
 
     DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
-        .setConsumer([this]() -> star::Handle { return this->m_volume->getRenderer().getCommandBuffer(); }) //volume
-        .setProducer([this]() -> star::Handle { return this->m_offRenderer->getCommandBuffer(); })  //terrain
+        .setConsumer([this]() -> star::Handle { return this->m_volume->getRenderer().getCommandBuffer(); }) // volume
+        .setProducer([this]() -> star::Handle { return this->m_offRenderer->getCommandBuffer(); })          // terrain
         .build();
     DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
-        .setConsumer([this]() -> star::Handle { return m_finalizationCmds->getCommandBuffer(); }) //final square screen renderer thing
-        .setProducer([this]() -> star::Handle { return m_volume->getRenderer().getCommandBuffer(); })   //volume
+        .setConsumer([this]() -> star::Handle {
+            return m_finalizationCmds->getCommandBuffer();
+        }) // final square screen renderer thing
+        .setProducer([this]() -> star::Handle { return m_volume->getRenderer().getCommandBuffer(); }) // volume
         .build();
     // find a way to declare dependency between the headless renderer and the copy commands
     // DeclareDependentPasses<star::core::renderer::HeadlessRenderer, GetCmdBuffer>::Builder(context.getEventBus(),
@@ -235,14 +238,14 @@ void Application::frameUpdate(star::core::SystemContext &context)
         TriggerSubmissionOfFinalization(d.getCmdBus(), *m_finalizationCmds, gfProcessed, fi);
     }
 
-    //if (!CheckIfControllerIsDone(d.getCmdBus()))
-    //{
-    //    auto cmd = star::headless_render_result_write::GetFileNameForFrame();
-    //    d.begin().set(cmd).submit();
+    if (!CheckIfControllerIsDone(d.getCmdBus()))
+    {
+        auto cmd = star::headless_render_result_write::GetFileNameForFrame();
+        d.begin().set(cmd).submit();
 
-    //    TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
-    //    triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());
-    //}
+        TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
+        triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());
+    }
 }
 
 void Application::setHeadlessServiceOutputDir(star::core::device::DeviceContext &context) const
@@ -307,10 +310,10 @@ star::common::Renderer Application::createMainRenderer(star::core::device::Devic
                                                        std::shared_ptr<star::StarCamera> camera)
 {
     star::common::Renderer sc{
-        star::core::renderer::HeadlessRenderer{context, context.getFrameTracker().getSetup().getNumFramesInFlight(),
-                                               objects, m_mainLight, camera, vk::PipelineStageFlagBits::eAllCommands}};
+        renderer::FinalizationRenderer{context, context.getFrameTracker().getSetup().getNumFramesInFlight(), objects,
+                                       m_mainLight, camera, vk::PipelineStageFlagBits::eAllCommands}};
 
-    auto *renderer = sc.getRaw<star::core::renderer::HeadlessRenderer>();
+    auto *renderer = sc.getRaw<renderer::FinalizationRenderer>();
     context.getEventBus().emit(star::event::RegisterMainGraphicsRenderer{renderer});
 
     return sc;
@@ -353,6 +356,6 @@ star::Light Application::CreateMainLight(glm::vec3 position)
         .setPosition(std::move(position))
         .setType(star::Type::Light::directional)
         .setAmbient({1.0f, 1.0f, 1.0f})
-        .setLuminance(40)
+        .setLuminance(1)
         .setDirection({0.0f, -1.0f, 0.0f});
 }

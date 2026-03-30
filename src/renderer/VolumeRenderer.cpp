@@ -102,7 +102,10 @@ static vk::SemaphoreSubmitInfo GetSignalSemaphoreInfo(const star::core::CommandB
     uint64_t currentSignalValue{0};
     GetTimelineSemaphoreInfo(cmdBus, ft, cmdBuff, signalSemaphore, value);
 
-    return vk::SemaphoreSubmitInfo().setSemaphore(std::move(signalSemaphore)).setValue(std::move(value)).setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
+    return vk::SemaphoreSubmitInfo()
+        .setSemaphore(std::move(signalSemaphore))
+        .setValue(std::move(value))
+        .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
 }
 
 VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
@@ -260,8 +263,8 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
 
         commandBuffer.dispatch(this->workgroupSize.x, this->workgroupSize.y, 1);
 
-        // if (this->currentFogType == Fog::Type::sMarched)
-        //     m_distanceComputer.recordCommandBuffer(commandBuffer, frameTracker, workgroupSize, currentFogType);
+        if (this->currentFogType == Fog::Type::sMarched)
+            m_distanceComputer.recordCommandBuffer(commandBuffer, frameTracker, workgroupSize, currentFogType);
     }
 
     {
@@ -293,43 +296,43 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
     auto getCmd = star::command_order::GetPassInfo{m_commandBuffer};
     m_cmdBus->submit(getCmd);
 
+    std::vector<vk::SemaphoreSubmitInfo> waitInfo;
+
     const star::command_order::get_pass_info::GatheredPassInfo &ele = getCmd.getReply().get();
     if (ele.edges != nullptr)
     {
-        for (const auto &edge : *ele.edges)
+        waitInfo.resize(ele.edges->size());
+
+        for (size_t i{0}; i < ele.edges->size(); i++)
         {
+            const auto &edge = ele.edges->at(i);
 
-            // take first consumer labeled since we are hoping to only find one
-            auto nCmd = star::command_order::GetPassInfo{edge.producer};
-            m_cmdBus->submit(nCmd);
-
+            vk::Semaphore semaphore{VK_NULL_HANDLE};
+            uint64_t signalValue{0};
             if (edge.consumer == m_commandBuffer)
             {
-                // this is the consumer of some resource... means neighbor is the color/depth offscreen renderer
-                offscreenSemaphore = nCmd.getReply().get().signaledSemaphore;
-                offscreenSemaphoreSignalValue = nCmd.getReply().get().toSignalValue;
+                auto nCmd = star::command_order::GetPassInfo{edge.producer};
+                m_cmdBus->submit(nCmd);
+
+                semaphore = nCmd.getReply().get().signaledSemaphore;
+                signalValue = nCmd.getReply().get().toSignalValue;
             }
             else
             {
-                // this is the producer of some resource... neighbor is the final graphics renderer
-                mainRendererSemaphore = nCmd.getReply().get().signaledSemaphore;
-                mainRendererPreviousValue = nCmd.getReply().get().currentSignalValue;
+                auto nCmd = star::command_order::GetPassInfo{edge.consumer};
+                m_cmdBus->submit(nCmd);
+
+                semaphore = nCmd.getReply().get().signaledSemaphore;
+                signalValue = nCmd.getReply().get().currentSignalValue;
             }
+
+            waitInfo[i] = vk::SemaphoreSubmitInfo().setSemaphore(semaphore).setValue(signalValue);
         }
     }
     else
     {
         STAR_THROW("Unable to get binary semaphore from offscreen renderer");
     }
-
-    auto waitInfo = std::vector<vk::SemaphoreSubmitInfo>{vk::SemaphoreSubmitInfo()
-                                                             .setSemaphore(offscreenSemaphore)
-                                                             .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
-                                                             .setValue(offscreenSemaphoreSignalValue),
-                                                         vk::SemaphoreSubmitInfo()
-                                                             .setSemaphore(mainRendererSemaphore)
-                                                             .setValue(mainRendererPreviousValue)
-                                                             .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)};
 
     assert(dataSemaphores.size() == dataWaitPoints.size());
     for (size_t i{0}; i < dataWaitPoints.size(); i++)
@@ -869,22 +872,22 @@ void VolumeRenderer::addPostComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, co
                                          .setLevelCount(1)
                                          .setBaseArrayLayer(0)
                                          .setLayerCount(1))
-             //vk::ImageMemoryBarrier2()
-             //    .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
-             //    .setOldLayout(vk::ImageLayout::eGeneral)
-             //    .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-             //    .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-             //    .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
-             //    .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-             //    .setDstAccessMask(vk::AccessFlagBits2::eNone)
-             //    .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-             //    .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-             //    .setSubresourceRange(vk::ImageSubresourceRange()
-             //                             .setAspectMask(vk::ImageAspectFlagBits::eColor)
-             //                             .setBaseMipLevel(0)
-             //                             .setLevelCount(1)
-             //                             .setBaseArrayLayer(0)
-             //                             .setLayerCount(1))
+            // vk::ImageMemoryBarrier2()
+            //     .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
+            //     .setOldLayout(vk::ImageLayout::eGeneral)
+            //     .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+            //     .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+            //     .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
+            //     .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
+            //     .setDstAccessMask(vk::AccessFlagBits2::eNone)
+            //     .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+            //     .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+            //     .setSubresourceRange(vk::ImageSubresourceRange()
+            //                              .setAspectMask(vk::ImageAspectFlagBits::eColor)
+            //                              .setBaseMipLevel(0)
+            //                              .setLevelCount(1)
+            //                              .setBaseArrayLayer(0)
+            //                              .setLayerCount(1))
         };
     }
 

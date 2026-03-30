@@ -111,7 +111,7 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const s
     vk::Viewport viewport = this->prepareRenderingViewport(m_renderingContext.targetResolution);
     commandBuffer.setViewport(0, viewport);
 
-    this->recordPreRenderPassCommands(commandBuffer, frameTracker.getCurrent().getFrameInFlightIndex(), frameIndex);
+    this->recordPreRenderPassCommands(commandBuffer, frameTracker);
 
     {
         // dynamic rendering used...so dont need all that extra stuff
@@ -128,7 +128,8 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const s
         commandBuffer.beginRendering(renderInfo);
     }
 
-    this->recordRenderingCalls(commandBuffer, frameTracker.getCurrent().getFrameInFlightIndex(), frameIndex);
+    this->recordRenderingCalls(commandBuffer, frameTracker.getCurrent().getFrameInFlightIndex(),
+                               frameTracker.getCurrent().getGlobalFrameCounter());
 
     commandBuffer.endRendering();
 
