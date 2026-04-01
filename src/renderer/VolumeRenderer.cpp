@@ -326,7 +326,10 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
                 signalValue = nCmd.getReply().get().currentSignalValue;
             }
 
-            waitInfo[i] = vk::SemaphoreSubmitInfo().setSemaphore(semaphore).setValue(signalValue);
+            waitInfo[i] = vk::SemaphoreSubmitInfo()
+                              .setSemaphore(semaphore)
+                              .setValue(signalValue)
+                              .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
         }
     }
     else
@@ -345,9 +348,11 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
     vk::Semaphore binarySemaphore{buffer.getCompleteSemaphores()[ii]};
     const vk::SemaphoreSubmitInfo signalInfo[1]{GetSignalSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer)};
 
-    const auto submitInfo =
-        vk::SubmitInfo2().setWaitSemaphoreInfos(waitInfo).setCommandBufferInfos(cbInfo).setSignalSemaphoreInfos(
-            signalInfo);
+    const auto submitInfo = vk::SubmitInfo2()
+                                .setPWaitSemaphoreInfos(waitInfo.data())
+                                .setWaitSemaphoreInfoCount(waitInfo.size())
+                                .setCommandBufferInfos(cbInfo)
+                                .setSignalSemaphoreInfos(signalInfo);
 
     queue.getVulkanQueue().submit2(submitInfo);
 
@@ -532,6 +537,14 @@ void VolumeRenderer::updateDependentData(star::core::device::DeviceContext &cont
                                              vk::PipelineStageFlagBits::eComputeShader);
         m_renderingContext.addBufferToRenderingContext(context, m_fogController.getHandle(frameInFlightIndex));
     }
+
+    if (m_infoManagerGlobalCamera->willBeUpdatedThisFrame(
+            context.getFrameTracker().getCurrent().getGlobalFrameCounter(),
+            context.getFrameTracker().getCurrent().getFrameInFlightIndex()))
+    {
+        m_renderingContext.addBufferToRenderingContext(context,
+                                                       m_infoManagerGlobalCamera->getHandle(frameInFlightIndex));
+    }
 }
 
 void VolumeRenderer::updateRenderingContext(star::core::device::DeviceContext &context,
@@ -685,88 +698,131 @@ void VolumeRenderer::addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, con
 
     const bool diffQueues = this->computeQueueFamilyIndex != this->graphicsQueueFamilyIndex;
 
-    std::vector<vk::ImageMemoryBarrier2> prepareImages = std::vector<vk::ImageMemoryBarrier2>{
-        vk::ImageMemoryBarrier2()
-            .setImage(colorTex->getVulkanImage())
-            .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
-            .setNewLayout(vk::ImageLayout::eGeneral)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setSrcQueueFamilyIndex(diffQueues ? this->graphicsQueueFamilyIndex : vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(diffQueues ? this->computeQueueFamilyIndex : vk::QueueFamilyIgnored)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1)
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)),
-        vk::ImageMemoryBarrier2()
-            .setImage(depthTex->getVulkanImage())
-            .setOldLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-            .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setSrcQueueFamilyIndex(diffQueues ? this->graphicsQueueFamilyIndex : vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(diffQueues ? this->computeQueueFamilyIndex : vk::QueueFamilyIgnored)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1)
-                                     .setAspectMask(vk::ImageAspectFlagBits::eDepth))};
+    vk::ImageMemoryBarrier2 imageBarriers[3];
+    uint8_t barrierCountImage{3};
+
+    imageBarriers[0]
+        .setImage(colorTex->getVulkanImage())
+        .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
+        .setNewLayout(vk::ImageLayout::eGeneral)
+        .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+        .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+        .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+        .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
+        .setSrcQueueFamilyIndex(diffQueues ? this->graphicsQueueFamilyIndex : vk::QueueFamilyIgnored)
+        .setDstQueueFamilyIndex(diffQueues ? this->computeQueueFamilyIndex : vk::QueueFamilyIgnored)
+        .setSubresourceRange(vk::ImageSubresourceRange()
+                                 .setBaseMipLevel(0)
+                                 .setLevelCount(1)
+                                 .setBaseArrayLayer(0)
+                                 .setLayerCount(1)
+                                 .setAspectMask(vk::ImageAspectFlagBits::eColor));
+
+    imageBarriers[1]
+        .setImage(depthTex->getVulkanImage())
+        .setOldLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+        .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+        .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+        .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+        .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+        .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
+        .setSrcQueueFamilyIndex(diffQueues ? this->graphicsQueueFamilyIndex : vk::QueueFamilyIgnored)
+        .setDstQueueFamilyIndex(diffQueues ? this->computeQueueFamilyIndex : vk::QueueFamilyIgnored)
+        .setSubresourceRange(vk::ImageSubresourceRange()
+                                 .setBaseMipLevel(0)
+                                 .setLevelCount(1)
+                                 .setBaseArrayLayer(0)
+                                 .setLayerCount(1)
+                                 .setAspectMask(vk::ImageAspectFlagBits::eDepth));
+
     if (this->isFirstPass)
     {
-        prepareImages.push_back(
-            vk::ImageMemoryBarrier2()
-                .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
-                .setOldLayout(vk::ImageLayout::eUndefined)
-                .setNewLayout(vk::ImageLayout::eGeneral)
-                .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
-                .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-                .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
-                .setSubresourceRange(vk::ImageSubresourceRange()
-                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                         .setBaseMipLevel(0)
-                                         .setLevelCount(1)
-                                         .setBaseArrayLayer(0)
-                                         .setLayerCount(1)));
+        imageBarriers[2]
+            .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
+            .setOldLayout(vk::ImageLayout::eUndefined)
+            .setNewLayout(vk::ImageLayout::eGeneral)
+            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+            .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
+            .setSubresourceRange(vk::ImageSubresourceRange()
+                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                     .setBaseMipLevel(0)
+                                     .setLevelCount(1)
+                                     .setBaseArrayLayer(0)
+                                     .setLayerCount(1));
     }
     else
     {
-        prepareImages.push_back(
-            vk::ImageMemoryBarrier2()
-                .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
-                .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setNewLayout(vk::ImageLayout::eGeneral)
-                .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-                .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-                .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
-                .setSubresourceRange(vk::ImageSubresourceRange()
-                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                         .setBaseMipLevel(0)
-                                         .setLevelCount(1)
-                                         .setBaseArrayLayer(0)
-                                         .setLayerCount(1)));
+        imageBarriers[2]
+            .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
+            .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+            .setNewLayout(vk::ImageLayout::eGeneral)
+            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+            .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
+            .setSubresourceRange(vk::ImageSubresourceRange()
+                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                     .setBaseMipLevel(0)
+                                     .setLevelCount(1)
+                                     .setBaseArrayLayer(0)
+                                     .setLayerCount(1));
     }
 
-    std::vector<vk::BufferMemoryBarrier2> buffBarriers;
+    vk::BufferMemoryBarrier2 bufferBarriers[4];
+    uint32_t count{0};
     if (getBuffersBackFromTransfer)
     {
-        buffBarriers = getBufferBarriersFromTransferQueues(ft);
+        auto transferBarriers = getBufferBarriersFromTransferQueues(ft);
+        bufferBarriers[0] = std::move(transferBarriers[0]);
+        bufferBarriers[1] = std::move(transferBarriers[1]);
+        count = 2;
     }
 
-    cmdBuff.pipelineBarrier2(
-        vk::DependencyInfo().setImageMemoryBarriers(prepareImages).setBufferMemoryBarriers(buffBarriers));
+    if (m_infoManagerGlobalCamera->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
+                                                          ft.getCurrent().getFrameInFlightIndex()))
+    {
+        auto buffer = m_renderingContext.bufferTransferRecords.get(
+            m_infoManagerGlobalCamera->getHandle(ft.getCurrent().getFrameInFlightIndex()));
+        bufferBarriers[count]
+            .setBuffer(std::move(buffer))
+            .setSize(vk::WholeSize)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eTransfer)
+            .setSrcAccessMask(vk::AccessFlagBits2::eTransferWrite)
+            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+            .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
+            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored);
+        count++;
+    }
+
+    if (m_fogController.willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
+                                               ft.getCurrent().getFrameInFlightIndex()))
+    {
+        auto buffer = m_renderingContext.bufferTransferRecords.get(
+            m_fogController.getHandle(ft.getCurrent().getFrameInFlightIndex()));
+        bufferBarriers[count]
+            .setBuffer(std::move(buffer))
+            .setSize(vk::WholeSize)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eTransfer)
+            .setSrcAccessMask(vk::AccessFlagBits2::eTransferWrite)
+            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+            .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
+            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored);
+        count++;
+    }
+
+    cmdBuff.pipelineBarrier2(vk::DependencyInfo()
+                                 .setPImageMemoryBarriers(imageBarriers)
+                                 .setImageMemoryBarrierCount(barrierCountImage)
+                                 .setPBufferMemoryBarriers(bufferBarriers)
+                                 .setBufferMemoryBarrierCount(count));
 }
 
 inline static vk::BufferMemoryBarrier2 CreatePreBufferMemoryBarrier(const uint32_t &srcQueue, const uint32_t &dstQueue,
@@ -797,7 +853,7 @@ inline static vk::BufferMemoryBarrier2 CreatePostBufferMemoryBarrier(uint32_t sr
         .setDstQueueFamilyIndex(std::move(dstQueue));
 }
 
-std::vector<vk::BufferMemoryBarrier2> VolumeRenderer::getBufferBarriersFromTransferQueues(
+std::array<vk::BufferMemoryBarrier2, 2> VolumeRenderer::getBufferBarriersFromTransferQueues(
     const star::common::FrameTracker &ft) const
 {
     const bool diffQueues = this->computeQueueFamilyIndex != this->transferQueueFamilyIndex;
@@ -811,7 +867,7 @@ std::vector<vk::BufferMemoryBarrier2> VolumeRenderer::getBufferBarriersFromTrans
             srcI, dstI, this->computeRayDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer())};
 }
 
-std::vector<vk::BufferMemoryBarrier2> VolumeRenderer::getBufferBarriersToTransferQueues(
+std::array<vk::BufferMemoryBarrier2, 2> VolumeRenderer::getBufferBarriersToTransferQueues(
     const star::common::FrameTracker &ft) const
 {
     const bool diffQueues = this->computeQueueFamilyIndex != this->transferQueueFamilyIndex;
@@ -834,69 +890,78 @@ void VolumeRenderer::addPostComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, co
         m_offscreenRenderer->getRenderToDepthImages()[ft.getCurrent().getFrameInFlightIndex()]);
 
     const bool diffQueues = this->computeQueueFamilyIndex != this->graphicsQueueFamilyIndex;
-    std::vector<vk::ImageMemoryBarrier2> imageBarriers;
+    vk::ImageMemoryBarrier2 imageBarriers[3];
+    uint8_t barrierCountImage{0};
 
     // give render to image back to graphics queue
     if (diffQueues)
     {
-        imageBarriers = std::vector<vk::ImageMemoryBarrier2>{
-            vk::ImageMemoryBarrier2()
-                .setImage(colorTex->getVulkanImage())
-                .setOldLayout(vk::ImageLayout::eGeneral)
-                .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
-                .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite)
-                .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-                .setDstAccessMask(vk::AccessFlagBits2::eNone)
-                .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
-                .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
-                .setSubresourceRange(vk::ImageSubresourceRange()
-                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                         .setBaseMipLevel(0)
-                                         .setLevelCount(1)
-                                         .setBaseArrayLayer(0)
-                                         .setLayerCount(1)),
-            vk::ImageMemoryBarrier2()
-                .setImage(depthTex->getVulkanImage())
-                .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-                .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
-                .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-                .setDstAccessMask(vk::AccessFlagBits2::eNone)
-                .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
-                .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
-                .setSubresourceRange(vk::ImageSubresourceRange()
-                                         .setAspectMask(vk::ImageAspectFlagBits::eDepth)
-                                         .setBaseMipLevel(0)
-                                         .setLevelCount(1)
-                                         .setBaseArrayLayer(0)
-                                         .setLayerCount(1))
-            // vk::ImageMemoryBarrier2()
-            //     .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
-            //     .setOldLayout(vk::ImageLayout::eGeneral)
-            //     .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            //     .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            //     .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
-            //     .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-            //     .setDstAccessMask(vk::AccessFlagBits2::eNone)
-            //     .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-            //     .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-            //     .setSubresourceRange(vk::ImageSubresourceRange()
-            //                              .setAspectMask(vk::ImageAspectFlagBits::eColor)
-            //                              .setBaseMipLevel(0)
-            //                              .setLevelCount(1)
-            //                              .setBaseArrayLayer(0)
-            //                              .setLayerCount(1))
-        };
-    }
+        imageBarriers[0]
+            .setImage(colorTex->getVulkanImage())
+            .setOldLayout(vk::ImageLayout::eGeneral)
+            .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+            .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite)
+            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
+            .setDstAccessMask(vk::AccessFlagBits2::eNone)
+            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
+            .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
+            .setSubresourceRange(vk::ImageSubresourceRange()
+                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                     .setBaseMipLevel(0)
+                                     .setLevelCount(1)
+                                     .setBaseArrayLayer(0)
+                                     .setLayerCount(1));
+        imageBarriers[1]
+            .setImage(depthTex->getVulkanImage())
+            .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+            .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+            .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
+            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
+            .setDstAccessMask(vk::AccessFlagBits2::eNone)
+            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
+            .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
+            .setSubresourceRange(vk::ImageSubresourceRange()
+                                     .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                     .setBaseMipLevel(0)
+                                     .setLevelCount(1)
+                                     .setBaseArrayLayer(0)
+                                     .setLayerCount(1));
+        imageBarriers[2]
+            .setImage(computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
+            .setOldLayout(vk::ImageLayout::eGeneral)
+            .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+            .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
+            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
+            .setDstAccessMask(vk::AccessFlagBits2::eNone)
+            .setSubresourceRange(vk::ImageSubresourceRange()
+                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                     .setBaseMipLevel(0)
+                                     .setLevelCount(vk::RemainingMipLevels)
+                                     .setBaseArrayLayer(0)
+                                     .setLayerCount(vk::RemainingArrayLayers));
 
-    std::vector<vk::BufferMemoryBarrier2> buffBarriers;
+        barrierCountImage = 3;
+    };
 
+    vk::BufferMemoryBarrier2 bufferBarriers[5];
+    uint8_t barrierCountBuffer{0};
     if (giveBuffersToTransfer)
     {
-        buffBarriers = getBufferBarriersToTransferQueues(ft);
+        auto transferBarriers = getBufferBarriersToTransferQueues(ft);
+        bufferBarriers[0] = transferBarriers[0];
+        bufferBarriers[1] = transferBarriers[1];
+        barrierCountBuffer = 2;
     }
-    cmdBuff.pipelineBarrier2(
-        vk::DependencyInfo().setImageMemoryBarriers(imageBarriers).setBufferMemoryBarriers(buffBarriers));
+
+    auto dependencyInfo = vk::DependencyInfo()
+                              .setPImageMemoryBarriers(imageBarriers)
+                              .setImageMemoryBarrierCount(barrierCountImage)
+                              .setPBufferMemoryBarriers(bufferBarriers)
+                              .setBufferMemoryBarrierCount(barrierCountBuffer);
+    cmdBuff.pipelineBarrier2(dependencyInfo);
 }

@@ -20,7 +20,6 @@
 #include <starlight/command/headless_render_result_write/GetSetOutputDir.hpp>
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
-#include <starlight/core/renderer/HeadlessRenderer.hpp>
 #include <starlight/event/RegisterMainGraphicsRenderer.hpp>
 #include <starlight/virtual/StarCamera.hpp>
 
@@ -207,7 +206,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
     m_volume->getRenderer().getFogInfo().linearInfo.farDist = 16000.0f;
     m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.6f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(1.0f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(0.0f);
     return m_mainScene;
 }
 
@@ -226,6 +225,9 @@ void Application::initImageOutputDir(star::core::CommandBus &bus)
 void Application::frameUpdate(star::core::SystemContext &context)
 {
     auto &d = context.getAllDevices().getData()[0];
+
+    m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(
+        m_volume->getRenderer().getFogInfo().marchedInfo.getDensityMultiplier() + 1.0);
 
     {
         size_t fi = static_cast<size_t>(d.getFrameTracker().getCurrent().getFrameInFlightIndex());
@@ -356,6 +358,6 @@ star::Light Application::CreateMainLight(glm::vec3 position)
         .setPosition(std::move(position))
         .setType(star::Type::Light::directional)
         .setAmbient({1.0f, 1.0f, 1.0f})
-        .setLuminance(1)
+        .setLuminance(2)
         .setDirection({0.0f, -1.0f, 0.0f});
 }

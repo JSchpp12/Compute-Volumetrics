@@ -88,49 +88,29 @@ void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const
                                          const uint64_t &frameIndex)
 {
     vk::Image cImage = this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
+    vk::ImageMemoryBarrier2 imgBarriers[1]{vk::ImageMemoryBarrier2()
+                                               .setImage(std::move(cImage))
+                                               .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                                               .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                                               .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
+                                               .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+                                               .setDstStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
+                                               .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
+                                               .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                               .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                               .setSubresourceRange(vk::ImageSubresourceRange()
+                                                                        .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                                        .setBaseMipLevel(0)
+                                                                        .setLevelCount(1)
+                                                                        .setBaseArrayLayer(0)
+                                                                        .setLayerCount(1))};
 
-    std::vector<vk::ImageMemoryBarrier2> imgBarriers{
-        vk::ImageMemoryBarrier2()
-            .setImage(cImage)
-            .setOldLayout(vk::ImageLayout::eGeneral)
-            .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
-            .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1))};
-
-    commandBuffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(imgBarriers));
+    commandBuffer.pipelineBarrier2(
+        vk::DependencyInfo().setPImageMemoryBarriers(imgBarriers).setImageMemoryBarrierCount(1));
 }
 
 void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
 {
-    //vk::Image cImage = renderingContext.recordDependentImage.get()
-     //commandBuffer.pipelineBarrier2(
-     //    vk::DependencyInfo().setImageMemoryBarriers(vk::ArrayProxyNoTemporaries<const vk::ImageMemoryBarrier2>{
-     //        vk::ImageMemoryBarrier2()
-     //            .setImage(this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage())
-     //            .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-     //            .setNewLayout(vk::ImageLayout::eGeneral)
-     //            .setSrcStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
-     //            .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
-     //            .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
-     //            .setDstAccessMask(vk::AccessFlagBits2::eNone)
-     //            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-     //            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-     //            .setSubresourceRange(vk::ImageSubresourceRange()
-     //                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-     //                                     .setBaseMipLevel(0)
-     //                                     .setLevelCount(1)
-     //                                     .setBaseArrayLayer(0)
-     //                                     .setLayerCount(1))}));
 }
 
 void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,

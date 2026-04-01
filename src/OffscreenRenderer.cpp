@@ -37,10 +37,9 @@ OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context,
 {
 }
 
-void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
-                                       const uint64_t &frameIndex)
+void OffscreenRenderer::recordPreRenderPassCommands(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft)
 {
-    size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
+    size_t index = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
     star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderToImages[index]);
     star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(m_renderToDepthImages[index]);
 
@@ -106,34 +105,14 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const s
             .setDstQueueFamilyIndex(vk::QueueFamilyIgnored);
     }
 
-    commandBuffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(prepImages));
+    buffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(prepImages));
+}
 
-    vk::Viewport viewport = this->prepareRenderingViewport(m_renderingContext.targetResolution);
-    commandBuffer.setViewport(0, viewport);
-
-    this->recordPreRenderPassCommands(commandBuffer, frameTracker);
-
-    {
-        // dynamic rendering used...so dont need all that extra stuff
-        vk::RenderingAttachmentInfo colorAttachmentInfo = prepareDynamicRenderingInfoColorAttachment(frameTracker);
-        vk::RenderingAttachmentInfo depthAttachmentInfo = prepareDynamicRenderingInfoDepthAttachment(frameTracker);
-
-        auto renderArea = vk::Rect2D{vk::Offset2D{}, m_renderingContext.targetResolution};
-        vk::RenderingInfoKHR renderInfo{};
-        renderInfo.renderArea = renderArea;
-        renderInfo.layerCount = 1;
-        renderInfo.pDepthAttachment = &depthAttachmentInfo;
-        renderInfo.pColorAttachments = &colorAttachmentInfo;
-        renderInfo.colorAttachmentCount = 1;
-        commandBuffer.beginRendering(renderInfo);
-    }
-
-    this->recordRenderingCalls(commandBuffer, frameTracker.getCurrent().getFrameInFlightIndex(),
-                               frameTracker.getCurrent().getGlobalFrameCounter());
-
-    commandBuffer.endRendering();
-
-    // pass images back to compute queue family
+void OffscreenRenderer::recordPostRenderingCalls(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft)
+{
+    size_t index = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+    star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderToImages[index]);
+    star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(m_renderToDepthImages[index]);
 
     {
         std::array<const vk::ImageMemoryBarrier2, 2> toCompute{
@@ -174,17 +153,7 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const s
         const auto depInfo =
             vk::DependencyInfo().setPImageMemoryBarriers(&toCompute.front()).setImageMemoryBarrierCount(2);
 
-        commandBuffer.pipelineBarrier2(depInfo);
-    }
-
-    if (this->isFirstPass)
-    {
-        this->firstFramePassCounter--;
-
-        if (this->firstFramePassCounter == 0)
-        {
-            this->isFirstPass = false;
-        }
+        buffer.pipelineBarrier2(depInfo);
     }
 }
 

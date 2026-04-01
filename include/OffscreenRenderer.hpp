@@ -15,8 +15,9 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
     OffscreenRenderer &operator=(const OffscreenRenderer &) = delete;
     virtual ~OffscreenRenderer() = default;
 
-    virtual void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
-                                const uint64_t &frameIndex) override;
+    virtual void recordPreRenderPassCommands(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft) override;
+
+    virtual void recordPostRenderingCalls(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft) override;
 
     void prepRender(star::common::IDeviceContext &context) override;
 
@@ -24,7 +25,8 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
 
     virtual vk::Format getDepthAttachmentFormat(star::core::device::DeviceContext &device) const override;
 
-    virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoColorAttachment(const star::common::FrameTracker &frameTracker) override;
+    virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoColorAttachment(
+        const star::common::FrameTracker &frameTracker) override;
 
     virtual void recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
                                      const star::common::FrameTracker &frameInFlightIndex,
@@ -34,13 +36,14 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
     {
         return m_timelineSemaphores;
     }
+
   private:
     uint32_t graphicsQueueFamilyIndex = 0;
     uint32_t computeQueueFamilyIndex = 0;
     uint32_t firstFramePassCounter = 0;
     bool isFirstPass = true;
     std::vector<std::shared_ptr<star::StarBuffers::Buffer>> depthInfoStorageBuffers;
-    std::vector<star::Handle> m_timelineSemaphores; 
+    std::vector<star::Handle> m_timelineSemaphores;
 
     vk::Device m_device{VK_NULL_HANDLE};
     const star::core::CommandBus *m_cmdBus{nullptr};
@@ -62,5 +65,5 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
                                std::vector<vk::PipelineStageFlags> dataWaitPoints,
                                std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue);
 
-    void waitForSemaphore(const star::common::FrameTracker &ft) const; 
+    void waitForSemaphore(const star::common::FrameTracker &ft) const;
 };

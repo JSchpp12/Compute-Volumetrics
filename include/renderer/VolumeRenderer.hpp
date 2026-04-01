@@ -177,10 +177,10 @@ class VolumeRenderer
 
     static glm::uvec2 CalculateWorkGroupSize(const vk::Extent2D &screenSize);
 
-    std::vector<vk::BufferMemoryBarrier2> getBufferBarriersFromTransferQueues(
+    std::array<vk::BufferMemoryBarrier2, 2> getBufferBarriersFromTransferQueues(
         const star::common::FrameTracker &ft) const;
 
-    std::vector<vk::BufferMemoryBarrier2> getBufferBarriersToTransferQueues(const star::common::FrameTracker &ft) const;
+    std::array<vk::BufferMemoryBarrier2, 2> getBufferBarriersToTransferQueues(const star::common::FrameTracker &ft) const;
 
     void addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
                                      const bool getBuffersBackFromTransfer) const;

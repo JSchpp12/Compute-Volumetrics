@@ -126,7 +126,7 @@ void main()
 
     float t0 = 0;
     float t1 = 0;
-    float localDepthDistance;
+    float localDepthDistance = 0;
     float rayDistanceTraveled = 0;
     if (rayBoxIntersect(grid, localRay, t0, t1) &&
         testForLocalDistanceDepthBehindHitPoint(t0, localRay, inverseModelMatrix, gid,
@@ -141,12 +141,14 @@ void main()
                      fogInfo.marchedFog_stepSizeDist_light / scale, localDepthDistance,
                      imageLoad(randomTexture, targetPixel), fogInfo.marchedFog_defaultDensity,
                      fogInfo.marchedFog_densityMultiplier, resultingColor, rayDistanceTraveled);
+
+        resultingColor = vec3(fogInfo.marchedFog_densityMultiplier / 255, 0.0, 0.0); 
     }
     else
     {
         // TODO: might want to transform this back later
         rayDistanceTraveled = localDepthDistance;
     }
-
+    
     imageStore(outputImage, targetPixel, vec4(resultingColor, 1.0));
 }
