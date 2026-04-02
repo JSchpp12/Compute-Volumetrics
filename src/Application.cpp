@@ -174,7 +174,6 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         additionals.emplace_back(std::move(oRenderer));
 
         auto sc = createMainRenderer(context, objects, camera);
-        m_finalizationCmds = sc.getRaw<star::core::renderer::HeadlessRenderer>();
         m_mainScene =
             std::make_shared<star::StarScene>(star::star_scene::makeWaitForAllObjectsReadyPolicy(std::move(allObjects)),
                                               std::move(camera), std::move(sc), std::move(additionals));
@@ -318,6 +317,8 @@ star::common::Renderer Application::createMainRenderer(star::core::device::Devic
     auto *renderer = sc.getRaw<renderer::FinalizationRenderer>();
     context.getEventBus().emit(star::event::RegisterMainGraphicsRenderer{renderer});
 
+    m_finalizationCmds = static_cast<star::core::renderer::HeadlessRenderer *>(renderer);
+    
     return sc;
 }
 

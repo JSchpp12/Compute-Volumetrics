@@ -90,14 +90,14 @@ void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const
     vk::Image cImage = this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
     vk::ImageMemoryBarrier2 imgBarriers[1]{vk::ImageMemoryBarrier2()
                                                .setImage(std::move(cImage))
-                                               .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                                               .setOldLayout(vk::ImageLayout::eGeneral)
                                                .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
                                                .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
                                                .setSrcAccessMask(vk::AccessFlagBits2::eNone)
                                                .setDstStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
                                                .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-                                               .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                                               .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                               .setSrcQueueFamilyIndex(this->computeQueueFamily)
+                                               .setDstQueueFamilyIndex(this->graphicsQueueFamily)
                                                .setSubresourceRange(vk::ImageSubresourceRange()
                                                                         .setAspectMask(vk::ImageAspectFlagBits::eColor)
                                                                         .setBaseMipLevel(0)
@@ -111,6 +111,26 @@ void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const
 
 void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
 {
+    vk::Image cImage = this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
+    vk::ImageMemoryBarrier2 imgBarrier[1]{vk::ImageMemoryBarrier2()
+                                              .setImage(cImage)
+                                              .setSubresourceRange(vk::ImageSubresourceRange()
+                                                                       .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                                       .setBaseArrayLayer(0)
+                                                                       .setLayerCount(vk::RemainingArrayLayers)
+                                                                       .setBaseMipLevel(0)
+                                                                       .setLevelCount(vk::RemainingMipLevels))
+                                              .setSrcStageMask(vk::PipelineStageFlagBits2::eFragmentShader)
+                                              .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
+                                              .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
+                                              .setDstAccessMask(vk::AccessFlagBits2::eNone)
+                                              .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                                              .setNewLayout(vk::ImageLayout::eGeneral)
+                                              .setSrcQueueFamilyIndex(this->graphicsQueueFamily)
+                                              .setDstQueueFamilyIndex(this->computeQueueFamily)};
+
+    commandBuffer.pipelineBarrier2(
+        vk::DependencyInfo().setPImageMemoryBarriers(imgBarrier).setImageMemoryBarrierCount(1));
 }
 
 void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,

@@ -345,8 +345,18 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
                                   .setStageMask(vk::PipelineStageFlagBits2::eAllCommands));
     }
 
-    vk::Semaphore binarySemaphore{buffer.getCompleteSemaphores()[ii]};
-    const vk::SemaphoreSubmitInfo signalInfo[1]{GetSignalSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer)};
+    vk::SemaphoreSubmitInfo signalInfo[1];
+    {
+        vk::Semaphore signalSemaphore{VK_NULL_HANDLE};
+        uint64_t value{0};
+        uint64_t currentSignalValue{0};
+        GetTimelineSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer, signalSemaphore, value);
+
+        signalInfo[0]
+            .setSemaphore(signalSemaphore)
+            .setValue(value)
+            .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
+    }
 
     const auto submitInfo = vk::SubmitInfo2()
                                 .setPWaitSemaphoreInfos(waitInfo.data())
@@ -609,9 +619,7 @@ std::vector<std::shared_ptr<star::StarTextures::Texture>> VolumeRenderer::create
                                               .setWidth(static_cast<uint32_t>(screenSize.width))
                                               .setHeight(static_cast<uint32_t>(screenSize.height))
                                               .setDepth(1))
-                               .setSharingMode(vk::SharingMode::eConcurrent)
-                               .setPQueueFamilyIndices(indices.data())
-                               .setQueueFamilyIndexCount(2)
+                               .setSharingMode(vk::SharingMode::eExclusive)
                                .setArrayLayers(1)
                                .setUsage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled)
                                .setImageType(vk::ImageType::e2D)
@@ -743,7 +751,7 @@ void VolumeRenderer::addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, con
             .setNewLayout(vk::ImageLayout::eGeneral)
             .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
             .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
             .setSrcAccessMask(vk::AccessFlagBits2::eNone)
             .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
             .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
@@ -760,9 +768,9 @@ void VolumeRenderer::addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, con
             .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
             .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
             .setNewLayout(vk::ImageLayout::eGeneral)
-            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+            .setSrcQueueFamilyIndex(this->graphicsQueueFamilyIndex)
+            .setDstQueueFamilyIndex(this->computeQueueFamilyIndex)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
             .setSrcAccessMask(vk::AccessFlagBits2::eNone)
             .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
             .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
@@ -932,8 +940,8 @@ void VolumeRenderer::addPostComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, co
             .setImage(computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
             .setOldLayout(vk::ImageLayout::eGeneral)
             .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
+            .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
             .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
             .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
             .setDstStageMask(vk::PipelineStageFlagBits2::eNone)

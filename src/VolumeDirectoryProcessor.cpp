@@ -13,6 +13,11 @@ static std::vector<std::filesystem::path> ListFiles(const std::filesystem::path 
 {
     std::vector<std::filesystem::path> files;
 
+    if (!std::filesystem::exists(dir))
+    {
+        STAR_THROW("Provided path to ListFiles does not exist: " + dir.string()); 
+    }
+
     for (const auto &entry : std::filesystem::directory_iterator(dir))
     {
         files.emplace_back(entry.path());
