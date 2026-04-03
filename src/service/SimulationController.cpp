@@ -264,27 +264,22 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
         m_stepCounter++;
     }
 
-    if (!m_test)
+    float t = (m_stepCounter > 0) ? float(m_stepCounter) / float(m_loadedSteps.numSteps - 1) : 0.0f;
+    switch (static_cast<Fog::Type>(m_fogTypeTracker))
     {
-        float t = (m_stepCounter > 0) ? float(m_stepCounter) / float(m_loadedSteps.numSteps - 1) : 0.0f;
-        switch (static_cast<Fog::Type>(m_fogTypeTracker))
-        {
-        case (Fog::Type::sMarched):
-        case (Fog::Type::sMarchedHomogenous):
-            incrementMarched(volume, t);
-            break;
-        case (Fog::Type::sLinear):
-            incrementLinear(volume, t);
-            break;
-        case (Fog::Type::sExponential):
-            incrementExp(volume, t);
-            break;
-        default:
-            return;
-        }
-        m_test = true; 
+    case (Fog::Type::sMarched):
+    case (Fog::Type::sMarchedHomogenous):
+        incrementMarched(volume, t);
+        break;
+    case (Fog::Type::sLinear):
+        incrementLinear(volume, t);
+        break;
+    case (Fog::Type::sExponential):
+        incrementExp(volume, t);
+        break;
+    default:
+        return;
     }
-
 
     if (isDone() && m_doneFlag)
     {

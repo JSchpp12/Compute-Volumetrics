@@ -141,8 +141,6 @@ void main()
                      fogInfo.marchedFog_stepSizeDist_light / scale, localDepthDistance,
                      imageLoad(randomTexture, targetPixel), fogInfo.marchedFog_defaultDensity,
                      fogInfo.marchedFog_densityMultiplier, resultingColor, rayDistanceTraveled);
-
-        resultingColor = vec3(fogInfo.marchedFog_densityMultiplier / 255, 0.0, 0.0); 
     }
     else
     {

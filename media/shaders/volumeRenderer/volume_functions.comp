@@ -38,17 +38,17 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
 
     float transparency = 1.0;
     vec3 resultingRadiance = vec3(0.0);
-    rayDistanceTraveled = t1;
+    rayDistanceTraveled = t0;
     for (int i = 0; i < fittedNumSteps; i++)
     {
         // setting to middle
-        const float t = (t0 + (mainStepSize * (i + 0.5)));
-
-        if (transparency < 0.0005)
+        const float t = (t0 + jitter + (mainStepSize * (i + 0.5)));
+        
+        if (transparency < 0.005)
         {
-            rayDistanceTraveled = t;
             break;
         }
+        rayDistanceTraveled += mainStepSize; 
 
         const vec3 marchPos = ray.origin.xyz + (t * ray.direction.xyz);
         const float pDensity = gridReadAt(grid, acc, gType, marchPos, true) * densityMultiplier;
@@ -93,7 +93,7 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
 
                     for (int k = 0; k < fittedNumStepsLight; k++)
                     {
-                        const float lt = lightStepSize * (k + 0.5);
+                        const float lt = lJitter + lightStepSize * (k + 0.5);
                         const vec3 lMarchPos = rayToLight.origin.xyz + (lt * rayToLight.direction.xyz);
                         const float lDensity = (gridReadAt(grid, acc, gType, lMarchPos, true) * densityMultiplier);
                         lTau += lDensity;

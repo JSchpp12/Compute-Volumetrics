@@ -21,7 +21,7 @@ void renderer::FinalizationRenderer::addMemoryBarriersPost(vk::CommandBuffer cmd
             .setNewLayout(vk::ImageLayout::eTransferSrcOptimal)
             .setSrcStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
             .setSrcAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eBottomOfPipe)
+            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
             .setDstAccessMask(vk::AccessFlagBits2::eNone); 
 
     cmdBuff.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barriers));

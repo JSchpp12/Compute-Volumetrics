@@ -62,7 +62,6 @@ class SimulationControllerService
     star::core::CommandBus *m_cmd = nullptr;
     std::shared_ptr<bool> m_doneFlag = nullptr; 
     bool m_isPrimed = false; 
-    bool m_test = false; 
 
     void switchFogType(Fog::Type newType, Volume &volume, star::StarCamera &camera);
     void submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path);

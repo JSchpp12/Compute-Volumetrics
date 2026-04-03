@@ -57,7 +57,6 @@ void FogControlInfoTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &b
 
     {
         FogInfo::FinalizedInfo info = FogInfo::FinalizedInfo(this->fogInfo);
-        info.marchedFog_densityMultiplier += 1; 
         buffer.writeToBuffer(&info, mapped, sizeof(FogInfo::FinalizedInfo));
     }
 
