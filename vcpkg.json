@@ -1,0 +1,41 @@
+{
+    "name": "compute-volumetrics",
+    "version-string": "1.0.0",
+    "dependencies": [
+        "tbb",
+        {
+            "name": "openvdb",
+            "features": ["nanovdb","nanovdb-tools"]
+        },
+        "abseil",
+        "nlohmann-json",
+        "stb",
+        "blosc",
+        "glm",
+        "vulkan-memory-allocator",
+        "basisu", 
+        "tinyobjloader", 
+        "boost-thread", 
+        "boost-lockfree", 
+        "boost-container", 
+        "boost-filesystem", 
+        "boost-log",
+        {
+            "name": "ktx",
+            "features": ["vulkan"]
+        },
+        {
+            "name": "gdal",
+            "features": ["png", "geos"]
+        },
+        "gtest"
+    ],
+    "features": {
+        "windowed": {
+            "description": "Enables installation of dependencies for windowing support",
+            "dependencies": [
+                "glfw3"
+            ]
+        }
+    }
+}

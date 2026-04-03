@@ -1,12 +1,13 @@
 #version 450
 
-layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in; 
+const float PI = 3.1415926535897932384626433832795;
 
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 struct Light_Type
 {
-	uint point; 
-	uint directional; 
-	uint spot;
+    uint point;
+    uint directional;
+    uint spot;
 };
 struct Light
 {
@@ -26,27 +27,28 @@ struct Light
     uint luminance;
 };
 
-layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
+Light_Type createLightTypeStruct()
 {
-    mat4 proj;
-    mat4 view;
-    mat4 inverseView;
+	Light_Type lightChecker = {
+		0x0, 
+		0x1, 
+		0x2
+	};
+	return(lightChecker);
 }
-globalUbo;
-
-layout(set = 0, binding = 1) uniform GlobalLightInfo
-{
-    int numLights;
-} lightInfo; 
-
-layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer
-{
-    Light lights[];
+//static data
+layout(rgba32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
+layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer{
+    uint pnanovdb_buf_data[];
 };
-
-layout(set = 1, binding = 0) uniform additionalCameraInfo
+layout(set = 0, binding = 2) uniform aabbInfo
 {
-    mat4 inverseProjMatrix;
+    vec4 bounds[2];
+}
+aabb;
+layout(set = 0, binding = 2) uniform additionalCameraInfo
+{
+    mat4 invProj;
     vec2 cameraDimensions;
     float aspectRatio;
     float farClipDist;
@@ -54,30 +56,29 @@ layout(set = 1, binding = 0) uniform additionalCameraInfo
     float scale;
 }
 addCamInfo;
-layout(std430, set = 1, binding = 1) buffer PNanoVDBBuffer
-{
-    uint pnanovdb_buf_data[];
-};
-layout(r32f, set = 1, binding = 2) uniform readonly image2D randomTexture;
 
-layout(set = 2, binding = 0, rgba8) uniform readonly image2D inputSceneColor;
-layout(set = 2, binding = 1) uniform sampler2D inputSceneDepth;
-layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
-//set 3
-layout(set = 3, binding = 0) uniform InstanceModelMatrix
+//per-frame update data
+layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
+{
+    mat4 proj;
+    mat4 view;
+    mat4 invView;
+} globalUbo;
+layout(set = 1, binding = 1) uniform GlobalLightInfo{
+    int numLights;
+} lightInfo; 
+layout(set = 1, binding = 2) readonly buffer GlobalLightBuffer{
+    Light lights[];
+ } lightList;
+layout(set = 1, binding = 3) uniform InstanceModelMatrix
 {
     mat4 instanceModelMatrix[1024];
 };
-layout(set = 3, binding = 1) uniform InstanceInverseModelMatrix
+layout(set = 1, binding = 4) uniform InstanceInverseModelMatrix
 {
     mat4 instanceInverseMatrix[1024];
 };
-layout(set = 3, binding = 2) uniform aabbInfo
-{
-    vec4 bounds[2];
-}
-aabb;
-layout(set = 3, binding = 3) uniform FogControllerInfo
+layout(set = 1, binding = 5) uniform FogControllerInfo
 {
     float linearFog_nearDistance;
     float linearFog_farDistance;
@@ -88,10 +89,15 @@ layout(set = 3, binding = 3) uniform FogControllerInfo
     float marchedFog_lightPropertyDirG;
     float marchedFog_stepSizeDist;
     float marchedFog_stepSizeDist_light;
+    float marchedFog_densityMultiplier;
     uint marchedFog_uniform_maxNumSteps;
     uint gridType;
 }
 fogInfo;
+//only marched types
+layout(set = 2, binding = 0) uniform sampler2D inputSceneDepth;
+layout(set = 2, binding = 1, rgba8) uniform readonly image2D inputSceneColor;
+layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
 
 struct Ray {
 	vec4 origin; 
@@ -122,51 +128,17 @@ vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const float ndz){
 
 vec4 getWorldPositionFromClip(const vec4 clipCoords){
     // 3) Go back to view-space:
-    vec4 viewPositionWorld = addCamInfo.inverseProjMatrix * clipCoords;
+    vec4 viewPositionWorld = addCamInfo.invProj * clipCoords;
 
     return viewPositionWorld / viewPositionWorld.w; 
 }
 
 vec4 getWorldViewDirection(const vec4 viewPositionWorld){
-    return vec4(normalize((globalUbo.inverseView * vec4(viewPositionWorld.xyz, 0.0)).xyz), 0);
+    return vec4(normalize((globalUbo.invView * vec4(viewPositionWorld.xyz, 0.0)).xyz), 0);
 }
 
 vec4 getWorldOrigin(){
-    return vec4((globalUbo.inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz, 1.0);
-}
-
-bool rayBoxIntersect(Ray ray, inout float t0, inout float t1){
-	vec4 traAABBBounds[2] = vec4[2](
-		vec4(instanceModelMatrix[0] * aabb.bounds[0]), 
-		vec4(instanceModelMatrix[0] * aabb.bounds[1])
-	);
-
-	float tmin = -(1.0 / 0.0); 
-	float tmax = (1.0 / 0.0); 
-	float txmin = 0, txmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0; 
-
-	txmin = (traAABBBounds[int(ray.signed[0])].x - ray.origin.x) * ray.invDirection.x; 
-	txmax = (traAABBBounds[int(!ray.signed[0])].x - ray.origin.x) * ray.invDirection.x; 
-
-	tmin = min(txmin, txmax); 
-	tmax = max(txmin, txmax); 
-
-	tymin = (traAABBBounds[int(ray.signed[1])].y - ray.origin.y) * ray.invDirection.y; 
-	tymax = (traAABBBounds[int(!ray.signed[1])].y - ray.origin.y) * ray.invDirection.y; 
-
-	tmin = max(tmin, min(tymin, tymax)); 
-	tmax = min(tmax, max(tymin, tymax)); 
-
-	tzmin = (traAABBBounds[int(ray.signed[2])].z - ray.origin.z) * ray.invDirection.z; 
-	tzmax = (traAABBBounds[int(!ray.signed[2])].z - ray.origin.z) * ray.invDirection.z; 
-
-	tmin = max(tmin, min(tzmin, tzmax)); 
-	tmax = min(tmax, max(tzmin, tzmax)); 
-
-	t0 = tmin; 
-	t1 = tmax; 
-
-	return tmax >= max(0.0, tmin);  
+    return vec4((globalUbo.invView * vec4(0.0, 0.0, 0.0, 1.0)).xyz, 1.0);
 }
 
 ivec2 getTargetPixelCoords(){

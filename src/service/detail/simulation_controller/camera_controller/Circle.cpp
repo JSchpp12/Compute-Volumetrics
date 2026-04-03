@@ -12,7 +12,7 @@ void Circle::tick(star::StarCamera &camera)
     camera.rotateRelative(star::Type::Axis::y, 1.0);
     m_counter++;
 }
-
+    
 bool Circle::isDone() const
 {
     return m_counter == m_numCameraPositions;

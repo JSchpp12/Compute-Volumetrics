@@ -94,7 +94,7 @@ openvdb::GridBase::Ptr VolumeDataBase::LoadVDBBaseGrid(const std::string &pathTo
 
 std::unique_ptr<nanovdb::GridHandle<nanovdb::HostBuffer>> VolumeDataBase::LoadNanoVDB(
     openvdb::SharedPtr<openvdb::FloatGrid> &grid)
-{
+{ 
     return std::make_unique<nanovdb::GridHandle<nanovdb::HostBuffer>>(nanovdb::tools::createNanoGrid(*grid));
 }
 

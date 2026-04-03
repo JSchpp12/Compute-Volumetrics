@@ -1,6 +1,7 @@
 #include "TerrainInfoFile.hpp"
 
 #include <starlight/common/ConfigFile.hpp>
+#include <starlight/core/Exceptions.hpp>
 #include <starlight/common/helpers/FileHelpers.hpp>
 
 #include <nlohmann/json.hpp>
@@ -16,7 +17,9 @@ TerrainInfoFile::TerrainInfoFile(const std::string &pathToFile)
 void TerrainInfoFile::loadFromFile(const std::string &pathToFile)
 {
     if (!star::file_helpers::FileExists(pathToFile))
-        throw std::runtime_error("Terrain info file does not exist: " + pathToFile);
+    {
+        STAR_THROW("Terrain info file does not exist: " + pathToFile);
+    }
 
     std::ifstream i(pathToFile);
     nlohmann::json j = nlohmann::json::parse(i);

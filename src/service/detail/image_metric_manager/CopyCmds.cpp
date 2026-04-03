@@ -1,6 +1,7 @@
 #include "service/detail/image_metric_manager/CopyCmds.hpp"
 
 #include <starlight/command/command_order/DeclarePass.hpp>
+#include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
@@ -15,28 +16,27 @@ void CopyCmds::prepRender(star::core::device::StarDevice &device, star::core::Co
                           star::common::EventBus &eb, star::core::device::manager::ManagerCommandBuffer &cb,
                           star::core::device::manager::Queue &qm, const star::common::FrameTracker &frameTracker)
 {
+    m_cmdBus = &cmdBus;
     m_device = device.getVulkanDevice();
     m_cmdBuffer = registerWithManager(device, cb, qm, eb, cmdBus, frameTracker);
     m_targetTransferQueue = getTransferQueue(eb, qm);
-
-    m_cachedTriggerCmdType =
-        cmdBus.registerCommandType(star::command_order::trigger_pass::GetTriggerPassCommandTypeName());
 }
 
 void CopyCmds::trigger(star::core::device::manager::ManagerCommandBuffer &cmdManager, star::core::CommandBus &cmdBus,
                        const star::StarBuffers::Buffer &targetRayCutoff,
-                       const star::StarBuffers::Buffer &targetRayDistance)
+                       const star::StarBuffers::Buffer &targetRayDistance, star::Handle volumeRendererRegistration)
 {
     assert(m_cmdBuffer.isInitialized() &&
            "CopyCmds instance must be registered with manager before request to record + submit can be made");
 
-    {
-        auto tCmd = star::command_order::TriggerPass(m_cachedTriggerCmdType, m_cmdBuffer);
-        cmdBus.submit(tCmd);
-    }
+    cmdBus.submit(star::command_order::TriggerPass()
+                      .setPass(m_cmdBuffer)
+                      .setTimelineSemaphore(m_cpyResources.semaphoreRecordHandle)
+                      .setSignalValue(m_cpyResources.signalValue));
 
     m_targetInfo.rayAtCutoffDistance.buffer = &targetRayCutoff;
     m_targetInfo.rayDistance.buffer = &targetRayDistance;
+    m_targetInfo.rendererRegistration = std::move(volumeRendererRegistration);
 
     cmdManager.submitDynamicBuffer(m_cmdBuffer);
 }
@@ -53,7 +53,7 @@ void CopyCmds::recordCommandBuffer(star::StarCommandBuffer &buffer, const star::
     copyBuffer(buffer, frameTracker, *m_targetInfo.rayDistance.buffer, *m_cpyResources.rayDistance);
     copyBuffer(buffer, frameTracker, *m_targetInfo.rayAtCutoffDistance.buffer, *m_cpyResources.rayAtCutoff);
     addPostMemoryBarriers(b);
-    
+
     b.end();
 }
 
@@ -99,7 +99,7 @@ star::Handle CopyCmds::registerWithManager(star::core::device::StarDevice &devic
                       .recordBufferCallback = std::bind(&CopyCmds::recordCommandBuffer, this, std::placeholders::_1,
                                                         std::placeholders::_2, std::placeholders::_3),
                       .order = star::Command_Buffer_Order::end_of_frame,
-                      .orderIndex = star::Command_Buffer_Order_Index::first,
+                      .orderIndex = star::Command_Buffer_Order_Index::fifth,
                       .type = star::Queue_Type::Ttransfer,
                       .willBeSubmittedEachFrame = false,
                       .recordOnce = false,
@@ -130,45 +130,31 @@ vk::Semaphore CopyCmds::submitBuffer(star::StarCommandBuffer &buffer, const star
                                      std::vector<vk::PipelineStageFlags> dataWaitPoints,
                                      std::vector<std::optional<uint64_t>> previousSignaledValues)
 {
-    assert(previousCommandBufferSemaphores != nullptr);
     assert(m_targetTransferQueue != nullptr);
 
-    const size_t fIndex = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
-
-    auto waitSemaphores = std::vector<vk::Semaphore>();
-    auto waitStages = std::vector<vk::PipelineStageFlags>();
-    auto waitSemaphoreValues = std::vector<uint64_t>();
-
-    auto signalSemaphores = std::vector<vk::Semaphore>{m_cpyResources.timelineRecord->semaphore};
-    auto signalValues = std::vector<uint64_t>{m_cpyResources.signalValue};
-
-    if (previousCommandBufferSemaphores != nullptr)
+    vk::Semaphore volumeSignaledSemaphore{VK_NULL_HANDLE};
+    uint64_t volumeSignaledSemaphoreValue{0};
     {
-        for (size_t i{0}; i < previousCommandBufferSemaphores->size(); i++)
-        {
-            waitSemaphores.push_back(previousCommandBufferSemaphores->at(i));
-            waitSemaphoreValues.push_back(0);
-            waitStages.push_back(vk::PipelineStageFlagBits::eTransfer);
-        }
+        auto gather = star::command_order::GetPassInfo{m_targetInfo.rendererRegistration};
+        m_cmdBus->submit(gather);
+        volumeSignaledSemaphore = std::move(gather.getReply().get().signaledSemaphore);
+        volumeSignaledSemaphoreValue = std::move(gather.getReply().get().toSignalValue);
     }
 
-    const vk::TimelineSemaphoreSubmitInfo time = vk::TimelineSemaphoreSubmitInfo()
-                                                     .setWaitSemaphoreValues(waitSemaphoreValues)
-                                                     .setSignalSemaphoreValues(signalValues);
-    const vk::SubmitInfo submit =
-        vk::SubmitInfo()
-            .setCommandBufferCount(1)
-            .setPWaitSemaphores(waitSemaphores.data())
-            .setWaitSemaphoreCount(waitSemaphores.size())
-            .setPCommandBuffers(&buffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()))
-            .setPWaitDstStageMask(waitStages.data())
-            .setPSignalSemaphores(signalSemaphores.data())
-            .setSignalSemaphoreCount(signalSemaphores.size())
-            .setPNext(&time);
+    const vk::SemaphoreSubmitInfo waitInfo[1]{
+        vk::SemaphoreSubmitInfo().setSemaphore(volumeSignaledSemaphore).setValue(volumeSignaledSemaphoreValue)};
 
-    m_targetTransferQueue->getVulkanQueue().submit(submit);
+    const vk::SemaphoreSubmitInfo signalInfo[1]{vk::SemaphoreSubmitInfo()
+                                                    .setSemaphore(m_cpyResources.timelineRecord->semaphore)
+                                                    .setValue(m_cpyResources.signalValue)};
+    const auto cbInfo = vk::CommandBufferSubmitInfo().setCommandBuffer(
+        buffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()));
 
-    m_cpyResources.timelineRecord->timelineValue = m_cpyResources.signalValue;
+    const auto submitInfo =
+        vk::SubmitInfo2().setWaitSemaphoreInfos(waitInfo).setCommandBufferInfos(cbInfo).setSignalSemaphoreInfos(
+            signalInfo);
+
+    m_targetTransferQueue->getVulkanQueue().submit2(submitInfo);
 
     return VK_NULL_HANDLE;
 }
@@ -297,4 +283,4 @@ void CopyCmds::addPostMemoryBarriers(vk::CommandBuffer &cmdBuffer) const
 
     cmdBuffer.pipelineBarrier2(vk::DependencyInfo().setBufferMemoryBarriers(buffBarrier));
 }
-} // namespace image_metric_manager
+} // namespace service::image_metric_manager

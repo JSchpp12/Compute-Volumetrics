@@ -5,8 +5,6 @@
 #include <starlight/command/FileIO/WriteToFile.hpp>
 #include <starlight/command/GetScreenCaptureSyncInfo.hpp>
 #include <starlight/command/command_order/DeclareDependency.hpp>
-#include <starlight/command/command_order/DeclarePass.hpp>
-#include <starlight/command/command_order/TriggerPass.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 
 namespace service
@@ -100,6 +98,7 @@ void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string
 
         m_isRegistered = true;
     }
+
     // select resource to use
     const size_t fi = static_cast<size_t>(m_frameTracker->getCurrent().getFrameInFlightIndex());
     star::Handle hostResource;
@@ -124,8 +123,10 @@ void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string
     const star::StarBuffers::Buffer *rayDistance = nullptr;
     const star::StarBuffers::Buffer *rayAtCutoff = nullptr;
     m_storage.getRayDistanceBuffers(hostResource, &rayDistance, &rayAtCutoff);
+
     m_copier.trigger(*m_cb, *m_cmdBus, *rayAtCutoff, *rayDistance, volume.getRenderer().getRayAtCutoffBufferAt(fi),
-                     volume.getRenderer().getRayDistanceBufferAt(fi), semaphoreRecord, signalValue);
+                     volume.getRenderer().getRayDistanceBufferAt(fi), semaphore, semaphoreRecord, signalValue,
+                     volume.getRenderer().getCommandBuffer());
 
     star::core::logging::info("Submitting write task for file: " +
                               std::filesystem::path(imageCaptureFileName).replace_extension(".json").string());
@@ -138,23 +139,6 @@ void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string
                 &m_storage}});
         star::command::file_io::WriteToFile writeCmd{std::move(writePayload)};
         m_cmdBus->submit(writeCmd);
-    }
-
-    // properly sync screen capture service cmds -- is done because multiple queues cannot wait on a single binary
-    // semaphore so instead of passing forward the binary semaphore from the graphics pass, pass forward a timeline
-    // semaphore
-    {
-        auto getSyncCmd = star::command::GetScreenCaptureSyncInfo();
-        m_cmdBus->submit(getSyncCmd);
-
-        if (getSyncCmd.getReply().get().cmdBuffer == nullptr)
-        {
-            STAR_THROW("Failed to acquire cmd buffer from screen capture service");
-        }
-
-        m_cb->get(*getSyncCmd.getReply().get().cmdBuffer)
-            .oneTimeWaitSemaphoreInfo.insert(m_copier.getCommandBuffer(), semaphoreRecord->semaphore,
-                                             vk::PipelineStageFlagBits::eTransfer, signalValue);
     }
 }
 

@@ -4,6 +4,8 @@
 #include "StarApplication.hpp"
 #include "Volume.hpp"
 
+#include <starlight/core/renderer/HeadlessRenderer.hpp>
+
 #include <memory>
 
 class Application : public star::StarApplication
@@ -27,9 +29,10 @@ class Application : public star::StarApplication
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
     star::StarObjectInstance *testObject = nullptr;
     std::shared_ptr<Volume> m_volume = nullptr;
+    OffscreenRenderer *m_offRenderer{nullptr}; 
     std::shared_ptr<std::vector<star::Light>> m_mainLight;
     std::vector<star::Handle> m_screenshotRegistrations;
-    bool m_triggerScreenshot = false;
+    star::core::renderer::HeadlessRenderer *m_finalizationCmds{nullptr};
     bool m_flipScreenshotState = false;
 
     virtual void initImageOutputDir(star::core::CommandBus &bus);
@@ -40,7 +43,7 @@ class Application : public star::StarApplication
 
     virtual std::shared_ptr<star::StarCamera> createMainCamera(star::core::device::DeviceContext &context);
 
-    virtual star::common::Renderer createOffscreenRenderer(star::core::device::DeviceContext &context,
+    virtual star::common::Renderer createMainRenderer(star::core::device::DeviceContext &context,
                                                            std::vector<std::shared_ptr<star::StarObject>> objects,
                                                            std::shared_ptr<star::StarCamera> camera);
 

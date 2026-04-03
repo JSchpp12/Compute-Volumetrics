@@ -13,7 +13,8 @@ namespace service::image_metric_manager
 struct CopyResources
 {
     uint64_t signalValue;
-    star::core::device::manager::SemaphoreRecord *timelineRecord = nullptr;
+    star::Handle semaphoreRecordHandle;
+    const star::core::device::manager::SemaphoreRecord *timelineRecord = nullptr;
     const star::StarBuffers::Buffer *rayDistance = nullptr;
     const star::StarBuffers::Buffer *rayAtCutoff = nullptr;
 };
@@ -21,18 +22,6 @@ struct CopyResources
 class CopyCmds
 {
   public:
-    struct CopyTargetInfo
-    {
-        struct BufferInfo
-        {
-            const star::StarBuffers::Buffer *buffer = nullptr;
-            // const vk::Semaphore *semaphore = nullptr;
-        };
-
-        BufferInfo rayDistance;
-        BufferInfo rayAtCutoffDistance;
-    };
-
     explicit CopyCmds(CopyResources &cpyResources);
 
     void prepRender(star::core::device::StarDevice &device, star::core::CommandBus &cmdBus, star::common::EventBus &eb,
@@ -40,7 +29,8 @@ class CopyCmds
                     const star::common::FrameTracker &frameTracker);
 
     void trigger(star::core::device::manager::ManagerCommandBuffer &cmdManager, star::core::CommandBus &cmdBus,
-                 const star::StarBuffers::Buffer &targetRayCutoff, const star::StarBuffers::Buffer &targetRayDistance);
+                 const star::StarBuffers::Buffer &targetRayCutoff, const star::StarBuffers::Buffer &targetRayDistance,
+                 star::Handle fogRendererRegistration);
 
     const star::Handle &getCommandBuffer() const
     {
@@ -48,14 +38,26 @@ class CopyCmds
     }
 
   private:
+    struct CopyTargetInfo
+    {
+        struct BufferInfo
+        {
+            const star::StarBuffers::Buffer *buffer = nullptr;
+        };
+
+        star::Handle rendererRegistration;
+        BufferInfo rayDistance;
+        BufferInfo rayAtCutoffDistance;
+    };
+
     CopyResources &m_cpyResources;
     CopyTargetInfo m_targetInfo;
     star::Handle m_cmdBuffer;
-    uint16_t m_cachedTriggerCmdType = 0;
     uint8_t m_transferQueueFamilyIndex = 0;
     uint8_t m_computeQueueFamilyIndex = 0;
     vk::Device m_device = VK_NULL_HANDLE;
     star::StarQueue *m_targetTransferQueue = nullptr;
+    const star::core::CommandBus *m_cmdBus{nullptr};
 
     void recordCommandBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                              const uint64_t &frameIndex);
@@ -80,10 +82,10 @@ class CopyCmds
 
     std::vector<vk::BufferMemoryBarrier2> getPreBufferBarriers() const;
 
-    std::vector<vk::BufferMemoryBarrier2> getPostBufferBarriers() const; 
+    std::vector<vk::BufferMemoryBarrier2> getPostBufferBarriers() const;
 
     void addPreMemoryBarriers(vk::CommandBuffer &cmdBuffer) const;
 
     void addPostMemoryBarriers(vk::CommandBuffer &cmdBuffer) const;
 };
-} // namespace image_metric_manager
+} // namespace service::image_metric_manager

@@ -9,14 +9,15 @@ class FogInfo
     {
         float linearFog_nearDist = 0.0f, linearFog_farDist = 0.0f, expFog_density = 0.0f,
               marchedFog_defaultDensity = 0.0f, marchedFog_sigmaAbsorption = 0.0f, marchedFog_sigmaScattering = 0.0f,
-              marchedFog_lightPropertyDirG = 0.0f, marchedFog_stepSizeDist = 1.0f, marchedFog_stepSizeDist_light = 3.0f;
+              marchedFog_lightPropertyDirG = 0.0f, marchedFog_stepSizeDist = 1.0f, marchedFog_stepSizeDist_light = 3.0f,
+              marchedFog_densityMultiplier = 0.0f;
         uint32_t marchedFog_maxNumSteps = 25600, vdb_gridType = 0;
 
         FinalizedInfo(const float &linearFog_nearDist, const float &linearFog_farDist, const float &expFog_density,
                       const float &marchedFog_defaultDensity, const float &marchedFog_sigmaAbsorption,
                       const float &marchedFog_sigmaScattering, const float &marchedFog_lightPropertyDirG,
                       const float &marchedFog_stepSizeDist, const float &marchedFog_stepSizeDist_light,
-                      uint32_t marchedFog_maxNumSteps, uint32_t vdb_gridType)
+                      const float &marchedFog_densityMultiplier, uint32_t marchedFog_maxNumSteps, uint32_t vdb_gridType)
             : linearFog_nearDist(linearFog_nearDist), linearFog_farDist(linearFog_farDist),
               expFog_density(expFog_density), marchedFog_defaultDensity(marchedFog_defaultDensity),
               marchedFog_sigmaAbsorption(marchedFog_sigmaAbsorption),
@@ -24,6 +25,7 @@ class FogInfo
               marchedFog_lightPropertyDirG(marchedFog_lightPropertyDirG),
               marchedFog_stepSizeDist(marchedFog_stepSizeDist),
               marchedFog_stepSizeDist_light(marchedFog_stepSizeDist_light),
+              marchedFog_densityMultiplier(marchedFog_densityMultiplier),
               marchedFog_maxNumSteps(std::move(marchedFog_maxNumSteps)), vdb_gridType(std::move(vdb_gridType))
         {
         }
@@ -105,27 +107,34 @@ class FogInfo
         MarchedFogInfo() = default;
 
         MarchedFogInfo(const float &defaultDensity, const float &sigmaAbsorption, const float &sigmaScattering,
-                       const float &lightPropertyDirG, const float &stepSizeDist, const float &stepSizeDist_light)
+                       const float &lightPropertyDirG, const float &stepSizeDist, const float &stepSizeDist_light,
+                       const float densityMultiplier)
             : defaultDensity(defaultDensity), sigmaAbsorption(sigmaAbsorption), sigmaScattering(sigmaScattering),
-              lightPropertyDirG(lightPropertyDirG), stepSizeDist(stepSizeDist), stepSizeDist_light(stepSizeDist_light)
+              lightPropertyDirG(lightPropertyDirG), stepSizeDist(stepSizeDist), stepSizeDist_light(stepSizeDist_light),
+              densityMultiplier(densityMultiplier)
         {
         }
 
         MarchedFogInfo(const MarchedFogInfo &other)
             : defaultDensity(other.defaultDensity), sigmaAbsorption(other.sigmaAbsorption),
               sigmaScattering(other.sigmaScattering), lightPropertyDirG(other.lightPropertyDirG),
-              stepSizeDist(other.stepSizeDist), stepSizeDist_light(other.stepSizeDist_light)
+              stepSizeDist(other.stepSizeDist), stepSizeDist_light(other.stepSizeDist_light),
+              densityMultiplier(other.densityMultiplier)
         {
         }
 
         MarchedFogInfo &operator=(const MarchedFogInfo &other)
         {
-            this->defaultDensity = other.defaultDensity;
-            this->sigmaAbsorption = other.sigmaAbsorption;
-            this->sigmaScattering = other.sigmaScattering;
-            this->lightPropertyDirG = other.lightPropertyDirG;
-            this->stepSizeDist = other.stepSizeDist;
-            this->stepSizeDist_light = other.stepSizeDist_light;
+            if (this != &other)
+            {
+                this->defaultDensity = other.defaultDensity;
+                this->sigmaAbsorption = other.sigmaAbsorption;
+                this->sigmaScattering = other.sigmaScattering;
+                this->lightPropertyDirG = other.lightPropertyDirG;
+                this->stepSizeDist = other.stepSizeDist;
+                this->stepSizeDist_light = other.stepSizeDist_light;
+                this->densityMultiplier = other.densityMultiplier;
+            }
 
             return *this;
         }
@@ -135,7 +144,8 @@ class FogInfo
             return this->defaultDensity == other.defaultDensity && this->sigmaAbsorption == other.sigmaAbsorption &&
                    this->sigmaScattering == other.sigmaScattering &&
                    this->lightPropertyDirG == other.lightPropertyDirG && this->stepSizeDist == other.stepSizeDist &&
-                   this->stepSizeDist_light == other.stepSizeDist_light;
+                   this->stepSizeDist_light == other.stepSizeDist_light &&
+                   this->densityMultiplier == other.densityMultiplier;
         }
 
         bool operator!=(const MarchedFogInfo &other) const
@@ -143,7 +153,8 @@ class FogInfo
             return this->defaultDensity != other.defaultDensity || this->sigmaAbsorption != other.sigmaAbsorption ||
                    this->sigmaScattering != other.sigmaScattering ||
                    this->lightPropertyDirG != other.lightPropertyDirG || this->stepSizeDist != other.stepSizeDist ||
-                   this->stepSizeDist_light != other.stepSizeDist_light;
+                   this->stepSizeDist_light != other.stepSizeDist_light ||
+                   this->densityMultiplier != other.densityMultiplier;
         }
 
         float getLightPropertyDirG() const
@@ -182,9 +193,17 @@ class FogInfo
         {
             return sigmaScattering;
         }
+        void setDensityMultiplier(const float &value)
+        {
+            densityMultiplier = value;
+        }
+        float getDensityMultiplier() const
+        {
+            return densityMultiplier;
+        }
 
       private:
-        float lightPropertyDirG = 0.0f, sigmaAbsorption = 0.0f, sigmaScattering = 0.0f;
+        float lightPropertyDirG = 0.0f, sigmaAbsorption = 0.0f, sigmaScattering = 0.0f, densityMultiplier = 1.0;
 
         bool validateSigmaTotal(const float &sigmaAbsorption, const float &sigmaScattering) const
         {
@@ -274,6 +293,7 @@ class FogInfo
                              this->marchedInfo.getLightPropertyDirG(),
                              this->marchedInfo.stepSizeDist,
                              this->marchedInfo.stepSizeDist_light,
+                             this->marchedInfo.getDensityMultiplier(),
                              this->homogenousInfo.maxNumSteps,
                              uint32_t(0)};
     }

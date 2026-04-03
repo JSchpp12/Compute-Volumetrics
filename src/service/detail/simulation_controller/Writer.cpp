@@ -30,7 +30,9 @@ static void WriteDataToFile(const std::string &path, const SimulationBounds &bou
 
 int Writer::operator()(const std::string &path)
 {
-    WriteDataToFile(path, m_bounds);
+    assert(m_bounds && "Bounds data was not properly initialized"); 
+
+    WriteDataToFile(path, *m_bounds);
     return 0;
 }
 } // namespace controller::simulation_bounds_file

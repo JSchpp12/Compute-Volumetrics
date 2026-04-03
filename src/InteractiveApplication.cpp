@@ -1,34 +1,63 @@
 #include "InteractiveApplication.hpp"
 
 #ifdef STAR_ENABLE_PRESENTATION
-
-#include "Terrain.hpp"
-#include "command/image_metrics/TriggerCapture.hpp"
-
-#include <starlight/command/CreateObject.hpp>
-#include <starlight/command/command_order/DeclareDependency.hpp>
-#include <starlight/command/command_order/DeclarePass.hpp>
-#include <starlight/command/detail/create_object/DirectObjCreation.hpp>
-#include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
-#include <starlight/common/ConfigFile.hpp>
-#include <starlight/common/objects/BasicObject.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
 
 #include <star_common/helper/StringHelpers.hpp>
+
+#include <starlight/command/command_order/TriggerPass.hpp>
 
 #include <star_windowing/InteractivityBus.hpp>
 #include <star_windowing/SwapChainRenderer.hpp>
 #include <star_windowing/event/RequestSwapChainFromService.hpp>
 
-#include <boost/filesystem/path.hpp>
+static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerCommandBuffer &mgrCmdBuff,
+                                           const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
+                                           const OffscreenRenderer &offscreenRenderer) noexcept
+{
+    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+    const auto &c = offscreenRenderer.getCommandBuffer();
+
+    cmdBus.submit(star::command_order::TriggerPass()
+                      .setTimelineSemaphore(offscreenRenderer.getTimelineSemaphroes()[ii])
+                      .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
+                      .setPass(c));
+};
+
+static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
+                                       star::core::device::manager::Semaphore &mgrSemaphore,
+                                       star::common::EventBus &evtBus, const Volume &volume,
+                                       const star::common::FrameTracker &ft) noexcept
+{
+    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+
+    const auto value = ft.getCurrent().getNumTimesFrameProcessed() + 1;
+
+    cmdBus.submit(star::command_order::TriggerPass()
+                      .setPass(volume.getRenderer().getCommandBuffer())
+                      .setTimelineSemaphore(volume.getRenderer().getTimelineSemaphores()[ii])
+                      .setSignalValue(std::move(value)));
+}
+
+static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus,
+                                            const star::core::renderer::HeadlessRenderer &finalizationRenderer,
+                                            size_t currentNumTimesFrameProcessed, size_t currentFrameInFlight)
+{
+    cmdBus.submit(star::command_order::TriggerPass()
+                      .setPass(finalizationRenderer.getCommandBuffer())
+                      .setTimelineSemaphore(finalizationRenderer.getTimelineSemaphores()[currentFrameInFlight])
+                      .setSignalValue(++currentNumTimesFrameProcessed));
+}
 
 void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
+    this->Application::frameUpdate(context);
+
     if (m_actDir[star::Type::Axis::x])
     {
         if (m_mode == ModifyMode::movement)
         {
-            const glm::vec3 dir{1.0f, 0.0f, 0.0f};
+            const glm::vec3 dir{10.0f, 0.0f, 0.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
         }
         else
@@ -41,7 +70,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     {
         if (m_mode == ModifyMode::movement)
         {
-            const glm::vec3 dir{0.0f, 1.0f, 0.0f};
+            const glm::vec3 dir{0.0f, 10.0f, 0.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
         }
         else
@@ -55,7 +84,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     {
         if (m_mode == ModifyMode::movement)
         {
-            const glm::vec3 dir{0.0f, 0.0f, 1.0f};
+            const glm::vec3 dir{0.0f, 0.0f, 10.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
         }
         else
@@ -103,9 +132,10 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
         triggerScreenshot(d);
 
-        // only step once
-        m_triggerScreenshot = false;
-        m_flipScreenshotState = false;
+        if (CheckIfControllerIsDone(d.getCmdBus()))
+        {
+            m_triggerScreenshot = false;
+        }
     }
 }
 
@@ -184,6 +214,7 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         std::cout << "8 - MarchedFog: Step Size" << std::endl;
         std::cout << "9 - MarchedFog: Step Size Light" << std::endl;
         std::cout << "10 - HomogenousRendering: Max Num Steps" << std::endl;
+        std::cout << "11 - MarchedFog: VDB Density Multiplier" << std::endl;
 
         int selectedMode;
 
@@ -258,6 +289,11 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
             std::cout << oss.str() << std::endl;
             m_volume->getRenderer().getFogInfo().homogenousInfo.setMaxNumSteps(
                 PromptForInt("Select max number of steps"));
+            break;
+        case (11):
+            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.getDensityMultiplier());
+            std::cout << oss.str() << std::endl;
+            m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(PromptForFloat("Select multipler"));
             break;
         default:
             std::cout << "Unknown option" << std::endl;
@@ -344,6 +380,13 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     {
         m_invAct = !m_invAct;
     }
+
+    if (key == GLFW_KEY_SPACE)
+    {
+        m_actDir[0] = false; 
+        m_actDir[1] = false; 
+        m_actDir[2] = false; 
+    }
 }
 
 void InteractiveApplication::onKeyPress(const int &key, const int &scancode, const int &mods)
@@ -368,79 +411,6 @@ void InteractiveApplication::initImageOutputDir(star::core::CommandBus &bus)
     m_imageOutputDir = std::filesystem::path(star::common::strings::GetStartTime());
 }
 
-//
-// std::shared_ptr<star::StarScene> InteractiveApplication::loadScene(star::core::device::DeviceContext &context,
-//                                                                   const uint8_t &numFramesInFlight)
-//{
-//    auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-//    const glm::vec3 volumePos{50.0, 10.0, 0.0};
-//    const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
-//
-//    m_mainLight =
-//        std::make_shared<std::vector<star::Light>>(std::vector<star::Light>{Application::CreateMainLight(lightPos)});
-//
-//    {
-//        auto oRenderer = star::common::Renderer(
-//            CreateOffscreenRenderer(context, numFramesInFlight, m_camera, m_terrainDir, m_mainLight));
-//        auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
-//
-//        const uint32_t &width = context.getEngineResolution().width;
-//        const uint32_t &height = context.getEngineResolution().height;
-//        std::vector<star::Handle> globalInfos(numFramesInFlight);
-//        std::vector<star::Handle> lightInfos(numFramesInFlight);
-//
-//        size_t fNumFramesInFlight = 0;
-//        star::common::casts::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
-//
-//        {
-//            std::string vdbPath;
-//            {
-//                boost::filesystem::path rPath =
-//                    boost::filesystem::path(mediaDirectoryPath) / "volumes" / "flat_plane_wind";
-//                vdbPath = rPath.string();
-//            }
-//
-//            m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, m_camera, width, height,
-//                                                offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
-//                                                offscreenRenderer->getLightInfoBuffers(),
-//                                                offscreenRenderer->getLightListBuffers());
-//            auto cmd = star::command::CreateObject::Builder()
-//                           .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
-//                           .setUniqueName("flatWind")
-//                           .build();
-//
-//            context.begin().set(cmd).submit();
-//            auto shared = cmd.getReply().get();
-//        }
-//
-//        m_volume->init(context, numFramesInFlight);
-//
-//        // auto &s_i = m_volume->createInstance();
-//        // s_i.setPosition(m_camera->getPosition());
-//        // s_i.setScale(glm::vec3{1.0f, 1.0f, 1.0f});
-//        // s_i.rotateRelative(star::Type::Axis::y, 90);
-//
-//        std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
-//        std::vector<star::common::Renderer> additional;
-//        additional.emplace_back(std::move(oRenderer));
-//
-//        m_mainScene = std::make_shared<star::StarScene>(star::star_scene::makeAlwaysReadyPolicy(), m_camera,
-//                                                        std::move(sc), std::move(additional));
-//    }
-//
-//    m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.03f;
-//    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 0.3f;
-//    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 5.0f;
-//    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.0f);
-//    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.8f);
-//    m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.7f);
-//    m_volume->setFogType(Fog::Type::sMarched);
-//    m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
-//    m_volume->getRenderer().getFogInfo().linearInfo.farDist = 1000.0f;
-//    m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.03f;
-//    return m_mainScene;
-//}
-
 void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext &context)
 {
     const auto &frameTracker = context.getFrameTracker();
@@ -457,7 +427,7 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
         star::event::TriggerScreenshot(context.getImageManager().get(render->getRenderToColorImages()[index])->texture,
                                        path, render->getCommandBuffer(), m_screenshotRegistrations[index]));
 
-    triggerImageRecord(context, frameTracker, path);
+    triggerImageRecord(context, frameTracker, name);
 }
 
 std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star::core::device::DeviceContext &context)
@@ -469,7 +439,7 @@ std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star:
     return camera;
 }
 
-star::common::Renderer InteractiveApplication::createOffscreenRenderer(
+star::common::Renderer InteractiveApplication::createMainRenderer(
     star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
     std::shared_ptr<star::StarCamera> camera)
 {

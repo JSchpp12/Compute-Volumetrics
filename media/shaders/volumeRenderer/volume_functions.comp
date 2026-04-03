@@ -1,0 +1,118 @@
+const float PI = 3.1415926535897932384626433832795;
+
+float linearizeDepth(const float depth, const float camNearClipDist, const float camFarClipDist)
+{
+    /* convert depth value back to linear space -- based on proj matrix
+    Source: http://www.songho.ca/opengl/gl_projectionmatrix.html
+    Source2: https://learnopengl.com/Advanced-OpenGL/Depth-testing
+    */
+    return (camNearClipDist * camFarClipDist) / (camFarClipDist - depth * (camFarClipDist - camNearClipDist));
+}
+
+float applyHenyeyGreensteinPhase(const float cosTheta, const float g)
+{
+    float denom = 1.0 + g * g - 2.0 * g * cosTheta;
+    return (1.0 / (4.0 * PI)) * (1.0 - g * g) / pow(denom, 1.5);
+}
+
+void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, const Ray ray, const float t0,
+                  const float t1, const mat4 inverseModelMatrix, float sigmaAbsorption, float sigmaScattering,
+                  float lightPropertyDir_g, float mainStepSize, float lightStepSize, const float cutOffDistance,
+                  const vec4 randomValues, const float defaultDensity, const float densityMultiplier,
+                  inout vec3 resultingColor, inout float rayDistanceTraveled)
+{
+    Light_Type lChecker = createLightTypeStruct();
+
+    pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
+    pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
+    pnanovdb_readaccessor_t acc;
+    pnanovdb_readaccessor_init(acc, root);
+    pnanovdb_grid_type_t gType = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid);
+
+    const float marchStopDistance = min(t1, cutOffDistance);
+    const int fittedNumSteps = max(1, int(ceil((marchStopDistance - t0) / mainStepSize)));
+    const float sigmaT = sigmaAbsorption + sigmaScattering;
+    const float jitter = randomValues.x * mainStepSize;
+    const float lJitter = randomValues.y * lightStepSize;
+    const mat3 prepInverseModelMat = mat3(inverseModelMatrix);
+
+    float transparency = 1.0;
+    vec3 resultingRadiance = vec3(0.0);
+    rayDistanceTraveled = t0;
+    for (int i = 0; i < fittedNumSteps; i++)
+    {
+        // setting to middle
+        const float t = (t0 + jitter + (mainStepSize * (i + 0.5)));
+        
+        if (transparency < 0.005)
+        {
+            break;
+        }
+        rayDistanceTraveled += mainStepSize; 
+
+        const vec3 marchPos = ray.origin.xyz + (t * ray.direction.xyz);
+        const float pDensity = gridReadAt(grid, acc, gType, marchPos, true) * densityMultiplier;
+        if (pDensity > 0.0f)
+        {
+            for (int j = 0; j < lightInfo.numLights; j++)
+            {
+                // might need to check if light is within volume later
+                const uint lType = lightList.lights[j].settings.y;
+                const bool isDirectional = ((lType & lChecker.directional) != 0);
+
+                Ray rayToLight;
+                vec3 lDir;
+                vec3 lPos;
+                if (isDirectional)
+                {
+                    lDir = normalize(prepInverseModelMat * -lightList.lights[j].direction.xyz);
+                }
+                else
+                {
+                    lPos = (inverseModelMatrix * lightList.lights[j].position).xyz;
+                    lDir = normalize(lPos - marchPos);
+                }
+                rayToLight = createRay(marchPos, lDir);
+
+                float lt0 = 0;
+                float lt1 = 0;
+                if (rayBoxIntersect(grid, rayToLight, lt0, lt1) && lt1 > 0)
+                {
+                    float lTau = 0.0;
+                    float lMarchStopDist;
+                    if (isDirectional)
+                    {
+                        lMarchStopDist = lt1;
+                    }
+                    else
+                    {
+                        const float distToLight = length(lPos - rayToLight.origin.xyz);
+                        lMarchStopDist = min(distToLight, lt1);
+                    }
+                    const int fittedNumStepsLight = max(1, int(ceil(lMarchStopDist / lightStepSize)));
+
+                    for (int k = 0; k < fittedNumStepsLight; k++)
+                    {
+                        const float lt = lJitter + lightStepSize * (k + 0.5);
+                        const vec3 lMarchPos = rayToLight.origin.xyz + (lt * rayToLight.direction.xyz);
+                        const float lDensity = (gridReadAt(grid, acc, gType, lMarchPos, true) * densityMultiplier);
+                        lTau += lDensity;
+                    }
+
+                    const float lRayAttenuation = exp(-lTau * lightStepSize * sigmaT);
+                    const float cosTheta = dot(-ray.direction.xyz, rayToLight.direction.xyz);
+                    const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g);
+                    const vec3 lightColor = lightList.lights[j].ambient.rgb;
+                    const float luminance = lightList.lights[j].luminance;
+                    resultingRadiance += lightColor * luminance * lRayAttenuation * phase * sigmaScattering *
+                                         transparency * mainStepSize * pDensity;
+                }
+            }
+
+            const float pTransmission = exp(-mainStepSize * pDensity * sigmaT);
+            transparency *= pTransmission;
+        }
+    }
+
+    resultingColor = backgroundColor * transparency + resultingRadiance;
+}

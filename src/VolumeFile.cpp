@@ -72,7 +72,7 @@ void VolumeFile::decompressDataFile() const
     unsigned long long const decompressedSize = ZSTD_getFrameContentSize(compressedData.data(), compressedSize);
     if (decompressedSize == ZSTD_CONTENTSIZE_ERROR || decompressedSize == ZSTD_CONTENTSIZE_UNKNOWN)
     {
-        throw std::runtime_error("Can't know the original size. Use streaming decompression instead.");
+        STAR_THROW("Can't know the original size. Use streaming decompression instead.");
     }
 
     std::vector<char> decompressedData(decompressedSize);
@@ -91,7 +91,7 @@ void VolumeFile::decompressDataFile() const
     std::ofstream outFile(outFilePath.string(), std::ios::binary);
     if (!outFile)
     {
-        throw std::runtime_error("Failed to open output file for writing.");
+        STAR_THROW("Failed to open output file for writing");
     }
 
     outFile.write(decompressedData.data(), actualDecompressedSize);

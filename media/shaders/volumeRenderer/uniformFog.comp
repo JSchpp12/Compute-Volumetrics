@@ -3,7 +3,6 @@
 const float PI = 3.1415926535897932384626433832795;
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-
 struct Light_Type
 {
     uint point;
@@ -28,23 +27,26 @@ struct Light
     uint luminance;
 };
 
-layout(set = 0, binding = 0) uniform GlobalUniformBufferObject
+Light_Type createLightTypeStruct()
 {
-    mat4 proj;
-    mat4 view;
-    mat4 invView;
-} globalUbo;
-
-layout(set = 0, binding = 1) uniform GlobalLightInfo{
-    int numLights;
-} lightInfo; 
-
-layout(set = 0, binding = 2) readonly buffer GlobalLightBuffer{
-    Light lights[];
- } lightList;
-
-layout(set = 1, binding = 0) uniform additionalCameraInfo
+	Light_Type lightChecker = {
+		0x0, 
+		0x1, 
+		0x2
+	};
+	return(lightChecker);
+}
+//globals
+//static data
+layout(rgba32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
+layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer
 {
+    uint pnanovdb_buf_data[];
+};
+layout(set = 0, binding = 2) uniform additionalTransformInfo
+{
+    mat4 vdbWorldFromIndex; 
+    mat4 indexFromVdbWorld;
     mat4 invProj;
     vec2 cameraDimensions;
     float aspectRatio;
@@ -53,34 +55,34 @@ layout(set = 1, binding = 0) uniform additionalCameraInfo
     float scale;
 }
 addCamInfo;
-layout(std430, set = 1, binding = 1) buffer PNanoVDBBuffer{
-    uint pnanovdb_buf_data[];
-};
-layout(r32f, set = 1, binding = 2) uniform readonly image2D randomTexture;
 
-layout(set = 2, binding = 0, rgba8) uniform readonly image2D inputSceneColor;
-layout(set = 2, binding = 1) uniform sampler2D inputSceneDepth;
-layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
-layout(set = 2, binding = 3) buffer RayDistanceResult{
-    float rayDistData[]; 
-};
-layout(set = 2, binding = 4) buffer IsRayAtMaxDistance{
-    uint isAtMaxDistance[];
-};
-
-layout(set = 3, binding = 0) uniform InstanceModelMatrix
+// per-frame update data
+layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
+{
+    mat4 proj;
+    mat4 view;
+    mat4 invView;
+}
+globalUbo;
+layout(set = 1, binding = 1) uniform GlobalLightInfo
+{
+    int numLights;
+}
+lightInfo;
+layout(set = 1, binding = 2) readonly buffer GlobalLightBuffer
+{
+    Light lights[];
+}
+lightList;
+layout(set = 1, binding = 3) uniform InstanceModelMatrix
 {
     mat4 instanceModelMatrix[1024];
 };
-layout(set = 3, binding = 1) uniform InstanceInverseModelMatrix{
+layout(set = 1, binding = 4) uniform InstanceInverseModelMatrix
+{
     mat4 instanceInverseMatrix[1024];
 };
-layout(set = 3, binding = 2) uniform aabbInfo
-{
-    vec4 bounds[2];
-}
-aabb;
-layout(set = 3, binding = 3) uniform FogControllerInfo
+layout(set = 1, binding = 5) uniform FogControllerInfo
 {
     float linearFog_nearDistance;
     float linearFog_farDistance;
@@ -91,10 +93,25 @@ layout(set = 3, binding = 3) uniform FogControllerInfo
     float marchedFog_lightPropertyDirG;
     float marchedFog_stepSizeDist;
     float marchedFog_stepSizeDist_light;
+    float marchedFog_densityMultiplier;
     uint marchedFog_uniform_maxNumSteps;
     uint gridType;
 }
 fogInfo;
+//per-draw
+layout(set = 2, binding = 0) uniform sampler2D inputSceneDepth;
+layout(set = 2, binding = 1, rgba8) uniform readonly image2D inputSceneColor;
+layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
+
+//non-depth related
+layout(set = 5, binding = 0) buffer RayDistanceResult
+{
+    float rayDistData[]; 
+};
+layout(set = 5, binding = 1) buffer IsRayAtMaxDistance
+{
+    uint isAtMaxDistance[];
+};
 
 #include "PNanoVDB.h"
 #include "ray_helpers.comp"
@@ -170,7 +187,7 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
 
                 float lt0 = 0;
                 float lt1 = 0;  
-                if (rayBoxIntersect(grid, rayToLight, lt0, lt1)){ 
+                if (rayBoxIntersect(grid, rayToLight, instanceModelMatrix[0], lt0, lt1)){ 
                     float lTau = 0.0;
 
                     const int fittedNumStepsLight = max(1, int(ceil(lt1 / lightStepSize)));
@@ -242,7 +259,7 @@ void main()
 
     vec3 viewDirScene = vec3(0.0); 
     vec3 orgScene = vec3(0.0);
-    getSceneViewInfoForPix(targetPixel, uvec2(addCamInfo.cameraDimensions.x, addCamInfo.cameraDimensions.y), targetPixelInputDepth, orgScene, viewDirScene); 
+    getSceneViewInfoForPix(targetPixel, uvec2(addCamInfo.cameraDimensions.x, addCamInfo.cameraDimensions.y), orgScene, viewDirScene); 
 
     const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]); 
     Ray worldRay = createRay(orgScene.xyz, viewDirScene.xyz);  
@@ -251,7 +268,7 @@ void main()
     float t0 = 0;
     float t1 = 0;
     float rayDistanceTraveled; 
-    if (rayBoxIntersect(grid, localRay, t0, t1) && t0 < linearDepth){
+    if (rayBoxIntersect(grid, localRay,instanceModelMatrix[0], t0, t1) && t0 < linearDepth){
          forwardMarch(grid,
             resultingColor, 
             localRay, 

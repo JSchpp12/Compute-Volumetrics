@@ -179,6 +179,9 @@ void SimulationControllerService::incrementMarched(Volume &volume, float t) cons
     volume.getRenderer().getFogInfo().marchedInfo.setSigmaScattering(
         m_loadedSteps.start.marchedInfo.getSigmaScattering() +
         t * m_loadedSteps.fogInfoChanges.marchedInfo.getSigmaScattering());
+    volume.getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(
+        m_loadedSteps.start.marchedInfo.getDensityMultiplier() +
+        t * m_loadedSteps.fogInfoChanges.marchedInfo.getDensityMultiplier());
 }
 
 bool SimulationControllerService::isDone() const
@@ -235,22 +238,22 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
         if (camDone)
         {
             m_fogTypeTracker = selectNextFogType();
-            star::core::logging::info("Resetting camera controller"); 
+            star::core::logging::info("Resetting camera controller");
 
             m_loadedController.reset(camera);
 
             if (m_fogTypeTracker != Fog::Type::sCount)
             {
                 //  set next fog type -- circle done
-                star::core::logging::info("Setting next fog type"); 
+                star::core::logging::info("Setting next fog type");
 
-                volume.getRenderer().setFogType(m_fogTypeTracker); 
+                volume.getRenderer().setFogType(m_fogTypeTracker);
                 m_stepCounter = 0;
             }
         }
         else
         {
-            star::core::logging::info("Incrementing camera controller"); 
+            star::core::logging::info("Incrementing camera controller");
 
             m_loadedController.tick(camera);
             m_stepCounter = 0;
@@ -262,7 +265,6 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
     }
 
     float t = (m_stepCounter > 0) ? float(m_stepCounter) / float(m_loadedSteps.numSteps - 1) : 0.0f;
-
     switch (static_cast<Fog::Type>(m_fogTypeTracker))
     {
     case (Fog::Type::sMarched):

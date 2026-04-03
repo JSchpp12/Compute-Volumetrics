@@ -1,0 +1,184 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+struct Light_Type
+{
+    uint point;
+    uint directional;
+    uint spot;
+};
+struct Light
+{
+    vec4 position;
+    vec4 direction;
+
+    // properties
+    vec4 ambient;
+    vec4 diffuse;
+    vec4 specular;
+    // controls.x = inner cutoff angle
+    // controls.y = outer cutoff angle
+    vec4 controls;
+    // settings.x = enabled
+    // settings.y = type
+    uvec4 settings;
+    uint luminance;
+};
+
+Light_Type createLightTypeStruct()
+{
+    Light_Type lightChecker = {0x0, 0x1, 0x2};
+    return (lightChecker);
+}
+// globals
+layout(rgba32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
+layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer
+{
+    uint pnanovdb_buf_data[];
+};
+layout(set = 0, binding = 2) uniform additionalCameraInfo
+{
+    mat4 invProj;
+    vec2 cameraDimensions;
+    float aspectRatio;
+    float farClipDist;
+    float nearClipDist;
+    float scale;
+}
+addCamInfo;
+// per-frame update data
+layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
+{
+    mat4 proj;
+    mat4 view;
+    mat4 invView;
+}
+globalUbo;
+layout(set = 1, binding = 1) uniform GlobalLightInfo
+{
+    int numLights;
+}
+lightInfo;
+layout(set = 1, binding = 2) readonly buffer GlobalLightBuffer
+{
+    Light lights[];
+}
+lightList;
+layout(set = 1, binding = 3) uniform InstanceModelMatrix
+{
+    mat4 instanceModelMatrix[1024];
+};
+layout(set = 1, binding = 4) uniform InstanceInverseModelMatrix
+{
+    mat4 instanceInverseMatrix[1024];
+};
+layout(set = 1, binding = 5) uniform FogControllerInfo
+{
+    float linearFog_nearDistance;
+    float linearFog_farDistance;
+    float expFog_density;
+    float marchedFog_defaultDensity;
+    float marchedFog_sigmaAbsorption;
+    float marchedFog_sigmaScattering;
+    float marchedFog_lightPropertyDirG;
+    float marchedFog_stepSizeDist;
+    float marchedFog_stepSizeDist_light;
+    float marchedFog_densityMultiplier;
+    uint marchedFog_uniform_maxNumSteps;
+    uint gridType;
+}
+fogInfo;
+// per-draw
+layout(set = 2, binding = 0) buffer RayDistanceResult
+{
+    float rayDistData[];
+};
+layout(set = 2, binding = 1) buffer IsRayAtMaxDistance
+{
+    uint isAtMaxDistance[];
+};
+
+#include "PNanoVDB.h"
+#include "ray_helpers.comp"
+
+#include "func_reconstructDepthDistanceInObjectLocalSpace.comp"
+
+#include "volume_helpers.comp"
+
+#include "volume_functions.comp"
+
+void writeDistanceStencilInfo(const float d, const uint index)
+{
+    if (d >= addCamInfo.farClipDist)
+    {
+        isAtMaxDistance[index] = 1;
+    }
+    else
+    {
+        isAtMaxDistance[index] = 0;
+    }
+}
+
+void writeMaxDistanceTraveled(const float d, const uint index)
+{
+    if (d >= addCamInfo.farClipDist)
+    {
+        rayDistData[index] = 0;
+    }
+    else
+    {
+        rayDistData[index] = d;
+    }
+}
+
+void writeDistanceInfo(const float d, const ivec2 tPix, const uvec2 cSize)
+{
+    const uint index = tPix.x + (tPix.y * cSize.x);
+    writeMaxDistanceTraveled(d, index);
+    writeDistanceStencilInfo(d, index);
+}
+
+void main()
+{
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(gid, addCamInfo.cameraDimensions)))
+        return;
+
+    const ivec2 targetPixel = ivec2(gid);
+    pnanovdb_grid_handle_t grid = makeNanoGrid(0);
+    const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]);
+    vec3 resultingColor = vec3(0.0, 0.0, 0.0);
+
+    vec3 viewDirScene = vec3(0.0);
+    vec3 orgScene = vec3(0.0);
+    getSceneViewInfoForPix(targetPixel, uvec2(addCamInfo.cameraDimensions.x, addCamInfo.cameraDimensions.y), orgScene,
+                           viewDirScene);
+    const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]);
+    Ray worldRay = createRay(orgScene.xyz, viewDirScene.xyz);
+    Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix);
+
+    float t0 = 0;
+    float t1 = 0;
+    float localDepthDistance;
+    float rayDistanceTraveled = 0;
+    if (rayBoxIntersect(grid, localRay, t0, t1))
+    {
+        const float scale = extractUniformVolumeScale(instanceModelMatrix[0]);
+
+        forwardMarch(grid, resultingColor, localRay, t0, t1, inverseModelMatrix,
+                     fogInfo.marchedFog_sigmaAbsorption * scale, fogInfo.marchedFog_sigmaScattering * scale,
+                     fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_stepSizeDist / scale,
+                     fogInfo.marchedFog_stepSizeDist_light / scale, addCamInfo.farClipDist / scale,
+                     imageLoad(randomTexture, targetPixel), fogInfo.marchedFog_defaultDensity,
+                     fogInfo.marchedFog_densityMultiplier, resultingColor, rayDistanceTraveled);
+
+        //since march happens in local space, bring back to world
+        rayDistanceTraveled = rayDistanceTraveled * scale; 
+    }
+    else
+    {
+        rayDistanceTraveled = addCamInfo.farClipDist;
+    }
+
+    writeDistanceInfo(rayDistanceTraveled, targetPixel, uvec2(addCamInfo.cameraDimensions));
+}

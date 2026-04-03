@@ -3,8 +3,31 @@
 #include "Allocator.hpp"
 
 #include <starlight/command/command_order/DeclarePass.hpp>
-#include <starlight/core/helper/command_buffer/CommandBufferHelpers.hpp>
+#include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
+
+static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus,
+                                                  const star::common::FrameTracker &ft) noexcept
+{
+    const size_t num = static_cast<size_t>(ft.getSetup().getNumFramesInFlight());
+
+    auto handles = std::vector<star::Handle>(num);
+    for (size_t i{0}; i < handles.size(); i++)
+    {
+        void *r = nullptr;
+        evtBus.emit(star::core::device::system::event::ManagerRequest(
+            star::common::HandleTypeRegistry::instance().getTypeGuaranteedExist(
+                star::core::device::manager::GetSemaphoreEventTypeName),
+            star::core::device::manager::SemaphoreRequest{true}, handles[i], &r));
+
+        if (r == nullptr)
+        {
+            STAR_THROW("Unable to create new semaphore");
+        }
+    }
+
+    return handles;
+}
 
 OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
                                      std::vector<std::shared_ptr<star::StarObject>> objects,
@@ -14,10 +37,9 @@ OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context,
 {
 }
 
-void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
-                                       const uint64_t &frameIndex)
+void OffscreenRenderer::recordPreRenderPassCommands(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft)
 {
-    size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
+    size_t index = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
     star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderToImages[index]);
     star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(m_renderToDepthImages[index]);
 
@@ -83,33 +105,14 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const s
             .setDstQueueFamilyIndex(vk::QueueFamilyIgnored);
     }
 
-    commandBuffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(prepImages));
+    buffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(prepImages));
+}
 
-    vk::Viewport viewport = this->prepareRenderingViewport(m_renderingContext.targetResolution);
-    commandBuffer.setViewport(0, viewport);
-
-    this->recordPreRenderPassCommands(commandBuffer, frameTracker.getCurrent().getFrameInFlightIndex(), frameIndex);
-
-    {
-        // dynamic rendering used...so dont need all that extra stuff
-        vk::RenderingAttachmentInfo colorAttachmentInfo = prepareDynamicRenderingInfoColorAttachment(frameTracker);
-        vk::RenderingAttachmentInfo depthAttachmentInfo = prepareDynamicRenderingInfoDepthAttachment(frameTracker);
-
-        auto renderArea = vk::Rect2D{vk::Offset2D{}, m_renderingContext.targetResolution};
-        vk::RenderingInfoKHR renderInfo{};
-        renderInfo.renderArea = renderArea;
-        renderInfo.layerCount = 1;
-        renderInfo.pDepthAttachment = &depthAttachmentInfo;
-        renderInfo.pColorAttachments = &colorAttachmentInfo;
-        renderInfo.colorAttachmentCount = 1;
-        commandBuffer.beginRendering(renderInfo);
-    }
-
-    this->recordRenderingCalls(commandBuffer, frameTracker.getCurrent().getFrameInFlightIndex(), frameIndex);
-
-    commandBuffer.endRendering();
-
-    // pass images back to compute queue family
+void OffscreenRenderer::recordPostRenderingCalls(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft)
+{
+    size_t index = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+    star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderToImages[index]);
+    star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(m_renderToDepthImages[index]);
 
     {
         std::array<const vk::ImageMemoryBarrier2, 2> toCompute{
@@ -150,35 +153,56 @@ void OffscreenRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const s
         const auto depInfo =
             vk::DependencyInfo().setPImageMemoryBarriers(&toCompute.front()).setImageMemoryBarrierCount(2);
 
-        commandBuffer.pipelineBarrier2(depInfo);
+        buffer.pipelineBarrier2(depInfo);
+    }
+}
+
+void OffscreenRenderer::waitForSemaphore(const star::common::FrameTracker &ft) const
+{
+    uint64_t signalValue{0};
+    vk::Semaphore semaphore{VK_NULL_HANDLE};
+    {
+        star::command_order::GetPassInfo get{m_commandBuffer};
+        m_cmdBus->submit(get);
+        signalValue = get.getReply().get().currentSignalValue;
+        semaphore = get.getReply().get().signaledSemaphore;
     }
 
-    if (this->isFirstPass)
+    const uint64_t frameCount = ft.getCurrent().getNumTimesFrameProcessed();
+    if (frameCount == signalValue)
     {
-        this->firstFramePassCounter--;
+        assert(m_device != VK_NULL_HANDLE);
 
-        if (this->firstFramePassCounter == 0)
+        auto result =
+            m_device.waitSemaphores(vk::SemaphoreWaitInfo().setValues(frameCount).setSemaphores(semaphore), UINT64_MAX);
+
+        if (result != vk::Result::eSuccess)
         {
-            this->isFirstPass = false;
+            STAR_THROW("Failed to wait for timeline semaphores");
         }
     }
+}
+
+void OffscreenRenderer::recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
+                                            const star::common::FrameTracker &ft, const uint64_t &frameIndex)
+{
+    waitForSemaphore(ft);
+    this->star::core::renderer::DefaultRenderer::recordCommandBuffer(commandBuffer, ft, frameIndex);
 }
 
 vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoColorAttachment(
     const star::common::FrameTracker &frameTracker)
 {
-    const auto tmp = this->DefaultRenderer::prepareDynamicRenderingInfoColorAttachment(frameTracker); 
+    const auto tmp = this->DefaultRenderer::prepareDynamicRenderingInfoColorAttachment(frameTracker);
 
     const size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
 
-    auto real = vk::RenderingAttachmentInfo()
+    return vk::RenderingAttachmentInfo()
         .setImageView(m_renderingContext.recordDependentImage.get(m_renderToImages[index])->getImageView())
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore)
         .setClearValue(vk::ClearValue().setColor({1.0f, 1.0f, 1.0f, 1.0f}));
-
-    return real;
 }
 
 std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages(
@@ -334,12 +358,19 @@ star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::ge
         .orderIndex = star::Command_Buffer_Order_Index::first,
         .waitStage = vk::PipelineStageFlagBits::eEarlyFragmentTests,
         .willBeSubmittedEachFrame = true,
-        .recordOnce = false};
+        .recordOnce = false,
+        .overrideBufferSubmissionCallback = std::bind(
+            &OffscreenRenderer::submitBuffer, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
+            std::placeholders::_4, std::placeholders::_5, std::placeholders::_6, std::placeholders::_7)};
 }
 
 void OffscreenRenderer::prepRender(star::common::IDeviceContext &c)
 {
     auto &context = static_cast<star::core::device::DeviceContext &>(c);
+
+    m_cmdBus = &context.getCmdBus();
+    m_device = context.getDevice().getVulkanDevice();
+
     {
         this->graphicsQueueFamilyIndex =
             star::core::helper::GetEngineDefaultQueue(context.getEventBus(), context.getGraphicsManagers().queueManager,
@@ -358,6 +389,8 @@ void OffscreenRenderer::prepRender(star::common::IDeviceContext &c)
 
     auto cmd = star::command_order::DeclarePass(this->m_commandBuffer, this->graphicsQueueFamilyIndex);
     context.begin().set(cmd).submit();
+
+    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.getFrameTracker());
 }
 
 vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(
@@ -370,6 +403,95 @@ vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthA
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore)
         .setClearValue(vk::ClearValue().setDepthStencil(vk::ClearDepthStencilValue{1.0f}));
+}
+
+static void GetNeighborSemaphoresFromLastPass(const star::core::CommandBus &cmdBus, const star::Handle &registration,
+                                              std::vector<vk::Semaphore> &semaphores,
+                                              std::vector<uint64_t> &previousSignalValues) noexcept
+{
+    auto cmd = star::command_order::GetPassInfo{registration};
+    cmdBus.submit(cmd);
+
+    for (const auto &edge : *cmd.getReply().get().edges)
+    {
+        if (edge.producer == registration)
+        {
+            auto nCmd = star::command_order::GetPassInfo{registration};
+            cmdBus.submit(nCmd);
+
+            semaphores.emplace_back(nCmd.getReply().get().signaledSemaphore);
+            previousSignalValues.emplace_back(nCmd.getReply().get().currentSignalValue);
+        }
+    }
+}
+
+vk::Semaphore OffscreenRenderer::submitBuffer(star::StarCommandBuffer &buffer,
+                                              const star::common::FrameTracker &frameTracker,
+                                              std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
+                                              std::vector<vk::Semaphore> dataSemaphores,
+                                              std::vector<vk::PipelineStageFlags> dataWaitPoints,
+                                              std::vector<std::optional<uint64_t>> previousSignaledValues,
+                                              star::StarQueue &queue)
+{
+    const size_t ii = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
+    assert(m_cmdBus != nullptr);
+
+    std::vector<vk::Semaphore> nSemaphore;
+    std::vector<uint64_t> nSemaphoreValues;
+    vk::Semaphore mySemaphore{VK_NULL_HANDLE};
+    uint64_t mySemaphoreSignalValue{0};
+    {
+        auto cmd = star::command_order::GetPassInfo{m_commandBuffer};
+        m_cmdBus->submit(cmd);
+        mySemaphore = cmd.getReply().get().signaledSemaphore;
+        mySemaphoreSignalValue = cmd.getReply().get().toSignalValue;
+
+        for (const auto &edge : *cmd.getReply().get().edges)
+        {
+            if (edge.producer == m_commandBuffer)
+            {
+                auto nCmd = star::command_order::GetPassInfo{edge.consumer};
+                m_cmdBus->submit(nCmd);
+
+                nSemaphore.emplace_back(nCmd.getReply().get().signaledSemaphore);
+                nSemaphoreValues.emplace_back(nCmd.getReply().get().currentSignalValue);
+            }
+        }
+    }
+
+    const auto cbInfo = vk::CommandBufferSubmitInfo().setCommandBuffer(
+        buffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()));
+
+    std::vector<vk::SemaphoreSubmitInfo> waitInfo;
+    for (size_t i{0}; i < nSemaphore.size(); i++)
+    {
+        waitInfo.push_back(vk::SemaphoreSubmitInfo()
+                               .setSemaphore(nSemaphore[i])
+                               .setValue(nSemaphoreValues[i])
+                               .setStageMask(vk::PipelineStageFlagBits2::eAllCommands));
+    }
+
+    assert(dataSemaphores.size() == dataWaitPoints.size());
+    for (size_t i{0}; i < dataWaitPoints.size(); i++)
+    {
+        waitInfo.emplace_back(vk::SemaphoreSubmitInfo()
+                                  .setSemaphore(dataSemaphores[i])
+                                  .setStageMask(vk::PipelineStageFlagBits2::eAllCommands));
+    }
+
+    vk::Semaphore binarySemaphore{buffer.getCompleteSemaphores()[ii]};
+    const vk::SemaphoreSubmitInfo signalInfo[1]{vk::SemaphoreSubmitInfo()
+                                                    .setSemaphore(mySemaphore)
+                                                    .setValue(mySemaphoreSignalValue)
+                                                    .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)};
+
+    const auto submitInfo =
+        vk::SubmitInfo2().setWaitSemaphoreInfos(waitInfo).setCommandBufferInfos(cbInfo).setSignalSemaphoreInfos(
+            signalInfo);
+
+    queue.getVulkanQueue().submit2(submitInfo);
+
+    return vk::Semaphore();
 }
 
 vk::Format OffscreenRenderer::getColorAttachmentFormat(star::core::device::DeviceContext &device) const

@@ -4,18 +4,16 @@ pnanovdb_buf_t nanoVDBBuffer;
 
 Ray transformWorldRayToGridLocal(const in Ray worldRay, const in mat4 inverseModelMatrix)
 {
-    vec3 direction = mat3(inverseModelMatrix) * worldRay.direction.xyz; // do NOT normalize
-    vec3 inverseDirection = 1.0 / direction;
+    vec3 direction = normalize(mat3(inverseModelMatrix) * worldRay.direction.xyz);
 
-    return Ray(vec4((inverseModelMatrix * worldRay.origin).xyz, 1.0), vec4(direction, 0.0), vec4(inverseDirection, 0.0),
-               bool[3](inverseDirection.x < 0.0, inverseDirection.y < 0.0, inverseDirection.z < 0.0));
+    return Ray(vec4((inverseModelMatrix * worldRay.origin).xyz, 1.0), vec4(direction, 0.0));
 }
 
 Ray createGridLocalRay(vec3 origin, vec3 viewDirection, const in mat4 inverseModelMatrix)
 {
-    origin = mat3(inverseModelMatrix) * origin;
-    viewDirection = mat3(inverseModelMatrix) * viewDirection.xyz;
-    return createRay(origin, viewDirection);
+    const vec4 originLocal = inverseModelMatrix * vec4(origin, 1.0);
+    const vec4 viewDirectionLocal = inverseModelMatrix * vec4(viewDirection, 0.0); 
+    return createRay(originLocal.xyz, viewDirectionLocal.xyz);
 }
 
 pnanovdb_grid_handle_t makeNanoGrid(uint baseByteOffset)
@@ -104,20 +102,24 @@ bool rayBoxIntersect(in pnanovdb_grid_handle_t grid, in Ray gridRay, inout float
     float tmax = (1.0 / 0.0);
     float txmin = 0, txmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
 
-    txmin = (bounds[int(gridRay.signed[0])].x - gridRay.origin.x) * gridRay.invDirection.x;
-    txmax = (bounds[int(!gridRay.signed[0])].x - gridRay.origin.x) * gridRay.invDirection.x;
+    vec3 invDir = vec3(1.0, 1.0, 1.0); 
+    bool signed[3]; 
+    inverseRayForAABB(gridRay, invDir, signed);
+
+    txmin = (bounds[int(signed[0])].x - gridRay.origin.x) * invDir.x;
+    txmax = (bounds[int(!signed[0])].x - gridRay.origin.x) * invDir.x;
 
     tmin = min(txmin, txmax);
     tmax = max(txmin, txmax);
 
-    tymin = (bounds[int(gridRay.signed[1])].y - gridRay.origin.y) * gridRay.invDirection.y;
-    tymax = (bounds[int(!gridRay.signed[1])].y - gridRay.origin.y) * gridRay.invDirection.y;
+    tymin = (bounds[int(signed[1])].y - gridRay.origin.y) * invDir.y;
+    tymax = (bounds[int(!signed[1])].y - gridRay.origin.y) * invDir.y;
 
     tmin = max(tmin, min(tymin, tymax));
     tmax = min(tmax, max(tymin, tymax));
 
-    tzmin = (bounds[int(gridRay.signed[2])].z - gridRay.origin.z) * gridRay.invDirection.z;
-    tzmax = (bounds[int(!gridRay.signed[2])].z - gridRay.origin.z) * gridRay.invDirection.z;
+    tzmin = (bounds[int(signed[2])].z - gridRay.origin.z) * invDir.z;
+    tzmax = (bounds[int(!signed[2])].z - gridRay.origin.z) * invDir.z;
 
     tmin = max(tmin, min(tzmin, tzmax));
     tmax = min(tmax, max(tzmin, tzmax));

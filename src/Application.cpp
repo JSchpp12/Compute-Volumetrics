@@ -1,34 +1,76 @@
 #include "Application.hpp"
 
-#include "ManagerController_RenderResource_GlobalInfo.hpp"
+#include "DeclareDependentPasses.hpp"
+#include "GetCmdBuffer.hpp"
 #include "OffscreenRenderer.hpp"
 #include "Terrain.hpp"
-#include "TerrainChunk.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
-
+#include "renderer/FinalizationRenderer.hpp"
 
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
+#include <starlight/command/command_order/TriggerPass.hpp>
+
+#include <starlight/command/GetScreenCaptureSyncInfo.hpp>
 #include <starlight/command/detail/create_object/DirectObjCreation.hpp>
 #include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/command/headless_render_result_write/GetFileNameForFrame.hpp>
 #include <starlight/command/headless_render_result_write/GetSetOutputDir.hpp>
 #include <starlight/common/ConfigFile.hpp>
-#include <starlight/common/objects/BasicObject.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
-#include <starlight/core/renderer/HeadlessRenderer.hpp>
 #include <starlight/event/RegisterMainGraphicsRenderer.hpp>
 #include <starlight/virtual/StarCamera.hpp>
 
 #include <star_common/helper/StringHelpers.hpp>
-#include <star_common/helper/PathHelpers.hpp>
 
-#include <sstream>
 #include <string>
 
 using namespace star;
+
+static void CreateWaiterForDefineDependencies(star::common::EventBus &eventBus, const star::core::CommandBus &cmdBus,
+                                              const Volume &volume, const OffscreenRenderer &offscreenRenderer) noexcept
+{
+}
+
+static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerCommandBuffer &mgrCmdBuff,
+                                           const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
+                                           const OffscreenRenderer &offscreenRenderer) noexcept
+{
+    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+    const auto &c = offscreenRenderer.getCommandBuffer();
+
+    cmdBus.submit(star::command_order::TriggerPass()
+                      .setTimelineSemaphore(offscreenRenderer.getTimelineSemaphroes()[ii])
+                      .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
+                      .setPass(c));
+};
+
+static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
+                                       star::core::device::manager::Semaphore &mgrSemaphore,
+                                       star::common::EventBus &evtBus, const Volume &volume,
+                                       const star::common::FrameTracker &ft) noexcept
+{
+    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+
+    const auto value = ft.getCurrent().getNumTimesFrameProcessed() + 1;
+
+    cmdBus.submit(star::command_order::TriggerPass()
+                      .setPass(volume.getRenderer().getCommandBuffer())
+                      .setTimelineSemaphore(volume.getRenderer().getTimelineSemaphores()[ii])
+                      .setSignalValue(std::move(value)));
+}
+
+static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus,
+                                            const star::core::renderer::HeadlessRenderer &finalizationRenderer,
+                                            size_t currentNumTimesFrameProcessed, size_t currentFrameInFlight)
+{
+    cmdBus.submit(star::command_order::TriggerPass()
+                      .setPass(finalizationRenderer.getCommandBuffer())
+                      .setTimelineSemaphore(finalizationRenderer.getTimelineSemaphores()[currentFrameInFlight])
+                      .setSignalValue(++currentNumTimesFrameProcessed));
+}
 
 OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::DeviceContext &context,
                                                        const uint8_t &numFramesInFlight,
@@ -63,14 +105,6 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
 
-static std::string CreateImageDir()
-{
-    // const auto fullDir = star::file_helpers::GetExecutableDirectory() / "images";
-    // star::file_helpers::CreateDirectoryIfDoesNotExist(fullDir);
-
-    // return fullDir.string();
-}
-
 Application::Application(std::string &&terrainPath) : m_terrainDir(std::move(terrainPath))
 {
     // const std::filesystem::path terrain(m_terrainDir);
@@ -85,17 +119,15 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 {
     initImageOutputDir(context.getCmdBus());
     initListeners(context);
+
     auto camera = createMainCamera(context);
 
     std::vector<std::shared_ptr<star::StarObject>> allObjects;
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-    const glm::vec3 camPos{-50.9314, 135.686, 25.9329};
-    const glm::vec3 volumePos{50.0, 10.0, 0.0};
-    const glm::vec3 lightPos = volumePos + glm::vec3{0.0f, 500.0f, 0.0f};
 
-    m_mainLight =
-        std::make_shared<std::vector<star::Light>>(std::vector<star::Light>{Application::CreateMainLight(lightPos)});
+    m_mainLight = std::make_shared<std::vector<star::Light>>(
+        std::vector<star::Light>{Application::CreateMainLight({0.0, 4.0, 0.0})});
 
     uint8_t numInFlight;
     {
@@ -107,9 +139,9 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     {
         auto oRenderer =
             star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_terrainDir, m_mainLight));
-        auto *offscreenRenderer = oRenderer.getRaw<OffscreenRenderer>();
+        m_offRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
-        for (auto &object : offscreenRenderer->getObjects())
+        for (auto &object : m_offRenderer->getObjects())
         {
             allObjects.emplace_back(object);
         }
@@ -123,48 +155,57 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         star::common::casts::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
         {
-            std::string vdbPath = mediaDirectoryPath + "volumes/flat_plane_wind";
-            m_volume = std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height,
-                                                offscreenRenderer, offscreenRenderer->getCameraInfoBuffers(),
-                                                offscreenRenderer->getLightInfoBuffers(),
-                                                offscreenRenderer->getLightListBuffers());
+            std::string vdbPath = mediaDirectoryPath + "volumes/ambient";
+            m_volume =
+                std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height, m_offRenderer,
+                                         m_offRenderer->getCameraInfoBuffers(), m_offRenderer->getLightInfoBuffers(),
+                                         m_offRenderer->getLightListBuffers());
             auto cmd = star::command::CreateObject::Builder()
                            .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
                            .setUniqueName("flatWind")
                            .build();
 
             context.begin().set(cmd).submit();
-            auto shared = cmd.getReply().get();
-
-            allObjects.emplace_back(shared);
+            allObjects.emplace_back(cmd.getReply().get());
         }
-
-        m_volume->init(context, numFramesInFlight);
 
         std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
         std::vector<star::common::Renderer> additionals;
         additionals.emplace_back(std::move(oRenderer));
 
-        auto sc = createOffscreenRenderer(context, objects, camera);
+        auto sc = createMainRenderer(context, objects, camera);
         m_mainScene =
             std::make_shared<star::StarScene>(star::star_scene::makeWaitForAllObjectsReadyPolicy(std::move(allObjects)),
                                               std::move(camera), std::move(sc), std::move(additionals));
     }
 
-    // volumeInstance->setPosition(m_mainScene->getCamera()->getPosition());
-    // volumeInstance->setScale(glm::vec3{3.0f, 3.0f, 3.0f});
-    // volumeInstance->rotateRelative(star::Type::Axis::y, 90);
+    DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
+        .setConsumer([this]() -> star::Handle { return this->m_volume->getRenderer().getCommandBuffer(); }) // volume
+        .setProducer([this]() -> star::Handle { return this->m_offRenderer->getCommandBuffer(); })          // terrain
+        .build();
+    DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
+        .setConsumer([this]() -> star::Handle {
+            return m_finalizationCmds->getCommandBuffer();
+        }) // final square screen renderer thing
+        .setProducer([this]() -> star::Handle { return m_volume->getRenderer().getCommandBuffer(); }) // volume
+        .build();
+    // find a way to declare dependency between the headless renderer and the copy commands
+    // DeclareDependentPasses<star::core::renderer::HeadlessRenderer, GetCmdBuffer>::Builder(context.getEventBus(),
+    // context.getCmdBus())
+    //     .setConsumer()
+    //     .setProducer()
 
     m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0001f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 3.0f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 5.0f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 100.0f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 250.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.00001f);
-    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.8f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.40f);
     m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.3f);
-    m_volume->getRenderer().setFogType(Fog::Type::sMarched);
+    m_volume->getRenderer().setFogType(Fog::Type::sLinear);
     m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
-    m_volume->getRenderer().getFogInfo().linearInfo.farDist = 1000.0f;
+    m_volume->getRenderer().getFogInfo().linearInfo.farDist = 16000.0f;
     m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.6f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(1.0f);
     return m_mainScene;
 }
 
@@ -177,18 +218,29 @@ void Application::shutdown(star::core::device::DeviceContext &context)
 void Application::initImageOutputDir(star::core::CommandBus &bus)
 {
     m_imageOutputDir = std::filesystem::path(star::common::strings::GetStartTime());
-
     bus.submit(star::headless_render_result_write::GetSetOutputDir::Builder().setSetDir(m_imageOutputDir).build());
 }
 
 void Application::frameUpdate(star::core::SystemContext &context)
 {
     auto &d = context.getAllDevices().getData()[0];
-    auto cmd = star::headless_render_result_write::GetFileNameForFrame();
-    d.begin().set(cmd).submit();
 
-    if (d.getFrameTracker().getCurrent().getGlobalFrameCounter() > 1 && !CheckIfControllerIsDone(d.getCmdBus()))
     {
+        size_t fi = static_cast<size_t>(d.getFrameTracker().getCurrent().getFrameInFlightIndex());
+        size_t gfProcessed = static_cast<size_t>(d.getFrameTracker().getCurrent().getNumTimesFrameProcessed());
+
+        TriggerSubmissionOfCompute(d.getCmdBus(), d.getSemaphoreManager(), d.getEventBus(), *m_volume,
+                                   d.getFrameTracker());
+        TriggerSubmissionOfTerrainDraw(d.getManagerCommandBuffer().m_manager, d.getCmdBus(), d.getFrameTracker(),
+                                       *m_offRenderer);
+        TriggerSubmissionOfFinalization(d.getCmdBus(), *m_finalizationCmds, gfProcessed, fi);
+    }
+
+    if (!CheckIfControllerIsDone(d.getCmdBus()))
+    {
+        auto cmd = star::headless_render_result_write::GetFileNameForFrame();
+        d.begin().set(cmd).submit();
+
         TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
         triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());
     }
@@ -251,16 +303,19 @@ int Application::ProcessIntInput()
     return selectedValue;
 }
 
-star::common::Renderer Application::createOffscreenRenderer(star::core::device::DeviceContext &context,
-                                                            std::vector<std::shared_ptr<star::StarObject>> objects,
-                                                            std::shared_ptr<star::StarCamera> camera)
+star::common::Renderer Application::createMainRenderer(star::core::device::DeviceContext &context,
+                                                       std::vector<std::shared_ptr<star::StarObject>> objects,
+                                                       std::shared_ptr<star::StarCamera> camera)
 {
-    star::common::Renderer sc{star::core::renderer::HeadlessRenderer{
-        context, context.getFrameTracker().getSetup().getNumFramesInFlight(), objects, m_mainLight, camera}};
+    star::common::Renderer sc{
+        renderer::FinalizationRenderer{context, context.getFrameTracker().getSetup().getNumFramesInFlight(), objects,
+                                       m_mainLight, camera, vk::PipelineStageFlagBits::eAllCommands}};
 
-    auto *renderer = sc.getRaw<star::core::renderer::HeadlessRenderer>();
+    auto *renderer = sc.getRaw<renderer::FinalizationRenderer>();
     context.getEventBus().emit(star::event::RegisterMainGraphicsRenderer{renderer});
 
+    m_finalizationCmds = static_cast<star::core::renderer::HeadlessRenderer *>(renderer);
+    
     return sc;
 }
 
@@ -274,8 +329,8 @@ void Application::triggerImageRecord(star::core::device::DeviceContext &context,
                                      const star::common::FrameTracker &frameTracker,
                                      const std::string &targetImageFileName)
 {
-    context.getCmdBus().submit(image_metrics::TriggerCapture{(m_imageOutputDir / targetImageFileName).string(),
-                                                             *m_volume, *m_mainScene->getCamera()});
+    const std::string outputFilePath = (m_imageOutputDir / targetImageFileName).string();
+    context.getCmdBus().submit(image_metrics::TriggerCapture{outputFilePath, *m_volume, *m_mainScene->getCamera()});
 }
 
 void Application::TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume, star::StarCamera &camera)
@@ -300,6 +355,7 @@ star::Light Application::CreateMainLight(glm::vec3 position)
     return star::Light()
         .setPosition(std::move(position))
         .setType(star::Type::Light::directional)
-        .setLuminance(13)
+        .setAmbient({1.0f, 1.0f, 1.0f})
+        .setLuminance(50)
         .setDirection({0.0f, -1.0f, 0.0f});
 }

@@ -11,7 +11,7 @@ void util::from_json(const nlohmann::json &j, ::FogInfo::LinearFogInfo &v)
     v.farDist = j.value("farDist", v.farDist);
 }
 
-void util::to_json(nlohmann::json & j, const FogInfo::ExpFogInfo &v)
+void util::to_json(nlohmann::json &j, const FogInfo::ExpFogInfo &v)
 {
     j = nlohmann::json{{"density", v.density}};
 }
@@ -24,11 +24,12 @@ void util::from_json(const nlohmann::json &j, FogInfo::ExpFogInfo &v)
 void util::to_json(nlohmann::json &j, const FogInfo::MarchedFogInfo &v)
 {
     j = nlohmann::json{{"defaultDensity", v.defaultDensity},
-             {"sigmaAbsorption", v.getSigmaAbsorption()},
-             {"sigmaScattering", v.getSigmaScattering()},
-             {"lightPropertyDirG", v.getLightPropertyDirG()},
-             {"stepSizeDist", v.stepSizeDist},
-             {"stepSizeDist_light", v.stepSizeDist_light}};
+                       {"sigmaAbsorption", v.getSigmaAbsorption()},
+                       {"sigmaScattering", v.getSigmaScattering()},
+                       {"lightPropertyDirG", v.getLightPropertyDirG()},
+                       {"stepSizeDist", v.stepSizeDist},
+                       {"stepSizeDist_light", v.stepSizeDist_light},
+                       {"densityMultiplier", v.getDensityMultiplier()}};
 }
 
 void util::from_json(const nlohmann::json &j, FogInfo::MarchedFogInfo &v)
@@ -42,10 +43,12 @@ void util::from_json(const nlohmann::json &j, FogInfo::MarchedFogInfo &v)
     const float sigmaAbs = j.value("sigmaAbsorption", v.getSigmaAbsorption());
     const float sigmaSca = j.value("sigmaScattering", v.getSigmaScattering());
     const float g = j.value("lightPropertyDirG", v.getLightPropertyDirG());
+    const float densityMulti = j.value("densityMultiplier", v.getDensityMultiplier());
 
     v.setSigmaAbsorption(sigmaAbs);
     v.setSigmaScattering(sigmaSca);
     v.setLightPropertyDirG(g);
+    v.setDensityMultiplier(densityMulti);
 }
 
 void util::to_json(nlohmann::json &j, const FogInfo::HomogenousRendering &v)
@@ -70,9 +73,9 @@ void util::to_json(nlohmann::json &j, const FogInfo &v)
     to_json(homoData, v.homogenousInfo);
 
     j = nlohmann::json{{"linearInfo", linearData},
-             {"expFogInfo", expData},
-             {"marchedInfo", marchedData},
-             {"homogenousInfo", homoData}};
+                       {"expFogInfo", expData},
+                       {"marchedInfo", marchedData},
+                       {"homogenousInfo", homoData}};
 }
 
 void util::from_json(const nlohmann::json &j, FogInfo &v)
