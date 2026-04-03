@@ -817,8 +817,8 @@ void VolumeRenderer::addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, con
         bufferBarriers[count]
             .setBuffer(std::move(buffer))
             .setSize(vk::WholeSize)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eTransfer)
-            .setSrcAccessMask(vk::AccessFlagBits2::eTransferWrite)
+            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
+            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
             .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
             .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
             .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)

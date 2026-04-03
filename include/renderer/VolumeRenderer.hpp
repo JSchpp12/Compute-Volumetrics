@@ -152,8 +152,7 @@ class VolumeRenderer
     bool transferTriggeredThisFrame = false;
     star::core::CommandBus *m_cmdBus{nullptr};
     star::core::device::manager::Semaphore *m_mgrSemaphore{nullptr};
-    vk::Device m_device{VK_NULL_HANDLE}; 
-    
+    vk::Device m_device{VK_NULL_HANDLE};
 
     vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                                std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
@@ -180,7 +179,8 @@ class VolumeRenderer
     std::array<vk::BufferMemoryBarrier2, 2> getBufferBarriersFromTransferQueues(
         const star::common::FrameTracker &ft) const;
 
-    std::array<vk::BufferMemoryBarrier2, 2> getBufferBarriersToTransferQueues(const star::common::FrameTracker &ft) const;
+    std::array<vk::BufferMemoryBarrier2, 2> getBufferBarriersToTransferQueues(
+        const star::common::FrameTracker &ft) const;
 
     void addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
                                      const bool getBuffersBackFromTransfer) const;

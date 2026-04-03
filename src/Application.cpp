@@ -356,6 +356,6 @@ star::Light Application::CreateMainLight(glm::vec3 position)
         .setPosition(std::move(position))
         .setType(star::Type::Light::directional)
         .setAmbient({1.0f, 1.0f, 1.0f})
-        .setLuminance(20)
+        .setLuminance(50)
         .setDirection({0.0f, -1.0f, 0.0f});
 }
