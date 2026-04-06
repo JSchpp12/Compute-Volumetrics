@@ -6,25 +6,7 @@
 void renderer::FinalizationRenderer::addMemoryBarriersPost(vk::CommandBuffer cmdBuff,
                                                            const star::common::FrameTracker &ft) const
 {
-    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
-
-    const vk::ImageMemoryBarrier2 barriers =
-        vk::ImageMemoryBarrier2()
-            .setImage(m_renderingContext.recordDependentImage.get(m_renderToImages[ii])->getVulkanImage())
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(vk::RemainingArrayLayers)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(vk::RemainingMipLevels))
-            .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
-            .setNewLayout(vk::ImageLayout::eTransferSrcOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eColorAttachmentOutput)
-            .setSrcAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setDstAccessMask(vk::AccessFlagBits2::eNone); 
-
-    cmdBuff.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barriers));
+    
 }
 
 void renderer::FinalizationRenderer::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer,
@@ -49,7 +31,7 @@ void renderer::FinalizationRenderer::addMemoryBarriersPre(vk::CommandBuffer cmdB
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
 
     // assuming the voluem renderer will always run
-    if (ft.getCurrent().getNumTimesFrameProcessed() != 1)
+    if (ft.getCurrent().getNumTimesFrameProcessed() != 0)
     {
         auto *cImage =
             m_renderingContext.recordDependentImage.get(m_renderToImages[ft.getCurrent().getFrameInFlightIndex()]);
@@ -64,7 +46,7 @@ void renderer::FinalizationRenderer::addMemoryBarriersPre(vk::CommandBuffer cmdB
                                          .setLayerCount(1)
                                          .setBaseMipLevel(0)
                                          .setLevelCount(1))
-                .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
                 .setSrcAccessMask(vk::AccessFlagBits2::eNone)
                 .setDstStageMask(vk::PipelineStageFlagBits2::eAllGraphics)
                 .setDstAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite |
