@@ -44,8 +44,9 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
         // setting to middle
         const float t = (t0 + jitter + (mainStepSize * (i + 0.5)));
         
-        if (transparency < 0.005)
+        if (transparency < 0.05)
         {
+            transparency = 0.0; 
             break;
         }
         rayDistanceTraveled += mainStepSize; 

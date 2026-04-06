@@ -1,32 +1,31 @@
-#include "renderer/FinalizationRenderer.hpp"
+#include "renderer/finalization/Headless.hpp"
 
 #include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
-void renderer::FinalizationRenderer::addMemoryBarriersPost(vk::CommandBuffer cmdBuff,
-                                                           const star::common::FrameTracker &ft) const
+void renderer::finalization::Headless::addMemoryBarriersPost(vk::CommandBuffer cmdBuff,
+                                                             const star::common::FrameTracker &ft) const
 {
-    
 }
 
-void renderer::FinalizationRenderer::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer,
-                                                                 const star::common::FrameTracker &ft)
+void renderer::finalization::Headless::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer,
+                                                                   const star::common::FrameTracker &ft)
 {
     addMemoryBarriersPre(commandBuffer, ft);
 
     this->star::core::renderer::HeadlessRenderer::recordPreRenderPassCommands(commandBuffer, ft);
 }
 
-void renderer::FinalizationRenderer::recordPostRenderingCalls(vk::CommandBuffer &commandBuffer,
-                                                              const star::common::FrameTracker &ft)
+void renderer::finalization::Headless::recordPostRenderingCalls(vk::CommandBuffer &commandBuffer,
+                                                                const star::common::FrameTracker &ft)
 {
     addMemoryBarriersPost(commandBuffer, ft);
 
     this->star::core::renderer::HeadlessRenderer::recordPostRenderingCalls(commandBuffer, ft);
 }
 
-void renderer::FinalizationRenderer::addMemoryBarriersPre(vk::CommandBuffer cmdBuffer,
-                                                          const star::common::FrameTracker &ft) const
+void renderer::finalization::Headless::addMemoryBarriersPre(vk::CommandBuffer cmdBuffer,
+                                                            const star::common::FrameTracker &ft) const
 {
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
 
@@ -62,7 +61,7 @@ void renderer::FinalizationRenderer::addMemoryBarriersPre(vk::CommandBuffer cmdB
     }
 }
 
-void renderer::FinalizationRenderer::prepRender(star::common::IDeviceContext &c)
+void renderer::finalization::Headless::prepRender(star::common::IDeviceContext &c)
 {
     auto &context = static_cast<star::core::device::DeviceContext &>(c);
 

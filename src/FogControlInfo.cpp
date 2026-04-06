@@ -60,6 +60,7 @@ void FogControlInfoTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &b
         buffer.writeToBuffer(&info, mapped, sizeof(FogInfo::FinalizedInfo));
     }
 
+    buffer.flush();
     buffer.unmap();
 }
 

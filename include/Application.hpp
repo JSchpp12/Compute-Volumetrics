@@ -3,8 +3,7 @@
 #include "OffscreenRenderer.hpp"
 #include "StarApplication.hpp"
 #include "Volume.hpp"
-
-#include <starlight/core/renderer/HeadlessRenderer.hpp>
+#include "renderer/finalization/FinalizationRenderer.hpp"
 
 #include <memory>
 
@@ -32,8 +31,10 @@ class Application : public star::StarApplication
     OffscreenRenderer *m_offRenderer{nullptr}; 
     std::shared_ptr<std::vector<star::Light>> m_mainLight;
     std::vector<star::Handle> m_screenshotRegistrations;
-    star::core::renderer::HeadlessRenderer *m_finalizationCmds{nullptr};
+    renderer::finalization::FinalizationRenderer *m_finalizationCmds{nullptr};
     bool m_flipScreenshotState = false;
+
+    void submitPasses(star::core::device::DeviceContext &context);
 
     virtual void initImageOutputDir(star::core::CommandBus &bus);
 

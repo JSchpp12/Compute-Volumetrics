@@ -1,6 +1,9 @@
 #include "InteractiveApplication.hpp"
 
 #ifdef STAR_ENABLE_PRESENTATION
+
+#include "renderer/finalization/Windowed.hpp"
+
 #include <starlight/event/TriggerScreenshot.hpp>
 
 #include <star_common/helper/StringHelpers.hpp>
@@ -40,18 +43,20 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
 }
 
 static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus,
-                                            const star::core::renderer::HeadlessRenderer &finalizationRenderer,
+                                            const renderer::finalization::FinalizationRenderer &finalizationRenderer,
                                             size_t currentNumTimesFrameProcessed, size_t currentFrameInFlight)
 {
     cmdBus.submit(star::command_order::TriggerPass()
                       .setPass(finalizationRenderer.getCommandBuffer())
-                      .setTimelineSemaphore(finalizationRenderer.getTimelineSemaphores()[currentFrameInFlight])
+                      .setTimelineSemaphore(finalizationRenderer.getTimelineSemaphore(currentFrameInFlight))
                       .setSignalValue(++currentNumTimesFrameProcessed));
 }
 
 void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
-    this->Application::frameUpdate(context);
+    auto &d = context.getAllDevices().getData()[0];
+
+    submitPasses(d);
 
     if (m_actDir[star::Type::Axis::x])
     {
@@ -128,7 +133,6 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 
     if (m_triggerScreenshot)
     {
-        auto &d = context.getAllDevices().getData()[0];
         TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
         triggerScreenshot(d);
 
@@ -383,9 +387,9 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
     if (key == GLFW_KEY_SPACE)
     {
-        m_actDir[0] = false; 
-        m_actDir[1] = false; 
-        m_actDir[2] = false; 
+        m_actDir[0] = false;
+        m_actDir[1] = false;
+        m_actDir[2] = false;
     }
 }
 
@@ -445,9 +449,13 @@ star::common::Renderer InteractiveApplication::createMainRenderer(
 {
     vk::SwapchainKHR swapchain{VK_NULL_HANDLE};
     context.getEventBus().emit(star::windowing::event::RequestSwapChainFromService{swapchain});
-    return star::common::Renderer{star::windowing::SwapChainRenderer{
+
+    auto sc = star::common::Renderer{renderer::finalization::Windowed{
         m_winContext, std::move(swapchain), context, context.getFrameTracker().getSetup().getNumFramesInFlight(),
         objects, m_mainLight, camera}};
+
+    m_finalizationCmds = sc.getRaw<renderer::finalization::Windowed>();
+    return sc;
 }
 
 #endif

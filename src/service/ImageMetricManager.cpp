@@ -2,6 +2,7 @@
 
 #include "service/detail/image_metric_manager/FileWriteFunction.hpp"
 
+#include <starlight/command/frames/GetFrameTracker.hpp>
 #include <starlight/command/FileIO/WriteToFile.hpp>
 #include <starlight/command/GetScreenCaptureSyncInfo.hpp>
 #include <starlight/command/command_order/DeclareDependency.hpp>
@@ -53,13 +54,18 @@ ImageMetricManager &ImageMetricManager::operator=(ImageMetricManager &&other)
 
 void ImageMetricManager::setInitParameters(star::service::InitParameters &params)
 {
-    m_frameTracker = &params.flightTracker;
     m_cmdBus = &params.commandBus;
     m_device = &params.device;
     m_eb = &params.eventBus;
     m_cb = &params.commandBufferManager;
     m_qm = &params.graphicsManagers.queueManager;
     m_s = params.graphicsManagers.semaphoreManager.get();
+
+    star::frames::GetFrameTracker ftCmd{};
+    params.commandBus.submit(ftCmd);
+    assert(ftCmd.getReply().get() != nullptr);
+
+    m_frameTracker = ftCmd.getReply().get();
 }
 
 void ImageMetricManager::shutdown()

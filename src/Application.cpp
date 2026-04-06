@@ -7,7 +7,7 @@
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
-#include "renderer/FinalizationRenderer.hpp"
+#include "renderer/finalization/Headless.hpp"
 
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
@@ -63,12 +63,12 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
 }
 
 static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus,
-                                            const star::core::renderer::HeadlessRenderer &finalizationRenderer,
+                                            const renderer::finalization::FinalizationRenderer &finalizationRenderer,
                                             size_t currentNumTimesFrameProcessed, size_t currentFrameInFlight)
 {
     cmdBus.submit(star::command_order::TriggerPass()
                       .setPass(finalizationRenderer.getCommandBuffer())
-                      .setTimelineSemaphore(finalizationRenderer.getTimelineSemaphores()[currentFrameInFlight])
+                      .setTimelineSemaphore(finalizationRenderer.getTimelineSemaphore(currentFrameInFlight))
                       .setSignalValue(++currentNumTimesFrameProcessed));
 }
 
@@ -81,26 +81,26 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    {
-        auto cmd = star::command::CreateObject::Builder()
-                       .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-                           std::make_shared<Terrain>(context, terrainPath)))
-                       .setUniqueName("terrain")
-                       .build();
-        context.begin().set(cmd).submit();
-        objects.emplace_back(cmd.getReply().get());
-    }
-
     //{
-    //    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
     //    auto cmd = star::command::CreateObject::Builder()
-    //                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-    //                   .setUniqueName("horse")
+    //                   .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
+    //                       std::make_shared<Terrain>(context, terrainPath)))
+    //                   .setUniqueName("terrain")
     //                   .build();
     //    context.begin().set(cmd).submit();
-    //    cmd.getReply().get()->init(context);
     //    objects.emplace_back(cmd.getReply().get());
     //}
+
+    {
+        auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+        auto cmd = star::command::CreateObject::Builder()
+                       .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+                       .setUniqueName("horse")
+                       .build();
+        context.begin().set(cmd).submit();
+        cmd.getReply().get()->init(context);
+        objects.emplace_back(cmd.getReply().get());
+    }
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
@@ -179,10 +179,14 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
                                               std::move(camera), std::move(sc), std::move(additionals));
     }
 
+    assert(m_finalizationCmds != nullptr &&
+           "Make sure to register m_finalizationCommands during the createMainRenderer function");
+
     DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
         .setConsumer([this]() -> star::Handle { return this->m_volume->getRenderer().getCommandBuffer(); }) // volume
         .setProducer([this]() -> star::Handle { return this->m_offRenderer->getCommandBuffer(); })          // terrain
         .build();
+
     DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
         .setConsumer([this]() -> star::Handle {
             return m_finalizationCmds->getCommandBuffer();
@@ -215,6 +219,19 @@ void Application::shutdown(star::core::device::DeviceContext &context)
     context.begin().set(cmd).submit();
 }
 
+void Application::submitPasses(star::core::device::DeviceContext &context)
+{
+    size_t fi = static_cast<size_t>(context.getFrameTracker().getCurrent().getFrameInFlightIndex());
+    size_t gfProcessed = static_cast<size_t>(context.getFrameTracker().getCurrent().getNumTimesFrameProcessed());
+
+    auto &cmdBus = context.getCmdBus();
+    TriggerSubmissionOfCompute(cmdBus, context.getSemaphoreManager(), context.getEventBus(), *m_volume,
+                               context.getFrameTracker());
+    TriggerSubmissionOfTerrainDraw(context.getManagerCommandBuffer().m_manager, context.getCmdBus(),
+                                   context.getFrameTracker(), *m_offRenderer);
+    TriggerSubmissionOfFinalization(cmdBus, *m_finalizationCmds, gfProcessed, fi);
+}
+
 void Application::initImageOutputDir(star::core::CommandBus &bus)
 {
     m_imageOutputDir = std::filesystem::path(star::common::strings::GetStartTime());
@@ -225,16 +242,7 @@ void Application::frameUpdate(star::core::SystemContext &context)
 {
     auto &d = context.getAllDevices().getData()[0];
 
-    {
-        size_t fi = static_cast<size_t>(d.getFrameTracker().getCurrent().getFrameInFlightIndex());
-        size_t gfProcessed = static_cast<size_t>(d.getFrameTracker().getCurrent().getNumTimesFrameProcessed());
-
-        TriggerSubmissionOfCompute(d.getCmdBus(), d.getSemaphoreManager(), d.getEventBus(), *m_volume,
-                                   d.getFrameTracker());
-        TriggerSubmissionOfTerrainDraw(d.getManagerCommandBuffer().m_manager, d.getCmdBus(), d.getFrameTracker(),
-                                       *m_offRenderer);
-        TriggerSubmissionOfFinalization(d.getCmdBus(), *m_finalizationCmds, gfProcessed, fi);
-    }
+    submitPasses(d);
 
     if (!CheckIfControllerIsDone(d.getCmdBus()))
     {
@@ -308,14 +316,14 @@ star::common::Renderer Application::createMainRenderer(star::core::device::Devic
                                                        std::shared_ptr<star::StarCamera> camera)
 {
     star::common::Renderer sc{
-        renderer::FinalizationRenderer{context, context.getFrameTracker().getSetup().getNumFramesInFlight(), objects,
-                                       m_mainLight, camera, vk::PipelineStageFlagBits::eAllCommands}};
+        renderer::finalization::Headless{context, context.getFrameTracker().getSetup().getNumFramesInFlight(), objects,
+                                         m_mainLight, camera, vk::PipelineStageFlagBits::eAllCommands}};
 
-    auto *renderer = sc.getRaw<renderer::FinalizationRenderer>();
+    auto *renderer = sc.getRaw<renderer::finalization::Headless>();
     context.getEventBus().emit(star::event::RegisterMainGraphicsRenderer{renderer});
 
-    m_finalizationCmds = static_cast<star::core::renderer::HeadlessRenderer *>(renderer);
-    
+    m_finalizationCmds = static_cast<renderer::finalization::FinalizationRenderer *>(renderer);
+
     return sc;
 }
 
