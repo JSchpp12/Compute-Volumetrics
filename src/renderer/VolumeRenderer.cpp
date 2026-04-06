@@ -743,7 +743,7 @@ void VolumeRenderer::addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, con
                                  .setLayerCount(1)
                                  .setAspectMask(vk::ImageAspectFlagBits::eDepth));
 
-    if (this->isFirstPass)
+    if (ft.getCurrent().getNumTimesFrameProcessed() == 0)
     {
         imageBarriers[2]
             .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
