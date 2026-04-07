@@ -95,6 +95,6 @@ void VisibilityDistanceCompute::createBuildPipelineWaiter(
                     .deviceID = &context.getDeviceID(),
                     .graphicsManagers = &context.getGraphicsManagers(),
                 },
-            .numFramesInFlight = context.getFrameTracker().getSetup().getNumFramesInFlight()})
+            .numFramesInFlight = context.frameTracker().getSetup().getNumFramesInFlight()})
         .buildShared();
 }

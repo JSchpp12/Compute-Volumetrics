@@ -132,10 +132,10 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
     m_device = context.getDevice().getVulkanDevice();
     m_cmdBus = &context.getCmdBus();
 
-    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.getFrameTracker());
+    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.frameTracker());
 
     auto submitter = std::make_shared<star::wrappers::graphics::policies::SubmitDescriptorRequestsPolicy>(
-        getDescriptorRequests(context.getFrameTracker().getSetup().getNumFramesInFlight()));
+        getDescriptorRequests(context.frameTracker().getSetup().getNumFramesInFlight()));
 
     submitter->init(context.getEventBus());
 
@@ -169,7 +169,7 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
             &context.getDeviceID(), pipelineData, &m_staticShaderInfo, &m_dynamicShaderInfo, &marchedHomogenousPipeline,
             &nanoVDBPipeline_hitBoundingBox, &nanoVDBPipeline_surface, &marchedPipeline, &linearPipeline, &expPipeline,
             &computePipelineLayout, &context.getDevice(), &context.getGraphicsManagers(),
-            &context.getManagerRenderResource(), context.getFrameTracker().getSetup().getNumFramesInFlight()})
+            &context.getManagerRenderResource(), context.frameTracker().getSetup().getNumFramesInFlight()})
         .buildShared();
 
     m_distanceComputer.prepRender(context, pipelineData, &this->m_staticShaderInfo);
@@ -390,7 +390,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 {
     init(context);
 
-    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.getFrameTracker());
+    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.frameTracker());
 
     recordQueueFamilyInfo(context);
 
@@ -441,7 +441,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
     {
-        const size_t n = static_cast<size_t>(context.getFrameTracker().getSetup().getNumFramesInFlight());
+        const size_t n = static_cast<size_t>(context.frameTracker().getSetup().getNumFramesInFlight());
         this->computeWriteToImages = createComputeWriteToImages(context, screensize, n);
         this->computeRayDistanceBuffers =
             createComputeWriteToBuffers(context, screensize, sizeof(float), "RayDistanceBuffer", n);
@@ -449,9 +449,9 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
             createComputeWriteToBuffers(context, screensize, sizeof(uint32_t), "RayScissorBuffer", n);
     }
 
-    m_fogController.prepRender(context, context.getFrameTracker().getSetup().getNumFramesInFlight());
+    m_fogController.prepRender(context, context.frameTracker().getSetup().getNumFramesInFlight());
 
-    for (uint8_t i = 0; i < context.getFrameTracker().getSetup().getNumFramesInFlight(); i++)
+    for (uint8_t i = 0; i < context.frameTracker().getSetup().getNumFramesInFlight(); i++)
     {
         const auto aabbSemaphore =
             context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
@@ -478,12 +478,12 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
                 std::bind(&VolumeRenderer::submitBuffer, this, std::placeholders::_1, std::placeholders::_2,
                           std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6,
                           std::placeholders::_7)},
-        context.getFrameTracker().getSetup().getNumFramesInFlight());
+        context.frameTracker().getSetup().getNumFramesInFlight());
 
     auto cmd = star::command_order::DeclarePass(m_commandBuffer, this->computeQueueFamilyIndex);
     context.begin().set(cmd).submit();
 
-    for (size_t i = 0; i < static_cast<size_t>(context.getFrameTracker().getSetup().getNumFramesInFlight()); i++)
+    for (size_t i = 0; i < static_cast<size_t>(context.frameTracker().getSetup().getNumFramesInFlight()); i++)
     {
         auto &ch = m_offscreenRenderer->getRenderToColorImages()[i];
         m_renderingContext.recordDependentImage.manualInsert(ch, &context.getImageManager().get(ch)->texture);
@@ -549,8 +549,8 @@ void VolumeRenderer::updateDependentData(star::core::device::DeviceContext &cont
     }
 
     if (m_infoManagerGlobalCamera->willBeUpdatedThisFrame(
-            context.getFrameTracker().getCurrent().getGlobalFrameCounter(),
-            context.getFrameTracker().getCurrent().getFrameInFlightIndex()))
+            context.frameTracker().getCurrent().getGlobalFrameCounter(),
+            context.frameTracker().getCurrent().getFrameInFlightIndex()))
     {
         m_renderingContext.addBufferToRenderingContext(context,
                                                        m_infoManagerGlobalCamera->getHandle(frameInFlightIndex));

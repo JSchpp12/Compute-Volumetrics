@@ -112,7 +112,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         {
             oss << "Ending screen capture on frame: ";
         }
-        oss << context.getAllDevices().getData()[0].getFrameTracker().getCurrent().getGlobalFrameCounter();
+        oss << context.getAllDevices().getData()[0].frameTracker().getCurrent().getGlobalFrameCounter();
         star::core::logging::info(oss.str());
     }
 
@@ -150,7 +150,7 @@ void InteractiveApplication::initListeners(star::core::device::DeviceContext &co
     star::windowing::HandleKeyReleasePolicy<InteractiveApplication>::init(context.getEventBus());
     star::windowing::HandleKeyPressPolicy<InteractiveApplication>::init(context.getEventBus());
 
-    m_screenshotRegistrations.resize(context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
+    m_screenshotRegistrations.resize(context.frameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
 }
 
 void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, const int &mods)
@@ -417,10 +417,10 @@ void InteractiveApplication::initImageOutputDir(star::core::CommandBus &bus)
 
 void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext &context)
 {
-    const auto &frameTracker = context.getFrameTracker();
+    const auto &frameTracker = context.frameTracker();
 
     const std::string name =
-        "Test" + std::to_string(context.getFrameTracker().getCurrent().getGlobalFrameCounter()) + ".png";
+        "Test" + std::to_string(context.frameTracker().getCurrent().getGlobalFrameCounter()) + ".png";
     const auto path = (std::filesystem::path(m_imageOutputDir) / name).string();
 
     size_t index = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());
@@ -451,7 +451,7 @@ star::common::Renderer InteractiveApplication::createMainRenderer(
     context.getEventBus().emit(star::windowing::event::RequestSwapChainFromService{swapchain});
 
     auto sc = star::common::Renderer{renderer::finalization::Windowed{
-        m_winContext, std::move(swapchain), context, context.getFrameTracker().getSetup().getNumFramesInFlight(),
+        m_winContext, std::move(swapchain), context, context.frameTracker().getSetup().getNumFramesInFlight(),
         objects, m_mainLight, camera}};
 
     m_finalizationCmds = sc.getRaw<renderer::finalization::Windowed>();

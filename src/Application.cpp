@@ -81,26 +81,26 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    //{
-    //    auto cmd = star::command::CreateObject::Builder()
-    //                   .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-    //                       std::make_shared<Terrain>(context, terrainPath)))
-    //                   .setUniqueName("terrain")
-    //                   .build();
-    //    context.begin().set(cmd).submit();
-    //    objects.emplace_back(cmd.getReply().get());
-    //}
-
     {
-        auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
         auto cmd = star::command::CreateObject::Builder()
-                       .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-                       .setUniqueName("horse")
+                       .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
+                           std::make_shared<Terrain>(context, terrainPath)))
+                       .setUniqueName("terrain")
                        .build();
         context.begin().set(cmd).submit();
-        cmd.getReply().get()->init(context);
         objects.emplace_back(cmd.getReply().get());
     }
+
+    //{
+    //    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    //    auto cmd = star::command::CreateObject::Builder()
+    //                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+    //                   .setUniqueName("horse")
+    //                   .build();
+    //    context.begin().set(cmd).submit();
+    //    cmd.getReply().get()->init(context);
+    //    objects.emplace_back(cmd.getReply().get());
+    //}
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
@@ -221,14 +221,14 @@ void Application::shutdown(star::core::device::DeviceContext &context)
 
 void Application::submitPasses(star::core::device::DeviceContext &context)
 {
-    size_t fi = static_cast<size_t>(context.getFrameTracker().getCurrent().getFrameInFlightIndex());
-    size_t gfProcessed = static_cast<size_t>(context.getFrameTracker().getCurrent().getNumTimesFrameProcessed());
+    size_t fi = static_cast<size_t>(context.frameTracker().getCurrent().getFrameInFlightIndex());
+    size_t gfProcessed = static_cast<size_t>(context.frameTracker().getCurrent().getNumTimesFrameProcessed());
 
     auto &cmdBus = context.getCmdBus();
     TriggerSubmissionOfCompute(cmdBus, context.getSemaphoreManager(), context.getEventBus(), *m_volume,
-                               context.getFrameTracker());
+                               context.frameTracker());
     TriggerSubmissionOfTerrainDraw(context.getManagerCommandBuffer().m_manager, context.getCmdBus(),
-                                   context.getFrameTracker(), *m_offRenderer);
+                                   context.frameTracker(), *m_offRenderer);
     TriggerSubmissionOfFinalization(cmdBus, *m_finalizationCmds, gfProcessed, fi);
 }
 
@@ -250,7 +250,7 @@ void Application::frameUpdate(star::core::SystemContext &context)
         d.begin().set(cmd).submit();
 
         TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
-        triggerImageRecord(d, d.getFrameTracker(), cmd.getReply().get());
+        triggerImageRecord(d, d.frameTracker(), cmd.getReply().get());
     }
 }
 
@@ -316,7 +316,7 @@ star::common::Renderer Application::createMainRenderer(star::core::device::Devic
                                                        std::shared_ptr<star::StarCamera> camera)
 {
     star::common::Renderer sc{
-        renderer::finalization::Headless{context, context.getFrameTracker().getSetup().getNumFramesInFlight(), objects,
+        renderer::finalization::Headless{context, context.frameTracker().getSetup().getNumFramesInFlight(), objects,
                                          m_mainLight, camera, vk::PipelineStageFlagBits::eAllCommands}};
 
     auto *renderer = sc.getRaw<renderer::finalization::Headless>();

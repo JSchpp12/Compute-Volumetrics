@@ -383,14 +383,14 @@ void OffscreenRenderer::prepRender(star::common::IDeviceContext &c)
                 ->getParentQueueFamilyIndex();
     }
 
-    this->firstFramePassCounter = uint32_t(context.getFrameTracker().getSetup().getNumFramesInFlight());
+    this->firstFramePassCounter = uint32_t(context.frameTracker().getSetup().getNumFramesInFlight());
 
     star::core::renderer::DefaultRenderer::prepRender(c);
 
     auto cmd = star::command_order::DeclarePass(this->m_commandBuffer, this->graphicsQueueFamilyIndex);
     context.begin().set(cmd).submit();
 
-    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.getFrameTracker());
+    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.frameTracker());
 }
 
 vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(

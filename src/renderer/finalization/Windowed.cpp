@@ -1,5 +1,7 @@
 #include "renderer/finalization/Windowed.hpp"
 
+#ifdef STAR_ENABLE_PRESENTATION
+
 namespace renderer::finalization
 {
 
@@ -25,3 +27,5 @@ Windowed::Windowed(star::windowing::WindowingContext *winContext, vk::SwapchainK
 {
 }
 } // namespace renderer::finalization
+
+#endif
