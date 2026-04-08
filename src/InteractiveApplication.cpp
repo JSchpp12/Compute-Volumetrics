@@ -437,7 +437,7 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
 std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star::core::device::DeviceContext &context)
 {
     auto camera = std::make_shared<star::windowing::BasicCamera>(
-        context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 0.5f, 25000.0f, 100.0f, 0.1f);
+        context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 0.5f, 25000.0f, 1000.0f, 0.1f);
 
     camera->init(context.getEventBus());
     return camera;

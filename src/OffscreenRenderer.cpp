@@ -157,6 +157,75 @@ void OffscreenRenderer::recordPostRenderingCalls(vk::CommandBuffer &buffer, cons
     }
 }
 
+void OffscreenRenderer::updateDependentData(star::core::device::DeviceContext &context)
+{
+    const size_t fi = static_cast<size_t>(context.frameTracker().getCurrent().getFrameInFlightIndex());
+
+    // get neighbor semaphore info from last pass...the compute
+    const auto &cBus = context.getCmdBus();
+    star::core::graphics::GPUWorkSyncInfo transferSyncWithComputeInfo{};
+    auto cmd = star::command_order::GetPassInfo{m_commandBuffer};
+    cBus.submit(cmd);
+    const auto &r = cmd.getReply().get();
+
+    if (r.edges != nullptr)
+    {
+        for (const auto edge : *r.edges)
+        {
+            if (edge.producer == m_commandBuffer)
+            {
+                auto nCmd = star::command_order::GetPassInfo{edge.consumer};
+                cBus.submit(nCmd);
+
+                const auto &nr = cmd.getReply().get();
+                assert(nr.wasProcessedOnLastFrame != nullptr &&
+                       "Neighbor last submission records was not provided by command_order service. This indicates a "
+                       "bug in that service.");
+
+                if (nr.wasProcessedOnLastFrame->at(fi))
+                {
+                    transferSyncWithComputeInfo.workWaitOn.semaphore = nr.signaledSemaphore;
+                    transferSyncWithComputeInfo.workWaitOn.signalValue = nr.currentSignalValue;
+                }
+
+                break;
+            }
+        }
+    }
+
+    vk::Semaphore dataSemaphore{VK_NULL_HANDLE};
+    auto &record = context.getManagerCommandBuffer().m_manager.get(m_commandBuffer);
+
+    if (ownsRenderResourceControllers)
+    {
+        if (m_infoManagerCamera &&
+            m_infoManagerCamera->submitUpdateIfNeeded(context, fi, dataSemaphore, transferSyncWithComputeInfo))
+        {
+            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerCamera->getHandle(fi), std::move(dataSemaphore),
+                                                   vk::PipelineStageFlagBits::eVertexShader |
+                                                       vk::PipelineStageFlagBits::eFragmentShader);
+
+            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerCamera->getHandle(fi));
+        }
+
+        if (m_infoManagerLightData->submitUpdateIfNeeded(context, fi, dataSemaphore, transferSyncWithComputeInfo))
+        {
+            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightData->getHandle(fi), std::move(dataSemaphore),
+                                                   vk::PipelineStageFlagBits::eFragmentShader);
+
+            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightData->getHandle(fi));
+        }
+
+        if (m_infoManagerLightList->submitUpdateIfNeeded(context, fi, dataSemaphore, transferSyncWithComputeInfo))
+        {
+            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightList->getHandle(fi), std::move(dataSemaphore),
+                                                   vk::PipelineStageFlagBits::eFragmentShader);
+
+            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightList->getHandle(fi));
+        }
+    }
+}
+
 void OffscreenRenderer::waitForSemaphore(const star::common::FrameTracker &ft) const
 {
     uint64_t signalValue{0};
@@ -366,6 +435,7 @@ star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::ge
 
 void OffscreenRenderer::prepRender(star::common::IDeviceContext &c)
 {
+
     auto &context = static_cast<star::core::device::DeviceContext &>(c);
 
     m_cmdBus = &context.getCmdBus();
@@ -385,12 +455,12 @@ void OffscreenRenderer::prepRender(star::common::IDeviceContext &c)
 
     this->firstFramePassCounter = uint32_t(context.frameTracker().getSetup().getNumFramesInFlight());
 
-    star::core::renderer::DefaultRenderer::prepRender(c);
-
     auto cmd = star::command_order::DeclarePass(this->m_commandBuffer, this->graphicsQueueFamilyIndex);
     context.begin().set(cmd).submit();
 
     m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.frameTracker());
+
+    star::core::renderer::DefaultRenderer::prepRender(c);
 }
 
 vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(

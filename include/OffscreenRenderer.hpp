@@ -37,6 +37,9 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
         return m_timelineSemaphores;
     }
 
+  protected:
+    virtual void updateDependentData(star::core::device::DeviceContext &context) override;
+
   private:
     uint32_t graphicsQueueFamilyIndex = 0;
     uint32_t computeQueueFamilyIndex = 0;
