@@ -71,36 +71,22 @@ static std::unique_ptr<star::command_order::get_pass_info::GatheredPassInfo> Get
     return transferNeighborInfo;
 }
 
-static void GetTimelineSemaphoreInfo(const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
-                                     const star::Handle &cmdBuff, vk::Semaphore &semaphore, uint64_t &value) noexcept
+static std::tuple<vk::Semaphore, uint64_t, uint64_t> GetTimelineSemaphoreInfo(const star::core::CommandBus &cmdBus,
+                                                                              const star::common::FrameTracker &ft,
+                                                                              const star::Handle &cmdBuff) noexcept
 {
     auto cmd = star::command_order::GetPassInfo{cmdBuff};
     cmdBus.submit(cmd);
 
-    semaphore = cmd.getReply().get().signaledSemaphore;
-    value = cmd.getReply().get().toSignalValue;
-}
-
-static void GetTimelineSemaphoreInfo(const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
-                                     const star::Handle &cmdBuff, vk::Semaphore &semaphore, uint64_t &value,
-                                     uint64_t &currentValue) noexcept
-{
-    auto cmd = star::command_order::GetPassInfo{cmdBuff};
-    cmdBus.submit(cmd);
-
-    semaphore = cmd.getReply().get().signaledSemaphore;
-    value = cmd.getReply().get().toSignalValue;
-    currentValue = cmd.getReply().get().currentSignalValue;
+    auto &r = cmd.getReply().get();
+    return std::make_tuple(r.signaledSemaphore, r.toSignalValue, r.currentSignalValue);
 }
 
 static vk::SemaphoreSubmitInfo GetSignalSemaphoreInfo(const star::core::CommandBus &cmdBus,
                                                       const star::common::FrameTracker &ft,
                                                       const star::Handle &cmdBuff) noexcept
 {
-    vk::Semaphore signalSemaphore{VK_NULL_HANDLE};
-    uint64_t value{0};
-    uint64_t currentSignalValue{0};
-    GetTimelineSemaphoreInfo(cmdBus, ft, cmdBuff, signalSemaphore, value);
+    auto [signalSemaphore, value, currentSignalValue] = GetTimelineSemaphoreInfo(cmdBus, ft, cmdBuff);
 
     return vk::SemaphoreSubmitInfo()
         .setSemaphore(std::move(signalSemaphore))
@@ -212,10 +198,7 @@ void VolumeRenderer::recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
                                          const star::common::FrameTracker &frameTracker, const uint64_t &frameIndex)
 {
     {
-        vk::Semaphore semaphore;
-        uint64_t value;
-        uint64_t currentValue;
-        GetTimelineSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer, semaphore, value, currentValue);
+        auto [semaphore, value, currentValue] = GetTimelineSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer);
 
         if (frameTracker.getCurrent().getNumTimesFrameProcessed() == currentValue)
         {
@@ -347,10 +330,8 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
 
     vk::SemaphoreSubmitInfo signalInfo[1];
     {
-        vk::Semaphore signalSemaphore{VK_NULL_HANDLE};
-        uint64_t value{0};
-        uint64_t currentSignalValue{0};
-        GetTimelineSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer, signalSemaphore, value);
+        auto [signalSemaphore, value, currentSignalValue] =
+            GetTimelineSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer);
 
         signalInfo[0]
             .setSemaphore(signalSemaphore)
@@ -537,7 +518,7 @@ void VolumeRenderer::gatherDependentExternalDataOrderingInfo(star::core::device:
 
 void VolumeRenderer::updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)
 {
-    const size_t fi = static_cast<size_t>(context.frameTracker().getCurrent().getFrameInFlightIndex()); 
+    const size_t fi = static_cast<size_t>(context.frameTracker().getCurrent().getFrameInFlightIndex());
 
     vk::Semaphore dataSemaphore = VK_NULL_HANDLE;
     {
@@ -557,9 +538,8 @@ void VolumeRenderer::updateDependentData(star::core::device::DeviceContext &cont
         }
     }
 
-    if (m_infoManagerGlobalCamera->willBeUpdatedThisFrame(
-            context.frameTracker().getCurrent().getGlobalFrameCounter(),
-            context.frameTracker().getCurrent().getFrameInFlightIndex()))
+    if (m_infoManagerGlobalCamera->willBeUpdatedThisFrame(context.frameTracker().getCurrent().getGlobalFrameCounter(),
+                                                          context.frameTracker().getCurrent().getFrameInFlightIndex()))
     {
         m_renderingContext.addBufferToRenderingContext(context,
                                                        m_infoManagerGlobalCamera->getHandle(frameInFlightIndex));
