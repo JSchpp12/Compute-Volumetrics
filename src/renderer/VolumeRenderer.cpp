@@ -537,15 +537,24 @@ void VolumeRenderer::gatherDependentExternalDataOrderingInfo(star::core::device:
 
 void VolumeRenderer::updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)
 {
-    vk::Semaphore dataSemaphore = VK_NULL_HANDLE;
+    const size_t fi = static_cast<size_t>(context.frameTracker().getCurrent().getFrameInFlightIndex()); 
 
-    if (m_fogController.submitUpdateIfNeeded(context, frameInFlightIndex, dataSemaphore))
+    vk::Semaphore dataSemaphore = VK_NULL_HANDLE;
     {
-        context.getManagerCommandBuffer()
-            .m_manager.get(m_commandBuffer)
-            .oneTimeWaitSemaphoreInfo.insert(m_fogController.getHandle(frameInFlightIndex), std::move(dataSemaphore),
-                                             vk::PipelineStageFlagBits::eComputeShader);
-        m_renderingContext.addBufferToRenderingContext(context, m_fogController.getHandle(frameInFlightIndex));
+        star::core::graphics::GPUWorkSyncInfo transferWaitOnLastCompute;
+        auto cmd = star::command_order::GetPassInfo{m_commandBuffer};
+        context.getCmdBus().submit(cmd);
+        transferWaitOnLastCompute.workWaitOn.signalValue = cmd.getReply().get().currentSignalValue;
+        transferWaitOnLastCompute.workWaitOn.semaphore = cmd.getReply().get().signaledSemaphore;
+
+        if (m_fogController.submitUpdateIfNeeded(context, frameInFlightIndex, dataSemaphore, transferWaitOnLastCompute))
+        {
+            context.getManagerCommandBuffer()
+                .m_manager.get(m_commandBuffer)
+                .oneTimeWaitSemaphoreInfo.insert(m_fogController.getHandle(frameInFlightIndex),
+                                                 std::move(dataSemaphore), vk::PipelineStageFlagBits::eComputeShader);
+            m_renderingContext.addBufferToRenderingContext(context, m_fogController.getHandle(frameInFlightIndex));
+        }
     }
 
     if (m_infoManagerGlobalCamera->willBeUpdatedThisFrame(

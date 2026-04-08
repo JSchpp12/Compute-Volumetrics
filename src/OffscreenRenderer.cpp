@@ -182,11 +182,8 @@ void OffscreenRenderer::updateDependentData(star::core::device::DeviceContext &c
                        "Neighbor last submission records was not provided by command_order service. This indicates a "
                        "bug in that service.");
 
-                if (nr.wasProcessedOnLastFrame->at(fi))
-                {
-                    transferSyncWithComputeInfo.workWaitOn.semaphore = nr.signaledSemaphore;
-                    transferSyncWithComputeInfo.workWaitOn.signalValue = nr.currentSignalValue;
-                }
+                transferSyncWithComputeInfo.workWaitOn.semaphore = nr.signaledSemaphore;
+                transferSyncWithComputeInfo.workWaitOn.signalValue = nr.currentSignalValue;
 
                 break;
             }
