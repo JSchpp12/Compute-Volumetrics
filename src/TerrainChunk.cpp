@@ -20,7 +20,7 @@ static std::string FindMatchingTextureFile(const std::string &textureFileName)
 {
     const std::filesystem::path *found = nullptr;
 
-    const auto textureDir = star::file_helpers::GetParentDirectory(textureFileName).value(); 
+    const auto textureDir = star::file_helpers::GetParentDirectory(textureFileName).value();
     auto files =
         star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(textureDir.string(), textureFileName);
     for (const auto &file : files)
@@ -431,8 +431,8 @@ std::optional<double> TerrainChunk::GetHeightAtLocationFromGDAL(const std::strin
 
 glm::ivec2 TerrainChunk::TerrainDataset::getTexCoordsFromLatLon(const glm::dvec2 &latLon) const
 {
-    return glm::ivec2{static_cast<int>((latLon.y - geoTransforms[0]) / geoTransforms[1]),
-                      static_cast<int>((latLon.x - geoTransforms[3]) / geoTransforms[5])};
+    return glm::ivec2{static_cast<int>(std::round((latLon.y - geoTransforms[0]) / geoTransforms[1])),
+                      static_cast<int>(std::round((latLon.x - geoTransforms[3]) / geoTransforms[5]))};
 }
 
 glm::ivec2 TerrainChunk::TerrainDataset::applyOffsetToTexCoords(const glm::ivec2 &texCoords) const
@@ -443,10 +443,10 @@ glm::ivec2 TerrainChunk::TerrainDataset::applyOffsetToTexCoords(const glm::ivec2
 
 float TerrainChunk::TerrainDataset::getElevationAtTexCoords(const glm::ivec2 &texCoords) const
 {
-    const int readIndex = texCoords.y * (this->pixSize.x + (2 * this->pixBorderSize)) + texCoords.x;
-    float height = this->gdalBuffer[readIndex];
+    const int safeX = std::clamp(texCoords.x, 0, this->m_bufferSize.x - 1);
+    const int safeY = std::clamp(texCoords.y, 0, this->m_bufferSize.y - 1);
 
-    return height;
+    return this->gdalBuffer[safeY * this->m_bufferSize.x + safeX];
 }
 
 void TerrainChunk::TerrainDataset::initTransforms(GDALDataset *dataset)
@@ -480,14 +480,24 @@ void TerrainChunk::TerrainDataset::initBandSizes(GDALDataset *dataset)
 
 void TerrainChunk::TerrainDataset::initGDALBuffer(GDALDataset *dataset)
 {
-    this->gdalBuffer = (float *)CPLMalloc(sizeof(float) * (this->pixSize.x + 2 * this->pixBorderSize) *
-                                          (this->pixSize.y + 2 * this->pixBorderSize));
-
     GDALRasterBand *band = dataset->GetRasterBand(1);
-    CPLErr error = band->RasterIO(
-        GF_Read, this->pixOffset.x - this->pixBorderSize, this->pixOffset.y - this->pixBorderSize,
-        this->pixSize.x + (2 * this->pixBorderSize), this->pixSize.y + (2 * this->pixBorderSize), this->gdalBuffer,
-        this->pixSize.x + (2 * this->pixBorderSize), this->pixSize.y + (2 * this->pixBorderSize), GDT_Float32, 0, 0);
+
+    int xOff = this->pixOffset.x - this->pixBorderSize;
+    int yOff = this->pixOffset.y - this->pixBorderSize;
+    int xSize = this->pixSize.x + (2 * this->pixBorderSize);
+    int ySize = this->pixSize.y + (2 * this->pixBorderSize);
+
+    xOff = std::max(0, xOff);
+    yOff = std::max(0, yOff);
+    xSize = std::min(xSize, this->fullPixSize.x - xOff);
+    ySize = std::min(ySize, this->fullPixSize.y - yOff);
+
+    // Store the actual dimensions so other methods index correctly
+    this->m_bufferSize = glm::ivec2{xSize, ySize};
+
+    this->gdalBuffer = (float *)CPLMalloc(sizeof(float) * xSize * ySize);
+
+    CPLErr error = band->RasterIO(GF_Read, xOff, yOff, xSize, ySize, this->gdalBuffer, xSize, ySize, GDT_Float32, 0, 0);
 
     if (error != CE_None)
     {
