@@ -3,7 +3,9 @@
 #include "TerrainChunk.hpp"
 #include "TerrainGrid.hpp"
 #include "TerrainShapeInfoLoader.hpp"
+#include "TerrainInfoFile.hpp"
 
+#include <starlight/common/materials/TextureMaterial.hpp>
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/helpers/FileHelpers.hpp>
 

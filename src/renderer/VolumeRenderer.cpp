@@ -71,36 +71,22 @@ static std::unique_ptr<star::command_order::get_pass_info::GatheredPassInfo> Get
     return transferNeighborInfo;
 }
 
-static void GetTimelineSemaphoreInfo(const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
-                                     const star::Handle &cmdBuff, vk::Semaphore &semaphore, uint64_t &value) noexcept
+static std::tuple<vk::Semaphore, uint64_t, uint64_t> GetTimelineSemaphoreInfo(const star::core::CommandBus &cmdBus,
+                                                                              const star::common::FrameTracker &ft,
+                                                                              const star::Handle &cmdBuff) noexcept
 {
     auto cmd = star::command_order::GetPassInfo{cmdBuff};
     cmdBus.submit(cmd);
 
-    semaphore = cmd.getReply().get().signaledSemaphore;
-    value = cmd.getReply().get().toSignalValue;
-}
-
-static void GetTimelineSemaphoreInfo(const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
-                                     const star::Handle &cmdBuff, vk::Semaphore &semaphore, uint64_t &value,
-                                     uint64_t &currentValue) noexcept
-{
-    auto cmd = star::command_order::GetPassInfo{cmdBuff};
-    cmdBus.submit(cmd);
-
-    semaphore = cmd.getReply().get().signaledSemaphore;
-    value = cmd.getReply().get().toSignalValue;
-    currentValue = cmd.getReply().get().currentSignalValue;
+    auto &r = cmd.getReply().get();
+    return std::make_tuple(r.signaledSemaphore, r.toSignalValue, r.currentSignalValue);
 }
 
 static vk::SemaphoreSubmitInfo GetSignalSemaphoreInfo(const star::core::CommandBus &cmdBus,
                                                       const star::common::FrameTracker &ft,
                                                       const star::Handle &cmdBuff) noexcept
 {
-    vk::Semaphore signalSemaphore{VK_NULL_HANDLE};
-    uint64_t value{0};
-    uint64_t currentSignalValue{0};
-    GetTimelineSemaphoreInfo(cmdBus, ft, cmdBuff, signalSemaphore, value);
+    auto [signalSemaphore, value, currentSignalValue] = GetTimelineSemaphoreInfo(cmdBus, ft, cmdBuff);
 
     return vk::SemaphoreSubmitInfo()
         .setSemaphore(std::move(signalSemaphore))
@@ -132,10 +118,10 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
     m_device = context.getDevice().getVulkanDevice();
     m_cmdBus = &context.getCmdBus();
 
-    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.getFrameTracker());
+    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.frameTracker());
 
     auto submitter = std::make_shared<star::wrappers::graphics::policies::SubmitDescriptorRequestsPolicy>(
-        getDescriptorRequests(context.getFrameTracker().getSetup().getNumFramesInFlight()));
+        getDescriptorRequests(context.frameTracker().getSetup().getNumFramesInFlight()));
 
     submitter->init(context.getEventBus());
 
@@ -169,7 +155,7 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
             &context.getDeviceID(), pipelineData, &m_staticShaderInfo, &m_dynamicShaderInfo, &marchedHomogenousPipeline,
             &nanoVDBPipeline_hitBoundingBox, &nanoVDBPipeline_surface, &marchedPipeline, &linearPipeline, &expPipeline,
             &computePipelineLayout, &context.getDevice(), &context.getGraphicsManagers(),
-            &context.getManagerRenderResource(), context.getFrameTracker().getSetup().getNumFramesInFlight()})
+            &context.getManagerRenderResource(), context.frameTracker().getSetup().getNumFramesInFlight()})
         .buildShared();
 
     m_distanceComputer.prepRender(context, pipelineData, &this->m_staticShaderInfo);
@@ -212,10 +198,7 @@ void VolumeRenderer::recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
                                          const star::common::FrameTracker &frameTracker, const uint64_t &frameIndex)
 {
     {
-        vk::Semaphore semaphore;
-        uint64_t value;
-        uint64_t currentValue;
-        GetTimelineSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer, semaphore, value, currentValue);
+        auto [semaphore, value, currentValue] = GetTimelineSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer);
 
         if (frameTracker.getCurrent().getNumTimesFrameProcessed() == currentValue)
         {
@@ -347,10 +330,8 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
 
     vk::SemaphoreSubmitInfo signalInfo[1];
     {
-        vk::Semaphore signalSemaphore{VK_NULL_HANDLE};
-        uint64_t value{0};
-        uint64_t currentSignalValue{0};
-        GetTimelineSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer, signalSemaphore, value);
+        auto [signalSemaphore, value, currentSignalValue] =
+            GetTimelineSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer);
 
         signalInfo[0]
             .setSemaphore(signalSemaphore)
@@ -390,7 +371,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 {
     init(context);
 
-    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.getFrameTracker());
+    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.frameTracker());
 
     recordQueueFamilyInfo(context);
 
@@ -441,7 +422,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     this->workgroupSize = CalculateWorkGroupSize(screensize);
 
     {
-        const size_t n = static_cast<size_t>(context.getFrameTracker().getSetup().getNumFramesInFlight());
+        const size_t n = static_cast<size_t>(context.frameTracker().getSetup().getNumFramesInFlight());
         this->computeWriteToImages = createComputeWriteToImages(context, screensize, n);
         this->computeRayDistanceBuffers =
             createComputeWriteToBuffers(context, screensize, sizeof(float), "RayDistanceBuffer", n);
@@ -449,9 +430,9 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
             createComputeWriteToBuffers(context, screensize, sizeof(uint32_t), "RayScissorBuffer", n);
     }
 
-    m_fogController.prepRender(context, context.getFrameTracker().getSetup().getNumFramesInFlight());
+    m_fogController.prepRender(context, context.frameTracker().getSetup().getNumFramesInFlight());
 
-    for (uint8_t i = 0; i < context.getFrameTracker().getSetup().getNumFramesInFlight(); i++)
+    for (uint8_t i = 0; i < context.frameTracker().getSetup().getNumFramesInFlight(); i++)
     {
         const auto aabbSemaphore =
             context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
@@ -478,12 +459,12 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
                 std::bind(&VolumeRenderer::submitBuffer, this, std::placeholders::_1, std::placeholders::_2,
                           std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6,
                           std::placeholders::_7)},
-        context.getFrameTracker().getSetup().getNumFramesInFlight());
+        context.frameTracker().getSetup().getNumFramesInFlight());
 
     auto cmd = star::command_order::DeclarePass(m_commandBuffer, this->computeQueueFamilyIndex);
     context.begin().set(cmd).submit();
 
-    for (size_t i = 0; i < static_cast<size_t>(context.getFrameTracker().getSetup().getNumFramesInFlight()); i++)
+    for (size_t i = 0; i < static_cast<size_t>(context.frameTracker().getSetup().getNumFramesInFlight()); i++)
     {
         auto &ch = m_offscreenRenderer->getRenderToColorImages()[i];
         m_renderingContext.recordDependentImage.manualInsert(ch, &context.getImageManager().get(ch)->texture);
@@ -537,20 +518,28 @@ void VolumeRenderer::gatherDependentExternalDataOrderingInfo(star::core::device:
 
 void VolumeRenderer::updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)
 {
-    vk::Semaphore dataSemaphore = VK_NULL_HANDLE;
+    const size_t fi = static_cast<size_t>(context.frameTracker().getCurrent().getFrameInFlightIndex());
 
-    if (m_fogController.submitUpdateIfNeeded(context, frameInFlightIndex, dataSemaphore))
+    vk::Semaphore dataSemaphore = VK_NULL_HANDLE;
     {
-        context.getManagerCommandBuffer()
-            .m_manager.get(m_commandBuffer)
-            .oneTimeWaitSemaphoreInfo.insert(m_fogController.getHandle(frameInFlightIndex), std::move(dataSemaphore),
-                                             vk::PipelineStageFlagBits::eComputeShader);
-        m_renderingContext.addBufferToRenderingContext(context, m_fogController.getHandle(frameInFlightIndex));
+        star::core::graphics::GPUWorkSyncInfo transferWaitOnLastCompute;
+        auto cmd = star::command_order::GetPassInfo{m_commandBuffer};
+        context.getCmdBus().submit(cmd);
+        transferWaitOnLastCompute.workWaitOn.signalValue = cmd.getReply().get().currentSignalValue;
+        transferWaitOnLastCompute.workWaitOn.semaphore = cmd.getReply().get().signaledSemaphore;
+
+        if (m_fogController.submitUpdateIfNeeded(context, frameInFlightIndex, dataSemaphore, transferWaitOnLastCompute))
+        {
+            context.getManagerCommandBuffer()
+                .m_manager.get(m_commandBuffer)
+                .oneTimeWaitSemaphoreInfo.insert(m_fogController.getHandle(frameInFlightIndex),
+                                                 std::move(dataSemaphore), vk::PipelineStageFlagBits::eComputeShader);
+            m_renderingContext.addBufferToRenderingContext(context, m_fogController.getHandle(frameInFlightIndex));
+        }
     }
 
-    if (m_infoManagerGlobalCamera->willBeUpdatedThisFrame(
-            context.getFrameTracker().getCurrent().getGlobalFrameCounter(),
-            context.getFrameTracker().getCurrent().getFrameInFlightIndex()))
+    if (m_infoManagerGlobalCamera->willBeUpdatedThisFrame(context.frameTracker().getCurrent().getGlobalFrameCounter(),
+                                                          context.frameTracker().getCurrent().getFrameInFlightIndex()))
     {
         m_renderingContext.addBufferToRenderingContext(context,
                                                        m_infoManagerGlobalCamera->getHandle(frameInFlightIndex));
@@ -743,7 +732,7 @@ void VolumeRenderer::addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, con
                                  .setLayerCount(1)
                                  .setAspectMask(vk::ImageAspectFlagBits::eDepth));
 
-    if (this->isFirstPass)
+    if (ft.getCurrent().getNumTimesFrameProcessed() == 0)
     {
         imageBarriers[2]
             .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())

@@ -39,7 +39,7 @@ OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context,
 
 void OffscreenRenderer::recordPreRenderPassCommands(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft)
 {
-    size_t index = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+    const size_t index = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
     star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderToImages[index]);
     star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(m_renderToDepthImages[index]);
 
@@ -154,6 +154,89 @@ void OffscreenRenderer::recordPostRenderingCalls(vk::CommandBuffer &buffer, cons
             vk::DependencyInfo().setPImageMemoryBarriers(&toCompute.front()).setImageMemoryBarrierCount(2);
 
         buffer.pipelineBarrier2(depInfo);
+    }
+}
+
+std::tuple<vk::Semaphore, uint64_t, uint64_t> GetVolumeRendererSemaphoreFromNeighbor(
+    const star::core::CommandBus &cmdBus, const star::Handle &myRegistration) noexcept
+{
+    vk::Semaphore semaphore{VK_NULL_HANDLE};
+    uint64_t toSignalValue{0};
+    uint64_t currentSignalValue{0};
+
+    auto cmd = star::command_order::GetPassInfo{myRegistration};
+    cmdBus.submit(cmd);
+    const auto &r = cmd.getReply().get();
+
+    if (r.edges != nullptr)
+    {
+        for (const auto edge : *r.edges)
+        {
+            if (edge.producer == myRegistration)
+            {
+                auto nCmd = star::command_order::GetPassInfo{edge.consumer};
+                cmdBus.submit(nCmd);
+
+                const auto &nr = nCmd.getReply().get();
+                assert(nr.wasProcessedOnLastFrame != nullptr &&
+                       "Neighbor last submission records was not provided by command_order service. This indicates a "
+                       "bug in that service.");
+
+                semaphore = nr.signaledSemaphore;
+                currentSignalValue = nr.currentSignalValue;
+                toSignalValue = nr.toSignalValue;
+
+                break;
+            }
+        }
+    }
+
+    return std::make_tuple(semaphore, toSignalValue, currentSignalValue);
+}
+
+void OffscreenRenderer::updateDependentData(star::core::device::DeviceContext &context)
+{
+    const size_t fi = static_cast<size_t>(context.frameTracker().getCurrent().getFrameInFlightIndex());
+
+    star::core::graphics::GPUWorkSyncInfo transferSyncWithComputeInfo{};
+    {
+        auto [semaphore, toSignalValue, currentSignalValue] =
+            GetVolumeRendererSemaphoreFromNeighbor(context.getCmdBus(), m_commandBuffer);
+
+        transferSyncWithComputeInfo.workWaitOn.semaphore = std::move(semaphore); 
+        transferSyncWithComputeInfo.workWaitOn.signalValue = std::move(currentSignalValue); 
+    }
+
+    vk::Semaphore dataSemaphore{VK_NULL_HANDLE};
+    auto &record = context.getManagerCommandBuffer().m_manager.get(m_commandBuffer);
+
+    if (ownsRenderResourceControllers)
+    {
+        if (m_infoManagerCamera &&
+            m_infoManagerCamera->submitUpdateIfNeeded(context, fi, dataSemaphore, transferSyncWithComputeInfo))
+        {
+            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerCamera->getHandle(fi), std::move(dataSemaphore),
+                                                   vk::PipelineStageFlagBits::eVertexShader |
+                                                       vk::PipelineStageFlagBits::eFragmentShader);
+
+            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerCamera->getHandle(fi));
+        }
+
+        if (m_infoManagerLightData->submitUpdateIfNeeded(context, fi, dataSemaphore, transferSyncWithComputeInfo))
+        {
+            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightData->getHandle(fi), std::move(dataSemaphore),
+                                                   vk::PipelineStageFlagBits::eFragmentShader);
+
+            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightData->getHandle(fi));
+        }
+
+        if (m_infoManagerLightList->submitUpdateIfNeeded(context, fi, dataSemaphore, transferSyncWithComputeInfo))
+        {
+            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightList->getHandle(fi), std::move(dataSemaphore),
+                                                   vk::PipelineStageFlagBits::eFragmentShader);
+
+            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightList->getHandle(fi));
+        }
     }
 }
 
@@ -366,6 +449,7 @@ star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::ge
 
 void OffscreenRenderer::prepRender(star::common::IDeviceContext &c)
 {
+
     auto &context = static_cast<star::core::device::DeviceContext &>(c);
 
     m_cmdBus = &context.getCmdBus();
@@ -383,46 +467,26 @@ void OffscreenRenderer::prepRender(star::common::IDeviceContext &c)
                 ->getParentQueueFamilyIndex();
     }
 
-    this->firstFramePassCounter = uint32_t(context.getFrameTracker().getSetup().getNumFramesInFlight());
-
-    star::core::renderer::DefaultRenderer::prepRender(c);
+    this->firstFramePassCounter = uint32_t(context.frameTracker().getSetup().getNumFramesInFlight());
 
     auto cmd = star::command_order::DeclarePass(this->m_commandBuffer, this->graphicsQueueFamilyIndex);
     context.begin().set(cmd).submit();
 
-    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.getFrameTracker());
+    m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.frameTracker());
+
+    star::core::renderer::DefaultRenderer::prepRender(c);
 }
 
 vk::RenderingAttachmentInfo OffscreenRenderer::prepareDynamicRenderingInfoDepthAttachment(
     const star::common::FrameTracker &frameTracker)
 {
-    size_t i = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
+    const size_t i = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
     return vk::RenderingAttachmentInfoKHR()
         .setImageView(m_renderingContext.recordDependentImage.get(m_renderToDepthImages[i])->getImageView())
         .setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore)
         .setClearValue(vk::ClearValue().setDepthStencil(vk::ClearDepthStencilValue{1.0f}));
-}
-
-static void GetNeighborSemaphoresFromLastPass(const star::core::CommandBus &cmdBus, const star::Handle &registration,
-                                              std::vector<vk::Semaphore> &semaphores,
-                                              std::vector<uint64_t> &previousSignalValues) noexcept
-{
-    auto cmd = star::command_order::GetPassInfo{registration};
-    cmdBus.submit(cmd);
-
-    for (const auto &edge : *cmd.getReply().get().edges)
-    {
-        if (edge.producer == registration)
-        {
-            auto nCmd = star::command_order::GetPassInfo{registration};
-            cmdBus.submit(nCmd);
-
-            semaphores.emplace_back(nCmd.getReply().get().signaledSemaphore);
-            previousSignalValues.emplace_back(nCmd.getReply().get().currentSignalValue);
-        }
-    }
 }
 
 vk::Semaphore OffscreenRenderer::submitBuffer(star::StarCommandBuffer &buffer,

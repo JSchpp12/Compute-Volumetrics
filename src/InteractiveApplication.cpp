@@ -1,6 +1,9 @@
 #include "InteractiveApplication.hpp"
 
 #ifdef STAR_ENABLE_PRESENTATION
+
+#include "renderer/finalization/Windowed.hpp"
+
 #include <starlight/event/TriggerScreenshot.hpp>
 
 #include <star_common/helper/StringHelpers.hpp>
@@ -40,18 +43,20 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
 }
 
 static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus,
-                                            const star::core::renderer::HeadlessRenderer &finalizationRenderer,
+                                            const renderer::finalization::FinalizationRenderer &finalizationRenderer,
                                             size_t currentNumTimesFrameProcessed, size_t currentFrameInFlight)
 {
     cmdBus.submit(star::command_order::TriggerPass()
                       .setPass(finalizationRenderer.getCommandBuffer())
-                      .setTimelineSemaphore(finalizationRenderer.getTimelineSemaphores()[currentFrameInFlight])
+                      .setTimelineSemaphore(finalizationRenderer.getTimelineSemaphore(currentFrameInFlight))
                       .setSignalValue(++currentNumTimesFrameProcessed));
 }
 
 void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
-    this->Application::frameUpdate(context);
+    auto &d = context.getAllDevices().getData()[0];
+
+    submitPasses(d);
 
     if (m_actDir[star::Type::Axis::x])
     {
@@ -107,7 +112,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         {
             oss << "Ending screen capture on frame: ";
         }
-        oss << context.getAllDevices().getData()[0].getFrameTracker().getCurrent().getGlobalFrameCounter();
+        oss << context.getAllDevices().getData()[0].frameTracker().getCurrent().getGlobalFrameCounter();
         star::core::logging::info(oss.str());
     }
 
@@ -128,7 +133,6 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 
     if (m_triggerScreenshot)
     {
-        auto &d = context.getAllDevices().getData()[0];
         TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
         triggerScreenshot(d);
 
@@ -146,7 +150,7 @@ void InteractiveApplication::initListeners(star::core::device::DeviceContext &co
     star::windowing::HandleKeyReleasePolicy<InteractiveApplication>::init(context.getEventBus());
     star::windowing::HandleKeyPressPolicy<InteractiveApplication>::init(context.getEventBus());
 
-    m_screenshotRegistrations.resize(context.getFrameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
+    m_screenshotRegistrations.resize(context.frameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
 }
 
 void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, const int &mods)
@@ -383,9 +387,9 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
     if (key == GLFW_KEY_SPACE)
     {
-        m_actDir[0] = false; 
-        m_actDir[1] = false; 
-        m_actDir[2] = false; 
+        m_actDir[0] = false;
+        m_actDir[1] = false;
+        m_actDir[2] = false;
     }
 }
 
@@ -413,10 +417,10 @@ void InteractiveApplication::initImageOutputDir(star::core::CommandBus &bus)
 
 void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext &context)
 {
-    const auto &frameTracker = context.getFrameTracker();
+    const auto &frameTracker = context.frameTracker();
 
     const std::string name =
-        "Test" + std::to_string(context.getFrameTracker().getCurrent().getGlobalFrameCounter()) + ".png";
+        "Test" + std::to_string(context.frameTracker().getCurrent().getGlobalFrameCounter()) + ".png";
     const auto path = (std::filesystem::path(m_imageOutputDir) / name).string();
 
     size_t index = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());
@@ -433,7 +437,7 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
 std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star::core::device::DeviceContext &context)
 {
     auto camera = std::make_shared<star::windowing::BasicCamera>(
-        context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 0.5f, 25000.0f, 100.0f, 0.1f);
+        context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 0.5f, 25000.0f, 1000.0f, 0.1f);
 
     camera->init(context.getEventBus());
     return camera;
@@ -445,9 +449,13 @@ star::common::Renderer InteractiveApplication::createMainRenderer(
 {
     vk::SwapchainKHR swapchain{VK_NULL_HANDLE};
     context.getEventBus().emit(star::windowing::event::RequestSwapChainFromService{swapchain});
-    return star::common::Renderer{star::windowing::SwapChainRenderer{
-        m_winContext, std::move(swapchain), context, context.getFrameTracker().getSetup().getNumFramesInFlight(),
+
+    auto sc = star::common::Renderer{renderer::finalization::Windowed{
+        m_winContext, std::move(swapchain), context, context.frameTracker().getSetup().getNumFramesInFlight(),
         objects, m_mainLight, camera}};
+
+    m_finalizationCmds = sc.getRaw<renderer::finalization::Windowed>();
+    return sc;
 }
 
 #endif

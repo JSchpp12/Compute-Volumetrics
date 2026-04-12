@@ -117,10 +117,11 @@ class TerrainChunk
         }
 
       private:
+        glm::ivec2 m_bufferSize{0,0};
         std::string m_path;
         glm::dvec2 m_northEast, m_southEast, m_southWest, m_northWest, m_center;
         glm::dvec3 m_offset;
-        const int pixBorderSize = 4;
+        const int pixBorderSize = 2;
 
         float *gdalBuffer = nullptr;
         glm::ivec2 fullPixSize, maxPixBounds, pixOffset, pixSize;

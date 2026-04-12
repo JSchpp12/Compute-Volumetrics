@@ -41,7 +41,7 @@ class InteractiveApplication : public Application,
     bool m_switchMode{false};
     bool m_actDir[3]{false, false, false};
     bool m_invAct{false};
-    bool m_triggerScreenshot{true};
+    bool m_triggerScreenshot{false};
 
     void onKeyRelease(const int &key, const int &scancode, const int &mods);
 
