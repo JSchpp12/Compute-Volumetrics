@@ -88,6 +88,7 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
                        .setUniqueName("terrain")
                        .build();
         context.begin().set(cmd).submit();
+        cmd.getReply().get()->init(context);
         objects.emplace_back(cmd.getReply().get());
     }
 
