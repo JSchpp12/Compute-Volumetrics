@@ -1,7 +1,6 @@
 #include "Application.hpp"
 
 #include "DeclareDependentPasses.hpp"
-#include "GetCmdBuffer.hpp"
 #include "OffscreenRenderer.hpp"
 #include "Terrain.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
@@ -13,9 +12,7 @@
 #include <starlight/command/SaveSceneState.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
 
-#include <starlight/command/GetScreenCaptureSyncInfo.hpp>
 #include <starlight/command/detail/create_object/DirectObjCreation.hpp>
-#include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/command/headless_render_result_write/GetFileNameForFrame.hpp>
 #include <starlight/command/headless_render_result_write/GetSetOutputDir.hpp>
 #include <starlight/common/ConfigFile.hpp>
@@ -59,7 +56,7 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
     cmdBus.submit(star::command_order::TriggerPass()
                       .setPass(volume.getRenderer().getCommandBuffer())
                       .setTimelineSemaphore(volume.getRenderer().getTimelineSemaphores()[ii])
-                      .setSignalValue(std::move(value)));
+                      .setSignalValue(value));
 }
 
 static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus,
@@ -204,7 +201,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 100.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 250.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.00001f);
-    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.40f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.001f);
     m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.3f);
     m_volume->getRenderer().setFogType(Fog::Type::sLinear);
     m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
@@ -365,6 +362,6 @@ star::Light Application::CreateMainLight(glm::vec3 position)
         .setPosition(std::move(position))
         .setType(star::Type::Light::directional)
         .setAmbient({1.0f, 1.0f, 1.0f})
-        .setLuminance(50)
+        .setLuminance(10)
         .setDirection({0.0f, -1.0f, 0.0f});
 }
