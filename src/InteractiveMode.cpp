@@ -4,7 +4,6 @@
 
 #include "InteractiveApplication.hpp"
 #include "policy/WindowedEngineInitPolicy.hpp"
-#include "service/SimulationController.hpp"
 
 #include <star_windowing/policy/EngineExitPolicy.hpp>
 #include <star_windowing/policy/EngineMainLoopPolicy.hpp>

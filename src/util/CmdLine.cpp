@@ -1,6 +1,7 @@
 #include "util/CmdLine.hpp"
 
 #include <optional>
+#include <logging/LoggingFactory.hpp>
 
 namespace util::CmdLine
 {
@@ -44,5 +45,16 @@ std::string GetSimControllerFilePath(int argc, char **argv)
     }
 
     return controllerPath.value();
+}
+std::string GetConfigFilePath(int argc, char **argv)
+{
+    auto file = util::CmdLine::TryGetArgValue(argc, argv, "--config");
+    if (!file.has_value())
+    {
+        file = "StarEngine.cfg";
+        star::core::logging::info("No config file provided, using default StarEngine.cfg");
+    }
+
+    return file.value();
 }
 } // namespace util::CmdLine

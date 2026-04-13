@@ -10,4 +10,6 @@ std::optional<std::string> TryGetArgValue(int argc, char **argv, const std::stri
 std::string GetTerrainPath(int argc, char **argv);
 
 std::string GetSimControllerFilePath(int argc, char **argv);
+
+std::string GetConfigFilePath(int argc, char **argv); 
 }

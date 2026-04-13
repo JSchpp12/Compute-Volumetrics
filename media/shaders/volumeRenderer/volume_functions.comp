@@ -45,7 +45,13 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
         const float ds = stepEnd - stepStart;
         const float t = mix(stepStart, stepEnd, randomValues.r);
 
-        if (transparency < 0.05 || ds <= 0)
+        if (transparency < 0.05)
+        {
+            transparency = 0.00;
+            break;
+        }
+
+        if (ds <= 0)
         {
             break;
         }
@@ -91,18 +97,18 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                     }
 
                     const int fittedNumStepsLight = max(1, int(ceil(lMarchStopDist / lightStepSize)));
-                    float lStepStart = 0; 
+                    float lStepStart = 0;
                     for (int k = 0; k < fittedNumStepsLight; k++)
                     {
-                        const float lStepEnd = min(lStepStart + lightStepSize, lMarchStopDist); 
-                        const float lds = lStepEnd - lStepStart; 
-                        const float lt = mix(lStepStart, lStepEnd, randomValues.g); 
+                        const float lStepEnd = min(lStepStart + lightStepSize, lMarchStopDist);
+                        const float lds = lStepEnd - lStepStart;
+                        const float lt = mix(lStepStart, lStepEnd, randomValues.g);
 
                         const vec3 lMarchPos = rayToLight.origin.xyz + (lt * rayToLight.direction.xyz);
                         const float lDensity = (gridReadAt(grid, acc, gType, lMarchPos, true) * densityMultiplier);
 
                         lTau += lDensity * lds;
-                        lStepStart = lStepEnd; 
+                        lStepStart = lStepEnd;
                     }
 
                     const float lRayAttenuation = exp(-lTau * sigmaT);

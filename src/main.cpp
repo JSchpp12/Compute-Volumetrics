@@ -13,24 +13,32 @@
 
 static int runWindow(std::string terrainPath, std::string simControllerPath)
 {
-    //try
-    //{
+    try
+    {
         InteractiveMode interactiveInstance{};
         return interactiveInstance.run(std::move(terrainPath), std::move(simControllerPath));
-    //}
-    //catch (const std::exception &ex)
-    //{
-    //    std::cerr << "Fatal exception encountered: " << ex.what() << std::endl;
-    //    std::exit(EXIT_FAILURE);
-    //}
+    }
+    catch (const std::exception &ex)
+    {
+        std::cerr << "Fatal exception encountered: " << ex.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 #else
 #include "HeadlessMode.hpp"
 static int runHeadless(std::string &&terrainPath, std::string &&simControllerPath)
 {
-    HeadlessMode headlessInstance{};
-    return headlessInstance.run(std::move(terrainPath), std::move(simControllerPath));
+    try
+    {
+        HeadlessMode headlessInstance{};
+        return headlessInstance.run(std::move(terrainPath), std::move(simControllerPath));
+    }
+    catch (const std::exception &ex)
+    {
+        std::cerr << "Fatal exception encountered: " << ex.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 }
 #endif
 
@@ -38,7 +46,7 @@ int main(int argc, char **argv)
 {
     try
     {
-        star::ConfigFile::load("./StarEngine.cfg");
+        star::ConfigFile::load(util::CmdLine::GetConfigFilePath(argc, argv));
     }
     catch (...)
     {
