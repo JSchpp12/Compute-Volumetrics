@@ -55,13 +55,22 @@ void FileWriteFunction::waitForCopyToDstBufferDone() const
 {
     assert(m_data->vkDevice != VK_NULL_HANDLE);
 
-    vk::Result waitResult = m_data->vkDevice.waitSemaphores(
-        vk::SemaphoreWaitInfo().setValues(m_data->copyToHostBufferDoneValue).setSemaphores(m_data->copyDone),
-        UINT64_MAX);
-
-    if (waitResult != vk::Result::eSuccess)
+    try
     {
-        STAR_THROW("Failed to wait for semaphores");
+        vk::Result waitResult = m_data->vkDevice.waitSemaphores(
+            vk::SemaphoreWaitInfo().setValues(m_data->copyToHostBufferDoneValue).setSemaphores(m_data->copyDone),
+            UINT64_MAX);
+
+        if (waitResult != vk::Result::eSuccess)
+        {
+            STAR_THROW("Failed to wait for semaphores");
+        }
+    }
+    catch (const vk::DeviceLostError &e)
+    {
+        std::ostringstream oss;
+        oss << "Vulkan error encountered while submitting queue. Terminating. " << e.what();
+        STAR_THROW(oss.str());
     }
 }
 

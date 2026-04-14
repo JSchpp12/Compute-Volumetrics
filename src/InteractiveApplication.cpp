@@ -60,43 +60,56 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 
     if (m_actDir[star::Type::Axis::x])
     {
-        if (m_mode == ModifyMode::movement)
+        switch (m_mode)
         {
+        case (ModifyMode::movement):
             const glm::vec3 dir{10.0f, 0.0f, 0.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
-        }
-        else
-        {
+            break;
+        case (ModifyMode::rotation_relative):
             m_volume->getInstance(0).rotateRelative(star::Type::Axis::x, 90);
             m_actDir[star::Type::Axis::x] = false;
+            break;
+        case (ModifyMode::rotation_global):
+            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::x, 90);
+            m_actDir[star::Type::Axis::x] = false;
+            break;
         }
     }
     else if (m_actDir[star::Type::Axis::y])
     {
-        if (m_mode == ModifyMode::movement)
+        switch (m_mode)
         {
-            const glm::vec3 dir{0.0f, 10.0f, 0.0f};
+        case (ModifyMode::movement):
+            const glm::vec3 dir{00.0f, 10.0f, 0.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
-        }
-        else
-        {
-            const float amt{90.0f};
-            m_volume->getInstance(0).rotateRelative(star::Type::Axis::y, m_invAct ? -amt : amt);
+            break;
+        case (ModifyMode::rotation_relative):
+            m_volume->getInstance(0).rotateRelative(star::Type::Axis::y, 90);
             m_actDir[star::Type::Axis::y] = false;
+            break;
+        case (ModifyMode::rotation_global):
+            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90);
+            m_actDir[star::Type::Axis::y] = false;
+            break;
         }
     }
     else if (m_actDir[star::Type::Axis::z])
     {
-        if (m_mode == ModifyMode::movement)
+        switch (m_mode)
         {
+        case (ModifyMode::movement):
             const glm::vec3 dir{0.0f, 0.0f, 10.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
-        }
-        else
-        {
-            const float amt{90.0f};
-            m_volume->getInstance(0).rotateRelative(star::Type::Axis::z, m_invAct ? -amt : amt);
+            break;
+        case (ModifyMode::rotation_relative):
+            m_volume->getInstance(0).rotateRelative(star::Type::Axis::z, 90);
             m_actDir[star::Type::Axis::z] = false;
+            break;
+        case (ModifyMode::rotation_global):
+            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::z, 90);
+            m_actDir[star::Type::Axis::z] = false;
+            break;
         }
     }
 
@@ -118,16 +131,22 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 
     if (m_switchMode)
     {
-        if (m_mode == ModifyMode::movement)
+        switch (m_mode)
         {
-            m_mode = ModifyMode::rotation;
-            star::core::logging::info("Set mode: rotation");
-        }
-        else
-        {
+        case (ModifyMode::movement):
+            m_mode = ModifyMode::rotation_global;
+            star::core::logging::info("Set mode: rotation_relative");
+            break;
+        case (ModifyMode::rotation_global):
+            m_mode = ModifyMode::rotation_relative;
+            star::core::logging::info("Set mode: rotation_global");
+            break;
+        case (ModifyMode::rotation_relative):
             m_mode = ModifyMode::movement;
             star::core::logging::info("Set mode: movement");
+            break;
         }
+
         m_switchMode = false;
     }
 
@@ -436,8 +455,9 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
 
 std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star::core::device::DeviceContext &context)
 {
-    auto camera = std::make_shared<star::windowing::BasicCamera>(
-        context.getEngineResolution().width, context.getEngineResolution().height, 90.0f, 0.5f, 25000.0f, 1000.0f, 0.1f);
+    auto camera = std::make_shared<star::windowing::BasicCamera>(context.getEngineResolution().width,
+                                                                 context.getEngineResolution().height, 90.0f, 0.5f,
+                                                                 25000.0f, 1000.0f, 0.1f);
 
     camera->init(context.getEventBus());
     return camera;
@@ -451,8 +471,8 @@ star::common::Renderer InteractiveApplication::createMainRenderer(
     context.getEventBus().emit(star::windowing::event::RequestSwapChainFromService{swapchain});
 
     auto sc = star::common::Renderer{renderer::finalization::Windowed{
-        m_winContext, std::move(swapchain), context, context.frameTracker().getSetup().getNumFramesInFlight(),
-        objects, m_mainLight, camera}};
+        m_winContext, std::move(swapchain), context, context.frameTracker().getSetup().getNumFramesInFlight(), objects,
+        m_mainLight, camera}};
 
     m_finalizationCmds = sc.getRaw<renderer::finalization::Windowed>();
     return sc;
