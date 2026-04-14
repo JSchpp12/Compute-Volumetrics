@@ -126,10 +126,6 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
     {
-
-        // m_mainLight = std::make_shared<std::vector<star::Light>>(
-        //     std::vector<star::Light>{Application::CreateMainLight({0.0, 4.0, 0.0})});
-
         star::command::CreateLight lCmd = star::command::CreateLight().setName("sun");
         context.getCmdBus().submit(lCmd);
 
