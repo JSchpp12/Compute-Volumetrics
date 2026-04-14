@@ -8,11 +8,12 @@
 #include "command/sim_controller/TriggerUpdate.hpp"
 #include "renderer/finalization/Headless.hpp"
 
+#include <starlight/command/CreateLight.hpp>
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
-
 #include <starlight/command/detail/create_object/DirectObjCreation.hpp>
+#include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/command/headless_render_result_write/GetFileNameForFrame.hpp>
 #include <starlight/command/headless_render_result_write/GetSetOutputDir.hpp>
 #include <starlight/common/ConfigFile.hpp>
@@ -124,8 +125,21 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
     auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
-    m_mainLight = std::make_shared<std::vector<star::Light>>(
-        std::vector<star::Light>{Application::CreateMainLight({0.0, 4.0, 0.0})});
+    {
+
+        // m_mainLight = std::make_shared<std::vector<star::Light>>(
+        //     std::vector<star::Light>{Application::CreateMainLight({0.0, 4.0, 0.0})});
+
+        star::command::CreateLight lCmd = star::command::CreateLight().setName("sun");
+        context.getCmdBus().submit(lCmd);
+
+        auto [addResult, light] = lCmd.getReply().get();
+        m_mainLight = light;
+        if (addResult == star::command::create_light::fail)
+        {
+            m_mainLight->emplace_back(Application::CreateMainLight({0.0, 4.0, 0.0}));
+        }
+    }
 
     uint8_t numInFlight;
     {
@@ -362,6 +376,6 @@ star::Light Application::CreateMainLight(glm::vec3 position)
         .setPosition(std::move(position))
         .setType(star::Type::Light::directional)
         .setAmbient({1.0f, 1.0f, 1.0f})
-        .setLuminance(10)
+        .setLuminance(20)
         .setDirection({0.0f, -1.0f, 0.0f});
 }

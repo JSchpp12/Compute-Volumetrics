@@ -3,7 +3,6 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "Application.hpp"
-#include "service/SimulationController.hpp"
 
 #include <star_windowing/BasicCamera.hpp>
 #include <star_windowing/WindowingContext.hpp>
@@ -31,7 +30,8 @@ class InteractiveApplication : public Application,
     enum ModifyMode
     {
         movement,
-        rotation
+        rotation_global, 
+        rotation_relative
     };
 
     friend class star::windowing::HandleKeyReleasePolicy<InteractiveApplication>;
