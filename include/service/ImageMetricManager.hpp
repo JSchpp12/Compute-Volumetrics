@@ -39,7 +39,7 @@ class ImageMetricManager
 
     void shutdown();
 
-    void recordThisFrame(const Volume &volume, const std::string &imageCaptureFileName, const star::StarCamera &camera);
+    void recordThisFrame(const star::Light &mainLight, const Volume &volume, const std::string &imageCaptureFileName, const star::StarCamera &camera);
 
     void onCapture(image_metrics::TriggerCapture &cmd);
 

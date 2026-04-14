@@ -346,7 +346,8 @@ void Application::triggerImageRecord(star::core::device::DeviceContext &context,
                                      const std::string &targetImageFileName)
 {
     const std::string outputFilePath = (m_imageOutputDir / targetImageFileName).string();
-    context.getCmdBus().submit(image_metrics::TriggerCapture{outputFilePath, *m_volume, *m_mainScene->getCamera()});
+    context.getCmdBus().submit(
+        image_metrics::TriggerCapture{outputFilePath, m_mainLight->front(), *m_volume, *m_mainScene->getCamera()});
 }
 
 void Application::TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume, star::StarCamera &camera)

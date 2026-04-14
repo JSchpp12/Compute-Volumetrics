@@ -4,6 +4,7 @@
 #include "FogType.hpp"
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
 
+#include <starlight/common/entities/Light.hpp>
 #include <starlight/core/CommandSubmitter.hpp>
 #include <starlight/wrappers/graphics/StarBuffers/Buffer.hpp>
 
@@ -19,8 +20,9 @@ class FileWriteFunction
 {
   public:
     FileWriteFunction() = default;
-    FileWriteFunction(FogInfo controlInfo, glm::vec3 camPosition, glm::vec3 cameraLookDir, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
-                      uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage);
+    FileWriteFunction(star::Light light, FogInfo controlInfo, glm::vec3 camPosition, glm::vec3 cameraLookDir,
+                      star::Handle buffer, vk::Device vkDevice, vk::Semaphore done, uint64_t copyToHostBufferDoneValue,
+                      Fog::Type type, HostVisibleStorage *storage);
 
     void write(const std::string &path) const;
 
@@ -29,6 +31,7 @@ class FileWriteFunction
   private:
     struct ImageWriteData
     {
+        star::Light light;
         FogInfo controlInfo;
         glm::vec3 camPosition;
         glm::vec3 camLookDir;
@@ -39,9 +42,9 @@ class FileWriteFunction
         Fog::Type type;
         HostVisibleStorage *storage = nullptr;
     };
-    std::unique_ptr<ImageWriteData> m_data = nullptr; 
+    std::unique_ptr<ImageWriteData> m_data = nullptr;
 
     void waitForCopyToDstBufferDone() const;
     double calculateAverageRayDistance() const;
 };
-} // namespace image_metric_manager
+} // namespace service::image_metric_manager

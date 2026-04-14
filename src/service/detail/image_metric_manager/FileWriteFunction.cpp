@@ -1,8 +1,8 @@
 #include "service/detail/image_metric_manager/FileWriteFunction.hpp"
 
-#include <boost/filesystem/path.hpp>
-
 #include "service/detail/image_metric_manager/ImageMetrics.hpp"
+#include <boost/filesystem/path.hpp>
+#include <starlight/common/entities/Light_json.hpp>
 
 namespace service::image_metric_manager
 {
@@ -19,11 +19,11 @@ static double Mean(std::span<const float> &span)
     return sum / static_cast<double>(span.size());
 }
 
-FileWriteFunction::FileWriteFunction(FogInfo controlInfo, glm::vec3 camPosition, glm::vec3 camLookDir,
-                                     star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
+FileWriteFunction::FileWriteFunction(star::Light light, FogInfo controlInfo, glm::vec3 camPosition,
+                                     glm::vec3 camLookDir, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
                                      uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage)
-    : m_data(std::make_unique<ImageWriteData>(controlInfo, camPosition, camLookDir, buffer, vkDevice, done,
-                                              copyToHostBufferDoneValue, type, storage))
+    : m_data(std::make_unique<ImageWriteData>(std::move(light), std::move(controlInfo), camPosition, camLookDir, buffer,
+                                              vkDevice, done, copyToHostBufferDoneValue, type, storage))
 {
 }
 
@@ -43,7 +43,7 @@ void FileWriteFunction::write(const std::string &path) const
     m_data->storage->returnBuffer(m_data->hostVisibleRayDistanceBuffer);
 
     std::ofstream out(finalPath.string(), std::ofstream::binary);
-    const auto data = ImageMetrics(m_data->controlInfo, m_data->camPosition, m_data->camLookDir,
+    const auto data = ImageMetrics(m_data->light, m_data->controlInfo, m_data->camPosition, m_data->camLookDir,
                                    sourcePath.filename().string(), mean, m_data->type)
                           .toJsonDump();
     out << data;
