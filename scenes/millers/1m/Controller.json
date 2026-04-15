@@ -29,7 +29,7 @@
     },
     "marchedInfo": {
       "defaultDensity": 0.0001,
-      "lightPropertyDirG": 0.01,
+      "lightPropertyDirG": 0.7,
       "sigmaAbsorption": 0.00001,
       "sigmaScattering": 0.005,
       "stepSizeDist": 25,
@@ -50,7 +50,7 @@
     },
     "marchedInfo": {
       "defaultDensity": 0.1,
-      "lightPropertyDirG": 0.1,
+      "lightPropertyDirG": 0.7,
       "sigmaAbsorption": 0.00001,
       "sigmaScattering": 0.02,
       "stepSizeDist": 25,

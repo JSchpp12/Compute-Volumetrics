@@ -20,7 +20,7 @@
           },
           "enabled": true,
           "innerDiameter": 0.0,
-          "luminance": 5,
+          "luminance": 20,
           "outerDiameter": 1.0,
           "position": {
             "x": 0.0,
