@@ -2,10 +2,10 @@
 
 #include "service/detail/image_metric_manager/FileWriteFunction.hpp"
 
-#include <starlight/command/frames/GetFrameTracker.hpp>
 #include <starlight/command/FileIO/WriteToFile.hpp>
 #include <starlight/command/GetScreenCaptureSyncInfo.hpp>
 #include <starlight/command/command_order/DeclareDependency.hpp>
+#include <starlight/command/frames/GetFrameTracker.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 
 namespace service
@@ -87,11 +87,11 @@ void ImageMetricManager::init()
 
 void ImageMetricManager::onCapture(image_metrics::TriggerCapture &cmd)
 {
-    recordThisFrame(cmd.volumeObject, cmd.srcImagePath, cmd.camera);
+    recordThisFrame(cmd.mainLight, cmd.volumeObject, cmd.srcImagePath, cmd.camera);
 }
 
-void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string &imageCaptureFileName,
-                                         const star::StarCamera &camera)
+void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Volume &volume,
+                                         const std::string &imageCaptureFileName, const star::StarCamera &camera)
 {
     if (!m_isRegistered)
     {
@@ -140,9 +140,9 @@ void ImageMetricManager::recordThisFrame(const Volume &volume, const std::string
         auto writePayload = star::job::tasks::io::CreateWriteTask(star::job::tasks::io::WritePayload{
             imageCaptureFileName,
             service::image_metric_manager::FileWriteFunction{
-                volume.getRenderer().getFogInfo(), camera.getPosition(), camera.getForwardVector(), hostResource,
-                m_device->getVulkanDevice(), semaphoreRecord->semaphore, signalValue, volume.getRenderer().getFogType(),
-                &m_storage}});
+                mainLight, volume.getRenderer().getFogInfo(), camera.getPosition(), camera.getForwardVector(),
+                hostResource, m_device->getVulkanDevice(), semaphoreRecord->semaphore, signalValue,
+                volume.getRenderer().getFogType(), &m_storage}});
         star::command::file_io::WriteToFile writeCmd{std::move(writePayload)};
         m_cmdBus->submit(writeCmd);
     }

@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
+	VERSION 1.0.2
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -410,8 +411,6 @@ install(
 )
 
 # CPack metadata
-set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
-set(CPACK_PACKAGE_VERSION "1.0.0")
 include(CPack)
 
 include(CTest)

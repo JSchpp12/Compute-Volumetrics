@@ -23,17 +23,20 @@ struct TriggerCapture : public star::common::IServiceCommand
         return trigger_capture::GetTriggerCaptureCommandTypeName();
     }
 
-    TriggerCapture(std::string srcImagePath, const Volume &volumeObject, const star::StarCamera &camera, uint16_t type)
-        : star::common::IServiceCommand(std::move(type)), srcImagePath(std::move(srcImagePath)),
+    TriggerCapture(std::string srcImagePath, const star::Light &mainLight, const Volume &volumeObject,
+                   const star::StarCamera &camera, uint16_t type)
+        : star::common::IServiceCommand(std::move(type)), srcImagePath(std::move(srcImagePath)), mainLight(mainLight),
           volumeObject(volumeObject), camera(camera)
     {
     }
-    TriggerCapture(std::string srcImagePath, const Volume &volumeObject, const star::StarCamera &camera)
-        : srcImagePath(std::move(srcImagePath)), volumeObject(volumeObject), camera(camera)
+    TriggerCapture(std::string srcImagePath, const star::Light &mainLight, const Volume &volumeObject,
+                   const star::StarCamera &camera)
+        : srcImagePath(std::move(srcImagePath)), mainLight(mainLight), volumeObject(volumeObject), camera(camera)
     {
     }
 
     std::string srcImagePath;
+    const star::Light &mainLight;
     const Volume &volumeObject;
     const star::StarCamera &camera;
 };

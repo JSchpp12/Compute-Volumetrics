@@ -9,7 +9,7 @@
   },
   "camera_controller_type": "circle",
   "circle_controller_settings": {
-    "num_camera_positions": 8,
+    "num_camera_positions": 180,
     "start_camera_direction": {
       "x": 1,
       "y": 0,
@@ -29,7 +29,7 @@
     },
     "marchedInfo": {
       "defaultDensity": 0.0001,
-      "lightPropertyDirG": 0.01,
+      "lightPropertyDirG": 0.0,
       "sigmaAbsorption": 0.00001,
       "sigmaScattering": 0.005,
       "stepSizeDist": 40,
@@ -50,9 +50,9 @@
     },
     "marchedInfo": {
       "defaultDensity": 0.1,
-      "lightPropertyDirG": 0.1,
+      "lightPropertyDirG": 0.0,
       "sigmaAbsorption": 0.00001,
-      "sigmaScattering": 0.02,
+      "sigmaScattering": 0.01,
       "stepSizeDist": 40,
       "stepSizeDist_light": 50,
       "densityMultiplier": 1.0
