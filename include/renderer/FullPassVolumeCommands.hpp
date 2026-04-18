@@ -10,6 +10,7 @@ class VolumeRenderer;
 
 namespace renderer
 {
+
 class FullPassVolumeCommands
 {
     std::optional<PreMemoryBarrierContributor> m_preMemCmds{std::nullopt};

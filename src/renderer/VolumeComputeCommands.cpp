@@ -26,8 +26,3 @@ void renderer::VolumeComputeCommands::recordCommands(vk::CommandBuffer cmdBuffer
 
     cmdBuffer.dispatch(m_me->workgroupSize.x, m_me->workgroupSize.y, 1);
 }
-
-// vk::SubmitInfo renderer::VolumeComputeCommands::getSubmitInfo()
-// {
-//     return vk::SubmitInfo();
-// }
