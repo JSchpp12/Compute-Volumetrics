@@ -2,6 +2,7 @@
 
 #include "renderer/PostMemoryBarrierContributor.hpp"
 #include "renderer/PreMemoryBarrierContributor.hpp"
+#include "renderer/VolumePassInfo.hpp"
 #include "renderer/VolumeComputeCommands.hpp"
 
 #include <optional>
@@ -36,10 +37,12 @@ class FullPassVolumeCommands
     {
     }
 
-    void recordPreCommands(vk::CommandBuffer cmdBuffer, const star::common::FrameTracker &ft);
+    void recordPreCommands(const VolumePassInfo &tInfo, vk::CommandBuffer cmdBuf,
+                           const star::common::FrameTracker &ft);
 
-    void recordPostCommands(vk::CommandBuffer cmdBuffer, const star::common::FrameTracker &ft);
+    void recordPostCommands(const VolumePassInfo &tInfo, vk::CommandBuffer cmdBuf,
+                            const star::common::FrameTracker &ft);
 
-    void recordCommands(vk::CommandBuffer cmdBuffer, const star::common::FrameTracker &ft);
+    void recordCommands(vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
 };
 } // namespace renderer

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "renderer/PreMemoryBarrierDifferentFamilies.hpp"
+#include "renderer/VolumePassInfo.hpp"
 
 #include <star_common/FrameTracker.hpp>
 
@@ -20,6 +21,7 @@ class PreMemoryBarrierContributor
     {
     }
 
-    void recordPreCommands(vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
+    void recordPreCommands(const VolumePassInfo &vInfo, vk::CommandBuffer cmdBuf,
+                           const star::common::FrameTracker &ft);
 };
 } // namespace renderer

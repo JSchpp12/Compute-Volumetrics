@@ -1,6 +1,7 @@
 #pragma once
 
 #include "renderer/PostMemoryBarrierDifferentFamilies.hpp"
+#include "renderer/VolumePassInfo.hpp"
 
 #include <star_common/FrameTracker.hpp>
 
@@ -18,7 +19,8 @@ class PostMemoryBarrierContributor
     explicit PostMemoryBarrierContributor(PostMemoryBarrierDifferentFamilies approach) : m_approach(std::move(approach))
     {
     }
-    
-    void recordPostCommands(vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
+
+    void recordPostCommands(const VolumePassInfo &vInfo, vk::CommandBuffer cmdBuf,
+                            const star::common::FrameTracker &ft);
 };
 } // namespace renderer

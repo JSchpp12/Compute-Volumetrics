@@ -1,7 +1,11 @@
 #include "renderer/PreMemoryBarrierContributor.hpp"
 
-void renderer::PreMemoryBarrierContributor::recordPreCommands(vk::CommandBuffer cmdBuf,
+void renderer::PreMemoryBarrierContributor::recordPreCommands(const VolumePassInfo &tInfo,
+                                                              vk::CommandBuffer cmdBuf,
                                                               const star::common::FrameTracker &ft)
 {
-    std::visit([&](auto &approach) { approach.recordPreCommands(cmdBuf, ft); }, m_approach);
+    if (std::holds_alternative<PreMemoryBarrierDifferentFamilies>(m_approach))
+    {
+        std::get<PreMemoryBarrierDifferentFamilies>(m_approach).recordPreCommands(tInfo, cmdBuf, ft); 
+    }
 }
