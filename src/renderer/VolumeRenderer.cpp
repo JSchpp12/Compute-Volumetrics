@@ -16,6 +16,8 @@
 #include "renderer/volume/DescriptorBuilder.hpp"
 #include "starlight/core/waiter/one_shot/CreateDescriptorsOnEventPolicy.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
+#include "renderer/VolumeComputeCommands.hpp"
+#include "renderer/FullPassVolumeCommands.hpp"
 
 #include <starlight/command/command_order/DeclarePass.hpp>
 #include <starlight/command/command_order/GetPassInfo.hpp>
@@ -225,34 +227,20 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
 {
     auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer);
 
+    renderer::FullPassVolumeCommands baseCmds{renderer::VolumeComputeCommands{this}};
+
     // check if other dep was run this frame
     {
         const bool getFromTransfer = tNeighbor != nullptr && tNeighbor->wasProcessedOnLastFrame->at(
                                                                  frameTracker.getCurrent().getFrameInFlightIndex());
         addPreComputeMemoryBarriers(commandBuffer, frameTracker, getFromTransfer);
+
+        baseCmds.recordPreCommands(commandBuffer, frameTracker);
     }
 
     if (isReady)
     {
-        m_renderingContext.pipeline->bind(commandBuffer);
-
-        auto sets = m_staticShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex());
-        {
-            auto dynamicSets = m_dynamicShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex());
-            sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end());
-        }
-
-        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0,
-                                         static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
-
-        {
-            render_system::FogShaderPushInfo pushInfo{};
-
-            commandBuffer.pushConstants(*computePipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(pushInfo), &pushInfo); 
-        }
-
-        commandBuffer.dispatch(this->workgroupSize.x, this->workgroupSize.y, 1);
-
+        baseCmds.recordCommands(commandBuffer, frameTracker);
         if (this->currentFogType == Fog::Type::sMarched)
             m_distanceComputer.recordCommandBuffer(commandBuffer, frameTracker, workgroupSize, currentFogType);
     }
@@ -260,6 +248,8 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
     {
         const bool giveToTransfer = tNeighbor != nullptr && tNeighbor->isTriggeredThisFrame;
         addPostComputeMemoryBarriers(commandBuffer, frameTracker, giveToTransfer);
+
+        baseCmds.recordPostCommands(commandBuffer, frameTracker);
     }
 }
 

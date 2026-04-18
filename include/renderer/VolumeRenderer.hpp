@@ -11,6 +11,7 @@
 #include "VisibilityDistanceCompute.hpp"
 #include "VolumeDirectoryProcessor.hpp"
 #include "core/renderer/RenderingContext.hpp"
+#include "renderer/VolumeComputeCommands.hpp"
 
 #include <star_common/Handle.hpp>
 
@@ -24,6 +25,7 @@
 class VolumeRenderer
 {
   public:
+    friend class renderer::VolumeComputeCommands;
     VolumeRenderer(star::core::device::DeviceContext &context,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceNormalInfo,
