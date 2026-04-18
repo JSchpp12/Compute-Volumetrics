@@ -11,6 +11,7 @@
 #include "VolumeDirectoryProcessor.hpp"
 #include "core/device/managers/DescriptorPool.hpp"
 #include "event/EnginePhaseComplete.hpp"
+#include "render_system/FogShaderPushInfo.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "renderer/volume/DescriptorBuilder.hpp"
 #include "starlight/core/waiter/one_shot/CreateDescriptorsOnEventPolicy.hpp"
@@ -244,6 +245,12 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0,
                                          static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
 
+        {
+            render_system::FogShaderPushInfo pushInfo{};
+
+            commandBuffer.pushConstants(*computePipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(pushInfo), &pushInfo); 
+        }
+
         commandBuffer.dispatch(this->workgroupSize.x, this->workgroupSize.y, 1);
 
         if (this->currentFogType == Fog::Type::sMarched)
@@ -269,12 +276,6 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
 
     const auto cbInfo = vk::CommandBufferSubmitInfo().setCommandBuffer(
         buffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()));
-
-    // get neighbors and look for the offscreen renderer
-    vk::Semaphore offscreenSemaphore{VK_NULL_HANDLE};
-    uint64_t offscreenSemaphoreSignalValue{0};
-    vk::Semaphore mainRendererSemaphore{VK_NULL_HANDLE};
-    uint64_t mainRendererPreviousValue{0};
 
     auto getCmd = star::command_order::GetPassInfo{m_commandBuffer};
     m_cmdBus->submit(getCmd);
