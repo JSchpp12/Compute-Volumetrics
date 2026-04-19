@@ -21,6 +21,7 @@ struct VolumePassInfo
     vk::Buffer computeRayAtCutoffDistance{VK_NULL_HANDLE};
     vk::Buffer computeRayDistance{VK_NULL_HANDLE};
     bool transferWasRunLast{false}; // flag set to signal if a dedicated transfer was run last frame
+    bool transferWillBeRunThisFrame{false}; //flag set to signal if a dedicated transfer will be run this frame
 };
 
 } // namespace renderer

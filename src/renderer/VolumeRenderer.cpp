@@ -13,6 +13,7 @@
 #include "event/EnginePhaseComplete.hpp"
 #include "render_system/FogShaderPushInfo.hpp"
 #include "renderer/FullPassVolumeCommands.hpp"
+#include "renderer/PostMemoryBarrierDifferentFamilies.hpp"
 #include "renderer/PreMemoryBarrierDifferentFamilies.hpp"
 #include "renderer/VolumeComputeCommands.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
@@ -231,6 +232,8 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
     renderer::FullPassVolumeCommands baseCmds{
         renderer::VolumeComputeCommands{this},
         renderer::PreMemoryBarrierContributor{renderer::PreMemoryBarrierDifferentFamilies{
+            this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}},
+        renderer::PostMemoryBarrierContributor{renderer::PostMemoryBarrierDifferentFamilies{
             this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}}};
 
     renderer::VolumePassInfo tInfo{
@@ -254,11 +257,13 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
                      .get(m_offscreenRenderer->getRenderToDepthImages()[ft.getCurrent().getFrameInFlightIndex()])
                      ->getVulkanImage()},
         .computeWriteToImage = computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage(),
-        .computeRayAtCutoffDistance = computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
+        .computeRayAtCutoffDistance =
+            computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
         .computeRayDistance = computeRayDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
         .transferWasRunLast = tNeighbor != nullptr
                                   ? tNeighbor->wasProcessedOnLastFrame->at(ft.getCurrent().getFrameInFlightIndex())
-                                  : false};
+                                  : false,
+        .transferWillBeRunThisFrame = tNeighbor != nullptr ? tNeighbor->isTriggeredThisFrame : false};
 
     baseCmds.recordPreCommands(tInfo, commandBuffer, ft);
 
@@ -269,12 +274,7 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
             m_distanceComputer.recordCommandBuffer(commandBuffer, ft, workgroupSize, currentFogType);
     }
 
-    {
-        const bool giveToTransfer = tNeighbor != nullptr && tNeighbor->isTriggeredThisFrame;
-        addPostComputeMemoryBarriers(commandBuffer, ft, giveToTransfer);
-
-        baseCmds.recordPostCommands(tInfo, commandBuffer, ft);
-    }
+    baseCmds.recordPostCommands(tInfo, commandBuffer, ft);
 }
 
 vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
@@ -703,117 +703,4 @@ std::vector<star::StarBuffers::Buffer> VolumeRenderer::createComputeWriteToBuffe
 void VolumeRenderer::addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
                                                  const bool getBuffersBackFromTransfer) const
 {
-}
-
-inline static vk::BufferMemoryBarrier2 CreatePostBufferMemoryBarrier(uint32_t srcQueue, uint32_t dstQueue,
-                                                                     vk::Buffer buffer)
-{
-    return vk::BufferMemoryBarrier2()
-        .setBuffer(buffer)
-        .setSize(vk::WholeSize)
-        .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-        .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
-        .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-        .setDstAccessMask(vk::AccessFlagBits2::eNone)
-        .setSrcQueueFamilyIndex(std::move(srcQueue))
-        .setDstQueueFamilyIndex(std::move(dstQueue));
-}
-
-std::array<vk::BufferMemoryBarrier2, 2> VolumeRenderer::getBufferBarriersToTransferQueues(
-    const star::common::FrameTracker &ft) const
-{
-    const bool diffQueues = this->computeQueueFamilyIndex != this->transferQueueFamilyIndex;
-
-    const uint32_t srcI = diffQueues ? this->computeQueueFamilyIndex : vk::QueueFamilyIgnored;
-    const uint32_t dstI = diffQueues ? this->transferQueueFamilyIndex : vk::QueueFamilyIgnored;
-    return {CreatePostBufferMemoryBarrier(
-                srcI, dstI, this->computeRayDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer()),
-            CreatePostBufferMemoryBarrier(
-                srcI, dstI,
-                this->computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer())};
-}
-
-void VolumeRenderer::addPostComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
-                                                  const bool giveBuffersToTransfer) const
-{
-    star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(
-        m_offscreenRenderer->getRenderToColorImages()[ft.getCurrent().getFrameInFlightIndex()]);
-    star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(
-        m_offscreenRenderer->getRenderToDepthImages()[ft.getCurrent().getFrameInFlightIndex()]);
-
-    const bool diffQueues = this->computeQueueFamilyIndex != this->graphicsQueueFamilyIndex;
-    vk::ImageMemoryBarrier2 imageBarriers[3];
-    uint8_t barrierCountImage{0};
-
-    // give render to image back to graphics queue
-    if (diffQueues)
-    {
-        imageBarriers[0]
-            .setImage(colorTex->getVulkanImage())
-            .setOldLayout(vk::ImageLayout::eGeneral)
-            .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setDstAccessMask(vk::AccessFlagBits2::eNone)
-            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
-            .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1));
-        imageBarriers[1]
-            .setImage(depthTex->getVulkanImage())
-            .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setDstAccessMask(vk::AccessFlagBits2::eNone)
-            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
-            .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eDepth)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1));
-        imageBarriers[2]
-            .setImage(computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
-            .setOldLayout(vk::ImageLayout::eGeneral)
-            .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
-            .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setDstAccessMask(vk::AccessFlagBits2::eNone)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(vk::RemainingMipLevels)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(vk::RemainingArrayLayers));
-
-        barrierCountImage = 3;
-    };
-
-    vk::BufferMemoryBarrier2 bufferBarriers[5];
-    uint8_t barrierCountBuffer{0};
-    if (giveBuffersToTransfer)
-    {
-        auto transferBarriers = getBufferBarriersToTransferQueues(ft);
-        bufferBarriers[0] = transferBarriers[0];
-        bufferBarriers[1] = transferBarriers[1];
-        barrierCountBuffer = 2;
-    }
-
-    auto dependencyInfo = vk::DependencyInfo()
-                              .setPImageMemoryBarriers(imageBarriers)
-                              .setImageMemoryBarrierCount(barrierCountImage)
-                              .setPBufferMemoryBarriers(bufferBarriers)
-                              .setBufferMemoryBarrierCount(barrierCountBuffer);
-    cmdBuff.pipelineBarrier2(dependencyInfo);
 }

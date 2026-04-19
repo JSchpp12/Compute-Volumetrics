@@ -140,10 +140,10 @@ void renderer::PreMemoryBarrierDifferentFamilies::recordPreCommands(const Volume
                                                                     vk::CommandBuffer cmdBuf,
                                                                     const star::common::FrameTracker &ft)
 {
-    auto [imageBarriers, barrierCountImage] = GetImageMemoryBarriers(
+    const auto [imageBarriers, barrierCountImage] = GetImageMemoryBarriers(
         vInfo, ft, m_graphicsQueueFamilyIndex, m_transferQueueFamilyIndex, m_computeQueueFamilyIndex);
 
-    auto [bufferBarriers, barrierCountBuffer] = GetBufferMemoryBarriers(
+    const auto [bufferBarriers, barrierCountBuffer] = GetBufferMemoryBarriers(
         vInfo, ft, m_graphicsQueueFamilyIndex, m_transferQueueFamilyIndex, m_computeQueueFamilyIndex);
 
     cmdBuf.pipelineBarrier2(vk::DependencyInfo()
