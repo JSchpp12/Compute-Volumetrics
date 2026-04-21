@@ -309,7 +309,7 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
     const vk::CommandBufferSubmitInfo cbInfo[2]{m_chunkHandlers[0].getSubmitInfo(frameTracker),
                                                 m_chunkHandlers[1].getSubmitInfo(frameTracker)};
     WaitInfo chunkWaitInfos[2]{m_chunkHandlers[0].getWaitInfo(frameTracker),
-                                               m_chunkHandlers[1].getWaitInfo(frameTracker)};
+                               m_chunkHandlers[1].getWaitInfo(frameTracker)};
     vk::SemaphoreSubmitInfo chunkSignalInfos[2]{m_chunkHandlers[0].getSignalInfo(frameTracker),
                                                 m_chunkHandlers[1].getSignalInfo(frameTracker)};
     {
@@ -518,8 +518,8 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
         FullPass{ComputeContributor{Color{this}},
                  PreMemoryBarrierContributor{PreMemoryBarrierDifferentFamilies{
                      this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}}},
-        VolumeSyncProvider{signal::CalcFromFt{0, 2, &context.frameTracker()},
-                                     wait::GatherFromCO{m_commandBuffer, &context.getCmdBus()}},
+        SyncProvider{signal::CalcFromFt{0, 2, &context.frameTracker()},
+                     wait::GatherFromCO{m_commandBuffer, &context.getCmdBus()}},
         &isReady};
 
     m_chunkHandlers[1] = render_system::fog::ChunkOrchestrator{
@@ -528,8 +528,8 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
         FullPass{ComputeContributor{Distance{&m_distanceComputer}},
                  PostMemoryBarrierContributor{PostMemoryBarrierDifferentFamilies{
                      this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}}},
-        VolumeSyncProvider{signal::CalcFromFt{1, 2, &context.frameTracker()},
-                                     wait::WaitForPreviousChunk{1, 2, &context.frameTracker()}},
+        SyncProvider{signal::CalcFromFt{1, 2, &context.frameTracker()},
+                     wait::WaitForPreviousChunk{1, 2, &context.frameTracker()}},
         &isReady};
 }
 

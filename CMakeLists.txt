@@ -85,7 +85,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/renderer/volume/ContainerRenderResourceData.cpp"
 	"src/renderer/volume/DescriptorBuilder.cpp"
 	"src/renderer/VolumeRenderer.cpp"
-	"src/render_system/fog/sync/VolumeSyncProvider.cpp"
+	"src/render_system/fog/sync/SyncProvider.cpp"
 	"src/render_system/fog/sync/wait/GatherFromCO.cpp"
 	"src/render_system/fog/commands/Color.cpp"
 	"src/render_system/fog/commands/PreMemoryBarrierContributor.cpp"

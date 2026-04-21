@@ -1,8 +1,8 @@
-#include "render_system/fog/sync/VolumeSyncProvider.hpp"
+#include "render_system/fog/sync/SyncProvider.hpp"
 
 #include <starlight/core/Exceptions.hpp>
 
-vk::SemaphoreSubmitInfo render_system::fog::sync::VolumeSyncProvider::getSignalInfo() const
+vk::SemaphoreSubmitInfo render_system::fog::sync::SyncProvider::getSignalInfo() const
 {
     if (!m_signalApproach.has_value())
         STAR_THROW("No sync approach was ever assigned");
@@ -13,7 +13,7 @@ vk::SemaphoreSubmitInfo render_system::fog::sync::VolumeSyncProvider::getSignalI
     return vk::SemaphoreSubmitInfo();
 }
 
-render_system::fog::sync::WaitInfo render_system::fog::sync::VolumeSyncProvider::getWaitInfo() const
+render_system::fog::sync::WaitInfo render_system::fog::sync::SyncProvider::getWaitInfo() const
 {
     if (!m_waitApproach.has_value())
         STAR_THROW("No wait approach was ever assigned");

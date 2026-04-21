@@ -4,7 +4,7 @@
 #include "render_system/FogDispatchInfo.hpp"
 #include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/commands/FullPass.hpp"
-#include "render_system/fog/sync/VolumeSyncProvider.hpp"
+#include "render_system/fog/sync/SyncProvider.hpp"
 
 #include <starlight/core/device/DeviceContext.hpp>
 
@@ -16,13 +16,13 @@ class ChunkOrchestrator
 {
     star::StarCommandBuffer m_cmdBuf{};
     commands::FullPass m_cmdApproach;
-    sync::VolumeSyncProvider m_syncApproach;
+    sync::SyncProvider m_syncApproach;
     const bool *m_isReady{nullptr};
 
   public:
     ChunkOrchestrator() = default;
     ChunkOrchestrator(star::StarCommandBuffer cmdBuf, commands::FullPass cmdApproach,
-                      sync::VolumeSyncProvider syncApproach, const bool *isReady)
+                      sync::SyncProvider syncApproach, const bool *isReady)
         : m_cmdBuf(std::move(cmdBuf)), m_cmdApproach(std::move(cmdApproach)), m_syncApproach(std::move(syncApproach)),
           m_isReady(isReady)
     {
