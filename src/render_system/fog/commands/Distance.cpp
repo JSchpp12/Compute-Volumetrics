@@ -1,10 +1,10 @@
-#include "renderer/VolumeDistanceCommands.hpp"
+#include "render_system/fog/commands/Distance.hpp"
 
 #include "VisibilityDistanceCompute.hpp"
 
-void renderer::VolumeDistanceCommands::recordCommands(const render_system::FogDispatchInfo &dInfo,
-                                                      const renderer::VolumePassPipelineInfo &pipeInfo,
-                                                      vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft)
+void render_system::fog::commands::Distance::recordCommands(const render_system::FogDispatchInfo &dInfo,
+                                                            const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuf,
+                                                            const star::common::FrameTracker &ft)
 {
     // also need to bind the static sets from other set as these are now recorded on a different command buffer
 

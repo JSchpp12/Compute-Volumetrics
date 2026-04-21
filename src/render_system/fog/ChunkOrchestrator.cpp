@@ -2,7 +2,7 @@
 
 void render_system::fog::ChunkOrchestrator::cleanupRender(star::core::device::DeviceContext &ctx)
 {
-    m_cmdBuf.cleanupRender(ctx.getDevice().getVulkanDevice()); 
+    m_cmdBuf.cleanupRender(ctx.getDevice().getVulkanDevice());
 }
 
 vk::SemaphoreSubmitInfo render_system::fog::ChunkOrchestrator::getSignalInfo(const star::common::FrameTracker &ft) const
@@ -10,21 +10,20 @@ vk::SemaphoreSubmitInfo render_system::fog::ChunkOrchestrator::getSignalInfo(con
     return m_syncApproach.getSignalInfo();
 }
 
-renderer::VolumeWaitInfo render_system::fog::ChunkOrchestrator::getWaitInfo(const star::common::FrameTracker &ft)
+render_system::fog::sync::WaitInfo render_system::fog::ChunkOrchestrator::getWaitInfo(
+    const star::common::FrameTracker &ft)
 {
     return m_syncApproach.getWaitInfo();
 }
 
 void render_system::fog::ChunkOrchestrator::recordCommands(const render_system::FogDispatchInfo &dInfo,
-                                                         const renderer::VolumePassInfo &vInfo,
-                                                         const renderer::VolumePassPipelineInfo &pipeInfo,
-                                                         const star::common::FrameTracker &ft, Fog::Type type)
+                                                           const PassInfo &vInfo, const PassPipelineInfo &pipeInfo,
+                                                           const star::common::FrameTracker &ft, Fog::Type type)
 {
     const size_t fi = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
     assert(m_cmdBuf.buffer(0));
 
-    //need to wait for last submission to finish before calling begin
-
+    // need to wait for last submission to finish before calling begin
 
     m_cmdBuf.begin(fi);
     m_cmdApproach.recordPreCommands(vInfo, m_cmdBuf.buffer(fi), ft);

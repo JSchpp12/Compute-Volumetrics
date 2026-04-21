@@ -1,7 +1,7 @@
 #pragma once
 
-#include "renderer/PreMemoryBarrierDifferentFamilies.hpp"
-#include "renderer/VolumePassInfo.hpp"
+#include "render_system/fog/commands/PreMemoryBarrierDifferentFamilies.hpp"
+#include "render_system/fog/PassInfo.hpp"
 
 #include <star_common/FrameTracker.hpp>
 
@@ -9,7 +9,7 @@
 
 #include <variant>
 
-namespace renderer
+namespace render_system::fog::commands
 {
 
 class PreMemoryBarrierContributor
@@ -21,7 +21,7 @@ class PreMemoryBarrierContributor
     {
     }
 
-    void recordPreCommands(const VolumePassInfo &vInfo, vk::CommandBuffer cmdBuf,
+    void recordPreCommands(const PassInfo &vInfo, vk::CommandBuffer cmdBuf,
                            const star::common::FrameTracker &ft);
 };
 } // namespace renderer

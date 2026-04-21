@@ -1,7 +1,7 @@
 #pragma once
 
 #include "FogType.hpp"
-#include "renderer/VolumeDistanceCommands.hpp"
+#include "render_system/fog/commands/Distance.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 
 #include <starlight/core/device/DeviceContext.hpp>
@@ -16,7 +16,7 @@
 class VisibilityDistanceCompute
 {
   public:
-    friend class renderer::VolumeDistanceCommands;
+    friend class render_system::fog::commands::Distance;
 
     void cleanupRender(star::core::device::DeviceContext &context);
 

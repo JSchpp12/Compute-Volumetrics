@@ -1,11 +1,11 @@
-#include "renderer/VolumeColorCommands.hpp"
+#include "render_system/fog/commands/Color.hpp"
 
 #include "render_system/FogShaderPushInfo.hpp"
 #include "renderer/VolumeRenderer.hpp"
 
-void renderer::VolumeColorCommands::recordCommands(const render_system::FogDispatchInfo &dInfo,
-                                                   const renderer::VolumePassPipelineInfo &pipeInfo,
-                                                   vk::CommandBuffer cmdBuffer, const star::common::FrameTracker &ft)
+void render_system::fog::commands::Color::recordCommands(const render_system::FogDispatchInfo &dInfo,
+                                                         const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuffer,
+                                                         const star::common::FrameTracker &ft)
 {
     m_me->m_renderingContext.pipeline->bind(cmdBuffer);
 

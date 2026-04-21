@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render_system/FogDispatchInfo.hpp"
-#include "renderer/VolumePassInfo.hpp"
+#include "render_system/fog/PassInfo.hpp"
 
 #include <star_common/FrameTracker.hpp>
 
@@ -11,16 +11,16 @@
 
 class VolumeRenderer;
 
-namespace renderer
+namespace render_system::fog::commands
 {
-class VolumeColorCommands
+class Color
 {
     VolumeRenderer *m_me{nullptr};
 
   public:
-    explicit VolumeColorCommands(VolumeRenderer *me) : m_me(me){};
+    explicit Color(VolumeRenderer *me) : m_me(me) {};
 
-    void recordCommands(const render_system::FogDispatchInfo &dInfo, const renderer::VolumePassPipelineInfo &pipeInfo,
+    void recordCommands(const render_system::FogDispatchInfo &dInfo, const PassPipelineInfo &pipeInfo,
                         vk::CommandBuffer cmdBuffer, const star::common::FrameTracker &ft);
 };
-} // namespace renderer
+} // namespace render_system::fog::commands

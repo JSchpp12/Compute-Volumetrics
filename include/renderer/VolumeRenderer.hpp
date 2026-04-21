@@ -11,7 +11,7 @@
 #include "VisibilityDistanceCompute.hpp"
 #include "VolumeDirectoryProcessor.hpp"
 #include "core/renderer/RenderingContext.hpp"
-#include "renderer/VolumeColorCommands.hpp"
+#include "render_system/fog/commands/Color.hpp"
 #include "render_system/fog/ChunkOrchestrator.hpp"
 
 #include <star_common/Handle.hpp>
@@ -26,7 +26,7 @@
 class VolumeRenderer
 {
   public:
-    friend class renderer::VolumeColorCommands;
+    friend class render_system::fog::commands::Color;
 
     VolumeRenderer(star::core::device::DeviceContext &context,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "renderer/PostMemoryBarrierDifferentFamilies.hpp"
-#include "renderer/VolumePassInfo.hpp"
+#include "render_system/fog/commands/PostMemoryBarrierDifferentFamilies.hpp"
+#include "render_system/fog/PassInfo.hpp"
 
 #include <star_common/FrameTracker.hpp>
 
@@ -9,7 +9,7 @@
 
 #include <variant>
 
-namespace renderer
+namespace render_system::fog::commands
 {
 class PostMemoryBarrierContributor
 {
@@ -20,7 +20,7 @@ class PostMemoryBarrierContributor
     {
     }
 
-    void recordPostCommands(const VolumePassInfo &vInfo, vk::CommandBuffer cmdBuf,
+    void recordPostCommands(const PassInfo &vInfo, vk::CommandBuffer cmdBuf,
                             const star::common::FrameTracker &ft);
 };
 } // namespace renderer

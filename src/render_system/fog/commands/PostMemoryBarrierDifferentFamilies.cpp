@@ -1,4 +1,4 @@
-#include "renderer/PostMemoryBarrierDifferentFamilies.hpp"
+#include "render_system/fog/commands/PostMemoryBarrierDifferentFamilies.hpp"
 
 inline static vk::BufferMemoryBarrier2 CreateMemoryBarrier(uint32_t srcQueue, uint32_t dstQueue, vk::Buffer buffer)
 {
@@ -14,7 +14,7 @@ inline static vk::BufferMemoryBarrier2 CreateMemoryBarrier(uint32_t srcQueue, ui
 }
 
 static std::pair<std::array<vk::ImageMemoryBarrier2, 3>, uint32_t> GetImageMemoryBarriers(
-    const renderer::VolumePassInfo &vInfo, uint32_t graphicsIndex, uint32_t computeIndex)
+    const render_system::fog::PassInfo &vInfo, uint32_t graphicsIndex, uint32_t computeIndex)
 {
     std::array<vk::ImageMemoryBarrier2, 3> barriers{
         vk::ImageMemoryBarrier2()
@@ -72,7 +72,7 @@ static std::pair<std::array<vk::ImageMemoryBarrier2, 3>, uint32_t> GetImageMemor
 }
 
 static std::pair<std::array<vk::BufferMemoryBarrier2, 5>, uint32_t> GetBufferMemoryBarriers(
-    const renderer::VolumePassInfo &vInfo, uint32_t transferIndex, uint32_t computeIndex)
+    const render_system::fog::PassInfo &vInfo, uint32_t transferIndex, uint32_t computeIndex)
 {
     std::array<vk::BufferMemoryBarrier2, 5> barriers;
     uint32_t count{0};
@@ -87,9 +87,8 @@ static std::pair<std::array<vk::BufferMemoryBarrier2, 5>, uint32_t> GetBufferMem
     return std::make_pair(barriers, count);
 }
 
-void renderer::PostMemoryBarrierDifferentFamilies::recordPostCommands(const VolumePassInfo &vInfo,
-                                                                      vk::CommandBuffer cmdBuf,
-                                                                      const star::common::FrameTracker &ft)
+void render_system::fog::commands::PostMemoryBarrierDifferentFamilies::recordPostCommands(
+    const render_system::fog::PassInfo &vInfo, vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft)
 {
     const auto [imageBarriers, barrierCountImage] =
         GetImageMemoryBarriers(vInfo, m_graphicsQueueFamilyIndex, m_computeQueueFamilyIndex);

@@ -1,11 +1,11 @@
-#include "renderer/VolumeGatherWaitFromCO.hpp"
+#include "render_system/fog/sync/wait/GatherFromCO.hpp"
 
 #include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/Exceptions.hpp>
 
 #include <cassert>
 
-renderer::VolumeWaitInfo renderer::VolumeGatherWaitFromCO::getWaitInfo() const
+render_system::fog::sync::WaitInfo render_system::fog::sync::wait::GatherFromCO::getWaitInfo() const
 {
     assert(m_myRegistration.isInitialized() &&
            "The cmd buffer registration for the owner of this instance of the wait approach is invalid");
@@ -14,7 +14,7 @@ renderer::VolumeWaitInfo renderer::VolumeGatherWaitFromCO::getWaitInfo() const
     auto getCmd = star::command_order::GetPassInfo{m_myRegistration};
     m_cmdBus->submit(getCmd);
 
-    renderer::VolumeWaitInfo wInfo{}; 
+    WaitInfo wInfo{};
 
     std::vector<vk::SemaphoreSubmitInfo> waitInfo;
 
@@ -47,10 +47,10 @@ renderer::VolumeWaitInfo renderer::VolumeGatherWaitFromCO::getWaitInfo() const
             }
 
             wInfo.info[wInfo.count] = vk::SemaphoreSubmitInfo()
-                              .setSemaphore(semaphore)
-                              .setValue(signalValue)
-                              .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
-            wInfo.count++; 
+                                          .setSemaphore(semaphore)
+                                          .setValue(signalValue)
+                                          .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
+            wInfo.count++;
         }
     }
     else

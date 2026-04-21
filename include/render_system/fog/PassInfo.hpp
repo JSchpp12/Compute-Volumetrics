@@ -6,9 +6,9 @@
 
 #include <optional>
 
-namespace renderer
+namespace render_system::fog
 {
-struct VolumePassInfo
+struct PassInfo
 {
     struct TerrainPassInfo
     {
@@ -22,14 +22,14 @@ struct VolumePassInfo
     vk::Image computeWriteToImage{VK_NULL_HANDLE};
     vk::Buffer computeRayAtCutoffDistance{VK_NULL_HANDLE};
     vk::Buffer computeRayDistance{VK_NULL_HANDLE};
-    bool transferWasRunLast{false}; // flag set to signal if a dedicated transfer was run last frame
+    bool transferWasRunLast{false};         // flag set to signal if a dedicated transfer was run last frame
     bool transferWillBeRunThisFrame{false}; // flag set to signal if a dedicated transfer will be run this frame
 };
 
-struct VolumePassPipelineInfo
+struct PassPipelineInfo
 {
     star::StarShaderInfo *staticShaderInfo{
         nullptr}; // static shared shader info -> such as the camera and light info used by all
 };
 
-} // namespace renderer
+} // namespace render_system::fog

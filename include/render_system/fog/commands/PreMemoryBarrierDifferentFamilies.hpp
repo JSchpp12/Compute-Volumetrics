@@ -1,12 +1,12 @@
 #pragma once
 
-#include "renderer/VolumePassInfo.hpp"
+#include "render_system/fog/PassInfo.hpp"
 
 #include <star_common/FrameTracker.hpp>
 
 #include <vulkan/vulkan.hpp>
 
-namespace renderer
+namespace render_system::fog::commands
 {
 
 class PreMemoryBarrierDifferentFamilies
@@ -24,7 +24,7 @@ class PreMemoryBarrierDifferentFamilies
     {
     }
 
-    void recordPreCommands(const VolumePassInfo &vInfo, vk::CommandBuffer cmdBuffer,
+    void recordPreCommands(const PassInfo &vInfo, vk::CommandBuffer cmdBuffer,
                            const star::common::FrameTracker &ft);
 };
 } // namespace renderer

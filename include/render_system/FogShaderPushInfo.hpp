@@ -7,6 +7,6 @@ namespace render_system
 {
 struct FogShaderPushInfo
 {
-    glm::uvec2 tileOffset; 
+    glm::uvec2 tileOffset;
 };
 } // namespace render_system

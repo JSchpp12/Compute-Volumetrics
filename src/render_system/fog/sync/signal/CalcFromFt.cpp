@@ -1,6 +1,6 @@
-#include "renderer/VolumeSyncCalcFromFt.hpp"
+#include "render_system/fog/sync/signal/CalcFromFt.hpp"
 
-vk::SemaphoreSubmitInfo renderer::VolumeSyncCalcFromFt::getSignalInfo() const
+vk::SemaphoreSubmitInfo render_system::fog::sync::signal::CalcFromFt::getSignalInfo() const
 {
     assert(m_ft != nullptr);
 

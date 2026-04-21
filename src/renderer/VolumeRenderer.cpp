@@ -12,10 +12,10 @@
 #include "core/device/managers/DescriptorPool.hpp"
 #include "event/EnginePhaseComplete.hpp"
 #include "render_system/FogShaderPushInfo.hpp"
-#include "renderer/FullPassVolumeCommands.hpp"
-#include "renderer/PostMemoryBarrierDifferentFamilies.hpp"
-#include "renderer/PreMemoryBarrierDifferentFamilies.hpp"
-#include "renderer/VolumeSyncInfo.hpp"
+#include "render_system/fog/commands/Distance.hpp"
+#include "render_system/fog/commands/FullPass.hpp"
+#include "render_system/fog/commands/PostMemoryBarrierDifferentFamilies.hpp"
+#include "render_system/fog/commands/PreMemoryBarrierDifferentFamilies.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "renderer/volume/DescriptorBuilder.hpp"
 #include "starlight/core/waiter/one_shot/CreateDescriptorsOnEventPolicy.hpp"
@@ -26,6 +26,9 @@
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
 #include <star_common/HandleTypeRegistry.hpp>
+
+using namespace render_system::fog::commands;
+using namespace render_system::fog::sync;
 
 static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus,
                                                   const star::common::FrameTracker &ft) noexcept
@@ -229,7 +232,7 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
 {
     auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer);
 
-    renderer::VolumePassInfo tInfo{
+    render_system::fog::PassInfo tInfo{
         .globalCameraBuffer = m_infoManagerGlobalCamera->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
                                                                                 ft.getCurrent().getFrameInFlightIndex())
                                   ? std::make_optional(m_renderingContext.bufferTransferRecords.get(
@@ -259,7 +262,7 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
         .transferWillBeRunThisFrame = tNeighbor != nullptr ? tNeighbor->isTriggeredThisFrame : false};
 
     render_system::FogDispatchInfo dInfo{};
-    renderer::VolumePassPipelineInfo pipeInfo{.staticShaderInfo = this->m_staticShaderInfo.get()};
+    render_system::fog::PassPipelineInfo pipeInfo{.staticShaderInfo = this->m_staticShaderInfo.get()};
 
     vk::Semaphore workingSemaphore{VK_NULL_HANDLE};
     uint64_t previousSignaledValue{0};
@@ -305,7 +308,7 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
     const size_t ii = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
     const vk::CommandBufferSubmitInfo cbInfo[2]{m_chunkHandlers[0].getSubmitInfo(frameTracker),
                                                 m_chunkHandlers[1].getSubmitInfo(frameTracker)};
-    renderer::VolumeWaitInfo chunkWaitInfos[2]{m_chunkHandlers[0].getWaitInfo(frameTracker),
+    WaitInfo chunkWaitInfos[2]{m_chunkHandlers[0].getWaitInfo(frameTracker),
                                                m_chunkHandlers[1].getWaitInfo(frameTracker)};
     vk::SemaphoreSubmitInfo chunkSignalInfos[2]{m_chunkHandlers[0].getSignalInfo(frameTracker),
                                                 m_chunkHandlers[1].getSignalInfo(frameTracker)};
@@ -512,23 +515,21 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     m_chunkHandlers[0] = render_system::fog::ChunkOrchestrator{
         star::StarCommandBuffer{context.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
                                 star::Queue_Type::Tcompute, false, false},
-        renderer::FullPassVolumeCommands{
-            renderer::VolumeComputeCommandsContributor{renderer::VolumeColorCommands{this}},
-            renderer::PreMemoryBarrierContributor{renderer::PreMemoryBarrierDifferentFamilies{
-                this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}}},
-        renderer::VolumeSyncProvider{renderer::VolumeSyncCalcFromFt{0, 2, &context.frameTracker()},
-                                     renderer::VolumeGatherWaitFromCO{m_commandBuffer, &context.getCmdBus()}},
+        FullPass{ComputeContributor{Color{this}},
+                 PreMemoryBarrierContributor{PreMemoryBarrierDifferentFamilies{
+                     this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}}},
+        VolumeSyncProvider{signal::CalcFromFt{0, 2, &context.frameTracker()},
+                                     wait::GatherFromCO{m_commandBuffer, &context.getCmdBus()}},
         &isReady};
 
     m_chunkHandlers[1] = render_system::fog::ChunkOrchestrator{
         star::StarCommandBuffer{context.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
                                 star::Queue_Type::Tcompute, false, false},
-        renderer::FullPassVolumeCommands{
-            renderer::VolumeComputeCommandsContributor{renderer::VolumeDistanceCommands{&m_distanceComputer}},
-            renderer::PostMemoryBarrierContributor{renderer::PostMemoryBarrierDifferentFamilies{
-                this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}}},
-        renderer::VolumeSyncProvider{renderer::VolumeSyncCalcFromFt{1, 2, &context.frameTracker()},
-                                     renderer::VolumeWaitForPreviousChunk{1, 2, &context.frameTracker()}},
+        FullPass{ComputeContributor{Distance{&m_distanceComputer}},
+                 PostMemoryBarrierContributor{PostMemoryBarrierDifferentFamilies{
+                     this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}}},
+        VolumeSyncProvider{signal::CalcFromFt{1, 2, &context.frameTracker()},
+                                     wait::WaitForPreviousChunk{1, 2, &context.frameTracker()}},
         &isReady};
 }
 
@@ -536,9 +537,9 @@ void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
 {
     for (size_t i{0}; i < 2; i++)
     {
-        m_chunkHandlers[i].cleanupRender(context); 
+        m_chunkHandlers[i].cleanupRender(context);
     }
-    
+
     m_distanceComputer.cleanupRender(context);
 
     m_staticShaderInfo->cleanupRender(context.getDevice());
