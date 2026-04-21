@@ -35,8 +35,8 @@ FogDispatcherBuilder &render_system::FogDispatcherBuilder::setNumOfDispatchSlice
     return *this;
 }
 
-FogDispatcher render_system::FogDispatcherBuilder::build()
-{
-    
-}
+//FogDispatcher render_system::FogDispatcherBuilder::build()
+//{
+//    
+//}
 } // namespace render_system

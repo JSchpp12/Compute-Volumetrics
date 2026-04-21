@@ -12,7 +12,7 @@
 #include "VolumeDirectoryProcessor.hpp"
 #include "core/renderer/RenderingContext.hpp"
 #include "renderer/VolumeColorCommands.hpp"
-#include "render_system/FogChunkOrchestrator.hpp"
+#include "render_system/fog/ChunkOrchestrator.hpp"
 
 #include <star_common/Handle.hpp>
 
@@ -152,7 +152,7 @@ class VolumeRenderer
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
     std::vector<star::Handle> m_timelineSemaphores;
     VisibilityDistanceCompute m_distanceComputer;
-    std::array<render_system::FogChunkOrchestrator, 3> m_chunkHandlers;
+    std::array<render_system::fog::ChunkOrchestrator, 3> m_chunkHandlers;
 
     Fog::Type currentFogType = Fog::Type::sMarched;
     bool isReady = false;

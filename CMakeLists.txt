@@ -145,7 +145,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/FogDispatcherBuilder.cpp"
 	"src/render_system/FogShaderPushInfo.cpp"
 	"src/renderer/VolumeSyncCalcFromFt.cpp"
-	"src/render_system/FogChunkOrchestrator.cpp"
+	"src/render_system/fog/ChunkOrchestrator.cpp"
 	"src/renderer/VolumeWaitForPreviousChunk.cpp"
 )
 

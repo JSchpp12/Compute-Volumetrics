@@ -10,9 +10,9 @@
 
 #include <vulkan/vulkan.hpp>
 
-namespace render_system
+namespace render_system::fog
 {
-class FogChunkOrchestrator
+class ChunkOrchestrator
 {
     star::StarCommandBuffer m_cmdBuf{};
     renderer::FullPassVolumeCommands m_cmdApproach;
@@ -20,8 +20,8 @@ class FogChunkOrchestrator
     const bool *m_isReady{nullptr};
 
   public:
-    FogChunkOrchestrator() = default;
-    FogChunkOrchestrator(star::StarCommandBuffer cmdBuf, renderer::FullPassVolumeCommands cmdApproach,
+    ChunkOrchestrator() = default;
+    ChunkOrchestrator(star::StarCommandBuffer cmdBuf, renderer::FullPassVolumeCommands cmdApproach,
                          renderer::VolumeSyncProvider syncApproach, const bool *isReady)
         : m_cmdBuf(std::move(cmdBuf)), m_cmdApproach(std::move(cmdApproach)), m_syncApproach(std::move(syncApproach)),
           m_isReady(isReady)

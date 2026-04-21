@@ -509,7 +509,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     const auto *queueInfo = context.getManagerCommandBuffer().m_manager.getInUseInfoForType(star::Queue_Type::Tcompute);
     assert(queueInfo != nullptr && "Failed to get queue info from manager");
 
-    m_chunkHandlers[0] = render_system::FogChunkOrchestrator{
+    m_chunkHandlers[0] = render_system::fog::ChunkOrchestrator{
         star::StarCommandBuffer{context.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
                                 star::Queue_Type::Tcompute, false, false},
         renderer::FullPassVolumeCommands{
@@ -520,7 +520,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
                                      renderer::VolumeGatherWaitFromCO{m_commandBuffer, &context.getCmdBus()}},
         &isReady};
 
-    m_chunkHandlers[1] = render_system::FogChunkOrchestrator{
+    m_chunkHandlers[1] = render_system::fog::ChunkOrchestrator{
         star::StarCommandBuffer{context.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
                                 star::Queue_Type::Tcompute, false, false},
         renderer::FullPassVolumeCommands{

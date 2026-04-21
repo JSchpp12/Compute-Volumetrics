@@ -6,8 +6,6 @@
 #include "renderer/VolumeComputeCommandsContributor.hpp"
 #include "renderer/VolumePassInfo.hpp"
 
-#include <starlight/wrappers/graphics/StarCommandBuffer.hpp>
-
 #include <optional>
 
 class VolumeRenderer;

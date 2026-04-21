@@ -17,7 +17,7 @@ class FogDispatcherBuilder
     FogDispatcherBuilder &setTargetScreenResolution(uint32_t height, uint32_t width);
     FogDispatcherBuilder &setWorkgroupSize(uint32_t height, uint32_t width);
     FogDispatcherBuilder &setNumOfDispatchSlices(uint32_t numSlices); 
-    FogDispatcher build(); 
+    //FogDispatcher build(); 
 
   private:
     uint32_t m_screenDimensions[2]{0, 0};

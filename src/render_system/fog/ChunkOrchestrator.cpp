@@ -1,21 +1,21 @@
-#include "render_system/FogChunkOrchestrator.hpp"
+#include "render_system/fog/ChunkOrchestrator.hpp"
 
-void render_system::FogChunkOrchestrator::cleanupRender(star::core::device::DeviceContext &ctx)
+void render_system::fog::ChunkOrchestrator::cleanupRender(star::core::device::DeviceContext &ctx)
 {
     m_cmdBuf.cleanupRender(ctx.getDevice().getVulkanDevice()); 
 }
 
-vk::SemaphoreSubmitInfo render_system::FogChunkOrchestrator::getSignalInfo(const star::common::FrameTracker &ft) const
+vk::SemaphoreSubmitInfo render_system::fog::ChunkOrchestrator::getSignalInfo(const star::common::FrameTracker &ft) const
 {
     return m_syncApproach.getSignalInfo();
 }
 
-renderer::VolumeWaitInfo render_system::FogChunkOrchestrator::getWaitInfo(const star::common::FrameTracker &ft)
+renderer::VolumeWaitInfo render_system::fog::ChunkOrchestrator::getWaitInfo(const star::common::FrameTracker &ft)
 {
     return m_syncApproach.getWaitInfo();
 }
 
-void render_system::FogChunkOrchestrator::recordCommands(const render_system::FogDispatchInfo &dInfo,
+void render_system::fog::ChunkOrchestrator::recordCommands(const render_system::FogDispatchInfo &dInfo,
                                                          const renderer::VolumePassInfo &vInfo,
                                                          const renderer::VolumePassPipelineInfo &pipeInfo,
                                                          const star::common::FrameTracker &ft, Fog::Type type)
@@ -36,7 +36,7 @@ void render_system::FogChunkOrchestrator::recordCommands(const render_system::Fo
     m_cmdBuf.buffer(fi).end();
 }
 
-vk::CommandBufferSubmitInfo render_system::FogChunkOrchestrator::getSubmitInfo(const star::common::FrameTracker &ft)
+vk::CommandBufferSubmitInfo render_system::fog::ChunkOrchestrator::getSubmitInfo(const star::common::FrameTracker &ft)
 {
     return vk::CommandBufferSubmitInfo().setCommandBuffer(m_cmdBuf.buffer(ft.getCurrent().getFrameInFlightIndex()));
 }
