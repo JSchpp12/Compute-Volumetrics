@@ -28,6 +28,7 @@ struct PassInfo
 
 struct PassPipelineInfo
 {
+    vk::PipelineLayout pipelineLayout{VK_NULL_HANDLE};
     star::StarShaderInfo *staticShaderInfo{
         nullptr}; // static shared shader info -> such as the camera and light info used by all
 };

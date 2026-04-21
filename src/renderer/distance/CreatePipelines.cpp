@@ -24,7 +24,7 @@
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_handles.hpp>
 
-#include "render_system/FogShaderPushInfo.hpp"
+#include "render_system/fog/ShaderPushInfo.hpp"
 
 namespace renderer::distance
 {
@@ -81,7 +81,7 @@ static vk::PipelineLayout BuildPipelineLayout(std::array<vk::DescriptorSetLayout
 {
     const vk::DescriptorSetLayout sets[3]{sharedStaticSet[0], sharedStaticSet[1], dynamicSet};
     const auto range = vk::PushConstantRange()
-                           .setSize(sizeof(render_system::FogShaderPushInfo))
+                           .setSize(sizeof(render_system::fog::ShaderPushInfo))
                            .setOffset(0)
                            .setStageFlags(vk::ShaderStageFlagBits::eCompute);
 

@@ -142,9 +142,17 @@ void writeDistanceInfo(const float d, const ivec2 tPix, const uvec2 cSize)
     writeDistanceStencilInfo(d, index);
 }
 
+uvec2 getTargetPixel()
+{
+    uvec2 gid = gl_GlobalInvocationID.xy;
+    gid.x += dispatchInfo.tileOffset.x; 
+    gid.y += dispatchInfo.tileOffset.y; 
+    return gid;
+}
+
 void main()
 {
-    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 gid = ivec2(getTargetPixel());
     if (any(greaterThanEqual(gid, addCamInfo.cameraDimensions)))
         return;
 

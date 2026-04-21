@@ -1,7 +1,6 @@
 #pragma once
 
 #include "OffscreenRenderer.hpp"
-#include "render_system/FogDispatchInfo.hpp"
 #include "renderer/VolumeRenderer.hpp"
 
 #include <starlight/core/device/DeviceContext.hpp>

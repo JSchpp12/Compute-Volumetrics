@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render_system/FogDispatchInfo.hpp"
+#include "render_system/fog/DispatchInfo.hpp"
 #include "render_system/fog/commands/PostMemoryBarrierContributor.hpp"
 #include "render_system/fog/commands/PreMemoryBarrierContributor.hpp"
 #include "render_system/fog/commands/ComputeContributor.hpp"
@@ -44,7 +44,7 @@ class FullPass
     void recordPostCommands(const PassInfo &tInfo, vk::CommandBuffer cmdBuf,
                             const star::common::FrameTracker &ft);
 
-    void recordCommands(const render_system::FogDispatchInfo &dInfo, const PassPipelineInfo &passInfo,
+    void recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &passInfo,
                         vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
 };
 } // namespace renderer

@@ -110,9 +110,17 @@ layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
 
 #include "volume_functions.comp"
 
-void main()
+uvec2 getTargetPixel()
 {
     uvec2 gid = gl_GlobalInvocationID.xy;
+    gid.x += dispatchInfo.tileOffset.x; 
+    gid.y += dispatchInfo.tileOffset.y; 
+    return gid;
+}
+
+void main()
+{
+    uvec2 gid = getTargetPixel(); 
     uvec2 imageSize = uvec2(imageSize(outputImage));
     if (any(greaterThanEqual(gid, imageSize)))
         return;

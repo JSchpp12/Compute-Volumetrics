@@ -2,13 +2,13 @@
 
 #include "VisibilityDistanceCompute.hpp"
 
-void render_system::fog::commands::Distance::recordCommands(const render_system::FogDispatchInfo &dInfo,
+void render_system::fog::commands::Distance::recordCommands(const DispatchInfo &dInfo,
                                                             const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuf,
                                                             const star::common::FrameTracker &ft)
 {
     // also need to bind the static sets from other set as these are now recorded on a different command buffer
-
     auto sets = pipeInfo.staticShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+
     for (auto &set : m_me->m_dynamicShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex()))
     {
         sets.push_back(set);

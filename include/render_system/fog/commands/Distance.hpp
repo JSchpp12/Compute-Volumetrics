@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render_system/FogDispatchInfo.hpp"
+#include "render_system/fog/DispatchInfo.hpp"
 #include "render_system/fog/PassInfo.hpp"
 
 #include <star_common/FrameTracker.hpp>
@@ -20,8 +20,7 @@ class Distance
     {
     }
 
-    void recordCommands(const render_system::FogDispatchInfo &dispatchInfo,
-                        const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuf,
+    void recordCommands(const DispatchInfo &dispatchInfo, const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuf,
                         const star::common::FrameTracker &ft);
 };
-} // namespace renderer
+} // namespace render_system::fog::commands

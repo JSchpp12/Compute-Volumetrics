@@ -143,11 +143,11 @@ set(${PROJECT_NAME}_SOURCES
 	"src/service/detail/image_metric_manager/ImageMetrics.cpp"
 	"src/render_system/FogDispatcher.cpp"
 	"src/render_system/FogDispatcherBuilder.cpp"
-	"src/render_system/FogShaderPushInfo.cpp"
+	
 	"src/render_system/fog/sync/signal/CalcFromFt.cpp"
 	"src/render_system/fog/ChunkOrchestrator.cpp"
 	"src/render_system/fog/sync/wait/WaitForPreviousChunk.cpp"
-)
+ "src/render_system/fog/sync/wait/WaitForFirstChunk.cpp")
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"

@@ -1,13 +1,11 @@
 #pragma once
 
-#include "render_system/FogDispatchInfo.hpp"
+#include "render_system/fog/DispatchInfo.hpp"
 #include "render_system/fog/PassInfo.hpp"
 
 #include <star_common/FrameTracker.hpp>
 
 #include <vulkan/vulkan.hpp>
-
-#include <variant>
 
 class VolumeRenderer;
 
@@ -20,7 +18,7 @@ class Color
   public:
     explicit Color(VolumeRenderer *me) : m_me(me) {};
 
-    void recordCommands(const render_system::FogDispatchInfo &dInfo, const PassPipelineInfo &pipeInfo,
+    void recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo,
                         vk::CommandBuffer cmdBuffer, const star::common::FrameTracker &ft);
 };
 } // namespace render_system::fog::commands

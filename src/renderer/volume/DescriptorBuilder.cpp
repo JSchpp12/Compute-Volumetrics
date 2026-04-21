@@ -1,7 +1,7 @@
 #include "renderer/volume/DescriptorBuilder.hpp"
 
 #include "ConfigFile.hpp"
-#include "render_system/FogShaderPushInfo.hpp"
+#include "render_system/fog/ShaderPushInfo.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -114,7 +114,7 @@ void DescriptorBuilder::createDescriptors()
         }
 
         const auto pushRange = vk::PushConstantRange()
-            .setSize(sizeof(render_system::FogShaderPushInfo))
+            .setSize(sizeof(render_system::fog::ShaderPushInfo))
             .setOffset(0)
             .setStageFlags(vk::ShaderStageFlagBits::eCompute); 
             

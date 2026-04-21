@@ -1,9 +1,8 @@
 #include "render_system/fog/commands/Color.hpp"
 
-#include "render_system/FogShaderPushInfo.hpp"
 #include "renderer/VolumeRenderer.hpp"
 
-void render_system::fog::commands::Color::recordCommands(const render_system::FogDispatchInfo &dInfo,
+void render_system::fog::commands::Color::recordCommands(const DispatchInfo &dInfo,
                                                          const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuffer,
                                                          const star::common::FrameTracker &ft)
 {
@@ -18,12 +17,5 @@ void render_system::fog::commands::Color::recordCommands(const render_system::Fo
     cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *m_me->computePipelineLayout, 0,
                                  static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
 
-    {
-        render_system::FogShaderPushInfo pushInfo{};
-
-        cmdBuffer.pushConstants(*m_me->computePipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(pushInfo),
-                                &pushInfo);
-    }
-
-    cmdBuffer.dispatch(m_me->workgroupSize.x, m_me->workgroupSize.y, 1);
+    cmdBuffer.dispatch(dInfo.workgroupSize[0], dInfo.workgroupSize[1], 1);
 }

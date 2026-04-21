@@ -16,8 +16,8 @@ render_system::fog::sync::WaitInfo render_system::fog::ChunkOrchestrator::getWai
     return m_syncApproach.getWaitInfo();
 }
 
-void render_system::fog::ChunkOrchestrator::recordCommands(const render_system::FogDispatchInfo &dInfo,
-                                                           const PassInfo &vInfo, const PassPipelineInfo &pipeInfo,
+void render_system::fog::ChunkOrchestrator::recordCommands(const DispatchInfo &dInfo, const PassInfo &vInfo,
+                                                           const PassPipelineInfo &pipeInfo,
                                                            const star::common::FrameTracker &ft, Fog::Type type)
 {
     const size_t fi = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());

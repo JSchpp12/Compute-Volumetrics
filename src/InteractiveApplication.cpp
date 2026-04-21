@@ -33,7 +33,7 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
 {
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
 
-    const auto value = ft.getCurrent().getNumTimesFrameProcessed() + 1;
+    auto value = volume.getRenderer().getTimelineSignalValue(ft);
 
     cmdBus.submit(star::command_order::TriggerPass()
                       .setPass(volume.getRenderer().getCommandBuffer())

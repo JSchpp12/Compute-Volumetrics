@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render_system/FogDispatchInfo.hpp"
+#include "render_system/fog/DispatchInfo.hpp"
 #include "render_system/fog/commands/Color.hpp"
 #include "render_system/fog/commands/Distance.hpp"
 
@@ -19,7 +19,7 @@ class ComputeContributor
     explicit ComputeContributor(Distance approach) : m_approach(std::move(approach))
     {
     }
-    void recordCommands(const render_system::FogDispatchInfo &dInfo, const PassPipelineInfo &pipeInfo,
-                        vk::CommandBuffer cmdBuffer, const star::common::FrameTracker &ft);
+    void recordCommands(const render_system::fog::DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo,
+                        vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
 };
 } // namespace render_system::fog::commands

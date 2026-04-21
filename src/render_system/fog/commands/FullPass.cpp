@@ -14,7 +14,7 @@ void render_system::fog::commands::FullPass::recordPostCommands(const PassInfo &
         m_postMemCmds.value().recordPostCommands(vInfo, cmdBuf, ft);
 }
 
-void render_system::fog::commands::FullPass::recordCommands(const render_system::FogDispatchInfo &dInfo,
+void render_system::fog::commands::FullPass::recordCommands(const DispatchInfo &dInfo,
                                                             const PassPipelineInfo &passInfo, vk::CommandBuffer cmdBuf,
                                                             const star::common::FrameTracker &ft)
 {

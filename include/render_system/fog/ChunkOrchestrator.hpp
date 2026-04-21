@@ -1,7 +1,7 @@
 #pragma once
 
 #include "FogType.hpp"
-#include "render_system/FogDispatchInfo.hpp"
+#include "render_system/fog/DispatchInfo.hpp"
 #include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/commands/FullPass.hpp"
 #include "render_system/fog/sync/SyncProvider.hpp"
@@ -21,15 +21,15 @@ class ChunkOrchestrator
 
   public:
     ChunkOrchestrator() = default;
-    ChunkOrchestrator(star::StarCommandBuffer cmdBuf, commands::FullPass cmdApproach,
-                      sync::SyncProvider syncApproach, const bool *isReady)
+    ChunkOrchestrator(star::StarCommandBuffer cmdBuf, commands::FullPass cmdApproach, sync::SyncProvider syncApproach,
+                      const bool *isReady)
         : m_cmdBuf(std::move(cmdBuf)), m_cmdApproach(std::move(cmdApproach)), m_syncApproach(std::move(syncApproach)),
           m_isReady(isReady)
     {
     }
 
-    void recordCommands(const render_system::FogDispatchInfo &dInfo, const PassInfo &vInfo,
-                        const PassPipelineInfo &pipeInfo, const star::common::FrameTracker &ft, Fog::Type type);
+    void recordCommands(const DispatchInfo &dInfo, const PassInfo &vInfo, const PassPipelineInfo &pipeInfo,
+                        const star::common::FrameTracker &ft, Fog::Type type);
 
     void cleanupRender(star::core::device::DeviceContext &ctx);
 

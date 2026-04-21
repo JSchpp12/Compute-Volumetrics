@@ -22,6 +22,8 @@ render_system::fog::sync::WaitInfo render_system::fog::sync::SyncProvider::getWa
         return std::get<wait::GatherFromCO>(m_waitApproach.value()).getWaitInfo();
     else if (std::holds_alternative<wait::WaitForPreviousChunk>(m_waitApproach.value()))
         return std::get<wait::WaitForPreviousChunk>(m_waitApproach.value()).getWaitInfo();
+    else if (std::holds_alternative<wait::WaitForFirstChunk>(m_waitApproach.value()))
+        return std::get<wait::WaitForFirstChunk>(m_waitApproach.value()).getWaitInfo();
 
     return {};
 }
