@@ -14,7 +14,10 @@ void renderer::FullPassVolumeCommands::recordPostCommands(const VolumePassInfo &
         m_postMemCmds.value().recordPostCommands(vInfo, cmdBuf, ft);
 }
 
-void renderer::FullPassVolumeCommands::recordCommands(vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft)
+void renderer::FullPassVolumeCommands::recordCommands(const render_system::FogDispatchInfo &dInfo,
+                                                      const renderer::VolumePassPipelineInfo &passInfo,
+                                                      vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft)
 {
-    m_mainCmds.recordCommands(cmdBuf, ft);
+    if (m_mainCmds.has_value())
+        m_mainCmds.value().recordCommands(dInfo, passInfo, cmdBuf, ft);
 }

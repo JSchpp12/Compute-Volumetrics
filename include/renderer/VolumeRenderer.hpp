@@ -11,7 +11,8 @@
 #include "VisibilityDistanceCompute.hpp"
 #include "VolumeDirectoryProcessor.hpp"
 #include "core/renderer/RenderingContext.hpp"
-#include "renderer/VolumeComputeCommands.hpp"
+#include "renderer/VolumeColorCommands.hpp"
+#include "render_system/FogChunkOrchestrator.hpp"
 
 #include <star_common/Handle.hpp>
 
@@ -25,7 +26,8 @@
 class VolumeRenderer
 {
   public:
-    friend class renderer::VolumeComputeCommands;
+    friend class renderer::VolumeColorCommands;
+
     VolumeRenderer(star::core::device::DeviceContext &context,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceNormalInfo,
@@ -50,6 +52,9 @@ class VolumeRenderer
 
     void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                         const uint64_t &frameIndex);
+
+
+    uint64_t getTimelineSignalValue(const star::common::FrameTracker &frameTracker) const; 
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> &getRenderToImages()
     {
@@ -147,6 +152,7 @@ class VolumeRenderer
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
     std::vector<star::Handle> m_timelineSemaphores;
     VisibilityDistanceCompute m_distanceComputer;
+    std::array<render_system::FogChunkOrchestrator, 3> m_chunkHandlers;
 
     Fog::Type currentFogType = Fog::Type::sMarched;
     bool isReady = false;
@@ -183,12 +189,6 @@ class VolumeRenderer
 
     std::array<vk::BufferMemoryBarrier2, 2> getBufferBarriersToTransferQueues(
         const star::common::FrameTracker &ft) const;
-
-    void addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
-                                     const bool getBuffersBackFromTransfer) const;
-
-    void addPostComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
-                                      const bool giveBuffersToTransfer) const;
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> createComputeWriteToImages(
         star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate) const;

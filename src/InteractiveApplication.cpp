@@ -5,10 +5,9 @@
 #include "renderer/finalization/Windowed.hpp"
 
 #include <starlight/event/TriggerScreenshot.hpp>
+#include <starlight/command/command_order/TriggerPass.hpp>
 
 #include <star_common/helper/StringHelpers.hpp>
-
-#include <starlight/command/command_order/TriggerPass.hpp>
 
 #include <star_windowing/InteractivityBus.hpp>
 #include <star_windowing/SwapChainRenderer.hpp>
@@ -62,54 +61,66 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     {
         switch (m_mode)
         {
-        case (ModifyMode::movement):
+        case (ModifyMode::movement): {
             const glm::vec3 dir{10.0f, 0.0f, 0.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
             break;
-        case (ModifyMode::rotation_relative):
+        }
+
+        case (ModifyMode::rotation_relative): {
             m_volume->getInstance(0).rotateRelative(star::Type::Axis::x, 90);
             m_actDir[star::Type::Axis::x] = false;
             break;
-        case (ModifyMode::rotation_global):
+        }
+
+        case (ModifyMode::rotation_global): {
             m_volume->getInstance(0).rotateGlobal(star::Type::Axis::x, 90);
             m_actDir[star::Type::Axis::x] = false;
             break;
+        }
         }
     }
     else if (m_actDir[star::Type::Axis::y])
     {
         switch (m_mode)
         {
-        case (ModifyMode::movement):
+        case (ModifyMode::movement): {
             const glm::vec3 dir{00.0f, 10.0f, 0.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
             break;
-        case (ModifyMode::rotation_relative):
+        }
+        case (ModifyMode::rotation_relative): {
             m_volume->getInstance(0).rotateRelative(star::Type::Axis::y, 90);
             m_actDir[star::Type::Axis::y] = false;
             break;
-        case (ModifyMode::rotation_global):
+        }
+        case (ModifyMode::rotation_global): {
             m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90);
             m_actDir[star::Type::Axis::y] = false;
             break;
+        }
         }
     }
     else if (m_actDir[star::Type::Axis::z])
     {
         switch (m_mode)
         {
-        case (ModifyMode::movement):
+        case (ModifyMode::movement): {
             const glm::vec3 dir{0.0f, 0.0f, 10.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
             break;
-        case (ModifyMode::rotation_relative):
+        }
+
+        case (ModifyMode::rotation_relative): {
             m_volume->getInstance(0).rotateRelative(star::Type::Axis::z, 90);
             m_actDir[star::Type::Axis::z] = false;
             break;
-        case (ModifyMode::rotation_global):
+        }
+        case (ModifyMode::rotation_global): {
             m_volume->getInstance(0).rotateGlobal(star::Type::Axis::z, 90);
             m_actDir[star::Type::Axis::z] = false;
             break;
+        }
         }
     }
 
@@ -133,18 +144,23 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     {
         switch (m_mode)
         {
-        case (ModifyMode::movement):
+        case (ModifyMode::movement): {
             m_mode = ModifyMode::rotation_global;
             star::core::logging::info("Set mode: rotation_relative");
             break;
-        case (ModifyMode::rotation_global):
+        }
+
+        case (ModifyMode::rotation_global): {
             m_mode = ModifyMode::rotation_relative;
             star::core::logging::info("Set mode: rotation_global");
             break;
-        case (ModifyMode::rotation_relative):
+        }
+
+        case (ModifyMode::rotation_relative): {
             m_mode = ModifyMode::movement;
             star::core::logging::info("Set mode: movement");
             break;
+        }
         }
 
         m_switchMode = false;

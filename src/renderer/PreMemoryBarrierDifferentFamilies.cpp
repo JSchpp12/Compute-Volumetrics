@@ -27,9 +27,9 @@ static std::pair<std::array<vk::BufferMemoryBarrier2, 5>, uint32_t> GetBufferMem
     {
         barriers[0] = CreateMemoryBarrier(transferIndex, computeIndex, vInfo.computeRayAtCutoffDistance);
         barriers[1] = CreateMemoryBarrier(transferIndex, computeIndex, vInfo.computeRayDistance);
-        count = 2; 
+        count = 2;
     }
-    
+
     if (vInfo.globalCameraBuffer.has_value())
     {
         barriers[count]

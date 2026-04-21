@@ -85,7 +85,9 @@ set(${PROJECT_NAME}_SOURCES
 	"src/renderer/volume/ContainerRenderResourceData.cpp"
 	"src/renderer/volume/DescriptorBuilder.cpp"
 	"src/renderer/VolumeRenderer.cpp"
-	"src/renderer/VolumeComputeCommands.cpp"
+	"src/renderer/VolumeSyncProvider.cpp"
+	"src/renderer/VolumeGatherWaitFromCO.cpp"
+	"src/renderer/VolumeColorCommands.cpp"
 	"src/renderer/PreMemoryBarrierContributor.cpp"
 	"src/renderer/PreMemoryBarrierDifferentFamilies.cpp"
 	"src/renderer/PostMemoryBarrierContributor.cpp"
@@ -95,6 +97,8 @@ set(${PROJECT_NAME}_SOURCES
 	"src/renderer/finalization/FinalizationRenderer.cpp"
 	"src/renderer/finalization/Windowed.cpp"
 	"src/renderer/finalization/Headless.cpp"
+	"src/renderer/VolumeDistanceCommands.cpp"
+	"src/renderer/VolumeComputeCommandsContributor.cpp"
 	"src/VisibilityDistanceCompute.cpp"
 	"src/OffscreenRenderer.cpp"
 	"src/ScreenMaterial.cpp"
@@ -139,8 +143,10 @@ set(${PROJECT_NAME}_SOURCES
 	"src/service/detail/image_metric_manager/ImageMetrics.cpp"
 	"src/render_system/FogDispatcher.cpp"
 	"src/render_system/FogDispatcherBuilder.cpp"
-	"src/render_system/FogDispatchInfo.cpp"
 	"src/render_system/FogShaderPushInfo.cpp"
+	"src/renderer/VolumeSyncCalcFromFt.cpp"
+	"src/render_system/FogChunkOrchestrator.cpp"
+	"src/renderer/VolumeWaitForPreviousChunk.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 

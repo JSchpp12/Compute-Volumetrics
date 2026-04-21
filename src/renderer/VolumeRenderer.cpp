@@ -15,7 +15,7 @@
 #include "renderer/FullPassVolumeCommands.hpp"
 #include "renderer/PostMemoryBarrierDifferentFamilies.hpp"
 #include "renderer/PreMemoryBarrierDifferentFamilies.hpp"
-#include "renderer/VolumeComputeCommands.hpp"
+#include "renderer/VolumeSyncInfo.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "renderer/volume/DescriptorBuilder.hpp"
 #include "starlight/core/waiter/one_shot/CreateDescriptorsOnEventPolicy.hpp"
@@ -229,13 +229,6 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
 {
     auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer);
 
-    renderer::FullPassVolumeCommands baseCmds{
-        renderer::VolumeComputeCommands{this},
-        renderer::PreMemoryBarrierContributor{renderer::PreMemoryBarrierDifferentFamilies{
-            this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}},
-        renderer::PostMemoryBarrierContributor{renderer::PostMemoryBarrierDifferentFamilies{
-            this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}}};
-
     renderer::VolumePassInfo tInfo{
         .globalCameraBuffer = m_infoManagerGlobalCamera->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
                                                                                 ft.getCurrent().getFrameInFlightIndex())
@@ -265,16 +258,40 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
                                   : false,
         .transferWillBeRunThisFrame = tNeighbor != nullptr ? tNeighbor->isTriggeredThisFrame : false};
 
-    baseCmds.recordPreCommands(tInfo, commandBuffer, ft);
+    render_system::FogDispatchInfo dInfo{};
+    renderer::VolumePassPipelineInfo pipeInfo{.staticShaderInfo = this->m_staticShaderInfo.get()};
 
-    if (isReady)
+    vk::Semaphore workingSemaphore{VK_NULL_HANDLE};
+    uint64_t previousSignaledValue{0};
     {
-        baseCmds.recordCommands(commandBuffer, ft);
-        if (this->currentFogType == Fog::Type::sMarched)
-            m_distanceComputer.recordCommandBuffer(commandBuffer, ft, workgroupSize, currentFogType);
+        auto gCmd = star::command_order::GetPassInfo{m_commandBuffer};
+        m_cmdBus->submit(gCmd);
+        const auto &r = gCmd.getReply().get();
+        workingSemaphore = r.signaledSemaphore;
+        previousSignaledValue = r.currentSignalValue;
     }
 
-    baseCmds.recordPostCommands(tInfo, commandBuffer, ft);
+    for (size_t i{0}; i < 2; i++)
+    {
+        // check if semaphore is ready first
+        auto wait = vk::SemaphoreWaitInfo()
+                        .setSemaphoreCount(1)
+                        .setPSemaphores(&workingSemaphore)
+                        .setPValues(&previousSignaledValue)
+                        .setSemaphoreCount(1);
+
+        m_device.waitSemaphores(wait, UINT64_MAX);
+        m_chunkHandlers[i].recordCommands(dInfo, tInfo, pipeInfo, ft, currentFogType);
+    }
+
+    m_chunkHandlers[0].recordCommands(dInfo, tInfo, pipeInfo, ft, currentFogType);
+    m_chunkHandlers[1].recordCommands(dInfo, tInfo, pipeInfo, ft, currentFogType);
+}
+
+uint64_t VolumeRenderer::getTimelineSignalValue(const star::common::FrameTracker &ft) const
+{
+    // get the last chunk since this will signify to others that this is the value to wait for
+    return m_chunkHandlers[1].getSignalInfo(ft).value;
 }
 
 vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
@@ -286,61 +303,44 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
                                            star::StarQueue &queue)
 {
     const size_t ii = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
-    assert(m_cmdBus != nullptr);
-
-    const auto cbInfo = vk::CommandBufferSubmitInfo().setCommandBuffer(
-        buffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()));
-
-    auto getCmd = star::command_order::GetPassInfo{m_commandBuffer};
-    m_cmdBus->submit(getCmd);
-
-    std::vector<vk::SemaphoreSubmitInfo> waitInfo;
-
-    const star::command_order::get_pass_info::GatheredPassInfo &ele = getCmd.getReply().get();
-    if (ele.edges != nullptr)
+    const vk::CommandBufferSubmitInfo cbInfo[2]{m_chunkHandlers[0].getSubmitInfo(frameTracker),
+                                                m_chunkHandlers[1].getSubmitInfo(frameTracker)};
+    renderer::VolumeWaitInfo chunkWaitInfos[2]{m_chunkHandlers[0].getWaitInfo(frameTracker),
+                                               m_chunkHandlers[1].getWaitInfo(frameTracker)};
+    vk::SemaphoreSubmitInfo chunkSignalInfos[2]{m_chunkHandlers[0].getSignalInfo(frameTracker),
+                                                m_chunkHandlers[1].getSignalInfo(frameTracker)};
     {
-        waitInfo.resize(ele.edges->size());
+        auto gCmd = star::command_order::GetPassInfo{m_commandBuffer};
+        m_cmdBus->submit(gCmd);
+        const auto workingSemaphore = gCmd.getReply().get().signaledSemaphore;
 
-        for (size_t i{0}; i < ele.edges->size(); i++)
+        chunkSignalInfos[0].setSemaphore(workingSemaphore);
+        chunkSignalInfos[1].setSemaphore(workingSemaphore);
+
+        // inject whole volume system semaphore to wait infos missing one
+        // assuming that these are the approaches which are waiting on a previous
+        // chunk to complete its work
+        for (size_t i = 0; i < 2; i++)
         {
-            const auto &edge = ele.edges->at(i);
-
-            vk::Semaphore semaphore{VK_NULL_HANDLE};
-            uint64_t signalValue{0};
-            if (edge.consumer == m_commandBuffer)
+            for (size_t j = 0; j < chunkWaitInfos[i].count; j++)
             {
-                auto nCmd = star::command_order::GetPassInfo{edge.producer};
-                m_cmdBus->submit(nCmd);
-
-                semaphore = nCmd.getReply().get().signaledSemaphore;
-                signalValue = nCmd.getReply().get().toSignalValue;
+                if (!chunkWaitInfos[i].info[j].semaphore)
+                    chunkWaitInfos[i].info[j].semaphore = workingSemaphore;
             }
-            else
-            {
-                auto nCmd = star::command_order::GetPassInfo{edge.consumer};
-                m_cmdBus->submit(nCmd);
-
-                semaphore = nCmd.getReply().get().signaledSemaphore;
-                signalValue = nCmd.getReply().get().currentSignalValue;
-            }
-
-            waitInfo[i] = vk::SemaphoreSubmitInfo()
-                              .setSemaphore(semaphore)
-                              .setValue(signalValue)
-                              .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
         }
-    }
-    else
-    {
-        STAR_THROW("Unable to get binary semaphore from offscreen renderer");
     }
 
     assert(dataSemaphores.size() == dataWaitPoints.size());
+    assert(dataWaitPoints.size() + chunkWaitInfos[0].count < 5 &&
+           "Current implementation of wait info container only allows 5");
     for (size_t i{0}; i < dataWaitPoints.size(); i++)
     {
-        waitInfo.emplace_back(vk::SemaphoreSubmitInfo()
-                                  .setSemaphore(dataSemaphores[i])
-                                  .setStageMask(vk::PipelineStageFlagBits2::eAllCommands));
+        auto &w = chunkWaitInfos[0];
+        w.info[w.count] = vk::SemaphoreSubmitInfo()
+                              .setSemaphore(dataSemaphores[i])
+                              .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
+
+        w.count++;
     }
 
     vk::SemaphoreSubmitInfo signalInfo[1];
@@ -354,13 +354,31 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
             .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
     }
 
-    const auto submitInfo = vk::SubmitInfo2()
-                                .setPWaitSemaphoreInfos(waitInfo.data())
-                                .setWaitSemaphoreInfoCount(waitInfo.size())
-                                .setCommandBufferInfos(cbInfo)
-                                .setSignalSemaphoreInfos(signalInfo);
+    {
+        vk::SemaphoreSubmitInfo waitInfo[2][5];
+        uint32_t waitInfoCount[2];
 
-    queue.getVulkanQueue().submit2(submitInfo);
+        vk::SubmitInfo2 submitInfo[2];
+        for (int i{0}; i < 2; i++)
+        {
+            // process wait infos
+            for (int j{0}; j < 5; j++)
+            {
+                if (j < chunkWaitInfos[i].count)
+                    waitInfo[i][j] = std::move(chunkWaitInfos[i].info[j]);
+            }
+
+            submitInfo[i]
+                .setPSignalSemaphoreInfos(&chunkSignalInfos[i])
+                .setSignalSemaphoreInfoCount(1)
+                .setPCommandBufferInfos(&cbInfo[i])
+                .setCommandBufferInfoCount(1)
+                .setPWaitSemaphoreInfos(waitInfo[i])
+                .setWaitSemaphoreInfoCount(chunkWaitInfos[i].count);
+        }
+
+        queue.getVulkanQueue().submit2(submitInfo);
+    }
 
     return vk::Semaphore();
 }
@@ -479,17 +497,48 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     auto cmd = star::command_order::DeclarePass(m_commandBuffer, this->computeQueueFamilyIndex);
     context.begin().set(cmd).submit();
 
-    for (size_t i = 0; i < static_cast<size_t>(context.frameTracker().getSetup().getNumFramesInFlight()); i++)
+    const size_t nf = static_cast<size_t>(context.frameTracker().getSetup().getNumFramesInFlight());
+    for (size_t i = 0; i < nf; i++)
     {
         auto &ch = m_offscreenRenderer->getRenderToColorImages()[i];
         m_renderingContext.recordDependentImage.manualInsert(ch, &context.getImageManager().get(ch)->texture);
         auto &dh = m_offscreenRenderer->getRenderToDepthImages()[i];
         m_renderingContext.recordDependentImage.manualInsert(dh, &context.getImageManager().get(dh)->texture);
     }
+
+    const auto *queueInfo = context.getManagerCommandBuffer().m_manager.getInUseInfoForType(star::Queue_Type::Tcompute);
+    assert(queueInfo != nullptr && "Failed to get queue info from manager");
+
+    m_chunkHandlers[0] = render_system::FogChunkOrchestrator{
+        star::StarCommandBuffer{context.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
+                                star::Queue_Type::Tcompute, false, false},
+        renderer::FullPassVolumeCommands{
+            renderer::VolumeComputeCommandsContributor{renderer::VolumeColorCommands{this}},
+            renderer::PreMemoryBarrierContributor{renderer::PreMemoryBarrierDifferentFamilies{
+                this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}}},
+        renderer::VolumeSyncProvider{renderer::VolumeSyncCalcFromFt{0, 2, &context.frameTracker()},
+                                     renderer::VolumeGatherWaitFromCO{m_commandBuffer, &context.getCmdBus()}},
+        &isReady};
+
+    m_chunkHandlers[1] = render_system::FogChunkOrchestrator{
+        star::StarCommandBuffer{context.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
+                                star::Queue_Type::Tcompute, false, false},
+        renderer::FullPassVolumeCommands{
+            renderer::VolumeComputeCommandsContributor{renderer::VolumeDistanceCommands{&m_distanceComputer}},
+            renderer::PostMemoryBarrierContributor{renderer::PostMemoryBarrierDifferentFamilies{
+                this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}}},
+        renderer::VolumeSyncProvider{renderer::VolumeSyncCalcFromFt{1, 2, &context.frameTracker()},
+                                     renderer::VolumeWaitForPreviousChunk{1, 2, &context.frameTracker()}},
+        &isReady};
 }
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
 {
+    for (size_t i{0}; i < 2; i++)
+    {
+        m_chunkHandlers[i].cleanupRender(context); 
+    }
+    
     m_distanceComputer.cleanupRender(context);
 
     m_staticShaderInfo->cleanupRender(context.getDevice());
@@ -698,9 +747,4 @@ std::vector<star::StarBuffers::Buffer> VolumeRenderer::createComputeWriteToBuffe
     }
 
     return buffers;
-}
-
-void VolumeRenderer::addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
-                                                 const bool getBuffersBackFromTransfer) const
-{
 }

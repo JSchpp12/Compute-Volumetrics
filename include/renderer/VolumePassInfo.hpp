@@ -1,5 +1,7 @@
 #pragma once
 
+#include <starlight/wrappers/graphics/StarShaderInfo.hpp>
+
 #include <vulkan/vulkan.hpp>
 
 #include <optional>
@@ -21,7 +23,13 @@ struct VolumePassInfo
     vk::Buffer computeRayAtCutoffDistance{VK_NULL_HANDLE};
     vk::Buffer computeRayDistance{VK_NULL_HANDLE};
     bool transferWasRunLast{false}; // flag set to signal if a dedicated transfer was run last frame
-    bool transferWillBeRunThisFrame{false}; //flag set to signal if a dedicated transfer will be run this frame
+    bool transferWillBeRunThisFrame{false}; // flag set to signal if a dedicated transfer will be run this frame
+};
+
+struct VolumePassPipelineInfo
+{
+    star::StarShaderInfo *staticShaderInfo{
+        nullptr}; // static shared shader info -> such as the camera and light info used by all
 };
 
 } // namespace renderer

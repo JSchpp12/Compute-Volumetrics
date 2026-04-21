@@ -1,6 +1,7 @@
 #pragma once
 
 #include "FogType.hpp"
+#include "renderer/VolumeDistanceCommands.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 
 #include <starlight/core/device/DeviceContext.hpp>
@@ -15,6 +16,8 @@
 class VisibilityDistanceCompute
 {
   public:
+    friend class renderer::VolumeDistanceCommands;
+
     void cleanupRender(star::core::device::DeviceContext &context);
 
     void prepRender(star::core::device::DeviceContext &context, renderer::volume::ContainerRenderResourceData data,
