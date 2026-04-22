@@ -1,6 +1,7 @@
 #include "renderer/volume/DescriptorBuilder.hpp"
 
 #include "ConfigFile.hpp"
+#include "render_system/fog/ShaderPushInfo.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -112,15 +113,19 @@ void DescriptorBuilder::createDescriptors()
             sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end());
         }
 
-        vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
-        pipelineLayoutInfo.sType = vk::StructureType::ePipelineLayoutCreateInfo;
-        pipelineLayoutInfo.pSetLayouts = sets.data();
-        pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(sets.size());
-        pipelineLayoutInfo.pushConstantRangeCount = 0;
-        pipelineLayoutInfo.pPushConstantRanges = nullptr;
+        const auto pushRange = vk::PushConstantRange()
+            .setSize(sizeof(render_system::fog::ShaderPushInfo))
+            .setOffset(0)
+            .setStageFlags(vk::ShaderStageFlagBits::eCompute); 
+            
+        const auto layout = vk::PipelineLayoutCreateInfo()
+            .setPushConstantRangeCount(1)
+            .setPPushConstantRanges(&pushRange)
+            .setPSetLayouts(sets.data())
+            .setSetLayoutCount(static_cast<uint32_t>(sets.size()));
 
         *m_computePipelineLayout =
-            std::make_unique<vk::PipelineLayout>(m_device->getVulkanDevice().createPipelineLayout(pipelineLayoutInfo));
+            std::make_unique<vk::PipelineLayout>(m_device->getVulkanDevice().createPipelineLayout(layout));
     }
 
     const vk::PipelineLayout &cLay = *this->m_computePipelineLayout->get();

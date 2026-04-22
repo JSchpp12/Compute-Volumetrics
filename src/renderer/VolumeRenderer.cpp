@@ -11,6 +11,7 @@
 #include "VolumeDirectoryProcessor.hpp"
 #include "core/device/managers/DescriptorPool.hpp"
 #include "event/EnginePhaseComplete.hpp"
+
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "renderer/volume/DescriptorBuilder.hpp"
 #include "starlight/core/waiter/one_shot/CreateDescriptorsOnEventPolicy.hpp"
@@ -107,7 +108,7 @@ VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
       m_infoManagerGlobalCamera(globalInfoBuffers), m_infoManagerSceneLightInfo(sceneLightInfoBuffers),
       m_infoManagerSceneLightList(sceneLightList), m_offscreenRenderer(offscreenRenderer),
       m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(),
-      m_distanceComputer()
+      m_distanceComputer(), m_chunkHandler({4,4})
 {
 }
 
@@ -219,41 +220,81 @@ void VolumeRenderer::recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
     commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()).end();
 }
 
-void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
+void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &ft,
                                     const uint64_t &frameIndex)
 {
     auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer);
 
-    // check if other dep was run this frame
-    {
-        const bool getFromTransfer = tNeighbor != nullptr && tNeighbor->wasProcessedOnLastFrame->at(
-                                                                 frameTracker.getCurrent().getFrameInFlightIndex());
-        addPreComputeMemoryBarriers(commandBuffer, frameTracker, getFromTransfer);
-    }
+    render_system::fog::PassInfo tInfo{
+        .globalCameraBuffer = m_infoManagerGlobalCamera->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
+                                                                                ft.getCurrent().getFrameInFlightIndex())
+                                  ? std::make_optional(m_renderingContext.bufferTransferRecords.get(
+                                        m_infoManagerGlobalCamera->getHandle(ft.getCurrent().getFrameInFlightIndex())))
+                                  : std::nullopt,
+        .fogControllerBuffer = m_fogController.willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
+                                                                      ft.getCurrent().getFrameInFlightIndex())
+                                   ? std::make_optional(m_renderingContext.bufferTransferRecords.get(
+                                         m_fogController.getHandle(ft.getCurrent().getFrameInFlightIndex())))
+                                   : std::nullopt,
+        .terrainPassInfo =
+            {.renderToColor =
+                 m_renderingContext.recordDependentImage
+                     .get(m_offscreenRenderer->getRenderToColorImages()[ft.getCurrent().getFrameInFlightIndex()])
+                     ->getVulkanImage(),
+             .renderToDepth =
+                 m_renderingContext.recordDependentImage
+                     .get(m_offscreenRenderer->getRenderToDepthImages()[ft.getCurrent().getFrameInFlightIndex()])
+                     ->getVulkanImage()},
+        .computeWriteToImage = computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage(),
+        .computeRayAtCutoffDistance =
+            computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
+        .computeRayDistance = computeRayDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
+        .transferWasRunLast = tNeighbor != nullptr
+                                  ? tNeighbor->wasProcessedOnLastFrame->at(ft.getCurrent().getFrameInFlightIndex())
+                                  : false,
+        .transferWillBeRunThisFrame = tNeighbor != nullptr ? tNeighbor->isTriggeredThisFrame : false};
 
-    if (isReady)
-    {
-        m_renderingContext.pipeline->bind(commandBuffer);
+    render_system::fog::PassPipelineInfo pipeInfo{
+        .colorPipe = {.layout = *this->computePipelineLayout,
+                      .pipeline = m_renderingContext.pipeline->getVulkanPipeline()},
+        .distancePipe = {.layout = m_distanceComputer.getLayout(), .pipeline = m_distanceComputer.getPipeline()},
+        .staticShaderInfo = this->m_staticShaderInfo.get(),
+        .colorOnlyShaderInfo = this->m_dynamicShaderInfo.get(),
+        .distanceOnlyShaderInfo = m_distanceComputer.getDynamicShaderInfo()};
 
-        auto sets = m_staticShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex());
+    vk::Semaphore workingSemaphore{VK_NULL_HANDLE};
+    {
+        uint64_t previousSignaledValue{0};
+        auto gCmd = star::command_order::GetPassInfo{m_commandBuffer};
+        m_cmdBus->submit(gCmd);
+        const auto &r = gCmd.getReply().get();
+        workingSemaphore = r.signaledSemaphore;
+        previousSignaledValue = r.currentSignalValue;
+
+        auto wait = vk::SemaphoreWaitInfo()
+                        .setSemaphoreCount(1)
+                        .setPSemaphores(&workingSemaphore)
+                        .setPValues(&previousSignaledValue)
+                        .setSemaphoreCount(1);
+
+        try
         {
-            auto dynamicSets = m_dynamicShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex());
-            sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end());
+            const auto waitResult = m_device.waitSemaphores(wait, UINT64_MAX);
         }
-
-        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *this->computePipelineLayout, 0,
-                                         static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
-
-        commandBuffer.dispatch(this->workgroupSize.x, this->workgroupSize.y, 1);
-
-        if (this->currentFogType == Fog::Type::sMarched)
-            m_distanceComputer.recordCommandBuffer(commandBuffer, frameTracker, workgroupSize, currentFogType);
+        catch (const std::runtime_error &e)
+        {
+            std::ostringstream oss;
+            oss << "Failed to wait for seamphores with error: " << e.what();
+            STAR_THROW(oss.str());
+        }
     }
 
-    {
-        const bool giveToTransfer = tNeighbor != nullptr && tNeighbor->isTriggeredThisFrame;
-        addPostComputeMemoryBarriers(commandBuffer, frameTracker, giveToTransfer);
-    }
+    m_chunkHandler.recordAllChunks(ft, tInfo, pipeInfo, this->currentFogType);
+}
+
+uint64_t VolumeRenderer::getTimelineSignalValue(const star::common::FrameTracker &ft) const
+{
+    return m_chunkHandler.getTimelineDoneSignalValue(ft);
 }
 
 vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
@@ -264,88 +305,9 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
                                            std::vector<std::optional<uint64_t>> previousSignaledValues,
                                            star::StarQueue &queue)
 {
-    const size_t ii = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
-    assert(m_cmdBus != nullptr);
 
-    const auto cbInfo = vk::CommandBufferSubmitInfo().setCommandBuffer(
-        buffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()));
-
-    // get neighbors and look for the offscreen renderer
-    vk::Semaphore offscreenSemaphore{VK_NULL_HANDLE};
-    uint64_t offscreenSemaphoreSignalValue{0};
-    vk::Semaphore mainRendererSemaphore{VK_NULL_HANDLE};
-    uint64_t mainRendererPreviousValue{0};
-
-    auto getCmd = star::command_order::GetPassInfo{m_commandBuffer};
-    m_cmdBus->submit(getCmd);
-
-    std::vector<vk::SemaphoreSubmitInfo> waitInfo;
-
-    const star::command_order::get_pass_info::GatheredPassInfo &ele = getCmd.getReply().get();
-    if (ele.edges != nullptr)
-    {
-        waitInfo.resize(ele.edges->size());
-
-        for (size_t i{0}; i < ele.edges->size(); i++)
-        {
-            const auto &edge = ele.edges->at(i);
-
-            vk::Semaphore semaphore{VK_NULL_HANDLE};
-            uint64_t signalValue{0};
-            if (edge.consumer == m_commandBuffer)
-            {
-                auto nCmd = star::command_order::GetPassInfo{edge.producer};
-                m_cmdBus->submit(nCmd);
-
-                semaphore = nCmd.getReply().get().signaledSemaphore;
-                signalValue = nCmd.getReply().get().toSignalValue;
-            }
-            else
-            {
-                auto nCmd = star::command_order::GetPassInfo{edge.consumer};
-                m_cmdBus->submit(nCmd);
-
-                semaphore = nCmd.getReply().get().signaledSemaphore;
-                signalValue = nCmd.getReply().get().currentSignalValue;
-            }
-
-            waitInfo[i] = vk::SemaphoreSubmitInfo()
-                              .setSemaphore(semaphore)
-                              .setValue(signalValue)
-                              .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
-        }
-    }
-    else
-    {
-        STAR_THROW("Unable to get binary semaphore from offscreen renderer");
-    }
-
-    assert(dataSemaphores.size() == dataWaitPoints.size());
-    for (size_t i{0}; i < dataWaitPoints.size(); i++)
-    {
-        waitInfo.emplace_back(vk::SemaphoreSubmitInfo()
-                                  .setSemaphore(dataSemaphores[i])
-                                  .setStageMask(vk::PipelineStageFlagBits2::eAllCommands));
-    }
-
-    vk::SemaphoreSubmitInfo signalInfo[1];
-    {
-        auto [signalSemaphore, value, currentSignalValue] =
-            GetTimelineSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer);
-
-        signalInfo[0]
-            .setSemaphore(signalSemaphore)
-            .setValue(value)
-            .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
-    }
-
-    const auto submitInfo = vk::SubmitInfo2()
-                                .setPWaitSemaphoreInfos(waitInfo.data())
-                                .setWaitSemaphoreInfoCount(waitInfo.size())
-                                .setCommandBufferInfos(cbInfo)
-                                .setSignalSemaphoreInfos(signalInfo);
-
-    queue.getVulkanQueue().submit2(submitInfo);
+    m_chunkHandler.submitAllChunks(frameTracker, std::move(dataSemaphores), std::move(dataWaitPoints),
+                                   std::move(previousSignaledValues), queue, m_commandBuffer);
 
     return vk::Semaphore();
 }
@@ -419,8 +381,6 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
         std::make_unique<RandomValueTexture>(screensize.width, screensize.height, this->computeQueueFamilyIndex,
                                              context.getDevice().getPhysicalDevice().getProperties()));
 
-    this->workgroupSize = CalculateWorkGroupSize(screensize);
-
     {
         const size_t n = static_cast<size_t>(context.frameTracker().getSetup().getNumFramesInFlight());
         this->computeWriteToImages = createComputeWriteToImages(context, screensize, n);
@@ -464,17 +424,22 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     auto cmd = star::command_order::DeclarePass(m_commandBuffer, this->computeQueueFamilyIndex);
     context.begin().set(cmd).submit();
 
-    for (size_t i = 0; i < static_cast<size_t>(context.frameTracker().getSetup().getNumFramesInFlight()); i++)
+    const size_t nf = static_cast<size_t>(context.frameTracker().getSetup().getNumFramesInFlight());
+    for (size_t i = 0; i < nf; i++)
     {
         auto &ch = m_offscreenRenderer->getRenderToColorImages()[i];
         m_renderingContext.recordDependentImage.manualInsert(ch, &context.getImageManager().get(ch)->texture);
         auto &dh = m_offscreenRenderer->getRenderToDepthImages()[i];
         m_renderingContext.recordDependentImage.manualInsert(dh, &context.getImageManager().get(dh)->texture);
     }
+
+    m_chunkHandler.prepRender(context, m_commandBuffer, isReady);
 }
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
 {
+    m_chunkHandler.cleanupRender(context);
+
     m_distanceComputer.cleanupRender(context);
 
     m_staticShaderInfo->cleanupRender(context.getDevice());
@@ -577,14 +542,6 @@ void VolumeRenderer::updateRenderingContext(star::core::device::DeviceContext &c
     }
 }
 
-glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize)
-{
-    const uint32_t width = static_cast<uint32_t>(std::ceil(static_cast<float>(screenSize.width) / 8.0f));
-    const uint32_t height = static_cast<uint32_t>(std::ceil(static_cast<float>(screenSize.height) / 8.0f));
-
-    return glm::uvec2{width, height};
-}
-
 std::vector<std::shared_ptr<star::StarTextures::Texture>> VolumeRenderer::createComputeWriteToImages(
     star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate) const
 {
@@ -683,282 +640,4 @@ std::vector<star::StarBuffers::Buffer> VolumeRenderer::createComputeWriteToBuffe
     }
 
     return buffers;
-}
-
-void VolumeRenderer::addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
-                                                 const bool getBuffersBackFromTransfer) const
-{
-    star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(
-        m_offscreenRenderer->getRenderToColorImages()[ft.getCurrent().getFrameInFlightIndex()]);
-    star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(
-        m_offscreenRenderer->getRenderToDepthImages()[ft.getCurrent().getFrameInFlightIndex()]);
-
-    const bool diffQueues = this->computeQueueFamilyIndex != this->graphicsQueueFamilyIndex;
-
-    vk::ImageMemoryBarrier2 imageBarriers[3];
-    uint8_t barrierCountImage{3};
-
-    imageBarriers[0]
-        .setImage(colorTex->getVulkanImage())
-        .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
-        .setNewLayout(vk::ImageLayout::eGeneral)
-        .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
-        .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-        .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-        .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-        .setSrcQueueFamilyIndex(diffQueues ? this->graphicsQueueFamilyIndex : vk::QueueFamilyIgnored)
-        .setDstQueueFamilyIndex(diffQueues ? this->computeQueueFamilyIndex : vk::QueueFamilyIgnored)
-        .setSubresourceRange(vk::ImageSubresourceRange()
-                                 .setBaseMipLevel(0)
-                                 .setLevelCount(1)
-                                 .setBaseArrayLayer(0)
-                                 .setLayerCount(1)
-                                 .setAspectMask(vk::ImageAspectFlagBits::eColor));
-
-    imageBarriers[1]
-        .setImage(depthTex->getVulkanImage())
-        .setOldLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-        .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-        .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
-        .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-        .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-        .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-        .setSrcQueueFamilyIndex(diffQueues ? this->graphicsQueueFamilyIndex : vk::QueueFamilyIgnored)
-        .setDstQueueFamilyIndex(diffQueues ? this->computeQueueFamilyIndex : vk::QueueFamilyIgnored)
-        .setSubresourceRange(vk::ImageSubresourceRange()
-                                 .setBaseMipLevel(0)
-                                 .setLevelCount(1)
-                                 .setBaseArrayLayer(0)
-                                 .setLayerCount(1)
-                                 .setAspectMask(vk::ImageAspectFlagBits::eDepth));
-
-    if (ft.getCurrent().getNumTimesFrameProcessed() == 0)
-    {
-        imageBarriers[2]
-            .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
-            .setOldLayout(vk::ImageLayout::eUndefined)
-            .setNewLayout(vk::ImageLayout::eGeneral)
-            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1));
-    }
-    else
-    {
-        imageBarriers[2]
-            .setImage(this->computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
-            .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setNewLayout(vk::ImageLayout::eGeneral)
-            .setSrcQueueFamilyIndex(this->graphicsQueueFamilyIndex)
-            .setDstQueueFamilyIndex(this->computeQueueFamilyIndex)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1));
-    }
-
-    vk::BufferMemoryBarrier2 bufferBarriers[4];
-    uint32_t count{0};
-    if (getBuffersBackFromTransfer)
-    {
-        auto transferBarriers = getBufferBarriersFromTransferQueues(ft);
-        bufferBarriers[0] = std::move(transferBarriers[0]);
-        bufferBarriers[1] = std::move(transferBarriers[1]);
-        count = 2;
-    }
-
-    if (m_infoManagerGlobalCamera->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
-                                                          ft.getCurrent().getFrameInFlightIndex()))
-    {
-        auto buffer = m_renderingContext.bufferTransferRecords.get(
-            m_infoManagerGlobalCamera->getHandle(ft.getCurrent().getFrameInFlightIndex()));
-        bufferBarriers[count]
-            .setBuffer(std::move(buffer))
-            .setSize(vk::WholeSize)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eTransfer)
-            .setSrcAccessMask(vk::AccessFlagBits2::eTransferWrite)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored);
-        count++;
-    }
-
-    if (m_fogController.willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
-                                               ft.getCurrent().getFrameInFlightIndex()))
-    {
-        auto buffer = m_renderingContext.bufferTransferRecords.get(
-            m_fogController.getHandle(ft.getCurrent().getFrameInFlightIndex()));
-        bufferBarriers[count]
-            .setBuffer(std::move(buffer))
-            .setSize(vk::WholeSize)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored);
-        count++;
-    }
-
-    cmdBuff.pipelineBarrier2(vk::DependencyInfo()
-                                 .setPImageMemoryBarriers(imageBarriers)
-                                 .setImageMemoryBarrierCount(barrierCountImage)
-                                 .setPBufferMemoryBarriers(bufferBarriers)
-                                 .setBufferMemoryBarrierCount(count));
-}
-
-inline static vk::BufferMemoryBarrier2 CreatePreBufferMemoryBarrier(const uint32_t &srcQueue, const uint32_t &dstQueue,
-                                                                    vk::Buffer buffer) noexcept
-{
-    return vk::BufferMemoryBarrier2()
-        .setBuffer(buffer)
-        .setSize(vk::WholeSize)
-        .setSrcStageMask(vk::PipelineStageFlagBits2::eTopOfPipe)
-        .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-        .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-        .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
-        .setSrcQueueFamilyIndex(srcQueue)
-        .setDstQueueFamilyIndex(dstQueue);
-}
-
-inline static vk::BufferMemoryBarrier2 CreatePostBufferMemoryBarrier(uint32_t srcQueue, uint32_t dstQueue,
-                                                                     vk::Buffer buffer)
-{
-    return vk::BufferMemoryBarrier2()
-        .setBuffer(buffer)
-        .setSize(vk::WholeSize)
-        .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-        .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
-        .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-        .setDstAccessMask(vk::AccessFlagBits2::eNone)
-        .setSrcQueueFamilyIndex(std::move(srcQueue))
-        .setDstQueueFamilyIndex(std::move(dstQueue));
-}
-
-std::array<vk::BufferMemoryBarrier2, 2> VolumeRenderer::getBufferBarriersFromTransferQueues(
-    const star::common::FrameTracker &ft) const
-{
-    const bool diffQueues = this->computeQueueFamilyIndex != this->transferQueueFamilyIndex;
-    const uint32_t srcI = diffQueues ? this->transferQueueFamilyIndex : vk::QueueFamilyIgnored;
-    const uint32_t dstI = diffQueues ? this->computeQueueFamilyIndex : vk::QueueFamilyIgnored;
-    return {
-        CreatePreBufferMemoryBarrier(
-            srcI, dstI,
-            this->computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer()),
-        CreatePreBufferMemoryBarrier(
-            srcI, dstI, this->computeRayDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer())};
-}
-
-std::array<vk::BufferMemoryBarrier2, 2> VolumeRenderer::getBufferBarriersToTransferQueues(
-    const star::common::FrameTracker &ft) const
-{
-    const bool diffQueues = this->computeQueueFamilyIndex != this->transferQueueFamilyIndex;
-
-    const uint32_t srcI = diffQueues ? this->computeQueueFamilyIndex : vk::QueueFamilyIgnored;
-    const uint32_t dstI = diffQueues ? this->transferQueueFamilyIndex : vk::QueueFamilyIgnored;
-    return {CreatePostBufferMemoryBarrier(
-                srcI, dstI, this->computeRayDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer()),
-            CreatePostBufferMemoryBarrier(
-                srcI, dstI,
-                this->computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer())};
-}
-
-void VolumeRenderer::addPostComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
-                                                  const bool giveBuffersToTransfer) const
-{
-    star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(
-        m_offscreenRenderer->getRenderToColorImages()[ft.getCurrent().getFrameInFlightIndex()]);
-    star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(
-        m_offscreenRenderer->getRenderToDepthImages()[ft.getCurrent().getFrameInFlightIndex()]);
-
-    const bool diffQueues = this->computeQueueFamilyIndex != this->graphicsQueueFamilyIndex;
-    vk::ImageMemoryBarrier2 imageBarriers[3];
-    uint8_t barrierCountImage{0};
-
-    // give render to image back to graphics queue
-    if (diffQueues)
-    {
-        imageBarriers[0]
-            .setImage(colorTex->getVulkanImage())
-            .setOldLayout(vk::ImageLayout::eGeneral)
-            .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setDstAccessMask(vk::AccessFlagBits2::eNone)
-            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
-            .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1));
-        imageBarriers[1]
-            .setImage(depthTex->getVulkanImage())
-            .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setDstAccessMask(vk::AccessFlagBits2::eNone)
-            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
-            .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eDepth)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1));
-        imageBarriers[2]
-            .setImage(computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage())
-            .setOldLayout(vk::ImageLayout::eGeneral)
-            .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
-            .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setDstAccessMask(vk::AccessFlagBits2::eNone)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(vk::RemainingMipLevels)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(vk::RemainingArrayLayers));
-
-        barrierCountImage = 3;
-    };
-
-    vk::BufferMemoryBarrier2 bufferBarriers[5];
-    uint8_t barrierCountBuffer{0};
-    if (giveBuffersToTransfer)
-    {
-        auto transferBarriers = getBufferBarriersToTransferQueues(ft);
-        bufferBarriers[0] = transferBarriers[0];
-        bufferBarriers[1] = transferBarriers[1];
-        barrierCountBuffer = 2;
-    }
-
-    auto dependencyInfo = vk::DependencyInfo()
-                              .setPImageMemoryBarriers(imageBarriers)
-                              .setImageMemoryBarrierCount(barrierCountImage)
-                              .setPBufferMemoryBarriers(bufferBarriers)
-                              .setBufferMemoryBarrierCount(barrierCountBuffer);
-    cmdBuff.pipelineBarrier2(dependencyInfo);
 }

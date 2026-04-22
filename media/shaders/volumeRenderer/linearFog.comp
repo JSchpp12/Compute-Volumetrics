@@ -3,6 +3,9 @@
 const float PI = 3.1415926535897932384626433832795;
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(push_constant) uniform PushConstants{
+    uvec2 tileOffset; 
+} dispatchInfo; 
 struct Light_Type
 {
     uint point;
@@ -141,12 +144,12 @@ vec4 getWorldOrigin(){
     return vec4((globalUbo.invView * vec4(0.0, 0.0, 0.0, 1.0)).xyz, 1.0);
 }
 
-
-ivec2 getTargetPixelCoords(){
-    return ivec2(
-        (gl_LocalInvocationID.x) + ((gl_WorkGroupID.x) * 8),
-        (gl_LocalInvocationID.y) + ((gl_WorkGroupID.y) * 8)
-    );
+uvec2 getTargetPixel()
+{
+    uvec2 gid = gl_GlobalInvocationID.xy;
+    gid.x += dispatchInfo.tileOffset.x; 
+    gid.y += dispatchInfo.tileOffset.y; 
+    return gid;
 }
 
 float linearizeDepth(const float depth, const float camNearClipDist, const float camFarClipDist)
@@ -178,7 +181,7 @@ float calcFogAmt(const float depth, const float fogNearDist, const float fogFarD
 
 bool checkForThreadOutsideOfTarget(){
 	ivec2 imageSize = imageSize(inputSceneColor);
-	uvec2 coords = gl_GlobalInvocationID.xy; 
+	uvec2 coords = getTargetPixel();
 	if (coords.x > imageSize.x || coords.y > imageSize.y ){
 		return false;
 	}
@@ -190,7 +193,7 @@ void main(){
 	if (!checkForThreadOutsideOfTarget())
 		return; 
 		
-    const ivec2 targetPixel = getTargetPixelCoords(); 
+    const ivec2 targetPixel = ivec2(getTargetPixel()); 
     float targetPixelInputDepth = texelFetch(inputSceneDepth, targetPixel, 0).r;
 
     const vec4 clipSpace = getClipSpaceCoordsFromPixel(targetPixel, targetPixelInputDepth); 

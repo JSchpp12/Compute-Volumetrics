@@ -331,20 +331,6 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToImages
                                                       .setBaseMipLevel(0)
                                                       .setLevelCount(1)));
 
-    // if (colorFormat != vk::Format::eR8G8B8A8Unorm){
-    //     builder.addViewInfo(
-    //         vk::ImageViewCreateInfo()
-    //             .setViewType(vk::ImageViewType::e2D)
-    //             .setFormat(vk::Format::eR8G8B8A8Unorm)
-    //             .setSubresourceRange(vk::ImageSubresourceRange()
-    //                 .setAspectMask(vk::ImageAspectFlagBits::eColor)
-    //                 .setBaseArrayLayer(0)
-    //                 .setLayerCount(1)
-    //                 .setBaseMipLevel(0)
-    //                 .setLevelCount(1))
-    //     );
-    // }
-
     auto *queue = star::core::helper::GetEngineDefaultQueue(
         device.getEventBus(), device.getGraphicsManagers().queueManager, star::Queue_Type::Tgraphics);
     assert(queue != nullptr);

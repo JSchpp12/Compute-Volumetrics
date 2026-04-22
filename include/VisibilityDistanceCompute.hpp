@@ -27,6 +27,20 @@ class VisibilityDistanceCompute
 
     bool isReady(const star::core::device::DeviceContext &context);
 
+    vk::Pipeline getPipeline() const
+    {
+        return m_marchedPipeline.vkPipeline;
+    }
+    vk::PipelineLayout getLayout() const
+    {
+        return m_marchedPipeline.vkLayout;
+    }
+
+    star::StarShaderInfo *getDynamicShaderInfo()
+    {
+        return m_dynamicShaderInfo.get();
+    }
+
   private:
     struct PipelineData
     {

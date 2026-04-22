@@ -11,6 +11,8 @@
 #include "VisibilityDistanceCompute.hpp"
 #include "VolumeDirectoryProcessor.hpp"
 #include "core/renderer/RenderingContext.hpp"
+#include "render_system/fog/commands/Color.hpp"
+#include "render_system/fog/ChunkDispatchGrid.hpp"
 
 #include <star_common/Handle.hpp>
 
@@ -24,6 +26,8 @@
 class VolumeRenderer
 {
   public:
+    friend class render_system::fog::commands::Color;
+
     VolumeRenderer(star::core::device::DeviceContext &context,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceNormalInfo,
@@ -48,6 +52,9 @@ class VolumeRenderer
 
     void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                         const uint64_t &frameIndex);
+
+
+    uint64_t getTimelineSignalValue(const star::common::FrameTracker &frameTracker) const; 
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> &getRenderToImages()
     {
@@ -129,7 +136,6 @@ class VolumeRenderer
     const star::Handle volumeTexture;
     const std::array<glm::vec4, 2> &aabbBounds;
     const std::shared_ptr<star::StarCamera> camera = nullptr;
-    glm::uvec2 workgroupSize = glm::uvec2();
     star::Handle cameraShaderInfo, m_commandBuffer, vdbInfoSDF, vdbInfoFog, randomValueTexture;
     FogInfoController m_fogController;
     std::unique_ptr<star::StarShaderInfo> m_staticShaderInfo{nullptr}, m_dynamicShaderInfo{nullptr};
@@ -145,6 +151,7 @@ class VolumeRenderer
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
     std::vector<star::Handle> m_timelineSemaphores;
     VisibilityDistanceCompute m_distanceComputer;
+    render_system::fog::ChunkDispatchGrid m_chunkHandler; 
 
     Fog::Type currentFogType = Fog::Type::sMarched;
     bool isReady = false;
@@ -153,6 +160,8 @@ class VolumeRenderer
     star::core::CommandBus *m_cmdBus{nullptr};
     star::core::device::manager::Semaphore *m_mgrSemaphore{nullptr};
     vk::Device m_device{VK_NULL_HANDLE};
+
+
 
     vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                                std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
@@ -174,19 +183,11 @@ class VolumeRenderer
 
     void updateRenderingContext(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
 
-    static glm::uvec2 CalculateWorkGroupSize(const vk::Extent2D &screenSize);
-
     std::array<vk::BufferMemoryBarrier2, 2> getBufferBarriersFromTransferQueues(
         const star::common::FrameTracker &ft) const;
 
     std::array<vk::BufferMemoryBarrier2, 2> getBufferBarriersToTransferQueues(
         const star::common::FrameTracker &ft) const;
-
-    void addPreComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
-                                     const bool getBuffersBackFromTransfer) const;
-
-    void addPostComputeMemoryBarriers(vk::CommandBuffer &cmdBuff, const star::common::FrameTracker &ft,
-                                      const bool giveBuffersToTransfer) const;
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> createComputeWriteToImages(
         star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate) const;

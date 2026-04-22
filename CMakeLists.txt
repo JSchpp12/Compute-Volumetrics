@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.0.2
+	VERSION 1.0.4
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -85,10 +85,20 @@ set(${PROJECT_NAME}_SOURCES
 	"src/renderer/volume/ContainerRenderResourceData.cpp"
 	"src/renderer/volume/DescriptorBuilder.cpp"
 	"src/renderer/VolumeRenderer.cpp"
+	"src/render_system/fog/sync/SyncProvider.cpp"
+	"src/render_system/fog/sync/wait/GatherFromCO.cpp"
+	"src/render_system/fog/commands/Color.cpp"
+	"src/render_system/fog/commands/PreMemoryBarrierContributor.cpp"
+	"src/render_system/fog/commands/PreMemoryBarrierDifferentFamilies.cpp"
+	"src/render_system/fog/commands/PostMemoryBarrierContributor.cpp"
+	"src/render_system/fog/commands/PostMemoryBarrierDifferentFamilies.cpp"
+	"src/render_system/fog/commands/FullPass.cpp"
 	"src/renderer/distance/CreatePipelines.cpp"
 	"src/renderer/finalization/FinalizationRenderer.cpp"
 	"src/renderer/finalization/Windowed.cpp"
 	"src/renderer/finalization/Headless.cpp"
+	"src/render_system/fog/commands/Distance.cpp"
+	"src/render_system/fog/commands/ComputeContributor.cpp"
 	"src/VisibilityDistanceCompute.cpp"
 	"src/OffscreenRenderer.cpp"
 	"src/ScreenMaterial.cpp"
@@ -131,7 +141,13 @@ set(${PROJECT_NAME}_SOURCES
 	"src/service/detail/image_metric_manager/FileWriteFunction.cpp"
 	"src/service/detail/image_metric_manager/HostVisibleStorage.cpp"
 	"src/service/detail/image_metric_manager/ImageMetrics.cpp"
-)
+	"src/render_system/FogDispatcher.cpp"
+	"src/render_system/FogDispatcherBuilder.cpp"
+	"src/render_system/fog/sync/signal/CalcFromFt.cpp"
+	"src/render_system/fog/ChunkOrchestrator.cpp"
+	"src/render_system/fog/sync/wait/WaitForPreviousChunk.cpp"
+ 	"src/render_system/fog/sync/wait/WaitForFirstChunk.cpp"
+ "src/render_system/fog/ChunkDispatchGrid.cpp")
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"
