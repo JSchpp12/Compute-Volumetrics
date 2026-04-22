@@ -15,9 +15,17 @@ class ChunkDispatchGrid
     std::array<uint32_t, 2> m_workgroupSize{0, 0};
     std::vector<render_system::fog::ChunkOrchestrator> m_chunkHandlers;
     const star::core::CommandBus *m_cmdBus{nullptr};
-    static constexpr size_t NUM_GRID = 8;
 
     void createChunkHandlers(star::core::device::DeviceContext &ctx, star::Handle &passRegistration, bool &isReady);
+
+    [[nodiscard]] size_t numChunks() const noexcept
+    {
+        return numPatches() * 2;
+    }
+    [[nodiscard]] size_t numPatches() const noexcept
+    {
+        return static_cast<size_t>(m_numChunksPerDimension[0]) * static_cast<size_t>(m_numChunksPerDimension[1]);
+    }
 
   public:
     explicit ChunkDispatchGrid(std::array<uint8_t, 2> numChunksPerDimension)
@@ -39,4 +47,4 @@ class ChunkDispatchGrid
 
     uint64_t getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const;
 };
-} // namespace renderer::fog
+} // namespace render_system::fog
