@@ -1,59 +1,61 @@
 {
-    "numSteps": 10,
-    "initial_camera_height_above_ground": 15,
-    "enabled_fog_types": {
-        "linear": true, 
-        "exponential": false, 
-        "marched_homogenous": false, 
-        "marched": false
-    },
-    "camera_controller_type": "circle",
-      "circle_controller_settings": {
-         "num_camera_positions": 360, 
-         "start_camera_direction": {
-            "x": 1, 
-            "y": 0, 
-            "z": 0
-         }
-    },
-    "startData": {
-        "expFogInfo": {
-            "density": 0.00001
-        },
-        "homogenousInfo": {
-            "maxNumSteps": 256000
-        },
-        "linearInfo": {
-            "farDist": 1000.0,
-            "nearDist": 1.0
-        },
-        "marchedInfo": {
-            "defaultDensity": 0.0001,
-            "lightPropertyDirG": 0.1,
-            "sigmaAbsorption": 0.1,
-            "sigmaScattering": 0.1,
-            "stepSizeDist": 0.3,
-            "stepSizeDist_light": 0.6
-        }
-    },
-    "stopData": {
-        "expFogInfo": {
-            "density": 0.005
-        },
-        "homogenousInfo": {
-            "maxNumSteps": 256000
-        },
-        "linearInfo": {
-            "farDist": 16000.0,
-            "nearDist": 1.0
-        },
-        "marchedInfo": {
-            "defaultDensity": 0.1,
-            "lightPropertyDirG": 0.1,
-            "sigmaAbsorption": 0.1,
-            "sigmaScattering": 0.8,
-            "stepSizeDist": 0.3,
-            "stepSizeDist_light": 0.6
-        }
+  "numSteps": 20,
+  "initial_camera_height_above_ground": 15,
+  "enabled_fog_types": {
+    "linear": true,
+    "exponential": false,
+    "marched_homogenous": false,
+    "marched": false
+  },
+  "camera_controller_type": "circle",
+  "circle_controller_settings": {
+    "num_camera_positions": 3,
+    "start_camera_direction": {
+      "x": 0,
+      "y": 0,
+      "z": 1
     }
+  },
+  "startData": {
+    "expFogInfo": {
+      "density": 0.0002
+    },
+    "homogenousInfo": {
+      "maxNumSteps": 256000
+    },
+    "linearInfo": {
+      "farDist": 100.0,
+      "nearDist": 1.0
+    },
+    "marchedInfo": {
+      "defaultDensity": 0.0001,
+      "lightPropertyDirG": 0.3,
+      "sigmaAbsorption": 0.00001,
+      "sigmaScattering": 0.001,
+      "stepSizeDist": 50,
+      "stepSizeDist_light": 50,
+      "densityMultiplier": 8.0
+    }
+  },
+  "stopData": {
+    "expFogInfo": {
+      "density": 0.005
+    },
+    "homogenousInfo": {
+      "maxNumSteps": 256000
+    },
+    "linearInfo": {
+      "farDist": 25000.0,
+      "nearDist": 1.0
+    },
+    "marchedInfo": {
+      "defaultDensity": 0.0001,
+      "lightPropertyDirG": 0.3,
+      "sigmaAbsorption": 0.00001,
+      "sigmaScattering": 0.1,
+      "stepSizeDist": 50,
+      "stepSizeDist_light": 50,
+      "densityMultiplier": 8.0
+    }
+  }
 }
