@@ -9,9 +9,9 @@
   },
   "camera_controller_type": "circle",
   "circle_controller_settings": {
-    "num_camera_positions": 360,
+    "num_camera_positions": 2,
     "start_camera_direction": {
-      "x": 1,
+      "x": -1,
       "y": 0,
       "z": 0
     }
@@ -33,8 +33,9 @@
       "sigmaAbsorption": 0.00001,
       "sigmaScattering": 0.005,
       "stepSizeDist": 25,
-      "stepSizeDist_light": 30,
-      "densityMultiplier": 1.0
+      "stepSizeDist_light": 25,
+      "densityMultiplier": 1.0,
+      "cutoffValue": 0.95
     }
   },
   "stopData": {
@@ -54,8 +55,9 @@
       "sigmaAbsorption": 0.00001,
       "sigmaScattering": 0.02,
       "stepSizeDist": 25,
-      "stepSizeDist_light": 30,
-      "densityMultiplier": 1.0
+      "stepSizeDist_light": 25,
+      "densityMultiplier": 1.0,
+      "cutoffValue": 0.95
     }
   }
 }

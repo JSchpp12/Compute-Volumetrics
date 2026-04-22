@@ -1,9 +1,11 @@
 #version 450
 
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-layout(push_constant) uniform PushConstants{
-    uvec2 tileOffset; 
-} dispatchInfo; 
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout(push_constant) uniform PushConstants
+{ 
+    uvec2 tileOffset;
+}
+dispatchInfo;
 
 struct Light_Type
 {
@@ -88,6 +90,7 @@ layout(set = 1, binding = 5) uniform FogControllerInfo
     float marchedFog_stepSizeDist;
     float marchedFog_stepSizeDist_light;
     float marchedFog_densityMultiplier;
+    float marchedFog_cutoffValue;
     uint marchedFog_uniform_maxNumSteps;
     uint gridType;
 }
@@ -145,8 +148,8 @@ void writeDistanceInfo(const float d, const ivec2 tPix, const uvec2 cSize)
 uvec2 getTargetPixel()
 {
     uvec2 gid = gl_GlobalInvocationID.xy;
-    gid.x += dispatchInfo.tileOffset.x; 
-    gid.y += dispatchInfo.tileOffset.y; 
+    gid.x += dispatchInfo.tileOffset.x;
+    gid.y += dispatchInfo.tileOffset.y;
     return gid;
 }
 
@@ -177,15 +180,15 @@ void main()
     {
         const float scale = extractUniformVolumeScale(instanceModelMatrix[0]);
 
-        forwardMarch(grid, resultingColor, localRay, t0, t1, inverseModelMatrix,
-                     fogInfo.marchedFog_sigmaAbsorption * scale, fogInfo.marchedFog_sigmaScattering * scale,
-                     fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_stepSizeDist / scale,
-                     fogInfo.marchedFog_stepSizeDist_light / scale, addCamInfo.farClipDist / scale,
-                     imageLoad(randomTexture, targetPixel), fogInfo.marchedFog_defaultDensity,
-                     fogInfo.marchedFog_densityMultiplier, resultingColor, rayDistanceTraveled);
+        forwardMarch(
+            grid, resultingColor, localRay, t0, t1, inverseModelMatrix, fogInfo.marchedFog_sigmaAbsorption * scale,
+            fogInfo.marchedFog_sigmaScattering * scale, fogInfo.marchedFog_lightPropertyDirG,
+            fogInfo.marchedFog_stepSizeDist / scale, fogInfo.marchedFog_stepSizeDist_light / scale,
+            addCamInfo.farClipDist / scale, imageLoad(randomTexture, targetPixel), fogInfo.marchedFog_defaultDensity,
+            fogInfo.marchedFog_densityMultiplier, fogInfo.marchedFog_cutoffValue, resultingColor, rayDistanceTraveled);
 
-        //since march happens in local space, bring back to world
-        rayDistanceTraveled = rayDistanceTraveled * scale; 
+        // since march happens in local space, bring back to world
+        rayDistanceTraveled = rayDistanceTraveled * scale;
     }
     else
     {

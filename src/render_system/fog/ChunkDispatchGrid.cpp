@@ -14,8 +14,8 @@ using namespace render_system::fog::sync;
 
 static std::array<uint32_t, 2> CalculateWorkgroupSize(const vk::Extent2D &screensize)
 {
-    const uint32_t width = static_cast<uint32_t>(std::ceil(static_cast<float>(screensize.width) / 8.0f));
-    const uint32_t height = static_cast<uint32_t>(std::ceil(static_cast<float>(screensize.height) / 8.0f));
+    const uint32_t width = static_cast<uint32_t>(std::ceil(static_cast<float>(screensize.width) / 16.0f));
+    const uint32_t height = static_cast<uint32_t>(std::ceil(static_cast<float>(screensize.height) / 16.0f));
 
     return {width, height};
 }
@@ -121,7 +121,7 @@ void render_system::fog::ChunkDispatchGrid::recordAllChunks(const star::common::
 
     uint32_t halfX = wx / 2;
     uint32_t halfY = wy / 2;
-    DispatchInfo dInfo{.workgroupSize = {patchX, patchY}, .localThreadGroupSize = {8, 8}};
+    DispatchInfo dInfo{.workgroupSize = {patchX, patchY}, .localThreadGroupSize = {16, 16}};
 
     const size_t patches = numPatches();
     // total num passes
@@ -154,7 +154,7 @@ void render_system::fog::ChunkDispatchGrid::submitAllChunks(const star::common::
     if (totalChunks == 0)
         return;
 
-    size_t kChunksPerSubmission = 1;
+    size_t kChunksPerSubmission = 2;
     const size_t numSubmissions = (totalChunks + kChunksPerSubmission - 1) / kChunksPerSubmission;
 
     std::vector<vk::CommandBufferSubmitInfo> chunkCbInfo(totalChunks);
@@ -206,7 +206,6 @@ void render_system::fog::ChunkDispatchGrid::submitAllChunks(const star::common::
             endChunk = totalChunks;
 
         auto &cbBatch = batchedCbInfo[submissionIndex];
-        cbBatch.reserve(endChunk - beginChunk);
         for (size_t chunkIndex{beginChunk}; chunkIndex < endChunk; chunkIndex++)
         {
             cbBatch.push_back(chunkCbInfo[chunkIndex]);

@@ -19,7 +19,7 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                   const float t1, const mat4 inverseModelMatrix, float sigmaAbsorption, float sigmaScattering,
                   float lightPropertyDir_g, float mainStepSize, float lightStepSize, const float cutOffDistance,
                   const vec4 randomValues, const float defaultDensity, const float densityMultiplier,
-                  inout vec3 resultingColor, inout float rayDistanceTraveled)
+                  const float cutoffValue, inout vec3 resultingColor, inout float rayDistanceTraveled)
 {
     Light_Type lChecker = createLightTypeStruct();
 
@@ -45,7 +45,7 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
         const float ds = stepEnd - stepStart;
         const float t = mix(stepStart, stepEnd, randomValues.r);
 
-        if (transparency < 0.05)
+        if (transparency < 0.9)
         {
             transparency = 0.00;
             break;

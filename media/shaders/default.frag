@@ -127,28 +127,24 @@ void main() {
 						//Directional light 
 						directionToLight = normalize(-lights[i].direction.xyz); 
 					}else {
-						directionToLight = lights[i].position.xyz - inFragPositionWorld.xyz; 
+						directionToLight = normalize(lights[i].position.xyz - inFragPositionWorld.xyz); 
 					}
 					
 					//distance of direction vector squared
 					float attenuation = 1.0 / dot(directionToLight, directionToLight);	
 
 					//apply ambient light (no attenuation for ambient sources)
-					ambientLight += !isDirectional ? (lights[i].ambient.xyz * lights[i].ambient.w) * attenuation : lights[i].ambient.xyz * lights[i].ambient.w; 
-
-					//need to normalize this after the attenuation calculation 
-					directionToLight = normalize(directionToLight); 
+					ambientLight += lights[i].ambient.xyz * lights[i].ambient.w ;
 
 					//calculate cosine value of difference between fragment vec to light and light direction
-					float theta = dot(directionToLight, normalize(-lights[i].direction.xyz)); 
+					float theta = max(dot(surfaceNormal, normalize(directionToLight)), 0.0); 
 					float epsilon = lights[i].controls.x - lights[i].controls.y;						//inner cutoff - outer cutoff
 					float spotIntensity = clamp((theta - lights[i].controls.y) / epsilon, 0.0, 1.0);	//want to keep intensity between 0 and 1 
 
 					//apply lighting calculations 
-					float cosAngleIncidence = max(dot(surfaceNormal, directionToLight), 0);
 					vec3 lightColor = (lights[i].diffuse.xyz * lights[i].diffuse.w) * attenuation;
 
-					rawDiffuse = lightColor * cosAngleIncidence; 
+					rawDiffuse = lightColor * theta; 
 					//apply attenuation to light sources that are not directional
 					if (!isDirectional)
 						rawDiffuse *= attenuation; 
@@ -157,7 +153,7 @@ void main() {
 					vec3 halfAngle = normalize(directionToLight + viewDirection); 
 					float blinnTerm = dot(surfaceNormal, halfAngle); 
 					blinnTerm = clamp(blinnTerm, 0, 1);	
-					blinnTerm = cosAngleIncidence != 0.0 ? blinnTerm : 0; 
+					blinnTerm = theta != 0.0 ? blinnTerm : 0; 
 					//apply arbitrary power "s" -- high values results in sharper highlight
 					blinnTerm = pow(blinnTerm, inFragMatShininess); 
 
