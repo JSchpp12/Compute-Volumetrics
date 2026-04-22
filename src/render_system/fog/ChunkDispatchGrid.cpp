@@ -151,9 +151,12 @@ void render_system::fog::ChunkDispatchGrid::submitAllChunks(const star::common::
                                                             star::StarQueue &queue, const star::Handle &registration)
 {
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
-    vk::CommandBufferSubmitInfo cbInfo[8]{};
-    WaitInfo chunkWaitInfos[8]{};
-    vk::SemaphoreSubmitInfo chunkSignalInfos[8]{};
+    std::vector<vk::CommandBufferSubmitInfo> cbInfo;
+    cbInfo.resize(m_chunkHandlers.size());
+    std::vector<WaitInfo> chunkWaitInfos;
+    chunkWaitInfos.resize(m_chunkHandlers.size());
+    std::vector<vk::SemaphoreSubmitInfo> chunkSignalInfos;
+    chunkSignalInfos.resize(m_chunkHandlers.size());
 
     {
         auto gCmd = star::command_order::GetPassInfo{registration};
