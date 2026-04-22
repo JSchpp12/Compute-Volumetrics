@@ -45,7 +45,7 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
         const float ds = stepEnd - stepStart;
         const float t = mix(stepStart, stepEnd, randomValues.r);
 
-        if (transparency < 0.9)
+        if (transparency < cutoffValue)
         {
             transparency = 0.00;
             break;
