@@ -36,8 +36,9 @@ static FogInfo::MarchedFogInfo CalcSteps(const FogInfo::MarchedFogInfo &start, c
             util::CalcDiff(start.getSigmaScattering(), stop.getSigmaScattering()),
             util::CalcDiff(start.getLightPropertyDirG(), stop.getLightPropertyDirG()),
             util::CalcDiff(start.stepSizeDist, stop.stepSizeDist),
-            util::CalcDiff(start.stepSizeDist_light, stop.stepSizeDist_light), 
-            util::CalcDiff(start.getDensityMultiplier(), stop.getDensityMultiplier())};
+            util::CalcDiff(start.stepSizeDist_light, stop.stepSizeDist_light),
+            util::CalcDiff(start.getDensityMultiplier(), stop.getDensityMultiplier()),
+            util::CalcDiff(start.getCutoffValue(), stop.getCutoffValue())};
 }
 
 static FogInfo::HomogenousRendering CalcSteps(const FogInfo::HomogenousRendering &start,

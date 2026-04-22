@@ -21,7 +21,7 @@ void render_system::fog::ChunkOrchestrator::recordCommands(const DispatchInfo &d
                                                            const star::common::FrameTracker &ft, Fog::Type type)
 {
     const size_t fi = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
-    assert(m_cmdBuf.buffer(0));
+    assert(m_cmdBuf.buffer(ft.getCurrent().getFrameInFlightIndex()));
 
     // need to wait for last submission to finish before calling begin
 

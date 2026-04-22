@@ -68,13 +68,13 @@ void render_system::fog::ChunkDispatchGrid::createChunkHandlers(star::core::devi
     {
         FullPass fp = i % 2 == 0 ? FullPass{ComputeContributor{Color{}}} : FullPass{ComputeContributor{Distance{}}};
 
-        m_chunkHandlers[i] = ChunkOrchestrator{
-            star::StarCommandBuffer{ctx.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
-                                    star::Queue_Type::Tcompute, false, false},
-            std::move(fp),
-            SyncProvider{signal::CalcFromFt(i, total, &ctx.frameTracker()),
-                         wait::WaitForPreviousChunk(i, total, &ctx.frameTracker())},
-            &isReady};
+        m_chunkHandlers[i] =
+            ChunkOrchestrator{star::StarCommandBuffer{ctx.getDevice().getVulkanDevice(), static_cast<int>(nf),
+                                                      &queueInfo->pool, star::Queue_Type::Tcompute, false, false},
+                              std::move(fp),
+                              SyncProvider{signal::CalcFromFt(i, total, &ctx.frameTracker()),
+                                           wait::WaitForFirstChunk(total, &ctx.frameTracker())},
+                              &isReady};
     }
 
     m_chunkHandlers[total - 1] = render_system::fog::ChunkOrchestrator{
@@ -110,8 +110,8 @@ void render_system::fog::ChunkDispatchGrid::cleanupRender(star::core::device::De
 void render_system::fog::ChunkDispatchGrid::recordAllChunks(const star::common::FrameTracker &ft, const PassInfo &pInfo,
                                                             const PassPipelineInfo &pipeInfo, Fog::Type type)
 {
-    const uint8_t wx = m_workgroupSize[0];
-    const uint8_t wy = m_workgroupSize[1];
+    const uint32_t wx = m_workgroupSize[0];
+    const uint32_t wy = m_workgroupSize[1];
 
     const uint32_t nx = static_cast<uint32_t>(m_numChunksPerDimension[0]);
     const uint32_t ny = static_cast<uint32_t>(m_numChunksPerDimension[1]);
@@ -135,7 +135,7 @@ void render_system::fog::ChunkDispatchGrid::recordAllChunks(const star::common::
         dInfo.chunkOffsetPixels[0] = dInfo.chunkOffset[0] * dInfo.localThreadGroupSize[0];
         dInfo.chunkOffsetPixels[1] = dInfo.chunkOffset[1] * dInfo.localThreadGroupSize[1];
 
-        const size_t baseI = i * 2; 
+         const size_t baseI = i * 2;
         // cmds per pass
         for (size_t j{baseI}; j < (baseI) + 2; j++)
         {
@@ -150,79 +150,89 @@ void render_system::fog::ChunkDispatchGrid::submitAllChunks(const star::common::
                                                             std::vector<std::optional<uint64_t>> previousSignaledValues,
                                                             star::StarQueue &queue, const star::Handle &registration)
 {
-    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
-    std::vector<vk::CommandBufferSubmitInfo> cbInfo;
-    cbInfo.resize(m_chunkHandlers.size());
-    std::vector<WaitInfo> chunkWaitInfos;
-    chunkWaitInfos.resize(m_chunkHandlers.size());
-    std::vector<vk::SemaphoreSubmitInfo> chunkSignalInfos;
-    chunkSignalInfos.resize(m_chunkHandlers.size());
+    const size_t totalChunks = m_chunkHandlers.size();
+    if (totalChunks == 0)
+        return;
+
+    size_t kChunksPerSubmission = 1;
+    const size_t numSubmissions = (totalChunks + kChunksPerSubmission - 1) / kChunksPerSubmission;
+
+    std::vector<vk::CommandBufferSubmitInfo> chunkCbInfo(totalChunks);
+    WaitInfo firstSubmissionWaitInfo{};
+    vk::SemaphoreSubmitInfo lastSubmissionSignalInfo{};
 
     {
         auto gCmd = star::command_order::GetPassInfo{registration};
         m_cmdBus->submit(gCmd);
         const auto workingSemaphore = gCmd.getReply().get().signaledSemaphore;
-        for (size_t i{0}; i < m_chunkHandlers.size(); i++)
+
+        for (size_t i{0}; i < totalChunks; i++)
         {
-            cbInfo[i] = m_chunkHandlers[i].getSubmitInfo(ft);
-
-            chunkWaitInfos[i] = m_chunkHandlers[i].getWaitInfo(ft);
-            // inject whole volume system semaphore to wait infos missing one
-            // assuming that these are the approaches which are waiting on a previous
-            // chunk to complete its work
-            for (size_t j = 0; j < chunkWaitInfos[i].count; j++)
-            {
-                if (!chunkWaitInfos[i].info[j].semaphore)
-                    chunkWaitInfos[i].info[j].semaphore = workingSemaphore;
-            }
-
-            chunkSignalInfos[i] = m_chunkHandlers[i].getSignalInfo(ft);
-            chunkSignalInfos[i].setSemaphore(workingSemaphore);
+            chunkCbInfo[i] = m_chunkHandlers[i].getSubmitInfo(ft);
         }
+
+        firstSubmissionWaitInfo = m_chunkHandlers.front().getWaitInfo(ft);
+        lastSubmissionSignalInfo = m_chunkHandlers.back().getSignalInfo(ft);
+        lastSubmissionSignalInfo.setSemaphore(workingSemaphore);
     }
 
     assert(dataSemaphores.size() == dataWaitPoints.size());
-    assert(dataWaitPoints.size() + chunkWaitInfos[0].count < 5 &&
+    assert(dataWaitPoints.size() + firstSubmissionWaitInfo.count < 5 &&
            "Current implementation of wait info container only allows 5");
 
     for (size_t i{0}; i < dataWaitPoints.size(); i++)
     {
-        auto &w = chunkWaitInfos[0];
-        w.info[w.count] = vk::SemaphoreSubmitInfo()
-                              .setSemaphore(dataSemaphores[i])
-                              .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
+        auto waitInfo = vk::SemaphoreSubmitInfo()
+                            .setSemaphore(dataSemaphores[i])
+                            .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
 
+        if (i < previousSignaledValues.size() && previousSignaledValues[i].has_value())
+            waitInfo.setValue(previousSignaledValues[i].value());
+
+        auto &w = firstSubmissionWaitInfo;
+        w.info[w.count] = waitInfo;
         w.count++;
     }
 
+    std::vector<std::vector<vk::CommandBufferSubmitInfo>> batchedCbInfo(numSubmissions);
+    std::vector<std::array<vk::SemaphoreSubmitInfo, 5>> batchedWaitInfo(numSubmissions);
+    std::vector<vk::SubmitInfo2> submitInfo(numSubmissions);
+
+    for (size_t submissionIndex{0}; submissionIndex < numSubmissions; submissionIndex++)
     {
-        std::vector<std::array<vk::SemaphoreSubmitInfo, 5>> waitInfo;
-        waitInfo.resize(m_chunkHandlers.size());
-        std::vector<uint32_t> waitInfoCount;
-        waitInfoCount.resize(m_chunkHandlers.size());
-        std::vector<vk::SubmitInfo2> submitInfo;
-        submitInfo.resize(m_chunkHandlers.size());
+        const size_t beginChunk = submissionIndex * kChunksPerSubmission;
+        size_t endChunk = beginChunk + kChunksPerSubmission;
+        if (endChunk > totalChunks)
+            endChunk = totalChunks;
 
-        for (int i{0}; i < m_chunkHandlers.size(); i++)
+        auto &cbBatch = batchedCbInfo[submissionIndex];
+        cbBatch.reserve(endChunk - beginChunk);
+        for (size_t chunkIndex{beginChunk}; chunkIndex < endChunk; chunkIndex++)
         {
-            // process wait infos
-            for (int j{0}; j < 5; j++)
-            {
-                if (j < chunkWaitInfos[i].count)
-                    waitInfo[i][j] = std::move(chunkWaitInfos[i].info[j]);
-            }
-
-            submitInfo[i]
-                .setPSignalSemaphoreInfos(&chunkSignalInfos[i])
-                .setSignalSemaphoreInfoCount(1)
-                .setPCommandBufferInfos(&cbInfo[i])
-                .setCommandBufferInfoCount(1)
-                .setPWaitSemaphoreInfos(waitInfo[i].data())
-                .setWaitSemaphoreInfoCount(chunkWaitInfos[i].count);
+            cbBatch.push_back(chunkCbInfo[chunkIndex]);
         }
 
-        queue.getVulkanQueue().submit2(submitInfo);
+        auto &submit = submitInfo[submissionIndex];
+        submit.setPCommandBufferInfos(cbBatch.data()).setCommandBufferInfoCount(static_cast<uint32_t>(cbBatch.size()));
+
+        if (submissionIndex == 0)
+        {
+            for (size_t waitIndex{0}; waitIndex < firstSubmissionWaitInfo.count; waitIndex++)
+            {
+                batchedWaitInfo[submissionIndex][waitIndex] = firstSubmissionWaitInfo.info[waitIndex];
+            }
+
+            submit.setPWaitSemaphoreInfos(batchedWaitInfo[submissionIndex].data())
+                .setWaitSemaphoreInfoCount(firstSubmissionWaitInfo.count);
+        }
+
+        if (submissionIndex == numSubmissions - 1)
+        {
+            submit.setPSignalSemaphoreInfos(&lastSubmissionSignalInfo).setSignalSemaphoreInfoCount(1);
+        }
     }
+
+    queue.getVulkanQueue().submit2(submitInfo);
 }
 
 uint64_t render_system::fog::ChunkDispatchGrid::getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const
