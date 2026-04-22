@@ -72,8 +72,8 @@ void render_system::fog::ChunkDispatchGrid::createChunkHandlers(star::core::devi
             star::StarCommandBuffer{ctx.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
                                     star::Queue_Type::Tcompute, false, false},
             std::move(fp),
-            SyncProvider{signal::CalcFromFt(static_cast<uint8_t>(i), total, &ctx.frameTracker()),
-                         wait::WaitForPreviousChunk(static_cast<uint8_t>(i), total, &ctx.frameTracker())},
+            SyncProvider{signal::CalcFromFt(i, total, &ctx.frameTracker()),
+                         wait::WaitForPreviousChunk(i, total, &ctx.frameTracker())},
             &isReady};
     }
 

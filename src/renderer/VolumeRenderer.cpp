@@ -108,7 +108,7 @@ VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
       m_infoManagerGlobalCamera(globalInfoBuffers), m_infoManagerSceneLightInfo(sceneLightInfoBuffers),
       m_infoManagerSceneLightList(sceneLightList), m_offscreenRenderer(offscreenRenderer),
       m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(),
-      m_distanceComputer(), m_chunkHandler({2, 2})
+      m_distanceComputer(), m_chunkHandler({32,32})
 {
 }
 
