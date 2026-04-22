@@ -11,10 +11,7 @@
 #include "VolumeDirectoryProcessor.hpp"
 #include "core/device/managers/DescriptorPool.hpp"
 #include "event/EnginePhaseComplete.hpp"
-#include "render_system/fog/commands/Distance.hpp"
-#include "render_system/fog/commands/FullPass.hpp"
-#include "render_system/fog/commands/PostMemoryBarrierDifferentFamilies.hpp"
-#include "render_system/fog/commands/PreMemoryBarrierDifferentFamilies.hpp"
+
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "renderer/volume/DescriptorBuilder.hpp"
 #include "starlight/core/waiter/one_shot/CreateDescriptorsOnEventPolicy.hpp"
@@ -25,10 +22,6 @@
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
 #include <star_common/HandleTypeRegistry.hpp>
-
-using namespace render_system::fog;
-using namespace render_system::fog::commands;
-using namespace render_system::fog::sync;
 
 static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus,
                                                   const star::common::FrameTracker &ft) noexcept
@@ -115,7 +108,7 @@ VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
       m_infoManagerGlobalCamera(globalInfoBuffers), m_infoManagerSceneLightInfo(sceneLightInfoBuffers),
       m_infoManagerSceneLightList(sceneLightList), m_offscreenRenderer(offscreenRenderer),
       m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(),
-      m_distanceComputer()
+      m_distanceComputer(), m_chunkHandler({2, 2})
 {
 }
 
@@ -262,59 +255,46 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
         .transferWillBeRunThisFrame = tNeighbor != nullptr ? tNeighbor->isTriggeredThisFrame : false};
 
     render_system::fog::PassPipelineInfo pipeInfo{
-        .pipelineLayout = *this->computePipelineLayout,
+        .colorPipe = {.layout = *this->computePipelineLayout,
+                      .pipeline = m_renderingContext.pipeline->getVulkanPipeline()},
+        .distancePipe = {.layout = m_distanceComputer.getLayout(), .pipeline = m_distanceComputer.getPipeline()},
         .staticShaderInfo = this->m_staticShaderInfo.get(),
-    };
+        .colorOnlyShaderInfo = this->m_dynamicShaderInfo.get(),
+        .distanceOnlyShaderInfo = m_distanceComputer.getDynamicShaderInfo()};
 
     vk::Semaphore workingSemaphore{VK_NULL_HANDLE};
-    uint64_t previousSignaledValue{0};
     {
+        uint64_t previousSignaledValue{0};
         auto gCmd = star::command_order::GetPassInfo{m_commandBuffer};
         m_cmdBus->submit(gCmd);
         const auto &r = gCmd.getReply().get();
         workingSemaphore = r.signaledSemaphore;
         previousSignaledValue = r.currentSignalValue;
-    }
 
-    uint32_t xoffset{0};
-    DispatchInfo dInfo{.workgroupSize = {this->workgroupSize.x / 2, this->workgroupSize.y},
-                       .localThreadGroupSize = {8, 8}};
-    // total num passes
-    for (size_t i{0}; i < 2; i++)
-    {
-        dInfo.chunkOffset[0] = xoffset;
-        dInfo.chunkOffsetPixels[0] = xoffset * dInfo.localThreadGroupSize[0];
+        auto wait = vk::SemaphoreWaitInfo()
+                        .setSemaphoreCount(1)
+                        .setPSemaphores(&workingSemaphore)
+                        .setPValues(&previousSignaledValue)
+                        .setSemaphoreCount(1);
 
-        // cmds per pass
-        for (size_t j{i * 2}; j < (i * 2) + 2; j++)
+        try
         {
-            auto wait = vk::SemaphoreWaitInfo()
-                            .setSemaphoreCount(1)
-                            .setPSemaphores(&workingSemaphore)
-                            .setPValues(&previousSignaledValue)
-                            .setSemaphoreCount(1);
-
-            try
-            {
-                const auto waitResult = m_device.waitSemaphores(wait, UINT64_MAX);
-            }
-            catch (const std::runtime_error &e)
-            {
-                std::ostringstream oss; 
-                oss << "Failed to wait for seamphores with error: " << e.what(); 
-                STAR_THROW(oss.str());
-            }
-            
-            m_chunkHandlers[j].recordCommands(dInfo, tInfo, pipeInfo, ft, currentFogType);
+            const auto waitResult = m_device.waitSemaphores(wait, UINT64_MAX);
         }
-        xoffset += this->workgroupSize.x / 2;
+        catch (const std::runtime_error &e)
+        {
+            std::ostringstream oss;
+            oss << "Failed to wait for seamphores with error: " << e.what();
+            STAR_THROW(oss.str());
+        }
     }
+
+    m_chunkHandler.recordAllChunks(ft, tInfo, pipeInfo, this->currentFogType);
 }
 
 uint64_t VolumeRenderer::getTimelineSignalValue(const star::common::FrameTracker &ft) const
 {
-    // get the last chunk since this will signify to others that this is the value to wait for
-    return m_chunkHandlers[3].getSignalInfo(ft).value;
+    return m_chunkHandler.getTimelineDoneSignalValue(ft);
 }
 
 vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
@@ -325,83 +305,9 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
                                            std::vector<std::optional<uint64_t>> previousSignaledValues,
                                            star::StarQueue &queue)
 {
-    const size_t ii = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
-    vk::CommandBufferSubmitInfo cbInfo[4]{};
-    WaitInfo chunkWaitInfos[4]{};
-    vk::SemaphoreSubmitInfo chunkSignalInfos[4]{};
 
-    {
-        auto gCmd = star::command_order::GetPassInfo{m_commandBuffer};
-        m_cmdBus->submit(gCmd);
-        const auto workingSemaphore = gCmd.getReply().get().signaledSemaphore;
-        for (size_t i{0}; i < m_chunkHandlers.size(); i++)
-        {
-            cbInfo[i] = m_chunkHandlers[i].getSubmitInfo(frameTracker);
-
-            chunkWaitInfos[i] = m_chunkHandlers[i].getWaitInfo(frameTracker);
-            // inject whole volume system semaphore to wait infos missing one
-            // assuming that these are the approaches which are waiting on a previous
-            // chunk to complete its work
-            for (size_t j = 0; j < chunkWaitInfos[i].count; j++)
-            {
-                if (!chunkWaitInfos[i].info[j].semaphore)
-                    chunkWaitInfos[i].info[j].semaphore = workingSemaphore;
-            }
-
-            chunkSignalInfos[i] = m_chunkHandlers[i].getSignalInfo(frameTracker);
-            chunkSignalInfos[i].setSemaphore(workingSemaphore);
-        }
-    }
-
-    assert(dataSemaphores.size() == dataWaitPoints.size());
-    assert(dataWaitPoints.size() + chunkWaitInfos[0].count < 5 &&
-           "Current implementation of wait info container only allows 5");
-    for (size_t i{0}; i < dataWaitPoints.size(); i++)
-    {
-        auto &w = chunkWaitInfos[0];
-        w.info[w.count] = vk::SemaphoreSubmitInfo()
-                              .setSemaphore(dataSemaphores[i])
-                              .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
-
-        w.count++;
-    }
-
-    vk::SemaphoreSubmitInfo signalInfo[1];
-    {
-        auto [signalSemaphore, value, currentSignalValue] =
-            GetTimelineSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer);
-
-        signalInfo[0]
-            .setSemaphore(signalSemaphore)
-            .setValue(value)
-            .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
-    }
-
-    {
-        vk::SemaphoreSubmitInfo waitInfo[4][5];
-        uint32_t waitInfoCount[4];
-        vk::SubmitInfo2 submitInfo[4];
-
-        for (int i{0}; i < m_chunkHandlers.size(); i++)
-        {
-            // process wait infos
-            for (int j{0}; j < 5; j++)
-            {
-                if (j < chunkWaitInfos[i].count)
-                    waitInfo[i][j] = std::move(chunkWaitInfos[i].info[j]);
-            }
-
-            submitInfo[i]
-                .setPSignalSemaphoreInfos(&chunkSignalInfos[i])
-                .setSignalSemaphoreInfoCount(1)
-                .setPCommandBufferInfos(&cbInfo[i])
-                .setCommandBufferInfoCount(1)
-                .setPWaitSemaphoreInfos(waitInfo[i])
-                .setWaitSemaphoreInfoCount(chunkWaitInfos[i].count);
-        }
-
-        queue.getVulkanQueue().submit2(submitInfo);
-    }
+    m_chunkHandler.submitAllChunks(frameTracker, std::move(dataSemaphores), std::move(dataWaitPoints),
+                                   std::move(previousSignaledValues), queue, m_commandBuffer);
 
     return vk::Semaphore();
 }
@@ -475,8 +381,6 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
         std::make_unique<RandomValueTexture>(screensize.width, screensize.height, this->computeQueueFamilyIndex,
                                              context.getDevice().getPhysicalDevice().getProperties()));
 
-    this->workgroupSize = CalculateWorkGroupSize(screensize);
-
     {
         const size_t n = static_cast<size_t>(context.frameTracker().getSetup().getNumFramesInFlight());
         this->computeWriteToImages = createComputeWriteToImages(context, screensize, n);
@@ -529,52 +433,12 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
         m_renderingContext.recordDependentImage.manualInsert(dh, &context.getImageManager().get(dh)->texture);
     }
 
-    const auto *queueInfo = context.getManagerCommandBuffer().m_manager.getInUseInfoForType(star::Queue_Type::Tcompute);
-    assert(queueInfo != nullptr && "Failed to get queue info from manager");
-
-    m_chunkHandlers[0] = render_system::fog::ChunkOrchestrator{
-        star::StarCommandBuffer{context.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
-                                star::Queue_Type::Tcompute, false, false},
-        FullPass{ComputeContributor{Color{this}},
-                 PreMemoryBarrierContributor{PreMemoryBarrierDifferentFamilies{
-                     this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}}},
-        SyncProvider{signal::CalcFromFt{0, 4, &context.frameTracker()},
-                     wait::GatherFromCO{m_commandBuffer, &context.getCmdBus()}},
-        &isReady};
-
-    m_chunkHandlers[1] =
-        ChunkOrchestrator{star::StarCommandBuffer{context.getDevice().getVulkanDevice(), static_cast<int>(nf),
-                                                  &queueInfo->pool, star::Queue_Type::Tcompute, false, false},
-                          FullPass{ComputeContributor{Distance{&m_distanceComputer}}},
-                          SyncProvider{signal::CalcFromFt{1, 4, &context.frameTracker()},
-                                       wait::WaitForFirstChunk{4, &context.frameTracker()}},
-                          &isReady};
-
-    m_chunkHandlers[2] =
-        ChunkOrchestrator{star::StarCommandBuffer{context.getDevice().getVulkanDevice(), static_cast<int>(nf),
-                                                  &queueInfo->pool, star::Queue_Type::Tcompute, false, false},
-                          FullPass{ComputeContributor{Color{this}}},
-                          SyncProvider{signal::CalcFromFt{2, 4, &context.frameTracker()},
-                                       wait::WaitForFirstChunk{4, &context.frameTracker()}},
-                          &isReady};
-
-    m_chunkHandlers[3] = render_system::fog::ChunkOrchestrator{
-        star::StarCommandBuffer{context.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
-                                star::Queue_Type::Tcompute, false, false},
-        FullPass{ComputeContributor{Distance{&m_distanceComputer}},
-                 PostMemoryBarrierContributor{PostMemoryBarrierDifferentFamilies{
-                     this->computeQueueFamilyIndex, this->graphicsQueueFamilyIndex, this->transferQueueFamilyIndex}}},
-        SyncProvider{signal::CalcFromFt{3, 4, &context.frameTracker()},
-                     wait::WaitForFirstChunk{4, &context.frameTracker()}},
-        &isReady};
+    m_chunkHandler.prepRender(context, m_commandBuffer, isReady);
 }
 
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
 {
-    for (size_t i{0}; i < m_chunkHandlers.size(); i++)
-    {
-        m_chunkHandlers[i].cleanupRender(context);
-    }
+    m_chunkHandler.cleanupRender(context);
 
     m_distanceComputer.cleanupRender(context);
 
@@ -676,14 +540,6 @@ void VolumeRenderer::updateRenderingContext(star::core::device::DeviceContext &c
     default:
         throw std::runtime_error("Unsupported type");
     }
-}
-
-glm::uvec2 VolumeRenderer::CalculateWorkGroupSize(const vk::Extent2D &screenSize)
-{
-    const uint32_t width = static_cast<uint32_t>(std::ceil(static_cast<float>(screenSize.width) / 8.0f));
-    const uint32_t height = static_cast<uint32_t>(std::ceil(static_cast<float>(screenSize.height) / 8.0f));
-
-    return glm::uvec2{width, height};
 }
 
 std::vector<std::shared_ptr<star::StarTextures::Texture>> VolumeRenderer::createComputeWriteToImages(

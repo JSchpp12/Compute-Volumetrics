@@ -28,9 +28,16 @@ struct PassInfo
 
 struct PassPipelineInfo
 {
-    vk::PipelineLayout pipelineLayout{VK_NULL_HANDLE};
+    struct PipelineInfo{
+        vk::PipelineLayout layout{VK_NULL_HANDLE};
+        vk::Pipeline pipeline{VK_NULL_HANDLE};
+    };
+    PipelineInfo colorPipe;
+    PipelineInfo distancePipe;
     star::StarShaderInfo *staticShaderInfo{
         nullptr}; // static shared shader info -> such as the camera and light info used by all
+    star::StarShaderInfo *colorOnlyShaderInfo{nullptr};
+    star::StarShaderInfo *distanceOnlyShaderInfo{nullptr};
 };
 
 } // namespace render_system::fog

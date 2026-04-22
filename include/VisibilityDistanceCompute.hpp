@@ -1,7 +1,6 @@
 #pragma once
 
 #include "FogType.hpp"
-#include "render_system/fog/commands/Distance.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 
 #include <starlight/core/device/DeviceContext.hpp>
@@ -16,8 +15,6 @@
 class VisibilityDistanceCompute
 {
   public:
-    friend class render_system::fog::commands::Distance;
-
     void cleanupRender(star::core::device::DeviceContext &context);
 
     void prepRender(star::core::device::DeviceContext &context, renderer::volume::ContainerRenderResourceData data,
@@ -29,6 +26,20 @@ class VisibilityDistanceCompute
     void frameUpdate(star::core::device::DeviceContext &context);
 
     bool isReady(const star::core::device::DeviceContext &context);
+
+    vk::Pipeline getPipeline() const
+    {
+        return m_marchedPipeline.vkPipeline;
+    }
+    vk::PipelineLayout getLayout() const
+    {
+        return m_marchedPipeline.vkLayout;
+    }
+
+    star::StarShaderInfo *getDynamicShaderInfo()
+    {
+        return m_dynamicShaderInfo.get();
+    }
 
   private:
     struct PipelineData

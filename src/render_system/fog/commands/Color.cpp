@@ -6,15 +6,19 @@ void render_system::fog::commands::Color::recordCommands(const DispatchInfo &dIn
                                                          const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuffer,
                                                          const star::common::FrameTracker &ft)
 {
-    m_me->m_renderingContext.pipeline->bind(cmdBuffer);
+    assert(pipeInfo.colorPipe.pipeline);
+    cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.pipeline); 
 
-    auto sets = m_me->m_staticShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+    assert(pipeInfo.staticShaderInfo != nullptr);
+    auto sets = pipeInfo.staticShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
     {
-        auto dynamicSets = m_me->m_dynamicShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+        assert(pipeInfo.colorOnlyShaderInfo != nullptr);
+
+        auto dynamicSets = pipeInfo.colorOnlyShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
         sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end());
     }
 
-    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *m_me->computePipelineLayout, 0,
+    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, 0,
                                  static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
 
     cmdBuffer.dispatch(dInfo.workgroupSize[0], dInfo.workgroupSize[1], 1);

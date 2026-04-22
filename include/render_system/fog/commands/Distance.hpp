@@ -7,19 +7,11 @@
 
 #include <vulkan/vulkan.hpp>
 
-class VisibilityDistanceCompute;
-
 namespace render_system::fog::commands
 {
 class Distance
 {
-    VisibilityDistanceCompute *m_me{nullptr};
-
   public:
-    explicit Distance(VisibilityDistanceCompute *me) : m_me{me}
-    {
-    }
-
     void recordCommands(const DispatchInfo &dispatchInfo, const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuf,
                         const star::common::FrameTracker &ft);
 };

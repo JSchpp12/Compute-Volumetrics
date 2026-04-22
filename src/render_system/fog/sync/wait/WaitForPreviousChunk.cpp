@@ -4,9 +4,10 @@
 
 render_system::fog::sync::WaitInfo render_system::fog::sync::wait::WaitForPreviousChunk::getWaitInfo() const
 {
-    signal::CalcFromFt calculator{m_myChunkOrder, m_totalNumChunks, m_ft};
+    assert(m_myChunkOrder > 0 && "This cannot be used as the wait approach for the first chunk in the set"); 
+
+    signal::CalcFromFt calculator(m_myChunkOrder-1, m_totalNumChunks, m_ft);
 
     auto signalInfo = calculator.getSignalInfo();
-    signalInfo.value = signalInfo.value - m_totalNumChunks;
     return {.info = {signalInfo}, .count = 1};
 }
