@@ -1,36 +1,10 @@
 #version 450
 
-#include "RayState.comp"
+#include "struct_RayState.comp"
+#include "struct_Light.comp"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-layout(push_constant) uniform PushConstants{
-    uvec2 tileOffset; 
-    uint numStepsPerDispatch;
-} dispatchInfo; 
-
-struct Light_Type
-{
-    uint point;
-    uint directional;
-    uint spot;
-};
-struct Light
-{
-    vec4 position;
-    vec4 direction;
-
-    // properties
-    vec4 ambient;
-    vec4 diffuse;
-    vec4 specular;
-    // controls.x = inner cutoff angle
-    // controls.y = outer cutoff angle
-    vec4 controls;
-    // settings.x = enabled
-    // settings.y = type
-    uvec4 settings;
-    uint luminance;
-};
+#include "layout_pushConstants.comp"
 
 Light_Type createLightTypeStruct()
 {
@@ -117,7 +91,7 @@ layout(set = 2, binding = 1) buffer IsRayAtMaxDistance
 };
 
 #include "PNanoVDB.h"
-#include "ray_helpers.comp"
+#include "struct_Ray.comp"
 
 #include "func_reconstructDepthDistanceInObjectLocalSpace.comp"
 
@@ -159,8 +133,6 @@ void writeDistanceInfo(const float d, const ivec2 tPix, const uvec2 cSize)
 uvec2 getTargetPixel()
 {
     uvec2 gid = gl_GlobalInvocationID.xy;
-    gid.x += dispatchInfo.tileOffset.x; 
-    gid.y += dispatchInfo.tileOffset.y; 
     return gid;
 }
 

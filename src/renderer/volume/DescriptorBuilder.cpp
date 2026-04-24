@@ -148,4 +148,5 @@ void DescriptorBuilder::createDescriptors()
     *m_linearPipeline = BuildPipeline(shaderDir, "linearFog.comp", cLay, m_graphicsManagers);
     *m_expPipeline = BuildPipeline(shaderDir, "expFog.comp", cLay, m_graphicsManagers);
     *m_marchedHomogenousPipeline = BuildPipeline(shaderDir, "HomogenousMarchedFog.comp", cLay, m_graphicsManagers);
+    *m_initPipeline = BuildPipeline(shaderDir, "rayInit_BoundingBox_Depth.comp", cLay, m_graphicsManagers);
 }

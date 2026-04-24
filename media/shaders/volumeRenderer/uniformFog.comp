@@ -1,6 +1,6 @@
 #version 450
 
-#include "RayState.comp"
+#include "struct_RayState.comp"
 
 const float PI = 3.1415926535897932384626433832795;
 
@@ -129,7 +129,7 @@ layout(set = 5, binding = 1) buffer IsRayAtMaxDistance
 };
 
 #include "PNanoVDB.h"
-#include "ray_helpers.comp"
+#include "struct_Ray.comp"
 #include "volume_helpers.comp"
 
 ivec2 getTargetPixelCoords()

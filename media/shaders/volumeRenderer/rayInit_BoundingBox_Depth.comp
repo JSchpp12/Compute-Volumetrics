@@ -1,14 +1,11 @@
 
 #version 450
+#extension GL_EXT_shader_atomic_float : require
 
-#include "RayState.comp"
+#include "struct_RayState.comp"
+#include "struct_Light.comp"
 
-layout(push_constant) uniform PushConstants
-{
-    uvec2 tileOffset;
-    uint numStepsPerDispatch;
-}
-dispatchInfo;
+#include "layout_pushConstants.comp"
 
 // globals
 layout(rgba32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
@@ -35,7 +32,7 @@ layout(std430, set = 0, binding = 4) buffer ActiveRayCounter
 {
     uint activeCount;
 }
-rayTracker;
+rt;
 // per-frame update data
 layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
 {
@@ -83,22 +80,25 @@ layout(set = 2, binding = 0) uniform sampler2D inputSceneDepth;
 layout(set = 2, binding = 1, rgba8) uniform readonly image2D inputSceneColor;
 layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
 
-#include "PNanoVDB.h"
-#include "ray_helpers.comp"
-
 uvec2 getTargetPixel()
 {
     uvec2 gid = gl_GlobalInvocationID.xy;
-    gid.x += dispatchInfo.tileOffset.x;
-    gid.y += dispatchInfo.tileOffset.y;
     return gid;
 }
 
 void writeRayState(RayState state)
 {
-    uint dst = atmoicAdd(rayTracker.activeCount, 1); 
-    rayStatusStorage.activeData[dst] = state;
+    const uint dst = atomicAdd(rt.activeCount, 1); 
+    rss.activeData[dst] = state;
 }
+
+#include "PNanoVDB.h"
+
+#include "struct_Ray.comp"
+
+#include "volume_helpers.comp"
+
+#include "func_reconstructDepthDistanceInObjectLocalSpace.comp"
 
 // calculate and init rays which hit the bounding box with manual depth testing
 void main()
