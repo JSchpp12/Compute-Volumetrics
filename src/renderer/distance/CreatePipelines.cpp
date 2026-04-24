@@ -24,7 +24,7 @@
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_handles.hpp>
 
-#include "render_system/fog/ShaderPushInfo.hpp"
+#include "render_system/fog/struct/ShaderPushInfo.hpp"
 
 namespace renderer::distance
 {

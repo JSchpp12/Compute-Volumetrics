@@ -1,9 +1,12 @@
 #version 450
 
+#include "RayState.comp"
+
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(push_constant) uniform PushConstants{
     uvec2 tileOffset; 
+    uint numStepsPerDispatch;
 } dispatchInfo; 
 
 struct Light_Type
@@ -12,6 +15,7 @@ struct Light_Type
     uint directional;
     uint spot;
 };
+
 struct Light
 {
     vec4 position;

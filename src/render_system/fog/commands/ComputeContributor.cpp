@@ -1,6 +1,6 @@
 #include "render_system/fog/commands/ComputeContributor.hpp"
 
-#include "render_system/fog/ShaderPushInfo.hpp"
+#include "render_system/fog/struct/ShaderPushInfo.hpp"
 
 static void RecPushConsts(vk::CommandBuffer cmdBuf, const render_system::fog::DispatchInfo &dInfo, vk::PipelineLayout layout)
 {

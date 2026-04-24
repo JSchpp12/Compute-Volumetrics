@@ -147,7 +147,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/ChunkOrchestrator.cpp"
 	"src/render_system/fog/sync/wait/WaitForPreviousChunk.cpp"
  	"src/render_system/fog/sync/wait/WaitForFirstChunk.cpp"
- "src/render_system/fog/ChunkDispatchGrid.cpp")
+	"src/render_system/fog/ChunkDispatchGrid.cpp" )
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"

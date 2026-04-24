@@ -144,14 +144,16 @@ class VolumeRenderer
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
         std::vector<std::shared_ptr<star::StarTextures::Texture>>();
     std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers, computeRayAtCutoffDistanceBuffers;
-    std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
     star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline,
-        marchedHomogenousPipeline;
+        marchedHomogenousPipeline, m_initRayPipeline;
     std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
     std::vector<star::Handle> m_timelineSemaphores;
     VisibilityDistanceCompute m_distanceComputer;
     render_system::fog::ChunkDispatchGrid m_chunkHandler; 
+    std::vector<star::StarBuffers::Buffer> m_activeRayStorage; 
+    std::vector<star::StarBuffers::Buffer> m_activeRayCount; 
+    std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
 
     Fog::Type currentFogType = Fog::Type::sMarched;
     bool isReady = false;

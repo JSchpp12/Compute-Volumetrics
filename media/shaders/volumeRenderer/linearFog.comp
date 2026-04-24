@@ -1,10 +1,13 @@
 #version 450
 
+#include "RayState.comp"
+
 const float PI = 3.1415926535897932384626433832795;
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(push_constant) uniform PushConstants{
     uvec2 tileOffset; 
+    uint numStepsPerDispatch;
 } dispatchInfo; 
 struct Light_Type
 {
@@ -55,6 +58,16 @@ layout(set = 0, binding = 2) uniform additionalTransformInfo
     float scale;
 }
 addCamInfo;
+layout(std430, set = 0, binding = 3) buffer RayStateBuffer
+{
+    RayState activeData[];
+}
+rss;
+layout(std430, set = 0, binding = 4) buffer ActiveRayCounter
+{
+    uint activeCount;
+}
+rayTracker;
 // per-frame update data
 layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
 {

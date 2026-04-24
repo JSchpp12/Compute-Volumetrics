@@ -12,6 +12,7 @@
 #include "core/device/managers/DescriptorPool.hpp"
 #include "event/EnginePhaseComplete.hpp"
 
+#include "render_system/fog/util/CreateBuffers.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "renderer/volume/DescriptorBuilder.hpp"
 #include "starlight/core/waiter/one_shot/CreateDescriptorsOnEventPolicy.hpp"
@@ -108,7 +109,7 @@ VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
       m_infoManagerGlobalCamera(globalInfoBuffers), m_infoManagerSceneLightInfo(sceneLightInfoBuffers),
       m_infoManagerSceneLightList(sceneLightList), m_offscreenRenderer(offscreenRenderer),
       m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(),
-      m_distanceComputer(), m_chunkHandler({4,4})
+      m_distanceComputer(), m_chunkHandler({4, 4})
 {
 }
 
@@ -144,7 +145,9 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
                 .cameraShaderInfo = &cameraShaderInfo,
                 .vdbInfoSDF = &vdbInfoSDF,
                 .vdbInfoFog = &vdbInfoFog,
-                .randomValueTexture = &randomValueTexture},
+                .randomValueTexture = &randomValueTexture,
+                .activeRayCountBuffers = &m_activeRayCount,
+                .activeRayStorageBuffers = &m_activeRayCount},
         .outputs{.computeWriteToImages = &computeWriteToImages,
                  .computeRayDistBuffers = &computeRayDistanceBuffers,
                  .computeRayAtCutoffBuffer = &computeRayAtCutoffDistanceBuffers}};
@@ -155,7 +158,7 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
         .setPolicy(DescriptorBuilder{
             &context.getDeviceID(), pipelineData, &m_staticShaderInfo, &m_dynamicShaderInfo, &marchedHomogenousPipeline,
             &nanoVDBPipeline_hitBoundingBox, &nanoVDBPipeline_surface, &marchedPipeline, &linearPipeline, &expPipeline,
-            &computePipelineLayout, &context.getDevice(), &context.getGraphicsManagers(),
+            &computePipelineLayout, &m_initRayPipeline, &context.getDevice(), &context.getGraphicsManagers(),
             &context.getManagerRenderResource(), context.frameTracker().getSetup().getNumFramesInFlight()})
         .buildShared();
 
@@ -392,6 +395,8 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
     m_fogController.prepRender(context, context.frameTracker().getSetup().getNumFramesInFlight());
 
+    m_activeRayStorage.resize(context.frameTracker().getSetup().getNumFramesInFlight());
+    m_activeRayCount.resize(context.frameTracker().getSetup().getNumFramesInFlight());
     for (uint8_t i = 0; i < context.frameTracker().getSetup().getNumFramesInFlight(); i++)
     {
         const auto aabbSemaphore =
@@ -403,6 +408,11 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
         const auto fogShaderInfoSemaphore =
             context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
+
+        const std::string cstr = std::to_string(i);
+        m_activeRayCount[i] = render_system::fog::CreateRayCountBuffer(context, "RNUM_" + cstr);
+        m_activeRayStorage[i] =
+            render_system::fog::CreateActiveRayStorageBuffer(context, "RMEM_" + cstr, context.getEngineResolution());
     }
 
     m_commandBuffer = context.getManagerCommandBuffer().submit(
@@ -445,6 +455,14 @@ void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
     m_staticShaderInfo->cleanupRender(context.getDevice());
     m_dynamicShaderInfo->cleanupRender(context.getDevice());
 
+    for (auto &buf : m_activeRayCount)
+    {
+        buf.cleanupRender(context.getDevice().getVulkanDevice());
+    }
+    for (auto &buf : m_activeRayStorage)
+    {
+        buf.cleanupRender(context.getDevice().getVulkanDevice());
+    }
     for (auto &image : computeWriteToImages)
     {
         image->cleanupRender(context.getDevice().getVulkanDevice());

@@ -1,7 +1,7 @@
 #include "renderer/volume/DescriptorBuilder.hpp"
 
 #include "ConfigFile.hpp"
-#include "render_system/fog/ShaderPushInfo.hpp"
+#include "render_system/fog/struct/ShaderPushInfo.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -27,6 +27,8 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildStaticShaderInfo()
                               .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(3, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(4, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
                               .build(*m_device))
             .addSetLayout(star::StarDescriptorSetLayout::Builder()
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
@@ -37,6 +39,11 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildStaticShaderInfo()
                               .addBinding(5, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .build(*m_device));
 
+    assert(m_data.inputs.activeRayStorageBuffers != nullptr &&
+           m_data.inputs.activeRayStorageBuffers->size() == m_numFramesInFlight);
+    assert(m_data.inputs.activeRayCountBuffers != nullptr &&
+           m_data.inputs.activeRayStorageBuffers->size() == m_numFramesInFlight);
+
     for (uint8_t i{0}; i < m_numFramesInFlight; i++)
     {
         shaderBuilder.startOnFrameIndex(i)
@@ -45,6 +52,8 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildStaticShaderInfo()
                                                    vk::Format::eR32G32B32A32Sfloat})
             .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.vdbInfoFog})
             .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.cameraShaderInfo})
+            .add(star::StarShaderInfo::BufferInfo{&m_data.inputs.activeRayStorageBuffers->at(i)})
+            .add(star::StarShaderInfo::BufferInfo{&m_data.inputs.activeRayCountBuffers->at(i)})
             .startSet()
             .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalInfoBuffers->getHandle(i)})
             .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalLightList->getHandle(i)})
@@ -114,15 +123,15 @@ void DescriptorBuilder::createDescriptors()
         }
 
         const auto pushRange = vk::PushConstantRange()
-            .setSize(sizeof(render_system::fog::ShaderPushInfo))
-            .setOffset(0)
-            .setStageFlags(vk::ShaderStageFlagBits::eCompute); 
-            
+                                   .setSize(sizeof(render_system::fog::ShaderPushInfo))
+                                   .setOffset(0)
+                                   .setStageFlags(vk::ShaderStageFlagBits::eCompute);
+
         const auto layout = vk::PipelineLayoutCreateInfo()
-            .setPushConstantRangeCount(1)
-            .setPPushConstantRanges(&pushRange)
-            .setPSetLayouts(sets.data())
-            .setSetLayoutCount(static_cast<uint32_t>(sets.size()));
+                                .setPushConstantRangeCount(1)
+                                .setPPushConstantRanges(&pushRange)
+                                .setPSetLayouts(sets.data())
+                                .setSetLayoutCount(static_cast<uint32_t>(sets.size()));
 
         *m_computePipelineLayout =
             std::make_unique<vk::PipelineLayout>(m_device->getVulkanDevice().createPipelineLayout(layout));

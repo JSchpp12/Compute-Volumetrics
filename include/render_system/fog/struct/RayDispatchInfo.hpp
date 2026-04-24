@@ -2,8 +2,10 @@
 
 namespace render_system::fog
 {
-struct ShaderPushInfo
+struct RayDispatchInfo
 {
-    uint32_t dispatchOffsetPixels[2];
+    uint x;
+    uint y;
+    uint z;
 };
 } // namespace render_system::fog
