@@ -5,7 +5,7 @@
 #include "render_system/fog/commands/PostMemoryBarrierDifferentFamilies.hpp"
 #include "render_system/fog/commands/PreMemoryBarrierDifferentFamilies.hpp"
 
-#include <starlight/command/command_order/GetPassInfo.hpp>
+
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
 using namespace render_system::fog;
@@ -150,79 +150,7 @@ void render_system::fog::ChunkDispatchGrid::submitAllChunks(const star::common::
                                                             std::vector<std::optional<uint64_t>> previousSignaledValues,
                                                             star::StarQueue &queue, const star::Handle &registration)
 {
-    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
-    std::vector<vk::CommandBufferSubmitInfo> cbInfo;
-    cbInfo.resize(m_chunkHandlers.size());
-    std::vector<WaitInfo> chunkWaitInfos;
-    chunkWaitInfos.resize(m_chunkHandlers.size());
-    std::vector<vk::SemaphoreSubmitInfo> chunkSignalInfos;
-    chunkSignalInfos.resize(m_chunkHandlers.size());
 
-    {
-        auto gCmd = star::command_order::GetPassInfo{registration};
-        m_cmdBus->submit(gCmd);
-        const auto workingSemaphore = gCmd.getReply().get().signaledSemaphore;
-        for (size_t i{0}; i < m_chunkHandlers.size(); i++)
-        {
-            cbInfo[i] = m_chunkHandlers[i].getSubmitInfo(ft);
-
-            chunkWaitInfos[i] = m_chunkHandlers[i].getWaitInfo(ft);
-            // inject whole volume system semaphore to wait infos missing one
-            // assuming that these are the approaches which are waiting on a previous
-            // chunk to complete its work
-            for (size_t j = 0; j < chunkWaitInfos[i].count; j++)
-            {
-                if (!chunkWaitInfos[i].info[j].semaphore)
-                    chunkWaitInfos[i].info[j].semaphore = workingSemaphore;
-            }
-
-            chunkSignalInfos[i] = m_chunkHandlers[i].getSignalInfo(ft);
-            chunkSignalInfos[i].setSemaphore(workingSemaphore);
-        }
-    }
-
-    assert(dataSemaphores.size() == dataWaitPoints.size());
-    assert(dataWaitPoints.size() + chunkWaitInfos[0].count < 5 &&
-           "Current implementation of wait info container only allows 5");
-
-    for (size_t i{0}; i < dataWaitPoints.size(); i++)
-    {
-        auto &w = chunkWaitInfos[0];
-        w.info[w.count] = vk::SemaphoreSubmitInfo()
-                              .setSemaphore(dataSemaphores[i])
-                              .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
-
-        w.count++;
-    }
-
-    {
-        std::vector<std::array<vk::SemaphoreSubmitInfo, 5>> waitInfo;
-        waitInfo.resize(m_chunkHandlers.size());
-        std::vector<uint32_t> waitInfoCount;
-        waitInfoCount.resize(m_chunkHandlers.size());
-        std::vector<vk::SubmitInfo2> submitInfo;
-        submitInfo.resize(m_chunkHandlers.size());
-
-        for (int i{0}; i < m_chunkHandlers.size(); i++)
-        {
-            // process wait infos
-            for (int j{0}; j < 5; j++)
-            {
-                if (j < chunkWaitInfos[i].count)
-                    waitInfo[i][j] = std::move(chunkWaitInfos[i].info[j]);
-            }
-
-            submitInfo[i]
-                .setPSignalSemaphoreInfos(&chunkSignalInfos[i])
-                .setSignalSemaphoreInfoCount(1)
-                .setPCommandBufferInfos(&cbInfo[i])
-                .setCommandBufferInfoCount(1)
-                .setPWaitSemaphoreInfos(waitInfo[i].data())
-                .setWaitSemaphoreInfoCount(chunkWaitInfos[i].count);
-        }
-
-        queue.getVulkanQueue().submit2(submitInfo);
-    }
 }
 
 uint64_t render_system::fog::ChunkDispatchGrid::getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const

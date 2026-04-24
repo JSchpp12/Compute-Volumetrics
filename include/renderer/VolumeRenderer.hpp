@@ -12,7 +12,7 @@
 #include "VolumeDirectoryProcessor.hpp"
 #include "core/renderer/RenderingContext.hpp"
 #include "render_system/fog/commands/Color.hpp"
-#include "render_system/fog/ChunkDispatchGrid.hpp"
+#include "render_system/fog/FogDispatcher.hpp"
 
 #include <star_common/Handle.hpp>
 
@@ -150,7 +150,7 @@ class VolumeRenderer
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
     std::vector<star::Handle> m_timelineSemaphores;
     VisibilityDistanceCompute m_distanceComputer;
-    render_system::fog::ChunkDispatchGrid m_chunkHandler; 
+    render_system::fog::FogDispatcher m_chunkHandler; 
     std::vector<star::StarBuffers::Buffer> m_activeRayStorage; 
     std::vector<star::StarBuffers::Buffer> m_activeRayCount; 
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
@@ -162,8 +162,6 @@ class VolumeRenderer
     star::core::CommandBus *m_cmdBus{nullptr};
     star::core::device::manager::Semaphore *m_mgrSemaphore{nullptr};
     vk::Device m_device{VK_NULL_HANDLE};
-
-
 
     vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                                std::vector<vk::Semaphore> *previousCommandBufferSemaphores,

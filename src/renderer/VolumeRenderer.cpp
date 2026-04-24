@@ -109,7 +109,7 @@ VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
       m_infoManagerGlobalCamera(globalInfoBuffers), m_infoManagerSceneLightInfo(sceneLightInfoBuffers),
       m_infoManagerSceneLightList(sceneLightList), m_offscreenRenderer(offscreenRenderer),
       m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(),
-      m_distanceComputer(), m_chunkHandler({4, 4})
+      m_distanceComputer()
 {
 }
 
@@ -292,7 +292,7 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
         }
     }
 
-    m_chunkHandler.recordAllChunks(ft, tInfo, pipeInfo, this->currentFogType);
+    m_chunkHandler.recordCommands(ft, tInfo, pipeInfo, this->currentFogType);
 }
 
 uint64_t VolumeRenderer::getTimelineSignalValue(const star::common::FrameTracker &ft) const
@@ -309,8 +309,8 @@ vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
                                            star::StarQueue &queue)
 {
 
-    m_chunkHandler.submitAllChunks(frameTracker, std::move(dataSemaphores), std::move(dataWaitPoints),
-                                   std::move(previousSignaledValues), queue, m_commandBuffer);
+    m_chunkHandler.submit(frameTracker, std::move(dataSemaphores), std::move(dataWaitPoints),
+                          std::move(previousSignaledValues), queue, m_commandBuffer);
 
     return vk::Semaphore();
 }

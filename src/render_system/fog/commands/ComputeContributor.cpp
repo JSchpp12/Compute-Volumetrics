@@ -4,7 +4,7 @@
 
 static void RecPushConsts(vk::CommandBuffer cmdBuf, const render_system::fog::DispatchInfo &dInfo, vk::PipelineLayout layout)
 {
-    render_system::fog::ShaderPushInfo pushInfo{.dispatchOffsetPixels = {dInfo.chunkOffsetPixels[0], dInfo.chunkOffsetPixels[1]}};
+    render_system::fog::ShaderPushInfo pushInfo{.stepsPerDispatch = 0};
     cmdBuf.pushConstants(layout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(pushInfo), &pushInfo);
 }
 

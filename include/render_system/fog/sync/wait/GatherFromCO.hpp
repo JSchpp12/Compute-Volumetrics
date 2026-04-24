@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render_system/fog/sync/SyncInfo.hpp"
+#include "render_system/fog/struct/SyncInfo.hpp"
 
 #include <star_common/Handle.hpp>
 #include <starlight/core/CommandBus.hpp>

@@ -5,7 +5,7 @@
 
 #include <cassert>
 
-render_system::fog::sync::WaitInfo render_system::fog::sync::wait::GatherFromCO::getWaitInfo() const
+render_system::fog::WaitInfo render_system::fog::sync::wait::GatherFromCO::getWaitInfo() const
 {
     assert(m_myRegistration.isInitialized() &&
            "The cmd buffer registration for the owner of this instance of the wait approach is invalid");

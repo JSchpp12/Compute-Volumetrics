@@ -10,7 +10,7 @@ vk::SemaphoreSubmitInfo render_system::fog::ChunkOrchestrator::getSignalInfo(con
     return m_syncApproach.getSignalInfo();
 }
 
-render_system::fog::sync::WaitInfo render_system::fog::ChunkOrchestrator::getWaitInfo(
+render_system::fog::WaitInfo render_system::fog::ChunkOrchestrator::getWaitInfo(
     const star::common::FrameTracker &ft)
 {
     return m_syncApproach.getWaitInfo();

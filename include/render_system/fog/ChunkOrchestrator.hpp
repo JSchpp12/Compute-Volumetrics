@@ -35,7 +35,7 @@ class ChunkOrchestrator
 
     vk::SemaphoreSubmitInfo getSignalInfo(const star::common::FrameTracker &ft) const;
 
-    sync::WaitInfo getWaitInfo(const star::common::FrameTracker &ft);
+    WaitInfo getWaitInfo(const star::common::FrameTracker &ft);
 
     vk::CommandBufferSubmitInfo getSubmitInfo(const star::common::FrameTracker &ft);
 };
