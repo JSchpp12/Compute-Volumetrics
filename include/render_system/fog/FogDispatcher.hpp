@@ -23,8 +23,8 @@ class FogDispatcher
                 std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue,
                 const star::Handle &registration);
 
-    void recordCommands(const DispatchInfo &dInfo, const star::common::FrameTracker &ft, const PassInfo &pInfo,
-                        const PassPipelineInfo &pipeInfo, Fog::Type type);
+    void recordCommands(DispatchInfo &dInfo, const star::common::FrameTracker &ft, const PassInfo &pInfo,
+                        const PassPipelineInfo &pipeInfo);
 
     [[nodiscard]] uint64_t getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const;
 

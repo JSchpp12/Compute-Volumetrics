@@ -1,7 +1,7 @@
 #pragma once
 
-#include "render_system/fog/commands/PreMemoryBarrierDifferentFamilies.hpp"
 #include "render_system/fog/PassInfo.hpp"
+#include "render_system/fog/commands/color/PreMemoryBarrierRecorder.hpp"
 
 #include <star_common/FrameTracker.hpp>
 
@@ -11,17 +11,17 @@
 
 namespace render_system::fog::commands
 {
+using PreRecorderType = std::variant<color::PreMemoryBarrierRecorder>;
 
 class PreMemoryBarrierContributor
 {
-    std::variant<PreMemoryBarrierDifferentFamilies> m_approach;
+    PreRecorderType m_policy;
 
   public:
-    explicit PreMemoryBarrierContributor(PreMemoryBarrierDifferentFamilies approach) : m_approach(std::move(approach))
+    explicit PreMemoryBarrierContributor(PreRecorderType policy) : m_policy(std::move(policy))
     {
     }
 
-    void recordPreCommands(const PassInfo &vInfo, vk::CommandBuffer cmdBuf,
-                           const star::common::FrameTracker &ft);
+    void recordPreCommands(const PassInfo &vInfo, vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
 };
-} // namespace renderer
+} // namespace render_system::fog::commands

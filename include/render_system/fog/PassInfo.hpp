@@ -1,5 +1,7 @@
 #pragma once
 
+#include "FogType.hpp"
+
 #include <starlight/wrappers/graphics/StarShaderInfo.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -41,6 +43,7 @@ struct PassPipelineInfo
         nullptr}; // static shared shader info -> such as the camera and light info used by all
     star::StarShaderInfo *colorOnlyShaderInfo{nullptr};
     star::StarShaderInfo *distanceOnlyShaderInfo{nullptr};
+    Fog::Type fogType;
 };
 
 } // namespace render_system::fog

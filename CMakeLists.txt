@@ -89,9 +89,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/sync/wait/GatherFromCO.cpp"
 	"src/render_system/fog/commands/Color.cpp"
 	"src/render_system/fog/commands/PreMemoryBarrierContributor.cpp"
-	"src/render_system/fog/commands/PreMemoryBarrierDifferentFamilies.cpp"
 	"src/render_system/fog/commands/PostMemoryBarrierContributor.cpp"
-	"src/render_system/fog/commands/PostMemoryBarrierDifferentFamilies.cpp"
 	"src/render_system/fog/commands/Pass.cpp"
 	"src/renderer/distance/CreatePipelines.cpp"
 	"src/renderer/finalization/FinalizationRenderer.cpp"
@@ -147,7 +145,16 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/ChunkOrchestrator.cpp"
 	"src/render_system/fog/sync/wait/WaitForPreviousChunk.cpp"
  	"src/render_system/fog/sync/wait/WaitForFirstChunk.cpp"
-	"src/render_system/fog/ChunkDispatchGrid.cpp"  "src/render_system/fog/commands/Init.cpp" "src/render_system/fog/commands/IndirectDispatch.cpp" "src/render_system/fog/PipelineCacher.cpp")
+	"src/render_system/fog/ChunkDispatchGrid.cpp"  
+	"src/render_system/fog/commands/Init.cpp" 
+	"src/render_system/fog/commands/IndirectDispatch.cpp" 
+	"src/render_system/fog/PipelineCacher.cpp" 
+	"src/render_system/fog/commands/distance/PostDifferentFamilies.cpp" 
+	"src/render_system/fog/commands/color/PostMemoryBarrierRecorder.cpp"
+	"src/render_system/fog/commands/color/PostDifferentFamilies.cpp"
+	"src/render_system/fog/commands/color/PreDifferentFamilies.cpp" 
+	"src/render_system/fog/commands/color/PreMemoryBarrierRecorder.cpp"
+)
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"

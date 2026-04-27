@@ -17,6 +17,7 @@ class ChunkOrchestrator
     star::StarCommandBuffer m_cmdBuf{};
     std::vector<commands::Pass> m_cmdApproaches;
     std::optional<sync::SyncProvider> m_syncApproach{std::nullopt};
+    uint32_t m_shaderOptionFlags;
     const bool *m_isReady{nullptr};
 
   public:
@@ -34,7 +35,7 @@ class ChunkOrchestrator
     }
 
     void recordCommands(const DispatchInfo &dInfo, const PassInfo &vInfo, const PassPipelineInfo &pipeInfo,
-                        const star::common::FrameTracker &ft, Fog::Type type);
+                        const star::common::FrameTracker &ft);
 
     void cleanupRender(star::core::device::DeviceContext &ctx);
 

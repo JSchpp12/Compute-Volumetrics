@@ -67,7 +67,7 @@ static std::optional<star::command_order::get_pass_info::GatheredPassInfo> GetTr
                 auto nGetCmd = star::command_order::GetPassInfo(edge.consumer);
                 cmdBus.submit(nGetCmd);
 
-                auto r = nGetCmd.getReply().get(); 
+                auto r = nGetCmd.getReply().get();
                 if (*r.queueFamilyIndex == transferFamilyIndex)
                 {
                     transferNeighborInfo = nGetCmd.getReply().get();
@@ -278,9 +278,9 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
         .computeRayAtCutoffDistance =
             computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
         .computeRayDistance = computeRayDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
-        .transferWasRunLast = tNeighbor.has_value()
-                                  ? tNeighbor.value().wasProcessedOnLastFrame->at(ft.getCurrent().getFrameInFlightIndex())
-                                  : false,
+        .transferWasRunLast = tNeighbor.has_value() ? tNeighbor.value().wasProcessedOnLastFrame->at(
+                                                          ft.getCurrent().getFrameInFlightIndex())
+                                                    : false,
         .transferWillBeRunThisFrame = tNeighbor.has_value() ? tNeighbor.value().isTriggeredThisFrame : false};
 
     m_pipeInfo.distancePipe = {.layout = m_distanceComputer.getLayout(), .pipeline = m_distanceComputer.getPipeline()};
@@ -290,6 +290,8 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
     m_pipeInfo.indirectDispatchBuffer = m_activeRayStorage[ii].getVulkanBuffer();
     m_pipeInfo.colorPipe.layout = *this->computePipelineLayout;
     m_pipeInfo.colorPipe.pipeline = this->m_renderingContext.pipeline->getVulkanPipeline();
+    m_pipeInfo.fogType = this->currentFogType;
+
     vk::Semaphore workingSemaphore{VK_NULL_HANDLE};
     {
         uint64_t previousSignaledValue{0};
@@ -317,8 +319,9 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
         }
     }
 
-    m_chunkHandler.recordCommands({m_activeRayStorage[ii].getVulkanBuffer()}, ft, tInfo, m_pipeInfo,
-                                  this->currentFogType);
+    render_system::fog::DispatchInfo dInfo{m_activeRayStorage[ii].getVulkanBuffer()};
+
+    m_chunkHandler.recordCommands(dInfo, ft, tInfo, m_pipeInfo);
 }
 
 uint64_t VolumeRenderer::getTimelineSignalValue(const star::common::FrameTracker &ft) const

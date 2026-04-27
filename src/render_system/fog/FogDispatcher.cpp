@@ -2,8 +2,10 @@
 
 #include "render_system/fog/commands/Distance.hpp"
 #include "render_system/fog/commands/Pass.hpp"
-#include "render_system/fog/commands/PostMemoryBarrierDifferentFamilies.hpp"
-#include "render_system/fog/commands/PreMemoryBarrierDifferentFamilies.hpp"
+#include "render_system/fog/commands/PostMemoryBarrierContributor.hpp"
+#include "render_system/fog/commands/PreMemoryBarrierContributor.hpp"
+#include "render_system/fog/struct/ShaderFlags.hpp"
+#include "render_system/fog/struct/ShaderPushInfo.hpp"
 #include "render_system/fog/struct/SyncInfo.hpp"
 
 #include <starlight/command/command_order/GetPassInfo.hpp>
@@ -104,26 +106,32 @@ void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk:
 
     {
         vk::SubmitInfo2 submitInfo = vk::SubmitInfo2()
-                                        .setPSignalSemaphoreInfos(&signalInfo)
-                                        .setSignalSemaphoreInfoCount(1)
-                                        .setPCommandBufferInfos(cbInfo.data())
-                                        .setCommandBufferInfoCount(cbInfo.size())
-                                        .setPWaitSemaphoreInfos(waitInfo)
-                                        .setWaitSemaphoreInfoCount(waitInfoCount);
+                                         .setPSignalSemaphoreInfos(&signalInfo)
+                                         .setSignalSemaphoreInfoCount(1)
+                                         .setPCommandBufferInfos(cbInfo.data())
+                                         .setCommandBufferInfoCount(cbInfo.size())
+                                         .setPWaitSemaphoreInfos(waitInfo)
+                                         .setWaitSemaphoreInfoCount(waitInfoCount);
 
         queue.getVulkanQueue().submit2(submitInfo);
     }
 }
-void FogDispatcher::recordCommands(const DispatchInfo &dInfo, const star::common::FrameTracker &ft,
-                                   const PassInfo &pInfo, const PassPipelineInfo &pipeInfo, Fog::Type type)
+void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::FrameTracker &ft, const PassInfo &pInfo,
+                                   const PassPipelineInfo &pipeInfo)
 {
     assert(m_passes.size() > 0);
 
     // TODO: move the wait for semaphore value from the volume renderer to here
 
-    for (auto &chunk : m_passes)
+    dInfo.shaderOptionFlags = 0;
+
+    for (size_t i{0}; i < 1; i++)
     {
-        chunk.recordCommands(dInfo, pInfo, pipeInfo, ft, type);
+        if (i == 0)
+            dInfo.shaderOptionFlags =
+                Pack(InitShaderFlags::EnableAabbTest | InitShaderFlags::EnableDepthtest, MarchShaderFlags::None);
+
+        m_passes[i].recordCommands(dInfo, pInfo, pipeInfo, ft);
     }
 }
 uint64_t FogDispatcher::getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const
@@ -143,14 +151,14 @@ static ChunkOrchestrator CreateColorPass(star::core::device::DeviceContext &ctx,
     assert(queueInfo != nullptr && "Failed to get queue info from manager");
 
     pass[0] = Pass{ComputeContributor{Init{ctx.getEngineResolution()}},
-                   PreMemoryBarrierContributor{PreMemoryBarrierDifferentFamilies{
-                       computeQueueFamilyIndex, graphicsQueueFamilyIndex, transferQueueFamilyIndex}}};
+                   PreMemoryBarrierContributor{color::PreMemoryBarrierRecorder{color::PreDifferentFamilies{
+                       computeQueueFamilyIndex, graphicsQueueFamilyIndex, transferQueueFamilyIndex}}}};
 
     pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
 
     pass[2] = Pass{ComputeContributor{Color{}},
-                   PostMemoryBarrierContributor{PostMemoryBarrierDifferentFamilies{
-                       computeQueueFamilyIndex, graphicsQueueFamilyIndex, transferQueueFamilyIndex}}};
+                   PostMemoryBarrierContributor{color::PostMemoryBarrierRecorder{color::PostDifferentFamilies{
+                       computeQueueFamilyIndex, graphicsQueueFamilyIndex, transferQueueFamilyIndex}}}};
 
     return ChunkOrchestrator{
         star::StarCommandBuffer(ctx.getDevice().getVulkanDevice(),
@@ -159,18 +167,39 @@ static ChunkOrchestrator CreateColorPass(star::core::device::DeviceContext &ctx,
         std::move(pass), &isReady};
 }
 
+//static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
+//{
+//    const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
+//        GetQueueFamilyIndices(ctx);
+//
+//    std::vector<commands::Pass> pass;
+//    pass.resize(3);
+//
+//    const auto *queueInfo = ctx.getManagerCommandBuffer().m_manager.getInUseInfoForType(star::Queue_Type::Tcompute);
+//    assert(queueInfo != nullptr && "Failed to get queue info from manager");
+//
+//    pass[0] = Pass{ComputeContributor{Init{ctx.getEngineResolution()}},
+//                   PreMemoryBarrierContributor{PreMemoryBarrierDifferentFamilies{
+//                       computeQueueFamilyIndex, graphicsQueueFamilyIndex, transferQueueFamilyIndex}}};
+//
+//    pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
+//
+//    pass[2] = Pass{ComputeContributor{Distance{}},
+//                   PostMemoryBarrierContributor{color::PostMemoryBarrierRecorder{color::PostDifferentFamilies{}}}};
+//
+//    return ChunkOrchestrator{
+//        star::StarCommandBuffer(ctx.getDevice().getVulkanDevice(),
+//                                static_cast<int>(ctx.frameTracker().getSetup().getNumFramesInFlight()),
+//                                &queueInfo->pool, star::Queue_Type::Tcompute, false, false),
+//        std::move(pass), &isReady};
+//}
+
 void FogDispatcher::createChunks(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
 {
     const size_t nf = static_cast<size_t>(ctx.frameTracker().getSetup().getNumFramesInFlight());
 
     m_passes.resize(1);
     m_passes[0] = CreateColorPass(ctx, passReg, isReady);
-
-    // m_passes[3] = ChunkOrchestrator{
-    //     Pass{
-    //         ComputeContributor{Distance{}},
-    //     },
-    //    ,
-    //     &isReady};
+    //m_passes[1] = CreateDepthPass(ctx, passReg, isReady);
 }
 } // namespace render_system::fog
