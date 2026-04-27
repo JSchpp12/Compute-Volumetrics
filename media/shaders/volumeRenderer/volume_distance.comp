@@ -129,15 +129,13 @@ void writeDistanceInfo(const float d, const ivec2 tPix, const uvec2 cSize)
     writeDistanceStencilInfo(d, index);
 }
 
-RayState getState()
-{
-    uint gid = gl_GlobalInvocationID.x;
-    return rss.activeData[gid];
-}
-
 void main()
 {
-    RayState rayState = getState();
+    uint gid = gl_GlobalInvocationID.x;
+    if (gid >= rss.activeCount)
+        return;
+    
+    RayState rayState = rss.activeData[gid];
     pnanovdb_grid_handle_t grid = makeNanoGrid(0);
 
     float t0 = 0;

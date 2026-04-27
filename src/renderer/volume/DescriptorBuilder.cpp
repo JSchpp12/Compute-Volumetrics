@@ -147,11 +147,11 @@ void DescriptorBuilder::createDescriptors()
         BuildPipeline(shaderDir, "nanoVDBHitBoundingBox.comp", cLay, m_graphicsManagers);
     *m_nanoVDBPipeline_surface = BuildPipeline(shaderDir, "nanoVDBSurface.comp", cLay, m_graphicsManagers);
     *m_marchedPipeline = BuildPipeline(shaderDir, "volume_color.comp", cLay, m_graphicsManagers);
-    *m_linearPipeline = BuildPipeline(shaderDir, "linearFog.comp", cLay, m_graphicsManagers);
-    *m_expPipeline = BuildPipeline(shaderDir, "expFog.comp", cLay, m_graphicsManagers);
-    *m_marchedHomogenousPipeline = BuildPipeline(shaderDir, "HomogenousMarchedFog.comp", cLay, m_graphicsManagers);
-    *m_initPipeline = BuildPipeline(shaderDir, "rayInit_BoundingBox_Depth.comp", cLay, m_graphicsManagers);
-    *m_dispatchCmdPipeline = BuildPipeline(shaderDir, "indirect_dispatch.comp", cLay, m_graphicsManagers);
+    *m_linearPipeline = BuildPipeline(shaderDir, "volume_linear.comp", cLay, m_graphicsManagers);
+    *m_expPipeline = BuildPipeline(shaderDir, "volume_exp.comp", cLay, m_graphicsManagers);
+    *m_marchedHomogenousPipeline = BuildPipeline(shaderDir, "volume_homogenousMarch.comp", cLay, m_graphicsManagers);
+    *m_initPipeline = BuildPipeline(shaderDir, "volume_rayInit.comp", cLay, m_graphicsManagers);
+    *m_dispatchCmdPipeline = BuildPipeline(shaderDir, "volume_calcIndirectDispatch.comp", cLay, m_graphicsManagers);
 
     star::core::waiter::one_shot::on_build_pipeline::BuildSetCachedPipeline(
         *m_evtBus, *m_graphicsManagers->pipelineManager, *m_dispatchCmdPipeline, m_cachedDispatchPipeline);

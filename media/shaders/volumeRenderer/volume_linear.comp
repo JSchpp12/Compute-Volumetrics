@@ -1,13 +1,12 @@
 #version 450
 
-#include "struct_RayState.comp"
 #include "struct_DispatchIndirectCommand.comp"
+#include "struct_RayState.comp"
 
 const float PI = 3.1415926535897932384626433832795;
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 #include "layout_pushConstants.comp"
-
 struct Light_Type
 {
     uint point;
@@ -43,12 +42,7 @@ layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer
 {
     uint pnanovdb_buf_data[];
 };
-layout(set = 0, binding = 2) uniform aabbInfo
-{
-    vec4 bounds[2];
-}
-aabb;
-layout(set = 0, binding = 2) uniform additionalCameraInfo
+layout(set = 0, binding = 2) uniform additionalTransformInfo
 {
     mat4 invProj;
     vec2 cameraDimensions;
@@ -113,7 +107,7 @@ fogInfo;
 layout(set = 2, binding = 0) uniform sampler2D inputSceneDepth;
 layout(set = 2, binding = 1, rgba8) uniform readonly image2D inputSceneColor;
 layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
-
+// only color marched type
 struct Ray
 {
     vec4 origin;
@@ -161,6 +155,12 @@ vec4 getWorldOrigin()
     return vec4((globalUbo.invView * vec4(0.0, 0.0, 0.0, 1.0)).xyz, 1.0);
 }
 
+uvec2 getTargetPixel()
+{
+    uvec2 gid = gl_GlobalInvocationID.xy;
+    return gid;
+}
+
 float linearizeDepth(const float depth, const float camNearClipDist, const float camFarClipDist)
 {
     /* convert depth value back to linear space -- based on proj matrix
@@ -177,31 +177,46 @@ float linearizeDepth(const float depth, const float camNearClipDist, const float
     return camNearClipDist * camFarClipDist / (camFarClipDist + depth * (camNearClipDist - camFarClipDist));
 }
 
-float calcExpFogAmt(const float depth, const float density)
+float calcFogAmt(const float depth, const float fogNearDist, const float fogFarDist)
 {
-    return 1.0 - clamp(exp(-density * depth), 0.0, 1.0);
+    // check if within bounds of set fog distances
+    if (depth >= fogFarDist)
+        return 1.0;
+    if (depth <= fogNearDist)
+        return 0.0;
+
+    // calc distance from far fog dist and interpolate
+    return (1 - (fogFarDist - depth) / (fogFarDist - fogNearDist));
 }
 
-RayState getState()
+bool checkForThreadOutsideOfTarget()
 {
-    uint gid = gl_GlobalInvocationID.x;
-    return rss.activeData[gid];
+    ivec2 imageSize = imageSize(inputSceneColor);
+    uvec2 coords = getTargetPixel();
+    if (coords.x > imageSize.x || coords.y > imageSize.y)
+    {
+        return false;
+    }
+
+    return true;
 }
 
 void main()
 {
-    const RayState rayState = getState();
-    float targetPixelInputDepth = texelFetch(inputSceneDepth, rayState.targetPixel, 0).r;
-
+    uint gid = gl_GlobalInvocationID.x;
+    if (gid >= rss.activeCount)
+        return;
+        
+    const RayState rayState = rss.activeData[gid];
+    const float targetPixelInputDepth = texelFetch(inputSceneDepth, rayState.targetPixel, 0).r;
     const vec4 clipSpace = getClipSpaceCoordsFromPixel(rayState.targetPixel, targetPixelInputDepth);
     const vec4 viewPositionWorld = getWorldPositionFromClip(clipSpace);
     const vec4 orgWorld = getWorldOrigin();
     const vec4 viewDirectionWorld = getWorldViewDirection(viewPositionWorld);
     const float worldDepthDistance = length(viewPositionWorld.xyz - viewDirectionWorld.xyz);
-
     const vec4 targetPixelInputColor = vec4(imageLoad(inputSceneColor, rayState.targetPixel));
-    const float fogAmt = calcExpFogAmt(worldDepthDistance, fogInfo.expFog_density);
-
+    const float fogAmt = calcFogAmt(worldDepthDistance, fogInfo.linearFog_nearDistance, fogInfo.linearFog_farDistance);
     const vec4 finalColor = mix(targetPixelInputColor, vec4(1.0, 1.0, 1.0, 1.0), fogAmt);
+
     imageStore(outputImage, rayState.targetPixel, finalColor);
 }
