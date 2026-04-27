@@ -1,9 +1,10 @@
 #version 450
 
-#include "struct_RayState.comp"
+#include "struct_DispatchIndirectCommand.comp"
 #include "struct_Light.comp"
+#include "struct_RayState.comp"
 
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 #include "layout_pushConstants.comp"
 
 Light_Type createLightTypeStruct()
@@ -27,16 +28,14 @@ layout(set = 0, binding = 2) uniform additionalCameraInfo
     float scale;
 }
 addCamInfo;
-layout(std430, set = 0, binding = 3) buffer RayStateBuffer
+layout(std430, set = 0, binding = 3) buffer RayDispatchInfoBuffer
 {
+    DispatchIndirectCommand dispatch;
+    uint activeCount;
+
     RayState activeData[];
 }
 rss;
-layout(std430, set = 0, binding = 4) buffer ActiveRayCounter
-{
-    uint activeCount;
-}
-rayTracker;
 
 // per-frame update data
 layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
@@ -130,53 +129,45 @@ void writeDistanceInfo(const float d, const ivec2 tPix, const uvec2 cSize)
     writeDistanceStencilInfo(d, index);
 }
 
-uvec2 getTargetPixel()
+RayState getState()
 {
-    uvec2 gid = gl_GlobalInvocationID.xy;
-    return gid;
+    uint gid = gl_GlobalInvocationID.x;
+    return rss.activeData[gid];
 }
 
 void main()
 {
-    ivec2 gid = ivec2(getTargetPixel());
-    if (any(greaterThanEqual(gid, addCamInfo.cameraDimensions)))
-        return;
-
-    const ivec2 targetPixel = ivec2(gid);
+    RayState rayState = getState();
     pnanovdb_grid_handle_t grid = makeNanoGrid(0);
-    const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]);
-    vec3 resultingColor = vec3(0.0, 0.0, 0.0);
-
-    vec3 viewDirScene = vec3(0.0);
-    vec3 orgScene = vec3(0.0);
-    getSceneViewInfoForPix(targetPixel, uvec2(addCamInfo.cameraDimensions.x, addCamInfo.cameraDimensions.y), orgScene,
-                           viewDirScene);
-    const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]);
-    Ray worldRay = createRay(orgScene.xyz, viewDirScene.xyz);
-    Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix);
 
     float t0 = 0;
     float t1 = 0;
     float localDepthDistance;
     float rayDistanceTraveled = 0;
-    if (rayBoxIntersect(grid, localRay, t0, t1))
+    if (rayState.status)
     {
+        vec3 resultingColor = vec3(0.0, 0.0, 0.0);
+
+        const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]);
+        Ray localRay;
+        localRay.origin = vec4(rayState.origin.xyz, 1.0);
+        localRay.direction = vec4(rayState.direction.xyz, 0.0);
         const float scale = extractUniformVolumeScale(instanceModelMatrix[0]);
 
-        forwardMarch(grid, resultingColor, localRay, t0, t1, inverseModelMatrix,
+        forwardMarch(grid, resultingColor, localRay, rayState.t0, rayState.tEnd, inverseModelMatrix,
                      fogInfo.marchedFog_sigmaAbsorption * scale, fogInfo.marchedFog_sigmaScattering * scale,
                      fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_stepSizeDist / scale,
                      fogInfo.marchedFog_stepSizeDist_light / scale, addCamInfo.farClipDist / scale,
-                     imageLoad(randomTexture, targetPixel), fogInfo.marchedFog_defaultDensity,
+                     imageLoad(randomTexture, rayState.targetPixel), fogInfo.marchedFog_defaultDensity,
                      fogInfo.marchedFog_densityMultiplier, resultingColor, rayDistanceTraveled);
 
-        //since march happens in local space, bring back to world
-        rayDistanceTraveled = rayDistanceTraveled * scale; 
+        // since march happens in local space, bring back to world
+        rayDistanceTraveled = rayDistanceTraveled * scale;
     }
     else
     {
         rayDistanceTraveled = addCamInfo.farClipDist;
     }
 
-    writeDistanceInfo(rayDistanceTraveled, targetPixel, uvec2(addCamInfo.cameraDimensions));
+    writeDistanceInfo(rayDistanceTraveled, rayState.targetPixel, uvec2(addCamInfo.cameraDimensions));
 }

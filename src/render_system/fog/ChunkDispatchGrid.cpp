@@ -1,7 +1,7 @@
 #include "render_system/fog/ChunkDispatchGrid.hpp"
 
 #include "render_system/fog/commands/Distance.hpp"
-#include "render_system/fog/commands/FullPass.hpp"
+#include "render_system/fog/commands/Pass.hpp"
 #include "render_system/fog/commands/PostMemoryBarrierDifferentFamilies.hpp"
 #include "render_system/fog/commands/PreMemoryBarrierDifferentFamilies.hpp"
 
@@ -50,42 +50,39 @@ void render_system::fog::ChunkDispatchGrid::createChunkHandlers(star::core::devi
     const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
         GetQueueFamilyIndices(ctx);
 
-    const auto *queueInfo = ctx.getManagerCommandBuffer().m_manager.getInUseInfoForType(star::Queue_Type::Tcompute);
-    assert(queueInfo != nullptr && "Failed to get queue info from manager");
-    assert(total % 2 == 0 && "chunks must be an even size for now");
 
-    m_chunkHandlers[0] = render_system::fog::ChunkOrchestrator{
-        star::StarCommandBuffer{ctx.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
-                                star::Queue_Type::Tcompute, false, false},
-        FullPass{ComputeContributor{Color{}},
-                 PreMemoryBarrierContributor{PreMemoryBarrierDifferentFamilies{
-                     computeQueueFamilyIndex, graphicsQueueFamilyIndex, transferQueueFamilyIndex}}},
-        SyncProvider{signal::CalcFromFt(0, total, &ctx.frameTracker()),
-                     wait::GatherFromCO{passRegistration, &ctx.getCmdBus()}},
-        &isReady};
+    //m_chunkHandlers[0] = render_system::fog::ChunkOrchestrator{
+    //    star::StarCommandBuffer{ctx.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
+    //                            star::Queue_Type::Tcompute, false, false},
+    //    FullPass{ComputeContributor{Color{}},
+    //             PreMemoryBarrierContributor{PreMemoryBarrierDifferentFamilies{
+    //                 computeQueueFamilyIndex, graphicsQueueFamilyIndex, transferQueueFamilyIndex}}},
+    //    SyncProvider{signal::CalcFromFt(0, total, &ctx.frameTracker()),
+    //                 wait::GatherFromCO{passRegistration, &ctx.getCmdBus()}},
+    //    &isReady};
 
-    for (int i{1}; i < total - 1; i++)
-    {
-        FullPass fp = i % 2 == 0 ? FullPass{ComputeContributor{Color{}}} : FullPass{ComputeContributor{Distance{}}};
+    //for (int i{1}; i < total - 1; i++)
+    //{
+    //    FullPass fp = i % 2 == 0 ? FullPass{ComputeContributor{Color{}}} : FullPass{ComputeContributor{Distance{}}};
 
-        m_chunkHandlers[i] = ChunkOrchestrator{
-            star::StarCommandBuffer{ctx.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
-                                    star::Queue_Type::Tcompute, false, false},
-            std::move(fp),
-            SyncProvider{signal::CalcFromFt(i, total, &ctx.frameTracker()),
-                         wait::WaitForPreviousChunk(i, total, &ctx.frameTracker())},
-            &isReady};
-    }
+    //    m_chunkHandlers[i] = ChunkOrchestrator{
+    //        star::StarCommandBuffer{ctx.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
+    //                                star::Queue_Type::Tcompute, false, false},
+    //        std::move(fp),
+    //        SyncProvider{signal::CalcFromFt(i, total, &ctx.frameTracker()),
+    //                     wait::WaitForPreviousChunk(i, total, &ctx.frameTracker())},
+    //        &isReady};
+    //}
 
-    m_chunkHandlers[total - 1] = render_system::fog::ChunkOrchestrator{
-        star::StarCommandBuffer{ctx.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
-                                star::Queue_Type::Tcompute, false, false},
-        FullPass{ComputeContributor{Distance{}},
-                 PostMemoryBarrierContributor{PostMemoryBarrierDifferentFamilies{
-                     computeQueueFamilyIndex, graphicsQueueFamilyIndex, transferQueueFamilyIndex}}},
-        SyncProvider{signal::CalcFromFt(total - 1, total, &ctx.frameTracker()),
-                     wait::WaitForFirstChunk(total, &ctx.frameTracker())},
-        &isReady};
+    //m_chunkHandlers[total - 1] = render_system::fog::ChunkOrchestrator{
+    //    star::StarCommandBuffer{ctx.getDevice().getVulkanDevice(), static_cast<int>(nf), &queueInfo->pool,
+    //                            star::Queue_Type::Tcompute, false, false},
+    //    FullPass{ComputeContributor{Distance{}},
+    //             PostMemoryBarrierContributor{PostMemoryBarrierDifferentFamilies{
+    //                 computeQueueFamilyIndex, graphicsQueueFamilyIndex, transferQueueFamilyIndex}}},
+    //    SyncProvider{signal::CalcFromFt(total - 1, total, &ctx.frameTracker()),
+    //                 wait::WaitForFirstChunk(total, &ctx.frameTracker())},
+    //    &isReady};
 }
 
 void render_system::fog::ChunkDispatchGrid::prepRender(star::core::device::DeviceContext &ctx,
@@ -121,27 +118,27 @@ void render_system::fog::ChunkDispatchGrid::recordAllChunks(const star::common::
 
     uint32_t halfX = wx / 2;
     uint32_t halfY = wy / 2;
-    DispatchInfo dInfo{.workgroupSize = {patchX, patchY}, .localThreadGroupSize = {8, 8}};
+    //DispatchInfo dInfo{.workgroupSize = {patchX, patchY}, .localThreadGroupSize = {8, 8}};
 
     const size_t patches = numPatches();
     // total num passes
-    for (size_t i{0}; i < patches; i++)
-    {
-        const uint32_t col = static_cast<uint32_t>(i) % nx;
-        const uint32_t row = static_cast<uint32_t>(i) / nx;
+    //for (size_t i{0}; i < patches; i++)
+    //{
+    //    const uint32_t col = static_cast<uint32_t>(i) % nx;
+    //    const uint32_t row = static_cast<uint32_t>(i) / nx;
 
-        dInfo.chunkOffset[0] = col * patchX;
-        dInfo.chunkOffset[1] = row * patchY;
-        dInfo.chunkOffsetPixels[0] = dInfo.chunkOffset[0] * dInfo.localThreadGroupSize[0];
-        dInfo.chunkOffsetPixels[1] = dInfo.chunkOffset[1] * dInfo.localThreadGroupSize[1];
+    //    dInfo.chunkOffset[0] = col * patchX;
+    //    dInfo.chunkOffset[1] = row * patchY;
+    //    dInfo.chunkOffsetPixels[0] = dInfo.chunkOffset[0] * dInfo.localThreadGroupSize[0];
+    //    dInfo.chunkOffsetPixels[1] = dInfo.chunkOffset[1] * dInfo.localThreadGroupSize[1];
 
-        const size_t baseI = i * 2; 
-        // cmds per pass
-        for (size_t j{baseI}; j < (baseI) + 2; j++)
-        {
-            m_chunkHandlers[j].recordCommands(dInfo, pInfo, pipeInfo, ft, type);
-        }
-    }
+    //    const size_t baseI = i * 2; 
+    //    // cmds per pass
+    //    for (size_t j{baseI}; j < (baseI) + 2; j++)
+    //    {
+    //        //m_chunkHandlers[j].recordCommands(dInfo, pInfo, pipeInfo, ft, type);
+    //    }
+    //}
 }
 
 void render_system::fog::ChunkDispatchGrid::submitAllChunks(const star::common::FrameTracker &ft,
@@ -156,5 +153,5 @@ void render_system::fog::ChunkDispatchGrid::submitAllChunks(const star::common::
 uint64_t render_system::fog::ChunkDispatchGrid::getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const
 {
     // get the last chunk since this will signify to others that this is the value to wait for
-    return m_chunkHandlers.back().getSignalInfo(ft).value;
+    return m_chunkHandlers.back().getSignalInfo(ft).value().value;
 }

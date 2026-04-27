@@ -47,10 +47,10 @@ static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus
     return handles;
 }
 
-static std::unique_ptr<star::command_order::get_pass_info::GatheredPassInfo> GetTransferNeighborInfo(
-    const star::core::CommandBus &cmdBus, const star::Handle &commandBuffer)
+static std::optional<star::command_order::get_pass_info::GatheredPassInfo> GetTransferNeighborInfo(
+    const star::core::CommandBus &cmdBus, const star::Handle &commandBuffer, uint8_t transferFamilyIndex)
 {
-    std::unique_ptr<star::command_order::get_pass_info::GatheredPassInfo> transferNeighborInfo = nullptr;
+    std::optional<star::command_order::get_pass_info::GatheredPassInfo> transferNeighborInfo{std::nullopt};
 
     auto getCmd = star::command_order::GetPassInfo(commandBuffer);
     cmdBus.submit(getCmd);
@@ -60,14 +60,22 @@ static std::unique_ptr<star::command_order::get_pass_info::GatheredPassInfo> Get
 
     if (ele.edges != nullptr)
     {
-        const auto &edge = ele.edges->front();
-        const star::Handle f = edge.producer == commandBuffer ? edge.consumer : edge.producer;
+        for (const auto &edge : *ele.edges)
+        {
+            if (edge.producer == commandBuffer)
+            {
+                auto nGetCmd = star::command_order::GetPassInfo(edge.consumer);
+                cmdBus.submit(nGetCmd);
 
-        auto nGetCmd = star::command_order::GetPassInfo(f);
-        cmdBus.submit(nGetCmd);
+                auto r = nGetCmd.getReply().get(); 
+                if (*r.queueFamilyIndex == transferFamilyIndex)
+                {
+                    transferNeighborInfo = nGetCmd.getReply().get();
 
-        transferNeighborInfo =
-            std::make_unique<star::command_order::get_pass_info::GatheredPassInfo>(nGetCmd.getReply().get());
+                    break;
+                }
+            }
+        }
     }
 
     return transferNeighborInfo;
@@ -146,8 +154,7 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
                 .vdbInfoSDF = &vdbInfoSDF,
                 .vdbInfoFog = &vdbInfoFog,
                 .randomValueTexture = &randomValueTexture,
-                .activeRayCountBuffers = &m_activeRayCount,
-                .activeRayStorageBuffers = &m_activeRayCount},
+                .activeRayStorageBuffers = &m_activeRayStorage},
         .outputs{.computeWriteToImages = &computeWriteToImages,
                  .computeRayDistBuffers = &computeRayDistanceBuffers,
                  .computeRayAtCutoffBuffer = &computeRayAtCutoffDistanceBuffers}};
@@ -155,11 +162,26 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
     star::core::waiter::one_shot::CreateDescriptorsOnEventPolicy<DescriptorBuilder>::Builder(context.getEventBus())
         .setEventType(
             registry::instance().getTypeGuaranteedExist(star::event::EnginePhaseComplete::GetUniqueTypeName()))
-        .setPolicy(DescriptorBuilder{
-            &context.getDeviceID(), pipelineData, &m_staticShaderInfo, &m_dynamicShaderInfo, &marchedHomogenousPipeline,
-            &nanoVDBPipeline_hitBoundingBox, &nanoVDBPipeline_surface, &marchedPipeline, &linearPipeline, &expPipeline,
-            &computePipelineLayout, &m_initRayPipeline, &context.getDevice(), &context.getGraphicsManagers(),
-            &context.getManagerRenderResource(), context.frameTracker().getSetup().getNumFramesInFlight()})
+        .setPolicy(DescriptorBuilder{&context.getDeviceID(),
+                                     pipelineData,
+                                     &m_staticShaderInfo,
+                                     &m_dynamicShaderInfo,
+                                     &marchedHomogenousPipeline,
+                                     &nanoVDBPipeline_hitBoundingBox,
+                                     &nanoVDBPipeline_surface,
+                                     &marchedPipeline,
+                                     &linearPipeline,
+                                     &expPipeline,
+                                     &computePipelineLayout,
+                                     &m_initPipe,
+                                     &m_pipeInfo.initPipeline,
+                                     &m_indirectDispatchPipe,
+                                     &m_pipeInfo.indirectDispatchPipeline,
+                                     &context.getDevice(),
+                                     &context.getGraphicsManagers(),
+                                     &context.getManagerRenderResource(),
+                                     &context.getEventBus(),
+                                     context.frameTracker().getSetup().getNumFramesInFlight()})
         .buildShared();
 
     m_distanceComputer.prepRender(context, pipelineData, &this->m_staticShaderInfo);
@@ -177,7 +199,9 @@ bool VolumeRenderer::isRenderReady(const star::core::device::DeviceContext &cont
         context.getPipelineManager().get(expPipeline)->isReady() &&
         context.getPipelineManager().get(nanoVDBPipeline_hitBoundingBox)->isReady() &&
         context.getPipelineManager().get(nanoVDBPipeline_surface)->isReady() &&
-        context.getPipelineManager().get(marchedHomogenousPipeline)->isReady() && m_distanceComputer.isReady(context))
+        context.getPipelineManager().get(marchedHomogenousPipeline)->isReady() && m_distanceComputer.isReady(context) &&
+        context.getPipelineManager().get(m_indirectDispatchPipe)->isReady() &&
+        context.getPipelineManager().get(m_initPipe)->isReady())
     {
         isReady = true;
     }
@@ -226,7 +250,9 @@ void VolumeRenderer::recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
 void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &ft,
                                     const uint64_t &frameIndex)
 {
-    auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer);
+    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+
+    auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer, this->transferQueueFamilyIndex);
 
     render_system::fog::PassInfo tInfo{
         .globalCameraBuffer = m_infoManagerGlobalCamera->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
@@ -252,19 +278,18 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
         .computeRayAtCutoffDistance =
             computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
         .computeRayDistance = computeRayDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
-        .transferWasRunLast = tNeighbor != nullptr
-                                  ? tNeighbor->wasProcessedOnLastFrame->at(ft.getCurrent().getFrameInFlightIndex())
+        .transferWasRunLast = tNeighbor.has_value()
+                                  ? tNeighbor.value().wasProcessedOnLastFrame->at(ft.getCurrent().getFrameInFlightIndex())
                                   : false,
-        .transferWillBeRunThisFrame = tNeighbor != nullptr ? tNeighbor->isTriggeredThisFrame : false};
+        .transferWillBeRunThisFrame = tNeighbor.has_value() ? tNeighbor.value().isTriggeredThisFrame : false};
 
-    render_system::fog::PassPipelineInfo pipeInfo{
-        .colorPipe = {.layout = *this->computePipelineLayout,
-                      .pipeline = m_renderingContext.pipeline->getVulkanPipeline()},
-        .distancePipe = {.layout = m_distanceComputer.getLayout(), .pipeline = m_distanceComputer.getPipeline()},
-        .staticShaderInfo = this->m_staticShaderInfo.get(),
-        .colorOnlyShaderInfo = this->m_dynamicShaderInfo.get(),
-        .distanceOnlyShaderInfo = m_distanceComputer.getDynamicShaderInfo()};
-
+    m_pipeInfo.distancePipe = {.layout = m_distanceComputer.getLayout(), .pipeline = m_distanceComputer.getPipeline()};
+    m_pipeInfo.staticShaderInfo = m_staticShaderInfo.get();
+    m_pipeInfo.colorOnlyShaderInfo = m_dynamicShaderInfo.get();
+    m_pipeInfo.distanceOnlyShaderInfo = m_distanceComputer.getDynamicShaderInfo();
+    m_pipeInfo.indirectDispatchBuffer = m_activeRayStorage[ii].getVulkanBuffer();
+    m_pipeInfo.colorPipe.layout = *this->computePipelineLayout;
+    m_pipeInfo.colorPipe.pipeline = this->m_renderingContext.pipeline->getVulkanPipeline();
     vk::Semaphore workingSemaphore{VK_NULL_HANDLE};
     {
         uint64_t previousSignaledValue{0};
@@ -292,7 +317,8 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
         }
     }
 
-    m_chunkHandler.recordCommands(ft, tInfo, pipeInfo, this->currentFogType);
+    m_chunkHandler.recordCommands({m_activeRayStorage[ii].getVulkanBuffer()}, ft, tInfo, m_pipeInfo,
+                                  this->currentFogType);
 }
 
 uint64_t VolumeRenderer::getTimelineSignalValue(const star::common::FrameTracker &ft) const
@@ -396,7 +422,6 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     m_fogController.prepRender(context, context.frameTracker().getSetup().getNumFramesInFlight());
 
     m_activeRayStorage.resize(context.frameTracker().getSetup().getNumFramesInFlight());
-    m_activeRayCount.resize(context.frameTracker().getSetup().getNumFramesInFlight());
     for (uint8_t i = 0; i < context.frameTracker().getSetup().getNumFramesInFlight(); i++)
     {
         const auto aabbSemaphore =
@@ -410,7 +435,6 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
             context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
         const std::string cstr = std::to_string(i);
-        m_activeRayCount[i] = render_system::fog::CreateRayCountBuffer(context, "RNUM_" + cstr);
         m_activeRayStorage[i] =
             render_system::fog::CreateActiveRayStorageBuffer(context, "RMEM_" + cstr, context.getEngineResolution());
     }
@@ -449,16 +473,10 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 void VolumeRenderer::cleanupRender(star::core::device::DeviceContext &context)
 {
     m_chunkHandler.cleanupRender(context);
-
     m_distanceComputer.cleanupRender(context);
-
     m_staticShaderInfo->cleanupRender(context.getDevice());
     m_dynamicShaderInfo->cleanupRender(context.getDevice());
 
-    for (auto &buf : m_activeRayCount)
-    {
-        buf.cleanupRender(context.getDevice().getVulkanDevice());
-    }
     for (auto &buf : m_activeRayStorage)
     {
         buf.cleanupRender(context.getDevice().getVulkanDevice());

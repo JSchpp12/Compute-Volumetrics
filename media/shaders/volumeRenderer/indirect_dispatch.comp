@@ -1,0 +1,40 @@
+#version 450
+
+#include "struct_DispatchIndirectCommand.comp"
+#include "struct_RayState.comp"
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+// globals
+layout(rgba32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
+layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer
+{
+    uint pnanovdb_buf_data[];
+};
+layout(set = 0, binding = 2) uniform additionalCameraInfo
+{
+    mat4 invProj;
+    vec2 cameraDimensions;
+    float aspectRatio;
+    float farClipDist;
+    float nearClipDist;
+    float scale;
+}
+addCamInfo;
+layout(std430, set = 0, binding = 3) buffer RayDispatchInfoBuffer
+{
+    DispatchIndirectCommand dispatch;
+    uint activeCount;
+
+    RayState activeData[];
+}
+rss;
+
+void main()
+{
+    const uint nextShaderLocalSize = 64;
+
+    rss.dispatch.x = (rss.activeCount + nextShaderLocalSize - 1) / nextShaderLocalSize;
+    rss.dispatch.y = 1;
+    rss.dispatch.z = 1;
+}

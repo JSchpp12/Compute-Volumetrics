@@ -2,7 +2,8 @@
 
 #include "render_system/fog/struct/ShaderPushInfo.hpp"
 
-static void RecPushConsts(vk::CommandBuffer cmdBuf, const render_system::fog::DispatchInfo &dInfo, vk::PipelineLayout layout)
+static void RecPushConsts(vk::CommandBuffer cmdBuf, const render_system::fog::DispatchInfo &dInfo,
+                          vk::PipelineLayout layout)
 {
     render_system::fog::ShaderPushInfo pushInfo{.stepsPerDispatch = 0};
     cmdBuf.pushConstants(layout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(pushInfo), &pushInfo);
@@ -23,5 +24,12 @@ void render_system::fog::commands::ComputeContributor::recordCommands(const rend
         RecPushConsts(cmdBuf, dInfo, pipeInfo.distancePipe.layout);
         std::get<Distance>(m_approach).recordCommands(dInfo, pipeInfo, cmdBuf, ft);
     }
-
+    else if (std::holds_alternative<Init>(m_approach))
+    {
+        std::get<Init>(m_approach).recordCommands(dInfo, pipeInfo, cmdBuf, ft);
+    }
+    else if (std::holds_alternative<IndirectDispatch>(m_approach))
+    {
+        std::get<IndirectDispatch>(m_approach).recordCommands(dInfo, pipeInfo, cmdBuf, ft);
+    }
 }

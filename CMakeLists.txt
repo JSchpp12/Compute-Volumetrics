@@ -92,7 +92,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/commands/PreMemoryBarrierDifferentFamilies.cpp"
 	"src/render_system/fog/commands/PostMemoryBarrierContributor.cpp"
 	"src/render_system/fog/commands/PostMemoryBarrierDifferentFamilies.cpp"
-	"src/render_system/fog/commands/FullPass.cpp"
+	"src/render_system/fog/commands/Pass.cpp"
 	"src/renderer/distance/CreatePipelines.cpp"
 	"src/renderer/finalization/FinalizationRenderer.cpp"
 	"src/renderer/finalization/Windowed.cpp"
@@ -147,7 +147,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/ChunkOrchestrator.cpp"
 	"src/render_system/fog/sync/wait/WaitForPreviousChunk.cpp"
  	"src/render_system/fog/sync/wait/WaitForFirstChunk.cpp"
-	"src/render_system/fog/ChunkDispatchGrid.cpp" )
+	"src/render_system/fog/ChunkDispatchGrid.cpp"  "src/render_system/fog/commands/Init.cpp" "src/render_system/fog/commands/IndirectDispatch.cpp" "src/render_system/fog/PipelineCacher.cpp")
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"

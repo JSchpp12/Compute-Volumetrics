@@ -19,5 +19,6 @@ void render_system::fog::commands::Distance::recordCommands(const DispatchInfo &
     cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.distancePipe.layout, 0, sets.size(), sets.data(), 0,
                               VK_NULL_HANDLE);
 
-    cmdBuf.dispatch(dInfo.workgroupSize[0], dInfo.workgroupSize[1], 1);
+    assert(dInfo.indirectBuffer); 
+    cmdBuf.dispatchIndirect(dInfo.indirectBuffer, 0);
 }

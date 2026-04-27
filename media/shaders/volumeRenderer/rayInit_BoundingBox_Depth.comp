@@ -1,9 +1,11 @@
 
 #version 450
-#extension GL_EXT_shader_atomic_float : require
 
-#include "struct_RayState.comp"
+#include "struct_DispatchIndirectCommand.comp"
 #include "struct_Light.comp"
+#include "struct_RayState.comp"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 #include "layout_pushConstants.comp"
 
@@ -23,16 +25,15 @@ layout(set = 0, binding = 2) uniform additionalCameraInfo
     float scale;
 }
 addCamInfo;
-layout(std430, set = 0, binding = 3) buffer RayStateBuffer
+layout(std430, set = 0, binding = 3) buffer RayDispatchInfoBuffer
 {
+    DispatchIndirectCommand dispatch;
+    uint activeCount;
+
     RayState activeData[];
 }
 rss;
-layout(std430, set = 0, binding = 4) buffer ActiveRayCounter
-{
-    uint activeCount;
-}
-rt;
+
 // per-frame update data
 layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
 {
@@ -88,7 +89,7 @@ uvec2 getTargetPixel()
 
 void writeRayState(RayState state)
 {
-    const uint dst = atomicAdd(rt.activeCount, 1); 
+    const uint dst = atomicAdd(rss.activeCount, 1);
     rss.activeData[dst] = state;
 }
 
@@ -131,7 +132,15 @@ void main()
     {
         // is active
         RayState state;
+        state.radiance = vec3(0.0);
+        state.transparency = 1;
+        state.direction = localRay.direction.xyz;
+        state.t0 = t0;
+        state.origin = localRay.origin.xyz;
+        state.tEnd = t1;
         state.targetPixel = targetPixel;
+        state.rayDistanceTraveled = 0;
+        state.localDepthDistance = localDepthDistance;
         state.status = true;
 
         writeRayState(state);

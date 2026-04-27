@@ -25,7 +25,6 @@ struct ContainerRenderResourceData
         star::Handle *vdbInfoSDF;
         star::Handle *vdbInfoFog;
         star::Handle *randomValueTexture;
-        std::vector<star::StarBuffers::Buffer> *activeRayCountBuffers{nullptr};
         std::vector<star::StarBuffers::Buffer> *activeRayStorageBuffers{nullptr};
     };
 

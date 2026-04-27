@@ -3,6 +3,8 @@
 #include "ConfigFile.hpp"
 #include "render_system/fog/struct/ShaderPushInfo.hpp"
 
+#include <starlight/core/waiter/one_shot/WaiterFactory.hpp>
+
 #include <vulkan/vulkan.hpp>
 
 void DescriptorBuilder::create()
@@ -28,7 +30,6 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildStaticShaderInfo()
                               .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(3, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-                              .addBinding(4, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
                               .build(*m_device))
             .addSetLayout(star::StarDescriptorSetLayout::Builder()
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
@@ -41,8 +42,6 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildStaticShaderInfo()
 
     assert(m_data.inputs.activeRayStorageBuffers != nullptr &&
            m_data.inputs.activeRayStorageBuffers->size() == m_numFramesInFlight);
-    assert(m_data.inputs.activeRayCountBuffers != nullptr &&
-           m_data.inputs.activeRayStorageBuffers->size() == m_numFramesInFlight);
 
     for (uint8_t i{0}; i < m_numFramesInFlight; i++)
     {
@@ -53,7 +52,6 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildStaticShaderInfo()
             .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.vdbInfoFog})
             .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.cameraShaderInfo})
             .add(star::StarShaderInfo::BufferInfo{&m_data.inputs.activeRayStorageBuffers->at(i)})
-            .add(star::StarShaderInfo::BufferInfo{&m_data.inputs.activeRayCountBuffers->at(i)})
             .startSet()
             .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalInfoBuffers->getHandle(i)})
             .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalLightList->getHandle(i)})
@@ -100,14 +98,18 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildShaderInfo()
 }
 
 static star::Handle BuildPipeline(const std::filesystem::path &shaderDir, const std::string &shaderFile,
-                                  const vk::PipelineLayout &compmutePipelineLayout,
+                                  const vk::PipelineLayout &computePipelineLayout,
                                   star::core::device::manager::GraphicsContainer *graphicsManagers)
 {
     const auto fPath = shaderDir / shaderFile;
-    return graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{star::StarPipeline(
-        star::StarPipeline::ComputePipelineConfigSettings(), compmutePipelineLayout,
-        std::vector<star::Handle>{graphicsManagers->shaderManager->submit(star::core::device::manager::ShaderRequest{
-            star::StarShader(fPath.string(), star::Shader_Stage::compute), star::Compiler("PNANOVDB_GLSL")})})});
+    auto handle = graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{
+        star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), computePipelineLayout,
+                           std::vector<star::Handle>{
+                               graphicsManagers->shaderManager->submit(star::core::device::manager::ShaderRequest{
+                                   star::StarShader(fPath.string(), star::Shader_Stage::compute),
+                                   star::Compiler("PNANOVDB_GLSL")})})});
+
+    return handle;
 }
 
 void DescriptorBuilder::createDescriptors()
@@ -149,4 +151,11 @@ void DescriptorBuilder::createDescriptors()
     *m_expPipeline = BuildPipeline(shaderDir, "expFog.comp", cLay, m_graphicsManagers);
     *m_marchedHomogenousPipeline = BuildPipeline(shaderDir, "HomogenousMarchedFog.comp", cLay, m_graphicsManagers);
     *m_initPipeline = BuildPipeline(shaderDir, "rayInit_BoundingBox_Depth.comp", cLay, m_graphicsManagers);
+    *m_dispatchCmdPipeline = BuildPipeline(shaderDir, "indirect_dispatch.comp", cLay, m_graphicsManagers);
+
+    star::core::waiter::one_shot::on_build_pipeline::BuildSetCachedPipeline(
+        *m_evtBus, *m_graphicsManagers->pipelineManager, *m_dispatchCmdPipeline, m_cachedDispatchPipeline);
+
+    star::core::waiter::one_shot::on_build_pipeline::BuildSetCachedPipeline(
+        *m_evtBus, *m_graphicsManagers->pipelineManager, *m_initPipeline, m_cachedInitPipeline);
 }
