@@ -112,7 +112,7 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const vec3 backgroundColor, co
                     }
 
                     const float lRayAttenuation = exp(-lTau * sigmaT);
-                    const float cosTheta = dot(-ray.direction.xyz, rayToLight.direction.xyz);
+                    const float cosTheta = dot(-ray.direction.xyz, -rayToLight.direction.xyz);
                     const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g);
                     const vec3 lightColor = lightList.lights[j].ambient.rgb;
                     const float luminance = lightList.lights[j].luminance;
