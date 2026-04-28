@@ -1,12 +1,12 @@
 #version 450
 
+#include "struct_DispatchIndirectCommand.comp"
+#include "struct_RayState.comp"
+
 const float PI = 3.1415926535897932384626433832795;
 
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-layout(push_constant) uniform PushConstants{
-    uvec2 tileOffset; 
-} dispatchInfo; 
-
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+#include "layout_pushConstants.comp"
 struct Light_Type
 {
     uint point;
@@ -33,24 +33,16 @@ struct Light
 
 Light_Type createLightTypeStruct()
 {
-	Light_Type lightChecker = {
-		0x0, 
-		0x1, 
-		0x2
-	};
-	return(lightChecker);
+    Light_Type lightChecker = {0x0, 0x1, 0x2};
+    return (lightChecker);
 }
-//static data
+// static data
 layout(rgba32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
-layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer{
+layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer
+{
     uint pnanovdb_buf_data[];
 };
-layout(set = 0, binding = 2) uniform aabbInfo
-{
-    vec4 bounds[2];
-}
-aabb;
-layout(set = 0, binding = 2) uniform additionalCameraInfo
+layout(set = 0, binding = 2) uniform additionalTransformInfo
 {
     mat4 invProj;
     vec2 cameraDimensions;
@@ -60,20 +52,33 @@ layout(set = 0, binding = 2) uniform additionalCameraInfo
     float scale;
 }
 addCamInfo;
+layout(std430, set = 0, binding = 3) buffer RayDispatchInfoBuffer
+{
+    DispatchIndirectCommand dispatch;
+    uint activeCount;
 
-//per-frame update data
+    RayState activeData[];
+}
+rss;
+
+// per-frame update data
 layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
 {
     mat4 proj;
     mat4 view;
     mat4 invView;
-} globalUbo;
-layout(set = 1, binding = 1) uniform GlobalLightInfo{
+}
+globalUbo;
+layout(set = 1, binding = 1) uniform GlobalLightInfo
+{
     int numLights;
-} lightInfo; 
-layout(set = 1, binding = 2) readonly buffer GlobalLightBuffer{
+}
+lightInfo;
+layout(set = 1, binding = 2) readonly buffer GlobalLightBuffer
+{
     Light lights[];
- } lightList;
+}
+lightList;
 layout(set = 1, binding = 3) uniform InstanceModelMatrix
 {
     mat4 instanceModelMatrix[1024];
@@ -99,16 +104,17 @@ layout(set = 1, binding = 5) uniform FogControllerInfo
     uint gridType;
 }
 fogInfo;
-//only marched types
+// only marched types
 layout(set = 2, binding = 0) uniform sampler2D inputSceneDepth;
 layout(set = 2, binding = 1, rgba8) uniform readonly image2D inputSceneColor;
 layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
-
-struct Ray {
-	vec4 origin; 
-	vec4 direction; 
-	vec4 invDirection; 
-	bool signed[3]; 
+// only color marched type
+struct Ray
+{
+    vec4 origin;
+    vec4 direction;
+    vec4 invDirection;
+    bool signed[3];
 };
 
 Ray createRay(const vec4 origin, const vec4 direction)
@@ -119,31 +125,41 @@ Ray createRay(const vec4 origin, const vec4 direction)
                bool[3](bool(invDir.x < 0), bool(invDir.y < 0), bool(invDir.z < 0)));
 }
 
-vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const float ndz){
+vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const float ndz)
+{
     // 1) Build NDC coordinates in [−1, +1]
     float ndcX = ((float(pixelCoords.x) + 0.5) / addCamInfo.cameraDimensions.x) * 2.0 - 1.0;
     float ndcY = ((float(pixelCoords.y) + 0.5) / addCamInfo.cameraDimensions.y) * 2.0 - 1.0;
 
     // Vulkan's Y axis is flipped compared to OpenGL
-    ndcY = -ndcY; 
+    ndcY = -ndcY;
 
     // 2) Reconstruct clip-space with Z = −1 (the near plane), W = 1
     return vec4(ndcX, ndcY, ndz, 1.0);
 }
 
-vec4 getWorldPositionFromClip(const vec4 clipCoords){
+vec4 getWorldPositionFromClip(const vec4 clipCoords)
+{
     // 3) Go back to view-space:
     vec4 viewPositionWorld = addCamInfo.invProj * clipCoords;
 
-    return viewPositionWorld / viewPositionWorld.w; 
+    return viewPositionWorld / viewPositionWorld.w;
 }
 
-vec4 getWorldViewDirection(const vec4 viewPositionWorld){
+vec4 getWorldViewDirection(const vec4 viewPositionWorld)
+{
     return vec4(normalize((globalUbo.invView * vec4(viewPositionWorld.xyz, 0.0)).xyz), 0);
 }
 
-vec4 getWorldOrigin(){
+vec4 getWorldOrigin()
+{
     return vec4((globalUbo.invView * vec4(0.0, 0.0, 0.0, 1.0)).xyz, 1.0);
+}
+
+uvec2 getTargetPixel()
+{
+    uvec2 gid = gl_GlobalInvocationID.xy;
+    return gid;
 }
 
 float linearizeDepth(const float depth, const float camNearClipDist, const float camFarClipDist)
@@ -162,44 +178,46 @@ float linearizeDepth(const float depth, const float camNearClipDist, const float
     return camNearClipDist * camFarClipDist / (camFarClipDist + depth * (camNearClipDist - camFarClipDist));
 }
 
-float calcExpFogAmt(const float depth, const float density){
-   return 1.0 - clamp(exp(-density * depth), 0.0, 1.0);
-}
-
-uvec2 getTargetPixel()
+float calcFogAmt(const float depth, const float fogNearDist, const float fogFarDist)
 {
-    uvec2 gid = gl_GlobalInvocationID.xy;
-    gid.x += dispatchInfo.tileOffset.x; 
-    gid.y += dispatchInfo.tileOffset.y; 
-    return gid;
+    // check if within bounds of set fog distances
+    if (depth >= fogFarDist)
+        return 1.0;
+    if (depth <= fogNearDist)
+        return 0.0;
+
+    // calc distance from far fog dist and interpolate
+    return (1 - (fogFarDist - depth) / (fogFarDist - fogNearDist));
 }
 
-bool checkForThreadOutsideOfTarget(){
-	ivec2 imageSize = imageSize(inputSceneColor);
-	uvec2 coords = getTargetPixel();
-	if (coords.x > imageSize.x || coords.y > imageSize.y ){
-		return false;
-	}
+bool checkForThreadOutsideOfTarget()
+{
+    ivec2 imageSize = imageSize(inputSceneColor);
+    uvec2 coords = getTargetPixel();
+    if (coords.x > imageSize.x || coords.y > imageSize.y)
+    {
+        return false;
+    }
 
-	return true; 
+    return true;
 }
 
-void main(){
-	if (!checkForThreadOutsideOfTarget())
-		return; 
-
-    const ivec2 targetPixel = ivec2(getTargetPixel()); 
-    float targetPixelInputDepth = texelFetch(inputSceneDepth, targetPixel, 0).r;
-
-    const vec4 clipSpace = getClipSpaceCoordsFromPixel(targetPixel, targetPixelInputDepth); 
+void main()
+{
+    uint gid = gl_GlobalInvocationID.x;
+    if (gid >= rss.activeCount)
+        return;
+        
+    const RayState rayState = rss.activeData[gid];
+    const float targetPixelInputDepth = texelFetch(inputSceneDepth, rayState.targetPixel, 0).r;
+    const vec4 clipSpace = getClipSpaceCoordsFromPixel(rayState.targetPixel, targetPixelInputDepth);
     const vec4 viewPositionWorld = getWorldPositionFromClip(clipSpace);
-    const vec4 orgWorld = getWorldOrigin(); 
-    const vec4 viewDirectionWorld = getWorldViewDirection(viewPositionWorld); 
-    const float worldDepthDistance = length(viewPositionWorld.xyz - viewDirectionWorld.xyz); 
+    const vec4 orgWorld = getWorldOrigin();
+    const vec4 viewDirectionWorld = getWorldViewDirection(viewPositionWorld);
+    const float worldDepthDistance = length(viewPositionWorld.xyz - viewDirectionWorld.xyz);
+    const vec4 targetPixelInputColor = vec4(imageLoad(inputSceneColor, rayState.targetPixel));
+    const float fogAmt = calcFogAmt(worldDepthDistance, fogInfo.linearFog_nearDistance, fogInfo.linearFog_farDistance);
+    const vec4 finalColor = mix(targetPixelInputColor, vec4(1.0, 1.0, 1.0, 1.0), fogAmt);
 
-	const vec4 targetPixelInputColor = vec4(imageLoad(inputSceneColor, targetPixel));
-    const float fogAmt = calcExpFogAmt(worldDepthDistance, fogInfo.expFog_density);
-
-    const vec4 finalColor = mix(targetPixelInputColor, vec4(1.0, 1.0, 1.0, 1.0), fogAmt); 
-    imageStore(outputImage, targetPixel, finalColor); 
+    imageStore(outputImage, rayState.targetPixel, finalColor);
 }

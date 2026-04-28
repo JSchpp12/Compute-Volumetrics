@@ -13,27 +13,27 @@ class VolumeRenderer;
 namespace render_system::fog::commands
 {
 
-class FullPass
+class Pass
 {
     std::optional<PreMemoryBarrierContributor> m_preMemCmds{std::nullopt};
     std::optional<PostMemoryBarrierContributor> m_postMemCmds{std::nullopt};
     std::optional<ComputeContributor> m_mainCmds{std::nullopt};
 
   public:
-    FullPass() = default;
-    FullPass(ComputeContributor mainCmds)
+    Pass() = default;
+    Pass(ComputeContributor mainCmds)
         : m_preMemCmds{std::nullopt}, m_postMemCmds{std::nullopt}, m_mainCmds(std::move(mainCmds))
     {
     }
-    FullPass(ComputeContributor mainCmds, PreMemoryBarrierContributor preMemCmds)
+    Pass(ComputeContributor mainCmds, PreMemoryBarrierContributor preMemCmds)
         : m_preMemCmds(std::move(preMemCmds)), m_postMemCmds{std::nullopt}, m_mainCmds(std::move(mainCmds))
     {
     }
-    FullPass(ComputeContributor mainCmds, PostMemoryBarrierContributor postMemCmds)
+    Pass(ComputeContributor mainCmds, PostMemoryBarrierContributor postMemCmds)
         : m_preMemCmds{std::nullopt}, m_postMemCmds(std::move(postMemCmds)), m_mainCmds(std::move(mainCmds))
     {
     }
-    FullPass(ComputeContributor mainCmds, PreMemoryBarrierContributor preMemCmds,
+    Pass(ComputeContributor mainCmds, PreMemoryBarrierContributor preMemCmds,
                            PostMemoryBarrierContributor postMemCmds)
         : m_preMemCmds(std::move(preMemCmds)), m_postMemCmds(std::move(postMemCmds)), m_mainCmds(std::move(mainCmds))
     {

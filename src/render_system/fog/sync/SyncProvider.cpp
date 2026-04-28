@@ -13,7 +13,7 @@ vk::SemaphoreSubmitInfo render_system::fog::sync::SyncProvider::getSignalInfo() 
     return vk::SemaphoreSubmitInfo();
 }
 
-render_system::fog::sync::WaitInfo render_system::fog::sync::SyncProvider::getWaitInfo() const
+render_system::fog::WaitInfo render_system::fog::sync::SyncProvider::getWaitInfo() const
 {
     if (!m_waitApproach.has_value())
         STAR_THROW("No wait approach was ever assigned");

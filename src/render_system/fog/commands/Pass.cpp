@@ -1,20 +1,20 @@
-#include "render_system/fog/commands/FullPass.hpp"
+#include "render_system/fog/commands/Pass.hpp"
 
-void render_system::fog::commands::FullPass::recordPreCommands(const PassInfo &vInfo, vk::CommandBuffer cmdBuf,
+void render_system::fog::commands::Pass::recordPreCommands(const PassInfo &vInfo, vk::CommandBuffer cmdBuf,
                                                                const star::common::FrameTracker &ft)
 {
     if (m_preMemCmds.has_value())
         m_preMemCmds.value().recordPreCommands(vInfo, cmdBuf, ft);
 }
 
-void render_system::fog::commands::FullPass::recordPostCommands(const PassInfo &vInfo, vk::CommandBuffer cmdBuf,
+void render_system::fog::commands::Pass::recordPostCommands(const PassInfo &vInfo, vk::CommandBuffer cmdBuf,
                                                                 const star::common::FrameTracker &ft)
 {
     if (m_postMemCmds.has_value())
         m_postMemCmds.value().recordPostCommands(vInfo, cmdBuf, ft);
 }
 
-void render_system::fog::commands::FullPass::recordCommands(const DispatchInfo &dInfo,
+void render_system::fog::commands::Pass::recordCommands(const DispatchInfo &dInfo,
                                                             const PassPipelineInfo &passInfo, vk::CommandBuffer cmdBuf,
                                                             const star::common::FrameTracker &ft)
 {

@@ -1,35 +1,11 @@
 #version 450
 
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-layout(push_constant) uniform PushConstants
-{ 
-    uvec2 tileOffset;
-}
-dispatchInfo;
+#include "struct_DispatchIndirectCommand.comp"
+#include "struct_Light.comp"
+#include "struct_RayState.comp"
 
-struct Light_Type
-{
-    uint point;
-    uint directional;
-    uint spot;
-};
-struct Light
-{
-    vec4 position;
-    vec4 direction;
-
-    // properties
-    vec4 ambient;
-    vec4 diffuse;
-    vec4 specular;
-    // controls.x = inner cutoff angle
-    // controls.y = outer cutoff angle
-    vec4 controls;
-    // settings.x = enabled
-    // settings.y = type
-    uvec4 settings;
-    uint luminance;
-};
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+#include "layout_pushConstants.comp"
 
 Light_Type createLightTypeStruct()
 {
@@ -52,6 +28,15 @@ layout(set = 0, binding = 2) uniform additionalCameraInfo
     float scale;
 }
 addCamInfo;
+layout(std430, set = 0, binding = 3) buffer RayDispatchInfoBuffer
+{
+    DispatchIndirectCommand dispatch;
+    uint activeCount;
+
+    RayState activeData[];
+}
+rss;
+
 // per-frame update data
 layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
 {
@@ -106,7 +91,7 @@ layout(set = 2, binding = 1) buffer IsRayAtMaxDistance
 };
 
 #include "PNanoVDB.h"
-#include "ray_helpers.comp"
+#include "struct_Ray.comp"
 
 #include "func_reconstructDepthDistanceInObjectLocalSpace.comp"
 
@@ -145,48 +130,38 @@ void writeDistanceInfo(const float d, const ivec2 tPix, const uvec2 cSize)
     writeDistanceStencilInfo(d, index);
 }
 
-uvec2 getTargetPixel()
-{
-    uvec2 gid = gl_GlobalInvocationID.xy;
-    gid.x += dispatchInfo.tileOffset.x;
-    gid.y += dispatchInfo.tileOffset.y;
-    return gid;
-}
-
 void main()
 {
-    ivec2 gid = ivec2(getTargetPixel());
-    if (any(greaterThanEqual(gid, addCamInfo.cameraDimensions)))
+    uint gid = gl_GlobalInvocationID.x;
+    if (gid >= rss.activeCount)
         return;
-
-    const ivec2 targetPixel = ivec2(gid);
+    
+    RayState rayState = rss.activeData[gid];
     pnanovdb_grid_handle_t grid = makeNanoGrid(0);
-    const float volumeUniformScale = extractUniformVolumeScale(instanceModelMatrix[0]);
-    vec3 resultingColor = vec3(0.0, 0.0, 0.0);
-
-    vec3 viewDirScene = vec3(0.0);
-    vec3 orgScene = vec3(0.0);
-    getSceneViewInfoForPix(targetPixel, uvec2(addCamInfo.cameraDimensions.x, addCamInfo.cameraDimensions.y), orgScene,
-                           viewDirScene);
-    const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]);
-    Ray worldRay = createRay(orgScene.xyz, viewDirScene.xyz);
-    Ray localRay = transformWorldRayToGridLocal(worldRay, inverseModelMatrix);
 
     float t0 = 0;
     float t1 = 0;
     float localDepthDistance;
     float rayDistanceTraveled = 0;
-    if (rayBoxIntersect(grid, localRay, t0, t1))
+    if (rayState.status)
     {
+        vec3 resultingColor = vec3(0.0, 0.0, 0.0);
+
+        const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]);
+        Ray localRay;
+        localRay.origin = vec4(rayState.origin.xyz, 1.0);
+        localRay.direction = vec4(rayState.direction.xyz, 0.0);
         const float scale = extractUniformVolumeScale(instanceModelMatrix[0]);
 
-        forwardMarch(
-            grid, resultingColor, localRay, t0, t1, inverseModelMatrix, fogInfo.marchedFog_sigmaAbsorption * scale,
-            fogInfo.marchedFog_sigmaScattering * scale, fogInfo.marchedFog_lightPropertyDirG,
-            fogInfo.marchedFog_stepSizeDist / scale, fogInfo.marchedFog_stepSizeDist_light / scale,
-            addCamInfo.farClipDist / scale, imageLoad(randomTexture, targetPixel), fogInfo.marchedFog_defaultDensity,
-            fogInfo.marchedFog_densityMultiplier, fogInfo.marchedFog_cutoffValue, resultingColor, rayDistanceTraveled);
+        forwardMarch(grid, resultingColor, localRay, rayState.t0, rayState.tEnd, inverseModelMatrix,
+                     fogInfo.marchedFog_sigmaAbsorption * scale, fogInfo.marchedFog_sigmaScattering * scale,
+                     fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_stepSizeDist / scale,
+                     fogInfo.marchedFog_stepSizeDist_light / scale, addCamInfo.farClipDist / scale,
+                     imageLoad(randomTexture, rayState.targetPixel), fogInfo.marchedFog_defaultDensity,
+                     fogInfo.marchedFog_densityMultiplier, resultingColor, rayDistanceTraveled);
 
+        // since march happens in local space, bring back to world
+        rayDistanceTraveled = rayDistanceTraveled * scale;
         // since march happens in local space, bring back to world
         rayDistanceTraveled = rayDistanceTraveled * scale;
     }
@@ -195,5 +170,5 @@ void main()
         rayDistanceTraveled = addCamInfo.farClipDist;
     }
 
-    writeDistanceInfo(rayDistanceTraveled, targetPixel, uvec2(addCamInfo.cameraDimensions));
+    writeDistanceInfo(rayDistanceTraveled, rayState.targetPixel, uvec2(addCamInfo.cameraDimensions));
 }

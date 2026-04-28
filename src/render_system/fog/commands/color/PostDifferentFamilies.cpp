@@ -1,4 +1,7 @@
-#include "render_system/fog/commands/PostMemoryBarrierDifferentFamilies.hpp"
+#include "render_system/fog/commands/color/PostDifferentFamilies.hpp"
+
+namespace render_system::fog::commands::color
+{
 
 inline static vk::BufferMemoryBarrier2 CreateMemoryBarrier(uint32_t srcQueue, uint32_t dstQueue, vk::Buffer buffer)
 {
@@ -14,7 +17,7 @@ inline static vk::BufferMemoryBarrier2 CreateMemoryBarrier(uint32_t srcQueue, ui
 }
 
 static std::pair<std::array<vk::ImageMemoryBarrier2, 3>, uint32_t> GetImageMemoryBarriers(
-    const render_system::fog::PassInfo &vInfo, uint32_t graphicsIndex, uint32_t computeIndex)
+    const render_system::fog::PassInfo &vInfo, uint32_t graphicsIndex, uint32_t computeIndex) noexcept
 {
     std::array<vk::ImageMemoryBarrier2, 3> barriers{
         vk::ImageMemoryBarrier2()
@@ -72,7 +75,7 @@ static std::pair<std::array<vk::ImageMemoryBarrier2, 3>, uint32_t> GetImageMemor
 }
 
 static std::pair<std::array<vk::BufferMemoryBarrier2, 5>, uint32_t> GetBufferMemoryBarriers(
-    const render_system::fog::PassInfo &vInfo, uint32_t transferIndex, uint32_t computeIndex)
+    const render_system::fog::PassInfo &vInfo, uint32_t transferIndex, uint32_t computeIndex) noexcept
 {
     std::array<vk::BufferMemoryBarrier2, 5> barriers;
     uint32_t count{0};
@@ -87,20 +90,22 @@ static std::pair<std::array<vk::BufferMemoryBarrier2, 5>, uint32_t> GetBufferMem
     return std::make_pair(barriers, count);
 }
 
-void render_system::fog::commands::PostMemoryBarrierDifferentFamilies::recordPostCommands(
-    const render_system::fog::PassInfo &vInfo, vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft)
+void PostDifferentFamilies::build(const PassInfo &info, const star::common::FrameTracker &ft,
+                                  BarrierBatch &batch) const noexcept
 {
-    const auto [imageBarriers, barrierCountImage] =
-        GetImageMemoryBarriers(vInfo, m_graphicsQueueFamilyIndex, m_computeQueueFamilyIndex);
+    const auto [imageBarriers, barrierCountImage] = GetImageMemoryBarriers(info, queueInfo.graphics, queueInfo.compute);
+
+    for (uint8_t i{0}; i < barrierCountImage; i++)
+    {
+        batch.addImage(imageBarriers[i]);
+    }
 
     const auto [memoryBarriers, barrierCountBuffer] =
-        GetBufferMemoryBarriers(vInfo, m_transferQueueFamilyIndex, m_computeQueueFamilyIndex);
-
-    const auto depInfo = vk::DependencyInfo()
-                             .setPImageMemoryBarriers(imageBarriers.data())
-                             .setImageMemoryBarrierCount(barrierCountImage)
-                             .setPBufferMemoryBarriers(memoryBarriers.data())
-                             .setBufferMemoryBarrierCount(barrierCountBuffer);
-
-    cmdBuf.pipelineBarrier2(depInfo);
+        GetBufferMemoryBarriers(info, queueInfo.transfer, queueInfo.compute);
+    for (uint8_t i{0}; i < barrierCountBuffer; i++)
+    {
+        batch.addBuffer(memoryBarriers[i]);
+    }
 }
+
+} // namespace render_system::fog::commands::color

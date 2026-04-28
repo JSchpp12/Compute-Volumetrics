@@ -1,7 +1,6 @@
 #pragma once
 
 #include "OffscreenRenderer.hpp"
-#include "render_system/FogDispatcher.hpp"
 #include "renderer/VolumeRenderer.hpp"
 
 namespace render_system

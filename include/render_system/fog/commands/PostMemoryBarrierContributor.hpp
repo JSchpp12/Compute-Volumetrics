@@ -1,6 +1,7 @@
 #pragma once
 
-#include "render_system/fog/commands/PostMemoryBarrierDifferentFamilies.hpp"
+#include "render_system/fog/commands/color/PostMemoryBarrierRecorder.hpp"
+#include "render_system/fog/commands/distance/PostMemoryBarrierRecorder.hpp"
 #include "render_system/fog/PassInfo.hpp"
 
 #include <star_common/FrameTracker.hpp>
@@ -11,12 +12,15 @@
 
 namespace render_system::fog::commands
 {
+
+using PostRecorderType = std::variant<color::PostMemoryBarrierRecorder, distance::PostMemoryBarrierRecorder>;
+
 class PostMemoryBarrierContributor
 {
-    std::variant<PostMemoryBarrierDifferentFamilies> m_approach;
+    PostRecorderType m_policy;
 
   public:
-    explicit PostMemoryBarrierContributor(PostMemoryBarrierDifferentFamilies approach) : m_approach(std::move(approach))
+    explicit PostMemoryBarrierContributor(PostRecorderType policy) : m_policy(std::move(policy))
     {
     }
 

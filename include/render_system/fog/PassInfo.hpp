@@ -1,5 +1,7 @@
 #pragma once
 
+#include "FogType.hpp"
+
 #include <starlight/wrappers/graphics/StarShaderInfo.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -32,12 +34,16 @@ struct PassPipelineInfo
         vk::PipelineLayout layout{VK_NULL_HANDLE};
         vk::Pipeline pipeline{VK_NULL_HANDLE};
     };
+    vk::Pipeline initPipeline{VK_NULL_HANDLE};
+    vk::Pipeline indirectDispatchPipeline{VK_NULL_HANDLE};
+    vk::Buffer indirectDispatchBuffer{VK_NULL_HANDLE};
     PipelineInfo colorPipe;
     PipelineInfo distancePipe;
     star::StarShaderInfo *staticShaderInfo{
         nullptr}; // static shared shader info -> such as the camera and light info used by all
     star::StarShaderInfo *colorOnlyShaderInfo{nullptr};
     star::StarShaderInfo *distanceOnlyShaderInfo{nullptr};
+    Fog::Type fogType;
 };
 
 } // namespace render_system::fog

@@ -90,16 +90,16 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
         objects.emplace_back(cmd.getReply().get());
     }
 
-    //{
-    //    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    //    auto cmd = star::command::CreateObject::Builder()
-    //                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-    //                   .setUniqueName("horse")
-    //                   .build();
-    //    context.begin().set(cmd).submit();
-    //    cmd.getReply().get()->init(context);
-    //    objects.emplace_back(cmd.getReply().get());
-    //}
+    /*{
+        auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+        auto cmd = star::command::CreateObject::Builder()
+                       .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+                       .setUniqueName("horse")
+                       .build();
+        context.begin().set(cmd).submit();
+        cmd.getReply().get()->init(context);
+        objects.emplace_back(cmd.getReply().get());
+    }*/
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
@@ -217,7 +217,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
     m_volume->getRenderer().getFogInfo().linearInfo.farDist = 16000.0f;
     m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.6f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(1.0f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(11.0f);
     return m_mainScene;
 }
 

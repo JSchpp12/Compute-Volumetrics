@@ -2,7 +2,7 @@
 
 #include "render_system/fog/sync/signal/CalcFromFt.hpp"
 
-render_system::fog::sync::WaitInfo render_system::fog::sync::wait::WaitForFirstChunk::getWaitInfo() const
+render_system::fog::WaitInfo render_system::fog::sync::wait::WaitForFirstChunk::getWaitInfo() const
 {
     signal::CalcFromFt calculator{0, m_totalNumChunks, m_ft};
 

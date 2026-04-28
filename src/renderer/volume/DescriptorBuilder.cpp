@@ -1,7 +1,9 @@
 #include "renderer/volume/DescriptorBuilder.hpp"
 
 #include "ConfigFile.hpp"
-#include "render_system/fog/ShaderPushInfo.hpp"
+#include "render_system/fog/struct/ShaderPushInfo.hpp"
+
+#include <starlight/core/waiter/one_shot/WaiterFactory.hpp>
 
 #include <vulkan/vulkan.hpp>
 
@@ -27,6 +29,7 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildStaticShaderInfo()
                               .addBinding(0, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(2, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+                              .addBinding(3, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
                               .build(*m_device))
             .addSetLayout(star::StarDescriptorSetLayout::Builder()
                               .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
@@ -37,6 +40,9 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildStaticShaderInfo()
                               .addBinding(5, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
                               .build(*m_device));
 
+    assert(m_data.inputs.activeRayStorageBuffers != nullptr &&
+           m_data.inputs.activeRayStorageBuffers->size() == m_numFramesInFlight);
+
     for (uint8_t i{0}; i < m_numFramesInFlight; i++)
     {
         shaderBuilder.startOnFrameIndex(i)
@@ -45,6 +51,7 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildStaticShaderInfo()
                                                    vk::Format::eR32G32B32A32Sfloat})
             .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.vdbInfoFog})
             .add(star::StarShaderInfo::BufferInfo{*m_data.inputs.cameraShaderInfo})
+            .add(star::StarShaderInfo::BufferInfo{&m_data.inputs.activeRayStorageBuffers->at(i)})
             .startSet()
             .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalInfoBuffers->getHandle(i)})
             .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalLightList->getHandle(i)})
@@ -91,14 +98,18 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildShaderInfo()
 }
 
 static star::Handle BuildPipeline(const std::filesystem::path &shaderDir, const std::string &shaderFile,
-                                  const vk::PipelineLayout &compmutePipelineLayout,
+                                  const vk::PipelineLayout &computePipelineLayout,
                                   star::core::device::manager::GraphicsContainer *graphicsManagers)
 {
     const auto fPath = shaderDir / shaderFile;
-    return graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{star::StarPipeline(
-        star::StarPipeline::ComputePipelineConfigSettings(), compmutePipelineLayout,
-        std::vector<star::Handle>{graphicsManagers->shaderManager->submit(star::core::device::manager::ShaderRequest{
-            star::StarShader(fPath.string(), star::Shader_Stage::compute), star::Compiler("PNANOVDB_GLSL")})})});
+    auto handle = graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{
+        star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), computePipelineLayout,
+                           std::vector<star::Handle>{
+                               graphicsManagers->shaderManager->submit(star::core::device::manager::ShaderRequest{
+                                   star::StarShader(fPath.string(), star::Shader_Stage::compute),
+                                   star::Compiler("PNANOVDB_GLSL")})})});
+
+    return handle;
 }
 
 void DescriptorBuilder::createDescriptors()
@@ -114,15 +125,15 @@ void DescriptorBuilder::createDescriptors()
         }
 
         const auto pushRange = vk::PushConstantRange()
-            .setSize(sizeof(render_system::fog::ShaderPushInfo))
-            .setOffset(0)
-            .setStageFlags(vk::ShaderStageFlagBits::eCompute); 
-            
+                                   .setSize(sizeof(render_system::fog::ShaderPushInfo))
+                                   .setOffset(0)
+                                   .setStageFlags(vk::ShaderStageFlagBits::eCompute);
+
         const auto layout = vk::PipelineLayoutCreateInfo()
-            .setPushConstantRangeCount(1)
-            .setPPushConstantRanges(&pushRange)
-            .setPSetLayouts(sets.data())
-            .setSetLayoutCount(static_cast<uint32_t>(sets.size()));
+                                .setPushConstantRangeCount(1)
+                                .setPPushConstantRanges(&pushRange)
+                                .setPSetLayouts(sets.data())
+                                .setSetLayoutCount(static_cast<uint32_t>(sets.size()));
 
         *m_computePipelineLayout =
             std::make_unique<vk::PipelineLayout>(m_device->getVulkanDevice().createPipelineLayout(layout));
@@ -133,10 +144,18 @@ void DescriptorBuilder::createDescriptors()
     auto shaderDir = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) /
                      "shaders" / "volumeRenderer";
     *m_nanoVDBPipeline_hitBoundingBox =
-        BuildPipeline(shaderDir, "nanoVDBHitBoundingBox.comp", cLay, m_graphicsManagers);
+        BuildPipeline(shaderDir, "volume_debugColorRedActiveRays.comp", cLay, m_graphicsManagers);
     *m_nanoVDBPipeline_surface = BuildPipeline(shaderDir, "nanoVDBSurface.comp", cLay, m_graphicsManagers);
     *m_marchedPipeline = BuildPipeline(shaderDir, "volume_color.comp", cLay, m_graphicsManagers);
-    *m_linearPipeline = BuildPipeline(shaderDir, "linearFog.comp", cLay, m_graphicsManagers);
-    *m_expPipeline = BuildPipeline(shaderDir, "expFog.comp", cLay, m_graphicsManagers);
-    *m_marchedHomogenousPipeline = BuildPipeline(shaderDir, "HomogenousMarchedFog.comp", cLay, m_graphicsManagers);
+    *m_linearPipeline = BuildPipeline(shaderDir, "volume_linear.comp", cLay, m_graphicsManagers);
+    *m_expPipeline = BuildPipeline(shaderDir, "volume_exp.comp", cLay, m_graphicsManagers);
+    *m_marchedHomogenousPipeline = BuildPipeline(shaderDir, "volume_homogenousMarch.comp", cLay, m_graphicsManagers);
+    *m_initPipeline = BuildPipeline(shaderDir, "volume_rayInit.comp", cLay, m_graphicsManagers);
+    *m_dispatchCmdPipeline = BuildPipeline(shaderDir, "volume_calcIndirectDispatch.comp", cLay, m_graphicsManagers);
+
+    star::core::waiter::one_shot::on_build_pipeline::BuildSetCachedPipeline(
+        *m_evtBus, *m_graphicsManagers->pipelineManager, *m_dispatchCmdPipeline, m_cachedDispatchPipeline);
+
+    star::core::waiter::one_shot::on_build_pipeline::BuildSetCachedPipeline(
+        *m_evtBus, *m_graphicsManagers->pipelineManager, *m_initPipeline, m_cachedInitPipeline);
 }

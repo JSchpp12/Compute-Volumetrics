@@ -4,8 +4,12 @@ void render_system::fog::commands::PreMemoryBarrierContributor::recordPreCommand
                                                                                   vk::CommandBuffer cmdBuf,
                                                                                   const star::common::FrameTracker &ft)
 {
-    if (std::holds_alternative<PreMemoryBarrierDifferentFamilies>(m_approach))
+    if (std::holds_alternative<color::PreMemoryBarrierRecorder>(m_policy))
     {
-        std::get<PreMemoryBarrierDifferentFamilies>(m_approach).recordPreCommands(tInfo, cmdBuf, ft);
+        std::get<color::PreMemoryBarrierRecorder>(m_policy).recordCommands(tInfo, ft, cmdBuf);
+    }
+    else if (std::holds_alternative<distance::PreMemoryBarrierRecorder>(m_policy))
+    {
+        std::get<distance::PreMemoryBarrierRecorder>(m_policy).recordCommands(tInfo, ft, cmdBuf);
     }
 }

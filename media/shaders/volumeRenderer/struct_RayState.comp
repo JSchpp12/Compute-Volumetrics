@@ -1,0 +1,16 @@
+
+struct RayState{
+    vec3 radiance;
+    float transparency;
+    vec3 direction;
+    float t0; 
+    vec3 origin;
+    float tEnd; 
+    ivec2 targetPixel;
+    float rayDistanceTraveled; 
+    float localDepthDistance;
+    bool status;
+    uint _pad0;
+    uint _pad1;
+    uint _pad2;
+};

@@ -6,9 +6,7 @@ namespace render_system::fog
 {
 struct DispatchInfo
 {
-    uint32_t workgroupSize[2]{0, 0};
-    uint32_t localThreadGroupSize[2]{0, 0};
-    uint32_t chunkOffsetPixels[2]{0, 0};
-    uint32_t chunkOffset[2]{0, 0};
+    vk::Buffer indirectBuffer{VK_NULL_HANDLE};
+    uint32_t shaderOptionFlags{0};
 };
 } // namespace render_system

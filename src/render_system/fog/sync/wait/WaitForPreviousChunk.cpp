@@ -2,7 +2,7 @@
 
 #include "render_system/fog/sync/signal/CalcFromFt.hpp"
 
-render_system::fog::sync::WaitInfo render_system::fog::sync::wait::WaitForPreviousChunk::getWaitInfo() const
+render_system::fog::WaitInfo render_system::fog::sync::wait::WaitForPreviousChunk::getWaitInfo() const
 {
     assert(m_myChunkOrder > 0 && "This cannot be used as the wait approach for the first chunk in the set"); 
 

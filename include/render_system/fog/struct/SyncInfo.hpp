@@ -4,7 +4,7 @@
 
 #include <array>
 
-namespace render_system::fog::sync
+namespace render_system::fog
 {
 // all chunks will share this value
 struct WaitInfo
@@ -19,4 +19,4 @@ struct SignalInfo
     vk::Semaphore semaphore{VK_NULL_HANDLE};
     uint64_t signalValue{0};
 };
-} // namespace render_system::fog::sync
+} // namespace render_system::fog

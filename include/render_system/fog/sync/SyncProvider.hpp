@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render_system/fog/sync/SyncInfo.hpp"
+#include "render_system/fog/struct/SyncInfo.hpp"
 #include "render_system/fog/sync/signal/CalcFromFt.hpp"
 #include "render_system/fog/sync/wait/GatherFromCO.hpp"
 #include "render_system/fog/sync/wait/WaitForPreviousChunk.hpp"
