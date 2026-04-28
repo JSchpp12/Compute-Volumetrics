@@ -135,7 +135,7 @@ void main()
     uint gid = gl_GlobalInvocationID.x;
     if (gid >= rss.activeCount)
         return;
-    
+
     RayState rayState = rss.activeData[gid];
     pnanovdb_grid_handle_t grid = makeNanoGrid(0);
 
@@ -158,7 +158,8 @@ void main()
                      fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_stepSizeDist / scale,
                      fogInfo.marchedFog_stepSizeDist_light / scale, addCamInfo.farClipDist / scale,
                      imageLoad(randomTexture, rayState.targetPixel), fogInfo.marchedFog_defaultDensity,
-                     fogInfo.marchedFog_densityMultiplier, resultingColor, rayDistanceTraveled);
+                     fogInfo.marchedFog_densityMultiplier, fogInfo.marchedFog_cutoffValue, resultingColor,
+                     rayDistanceTraveled);
 
         // since march happens in local space, bring back to world
         rayDistanceTraveled = rayDistanceTraveled * scale;

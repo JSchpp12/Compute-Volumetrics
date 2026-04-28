@@ -143,7 +143,8 @@ void main()
                  fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_stepSizeDist / scale,
                  fogInfo.marchedFog_stepSizeDist_light / scale, rayState.localDepthDistance,
                  imageLoad(randomTexture, rayState.targetPixel), fogInfo.marchedFog_defaultDensity,
-                 fogInfo.marchedFog_densityMultiplier, resultingColor, rayState.rayDistanceTraveled);
+                 fogInfo.marchedFog_densityMultiplier, fogInfo.marchedFog_cutoffValue, resultingColor,
+                 rayState.rayDistanceTraveled);
 
     imageStore(outputImage, rayState.targetPixel, vec4(resultingColor, 1.0));
 }
