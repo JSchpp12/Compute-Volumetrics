@@ -2,6 +2,7 @@
 
 #include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/commands/color/PreMemoryBarrierRecorder.hpp"
+#include "render_system/fog/commands/distance/PreMemoryBarrierRecorder.hpp"
 
 #include <star_common/FrameTracker.hpp>
 
@@ -11,7 +12,7 @@
 
 namespace render_system::fog::commands
 {
-using PreRecorderType = std::variant<color::PreMemoryBarrierRecorder>;
+using PreRecorderType = std::variant<color::PreMemoryBarrierRecorder, distance::PreMemoryBarrierRecorder>;
 
 class PreMemoryBarrierContributor
 {

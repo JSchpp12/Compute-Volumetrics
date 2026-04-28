@@ -1,3 +1,4 @@
 layout(push_constant) uniform PushConstants{
+    uint flags;
     uint numStepsPerDispatch;
-} dispatchInfo; 
+} dispatchOptions; 

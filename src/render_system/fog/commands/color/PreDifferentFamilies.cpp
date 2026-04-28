@@ -16,24 +16,17 @@ static vk::BufferMemoryBarrier2 CreateMemoryBarrier(const uint32_t &srcQueue, co
         .setDstQueueFamilyIndex(dstQueue);
 }
 
-static std::pair<std::array<vk::BufferMemoryBarrier2, 5>, uint32_t> GetBufferMemoryBarriers(
+static std::pair<std::array<vk::BufferMemoryBarrier2, 2>, uint32_t> GetBufferMemoryBarriers(
     const render_system::fog::PassInfo &vInfo, const star::common::FrameTracker &ft, uint32_t graphicsIndex,
     uint32_t transferIndex, uint32_t computeIndex) noexcept
 {
-    std::array<vk::BufferMemoryBarrier2, 5> barriers;
+    std::array<vk::BufferMemoryBarrier2, 2> barriers;
     uint32_t count{0};
-
-    if (vInfo.transferWasRunLast)
-    {
-        barriers[0] = CreateMemoryBarrier(transferIndex, computeIndex, vInfo.computeRayAtCutoffDistance);
-        barriers[1] = CreateMemoryBarrier(transferIndex, computeIndex, vInfo.computeRayDistance);
-        count = 2;
-    }
 
     if (vInfo.globalCameraBuffer.has_value())
     {
         barriers[count]
-            .setBuffer(std::move(vInfo.globalCameraBuffer.value()))
+            .setBuffer(vInfo.globalCameraBuffer.value())
             .setSize(vk::WholeSize)
             .setSrcStageMask(vk::PipelineStageFlagBits2::eTransfer)
             .setSrcAccessMask(vk::AccessFlagBits2::eTransferWrite)

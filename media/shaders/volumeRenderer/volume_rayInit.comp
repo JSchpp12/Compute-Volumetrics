@@ -5,6 +5,9 @@
 #include "struct_Light.comp"
 #include "struct_RayState.comp"
 
+const uint FLAG_ENABLE_AABB = 1u << 0;
+const uint FLAG_ENABLE_DEPTH = 1u << 1;
+
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 #include "layout_pushConstants.comp"
@@ -101,9 +104,17 @@ void writeRayState(RayState state)
 
 #include "func_reconstructDepthDistanceInObjectLocalSpace.comp"
 
+bool hasFlag(uint flags, uint mask)
+{
+    return (flags & mask) != 0u;
+}
+
 // calculate and init rays which hit the bounding box with manual depth testing
 void main()
 {
+    const bool enableDepth = hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEPTH);
+    const bool enableAABB = hasFlag(dispatchOptions.flags, FLAG_ENABLE_AABB);
+
     const uvec2 gid = getTargetPixel();
     const uvec2 size = uvec2(addCamInfo.cameraDimensions.xy);
     if (any(greaterThanEqual(gid, size)))
@@ -125,21 +136,49 @@ void main()
     float t0 = 0;
     float t1 = 0;
     float localDepthDistance;
-    if (rayBoxIntersect(grid, localRay, t0, t1) &&
-        testForLocalDistanceDepthBehindHitPoint(
-            t0, localRay, inverseModelMatrix, gid, uvec2(addCamInfo.cameraDimensions.xy),
-            float(texelFetch(inputSceneDepth, targetPixel, 0).r), localDepthDistance))
+
+    const bool hitAABB = rayBoxIntersect(grid, localRay, t0, t1);
+    const bool passAABB = enableAABB ? hitAABB : true;
+
+    // If AABB is disabled and no box was hit / no bounds were found,
+    // define a fallback ray interval.
+    if (!enableAABB && !hitAABB)
     {
-        // is active
+        t0 = 0.0;
+        t1 = addCamInfo.farClipDist;
+    }
+
+    bool passDepth = true;
+    if (enableDepth)
+    {
+        float sceneDepth = texelFetch(inputSceneDepth, targetPixel, 0).r;
+
+        // If the helper assumes a valid hit position based on t0,
+        // only call it when we either have a real AABB hit, or when
+        // your helper supports arbitrary ray positions without AABB.
+        passDepth = testForLocalDistanceDepthBehindHitPoint(t0, localRay, inverseModelMatrix, gid,
+                                                            uvec2(addCamInfo.cameraDimensions.xy), sceneDepth,
+                                                            localDepthDistance);
+    }
+    else
+    {
+        // Optional: choose a useful default when depth is disabled.
+        localDepthDistance = t1;
+    }
+
+    bool isActive = passAABB && passDepth;
+
+    if (isActive)
+    {
         RayState state;
         state.radiance = vec3(0.0);
-        state.transparency = 1;
+        state.transparency = 1.0;
         state.direction = localRay.direction.xyz;
         state.t0 = t0;
         state.origin = localRay.origin.xyz;
         state.tEnd = t1;
         state.targetPixel = targetPixel;
-        state.rayDistanceTraveled = 0;
+        state.rayDistanceTraveled = 0.0;
         state.localDepthDistance = localDepthDistance;
         state.status = true;
 

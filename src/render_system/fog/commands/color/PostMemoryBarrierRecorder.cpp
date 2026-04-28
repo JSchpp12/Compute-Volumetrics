@@ -11,8 +11,8 @@ void PostMemoryBarrierRecorder::recordCommands(const PassInfo &vInfo, const star
         std::get<PostDifferentFamilies>(m_policy).build(vInfo, ft, batch);
     }
 
-    const auto depInfo = batch.makeDependencyInfo();
-    cmdBuf.pipelineBarrier2(depInfo);
+    if (!batch.empty())
+        cmdBuf.pipelineBarrier2(batch.makeDependencyInfo());
 }
 
 } // namespace render_system::fog::commands::color

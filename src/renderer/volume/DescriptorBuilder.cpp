@@ -144,7 +144,7 @@ void DescriptorBuilder::createDescriptors()
     auto shaderDir = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) /
                      "shaders" / "volumeRenderer";
     *m_nanoVDBPipeline_hitBoundingBox =
-        BuildPipeline(shaderDir, "nanoVDBHitBoundingBox.comp", cLay, m_graphicsManagers);
+        BuildPipeline(shaderDir, "volume_debugColorRedActiveRays.comp", cLay, m_graphicsManagers);
     *m_nanoVDBPipeline_surface = BuildPipeline(shaderDir, "nanoVDBSurface.comp", cLay, m_graphicsManagers);
     *m_marchedPipeline = BuildPipeline(shaderDir, "volume_color.comp", cLay, m_graphicsManagers);
     *m_linearPipeline = BuildPipeline(shaderDir, "volume_linear.comp", cLay, m_graphicsManagers);

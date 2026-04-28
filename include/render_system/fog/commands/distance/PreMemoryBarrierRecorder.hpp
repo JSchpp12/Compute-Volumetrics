@@ -1,18 +1,18 @@
 #pragma once
 
 #include "render_system/fog/PassInfo.hpp"
-#include "render_system/fog/commands/distance/PostDifferentFamilies.hpp"
-
-#include <variant>
+#include "render_system/fog/commands/distance/PreDifferentFamilies.hpp"
 
 namespace render_system::fog::commands::distance
 {
-class PostMemoryBarrierRecorder
+using PreMemoryPolicy = std::variant<PreDifferentFamilies>;
+
+class PreMemoryBarrierRecorder
 {
-    std::variant<PostDifferentFamilies> m_policy;
+    PreMemoryPolicy m_policy;
 
   public:
-    explicit PostMemoryBarrierRecorder(std::variant<PostDifferentFamilies> policy) : m_policy(std::move(policy))
+    explicit PreMemoryBarrierRecorder(PreMemoryPolicy policy) : m_policy(std::move(policy))
     {
     }
 

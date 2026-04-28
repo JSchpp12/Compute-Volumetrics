@@ -6,9 +6,9 @@
 
 namespace render_system::fog::commands::distance
 {
-struct PostDifferentFamilies
+struct PreDifferentFamilies
 {
-    QueueFamilyIndices queueFamilyInfo;
+    QueueFamilyIndices queueInfo;
 
     void build(const PassInfo &info, const star::common::FrameTracker &ft, BarrierBatch &batch) const noexcept;
 };

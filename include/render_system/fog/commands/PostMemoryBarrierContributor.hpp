@@ -17,10 +17,10 @@ using PostRecorderType = std::variant<color::PostMemoryBarrierRecorder, distance
 
 class PostMemoryBarrierContributor
 {
-    PostRecorderType m_approach;
+    PostRecorderType m_policy;
 
   public:
-    explicit PostMemoryBarrierContributor(PostRecorderType approach) : m_approach(std::move(approach))
+    explicit PostMemoryBarrierContributor(PostRecorderType policy) : m_policy(std::move(policy))
     {
     }
 

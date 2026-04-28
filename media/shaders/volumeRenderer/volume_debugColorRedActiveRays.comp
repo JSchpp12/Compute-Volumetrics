@@ -119,11 +119,13 @@ void main()
         return; 
 
     const RayState state = rss.activeData[gid];
-    vec3 resultingColor = imageLoad(inputSceneColor, state.targetPixel).rgb;
+    vec3 resultingColor = vec3(0.0);
 
     if (state.status)
     {
         resultingColor = vec3(1.0, 0.0, 0.0);
+    }else{
+        resultingColor = imageLoad(inputSceneColor, state.targetPixel).rgb;
     }
 
     imageStore(outputImage, state.targetPixel, vec4(resultingColor, 1.0));
