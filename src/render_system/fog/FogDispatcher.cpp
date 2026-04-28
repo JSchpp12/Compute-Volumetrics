@@ -97,8 +97,6 @@ void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk:
         waitInfoCount++;
     }
 
-    // submitInfo.resize(1);
-
     vk::SemaphoreSubmitInfo signalInfo = vk::SemaphoreSubmitInfo()
                                              .setSemaphore(workingSemaphore)
                                              .setValue(getTimelineDoneSignalValue(ft))
@@ -125,10 +123,24 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
 
     for (size_t i{0}; i < m_passes.size(); i++)
     {
-        // only enable depth test and aabb test for color pass
-        dInfo.shaderOptionFlags =
-            i == 0 ? Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest, MarchShaderFlags::None)
-                   : Pack(InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
+        if (i == 0)
+        {
+            switch (pipeInfo.fogType)
+            {
+            case (Fog::Type::sExponential):
+            case (Fog::Type::sLinear):
+                dInfo.shaderOptionFlags = Pack(InitShaderFlags::None, MarchShaderFlags::None);
+                break;
+            default:
+                dInfo.shaderOptionFlags =
+                    Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
+            }
+        }
+        else
+        {
+            // distance passes always have AAbb test but no depth test
+            dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
+        }
 
         m_passes[i].recordCommands(dInfo, pInfo, pipeInfo, ft);
     }
