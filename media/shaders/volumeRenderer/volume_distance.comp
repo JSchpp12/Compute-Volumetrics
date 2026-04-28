@@ -163,8 +163,6 @@ void main()
 
         // since march happens in local space, bring back to world
         rayDistanceTraveled = rayDistanceTraveled * scale;
-        // since march happens in local space, bring back to world
-        rayDistanceTraveled = rayDistanceTraveled * scale;
     }
     else
     {
