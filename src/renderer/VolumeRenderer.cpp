@@ -225,26 +225,7 @@ void VolumeRenderer::frameUpdate(star::core::device::DeviceContext &context, uin
 void VolumeRenderer::recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
                                          const star::common::FrameTracker &frameTracker, const uint64_t &frameIndex)
 {
-    {
-        auto [semaphore, value, currentValue] = GetTimelineSemaphoreInfo(*m_cmdBus, frameTracker, m_commandBuffer);
-
-        if (frameTracker.getCurrent().getNumTimesFrameProcessed() == currentValue)
-        {
-            const auto result = m_device.waitSemaphores(
-                vk::SemaphoreWaitInfo().setValues(currentValue).setSemaphores(semaphore), UINT64_MAX);
-
-            if (result != vk::Result::eSuccess)
-            {
-                STAR_THROW("Failed to wait for timeline semaphores");
-            }
-        }
-    }
-
-    commandBuffer.begin(frameTracker.getCurrent().getFrameInFlightIndex());
-
     recordCommands(commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()), frameTracker, frameIndex);
-
-    commandBuffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()).end();
 }
 
 void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &ft,

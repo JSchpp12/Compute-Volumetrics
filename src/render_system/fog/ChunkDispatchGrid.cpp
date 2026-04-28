@@ -11,8 +11,8 @@ using namespace render_system::fog::sync;
 
 static std::array<uint32_t, 2> CalculateWorkgroupSize(const vk::Extent2D &screensize)
 {
-    const uint32_t width = static_cast<uint32_t>(std::ceil(static_cast<float>(screensize.width) / 8.0f));
-    const uint32_t height = static_cast<uint32_t>(std::ceil(static_cast<float>(screensize.height) / 8.0f));
+    const uint32_t width = static_cast<uint32_t>(std::ceil(static_cast<float>(screensize.width) / 16.0f));
+    const uint32_t height = static_cast<uint32_t>(std::ceil(static_cast<float>(screensize.height) / 16.0f));
 
     return {width, height};
 }
@@ -103,8 +103,8 @@ void render_system::fog::ChunkDispatchGrid::cleanupRender(star::core::device::De
 void render_system::fog::ChunkDispatchGrid::recordAllChunks(const star::common::FrameTracker &ft, const PassInfo &pInfo,
                                                             const PassPipelineInfo &pipeInfo, Fog::Type type)
 {
-    const uint8_t wx = m_workgroupSize[0];
-    const uint8_t wy = m_workgroupSize[1];
+    const uint32_t wx = m_workgroupSize[0];
+    const uint32_t wy = m_workgroupSize[1];
 
     const uint32_t nx = static_cast<uint32_t>(m_numChunksPerDimension[0]);
     const uint32_t ny = static_cast<uint32_t>(m_numChunksPerDimension[1]);

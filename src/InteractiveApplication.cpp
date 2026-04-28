@@ -228,6 +228,15 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     {
         std::cout << m_mainScene->getCamera()->getPosition().x << "," << m_mainScene->getCamera()->getPosition().y
                   << "," << m_mainScene->getCamera()->getPosition().z << std::endl;
+
+        if (m_mainLight->at(0).getDirection().z == -1)
+        {
+            m_mainLight->at(0).setDirection(glm::vec3{0.0, -1.0, 0.0});
+        }
+        else
+        {
+            m_mainLight->at(0).setDirection(glm::vec3{0.0, 0.0, -1.0});
+        }
     }
 
     if (key == GLFW_KEY_RIGHT)

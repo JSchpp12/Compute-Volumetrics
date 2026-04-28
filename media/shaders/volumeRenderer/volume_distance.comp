@@ -75,6 +75,7 @@ layout(set = 1, binding = 5) uniform FogControllerInfo
     float marchedFog_stepSizeDist;
     float marchedFog_stepSizeDist_light;
     float marchedFog_densityMultiplier;
+    float marchedFog_cutoffValue;
     uint marchedFog_uniform_maxNumSteps;
     uint gridType;
 }
@@ -159,6 +160,8 @@ void main()
                      imageLoad(randomTexture, rayState.targetPixel), fogInfo.marchedFog_defaultDensity,
                      fogInfo.marchedFog_densityMultiplier, resultingColor, rayDistanceTraveled);
 
+        // since march happens in local space, bring back to world
+        rayDistanceTraveled = rayDistanceTraveled * scale;
         // since march happens in local space, bring back to world
         rayDistanceTraveled = rayDistanceTraveled * scale;
     }
