@@ -11,38 +11,44 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 @dataclass
+class Vec3:
+    x: float
+    y: float
+    z: float
+
+
+@dataclass
+class Vec2:
+    x: float
+    y: float
+
+
+@dataclass
 class TerrainShape:
-    center_lat: str
-    center_lon: str
-    vis_range: int
+    center: Vec2
+    view_distance: int
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "TerrainShape":
+        center : Optional[Vec2] = None
+        if "lat" in data["center"]: 
+            center = Vec2(data["center"]["lat"], data["center"]["lon"])
+        else:
+            center = Vec2(**data["center"])
+
+        return cls(
+            center,
+            view_distance=data["range"],
+        )
 
     @classmethod
     def from_json(cls, path: Path) -> "TerrainShape":
         with open(path, "r") as f:
             data = json.load(f)
-        return cls(
-            center_lat=data["center"]["lat"],
-            center_lon=data["center"]["lon"],
-            vis_range=data["range"],
-        )
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "TerrainShape":
-        return cls(
-            center_lat=data["center"]["lat"],
-            center_lon=data["center"]["lon"],
-            vis_range=data["range"],
-        )
+            return cls.from_dict(data)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), indent=4)
-
-
-@dataclass
-class Vec3:
-    x: float
-    y: float
-    z: float
 
 
 @dataclass
@@ -98,9 +104,14 @@ class Frame:
     fog_type: str
     visibility_distance: float
     terrain_shape: Optional[TerrainShape]
+    terrain_name: Optional[str]
 
     @classmethod
     def from_dict(cls, data: dict) -> "Frame":
+        tName: Optional[str] = None
+        if "terrain_name" in data:
+            tName = str(data["terrain_name"])
+
         tData: Optional[TerrainShape] = None
         if "terrain_shape" in data:
             tData = TerrainShape.from_dict(data["terrain_shape"])
@@ -113,6 +124,7 @@ class Frame:
             fog_type=data["fog_type"],
             visibility_distance=data["visibility_distance"],
             terrain_shape=tData,
+            terrain_name=tName,
         )
 
     @classmethod
@@ -129,13 +141,15 @@ class Frame:
 class ImageToUpdate:
     path: Path
     override_shape_info: Optional[TerrainShape]
+    override_name: Optional[str]
 
 
 def process_image_file(img_data: ImageToUpdate) -> None:
     data = Frame.from_json(img_data.path)
-    
-    if img_data.override_shape_info is not None: 
+
+    if img_data.override_shape_info is not None:
         data.terrain_shape = img_data.override_shape_info
+        data.terrain_name = img_data.override_name
 
     data.to_json(img_data.path)
 
@@ -143,7 +157,7 @@ def process_image_file(img_data: ImageToUpdate) -> None:
 def gather_image_metric_files(root_dir: Path) -> list[ImageToUpdate]:
     """Recursively gather all .json file paths from a directory."""
     return [
-        ImageToUpdate(Path(os.path.join(dirpath, filename)), None)
+        ImageToUpdate(Path(os.path.join(dirpath, filename)), None, None)
         for dirpath, _, filenames in os.walk(root_dir)
         for filename in filenames
         if filename.endswith(".json")
@@ -167,9 +181,11 @@ def main():
     args = parse_args()
     metric_files: list[ImageToUpdate] = gather_image_metric_files(args.root_dir)
     shape_info = TerrainShape.from_json(args.override_shape)
+    terrain_name = Path(args.override_shape).parent.name
 
     for file in metric_files:
         file.override_shape_info = shape_info
+        file.override_name = terrain_name
 
     with tqdm(total=len(metric_files), desc="Processing files", unit="file") as bar:
         with ThreadPoolExecutor(max_workers=16) as executor:
