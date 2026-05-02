@@ -434,17 +434,15 @@ install(
     DESTINATION .
 )
 
-# CPack metadata
 include(CPack)
 
 include(CTest)
 enable_testing()
-
-# If you're using vcpkg toolchain, the CONFIG package is available.
-# (This won't interfere if you vendor gtest elsewhere; only one approach should be used.)
 find_package(GTest CONFIG REQUIRED)
 
 # Optional: make a toggle to build tests
 option(BUILD_UNIT_TESTS "Build unit tests" ON)
 
-add_subdirectory(tests)
+if (BUILD_UNIT_TESTS)
+	add_subdirectory(tests)
+endif()
