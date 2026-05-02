@@ -1,0 +1,187 @@
+import os
+import argparse
+import json
+from tqdm import tqdm
+from dataclasses import dataclass, asdict
+from typing import Optional
+
+from pathlib import Path
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
+@dataclass
+class TerrainShape:
+    center_lat: str
+    center_lon: str
+    vis_range: int
+
+    @classmethod
+    def from_json(cls, path: Path) -> "TerrainShape":
+        with open(path, "r") as f:
+            data = json.load(f)
+        return cls(
+            center_lat=data["center"]["lat"],
+            center_lon=data["center"]["lon"],
+            vis_range=data["range"],
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "TerrainShape":
+        return cls(
+            center_lat=data["center"]["lat"],
+            center_lon=data["center"]["lon"],
+            vis_range=data["range"],
+        )
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self), indent=4)
+
+
+@dataclass
+class Vec3:
+    x: float
+    y: float
+    z: float
+
+
+@dataclass
+class ExpFogInfo:
+    density: float
+
+
+@dataclass
+class HomogenousInfo:
+    maxNumSteps: int
+
+
+@dataclass
+class LinearInfo:
+    farDist: float
+    nearDist: float
+
+
+@dataclass
+class MarchedInfo:
+    defaultDensity: float
+    densityMultiplier: float
+    lightPropertyDirG: float
+    sigmaAbsorption: float
+    sigmaScattering: float
+    stepSizeDist: float
+    stepSizeDist_light: float
+
+
+@dataclass
+class FogParams:
+    expFogInfo: ExpFogInfo
+    homogenousInfo: HomogenousInfo
+    linearInfo: LinearInfo
+    marchedInfo: MarchedInfo
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "FogParams":
+        return cls(
+            expFogInfo=ExpFogInfo(**data["expFogInfo"]),
+            homogenousInfo=HomogenousInfo(**data["homogenousInfo"]),
+            linearInfo=LinearInfo(**data["linearInfo"]),
+            marchedInfo=MarchedInfo(**data["marchedInfo"]),
+        )
+
+
+@dataclass
+class Frame:
+    camera_look_dir: Vec3
+    camera_position: Vec3
+    file_name: str
+    fog_params: FogParams
+    fog_type: str
+    visibility_distance: float
+    terrain_shape: Optional[TerrainShape]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Frame":
+        tData: Optional[TerrainShape] = None
+        if "terrain_shape" in data:
+            tData = TerrainShape.from_dict(data["terrain_shape"])
+
+        return cls(
+            camera_look_dir=Vec3(**data["camera_look_dir"]),
+            camera_position=Vec3(**data["camera_position"]),
+            file_name=data["file_name"],
+            fog_params=FogParams.from_dict(data["fog_params"]),
+            fog_type=data["fog_type"],
+            visibility_distance=data["visibility_distance"],
+            terrain_shape=tData,
+        )
+
+    @classmethod
+    def from_json(cls, path: Path) -> "Frame":
+        with open(path, "r") as f:
+            return cls.from_dict(json.load(f))
+
+    def to_json(self, path: Path) -> None:
+        with open(path, "w") as f:
+            json.dump(asdict(self), f, indent=4)
+
+
+@dataclass
+class ImageToUpdate:
+    path: Path
+    override_shape_info: Optional[TerrainShape]
+
+
+def process_image_file(img_data: ImageToUpdate) -> None:
+    data = Frame.from_json(img_data.path)
+    
+    if img_data.override_shape_info is not None: 
+        data.terrain_shape = img_data.override_shape_info
+
+    data.to_json(img_data.path)
+
+
+def gather_image_metric_files(root_dir: Path) -> list[ImageToUpdate]:
+    """Recursively gather all .json file paths from a directory."""
+    return [
+        ImageToUpdate(Path(os.path.join(dirpath, filename)), None)
+        for dirpath, _, filenames in os.walk(root_dir)
+        for filename in filenames
+        if filename.endswith(".json")
+    ]
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Find all JSON files in a directory.")
+    parser.add_argument(
+        "root_dir", type=str, help="Path to the root directory to search."
+    )
+    parser.add_argument(
+        "override_shape",
+        type=str,
+        help="Path to the shape file to override the image metric files with",
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    metric_files: list[ImageToUpdate] = gather_image_metric_files(args.root_dir)
+    shape_info = TerrainShape.from_json(args.override_shape)
+
+    for file in metric_files:
+        file.override_shape_info = shape_info
+
+    with tqdm(total=len(metric_files), desc="Processing files", unit="file") as bar:
+        with ThreadPoolExecutor(max_workers=16) as executor:
+            futures = {executor.submit(process_image_file, f): f for f in metric_files}
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    print(f"Error processing {futures[future].path}: {e}")
+                finally:
+                    bar.update(1)
+
+
+if __name__ == "__main__":
+    main()
