@@ -61,11 +61,13 @@ class ImageMetricManager
     {
         std::optional<TerrainShapeInfo> m_cachedTerrainShapeInfo{std::nullopt};
         std::future<TerrainShapeInfo> m_inProgressLoadingShapeInfo;
+        std::string m_terrainName;
 
       public:
         LoadingShapeInfo() = default;
-        explicit LoadingShapeInfo(std::future<TerrainShapeInfo> future)
-            : m_cachedTerrainShapeInfo{std::nullopt}, m_inProgressLoadingShapeInfo(std::move(future))
+        explicit LoadingShapeInfo(std::future<TerrainShapeInfo> future, std::string terrainName)
+            : m_cachedTerrainShapeInfo{std::nullopt}, m_inProgressLoadingShapeInfo(std::move(future)),
+              m_terrainName(std::move(terrainName))
         {
         }
 
@@ -76,6 +78,10 @@ class ImageMetricManager
 
             m_cachedTerrainShapeInfo = m_inProgressLoadingShapeInfo.get();
             return m_cachedTerrainShapeInfo.value();
+        }
+        const std::string &getTerrainName() const noexcept
+        {
+            return m_terrainName;
         }
     };
 

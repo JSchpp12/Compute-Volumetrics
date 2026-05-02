@@ -1,8 +1,8 @@
 #include "service/detail/image_metric_manager/ImageMetrics.hpp"
 
+#include "TerrainShapeInfo_json.hpp"
 #include "util/json/FogInfoStruct.hpp"
 #include "util/json/MathStructs.hpp"
-#include "TerrainShapeInfo_json.hpp"
 
 #include <starlight/common/entities/Light_json.hpp>
 
@@ -11,11 +11,11 @@ namespace service::image_metric_manager
 
 ImageMetrics::ImageMetrics(const star::Light &mainLight, const FogInfo &controlInfo, const glm::vec3 &camPosition,
                            const glm::vec3 &camLookDir, const std::string &imageFileName,
-                           const double &averageVisibilityDistance, Fog::Type type,
+                           const double &averageVisibilityDistance, std::string_view terrainName, Fog::Type type,
                            const TerrainShapeInfo &terrainShapeInfo)
     : m_mainLight(mainLight), m_controlInfo(controlInfo), m_camPosition(camPosition), m_camLookDir(camLookDir),
-      m_imageFileName(imageFileName), m_averageVisisbilityDistance(averageVisibilityDistance), m_type(type),
-      m_terrainShapeInfo(terrainShapeInfo)
+      m_imageFileName(imageFileName), m_averageVisisbilityDistance(averageVisibilityDistance),
+      m_terrainName(terrainName), m_type(type), m_terrainShapeInfo(terrainShapeInfo)
 {
 }
 
@@ -40,6 +40,7 @@ std::string ImageMetrics::toJsonDump() const
     data["fog_params"] = fogData;
     data["light"] = m_mainLight;
     data["terrain_shape_info"] = m_terrainShapeInfo;
+    data["terrain_name"] = m_terrainName;
 
     std::ostringstream oss;
     oss << std::setw(4) << data;
