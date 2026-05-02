@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.0.8
+	VERSION 1.0.9
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -434,17 +434,15 @@ install(
     DESTINATION .
 )
 
-# CPack metadata
 include(CPack)
 
 include(CTest)
 enable_testing()
-
-# If you're using vcpkg toolchain, the CONFIG package is available.
-# (This won't interfere if you vendor gtest elsewhere; only one approach should be used.)
 find_package(GTest CONFIG REQUIRED)
 
 # Optional: make a toggle to build tests
 option(BUILD_UNIT_TESTS "Build unit tests" ON)
 
-add_subdirectory(tests)
+if (BUILD_UNIT_TESTS)
+	add_subdirectory(tests)
+endif()
