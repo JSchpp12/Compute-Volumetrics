@@ -1,18 +1,13 @@
 #pragma once
 
-#include "FogControlInfo.hpp"
+#include "FogInfo.hpp"
 #include "FogType.hpp"
+#include "TerrainShapeInfo.hpp"
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
 
 #include <starlight/common/entities/Light.hpp>
-#include <starlight/core/CommandSubmitter.hpp>
-#include <starlight/wrappers/graphics/StarBuffers/Buffer.hpp>
 
 #include <vulkan/vulkan.hpp>
-
-#include <execution>
-#include <numeric>
-#include <span>
 
 namespace service::image_metric_manager
 {
@@ -22,16 +17,17 @@ class FileWriteFunction
     FileWriteFunction() = default;
     FileWriteFunction(star::Light light, FogInfo controlInfo, glm::vec3 camPosition, glm::vec3 cameraLookDir,
                       star::Handle buffer, vk::Device vkDevice, vk::Semaphore done, uint64_t copyToHostBufferDoneValue,
-                      Fog::Type type, HostVisibleStorage *storage);
+                      Fog::Type type, HostVisibleStorage *storage, TerrainShapeInfo terrainShapeInfo);
 
-    void write(const std::string &path) const;
+    void write(const std::filesystem::path &path) const;
 
-    int operator()(const std::string &filePath);
+    int operator()(const std::filesystem::path &filePath);
 
   private:
     struct ImageWriteData
     {
         star::Light light;
+        TerrainShapeInfo shapeInfo;
         FogInfo controlInfo;
         glm::vec3 camPosition;
         glm::vec3 camLookDir;
@@ -40,7 +36,7 @@ class FileWriteFunction
         vk::Semaphore copyDone;
         uint64_t copyToHostBufferDoneValue;
         Fog::Type type;
-        HostVisibleStorage *storage = nullptr;
+        HostVisibleStorage *storage{nullptr};
     };
     std::unique_ptr<ImageWriteData> m_data = nullptr;
 

@@ -1,5 +1,6 @@
 #include "service/ImageMetricManager.hpp"
 
+#include "TerrainShapeInfoLoader.hpp"
 #include "service/detail/image_metric_manager/FileWriteFunction.hpp"
 
 #include <starlight/command/FileIO/WriteToFile.hpp>
@@ -10,14 +11,15 @@
 
 namespace service
 {
-ImageMetricManager::ImageMetricManager() : m_storage(), m_copier(), m_listenerCapture(*this)
+ImageMetricManager::ImageMetricManager()
+    : m_storage(), m_copier(), m_listenerCapture(*this), m_listenerTerrainInfo(*this)
 {
 }
 
 ImageMetricManager::ImageMetricManager(ImageMetricManager &&other)
-    : m_storage(std::move(other.m_storage)), m_copier(), m_listenerCapture(*this), m_cmdBus(other.m_cmdBus),
-      m_device(other.m_device), m_eb(other.m_eb), m_cb(other.m_cb), m_qm(other.m_qm), m_s(other.m_s),
-      m_frameTracker(other.m_frameTracker)
+    : m_storage(std::move(other.m_storage)), m_copier(), m_listenerCapture(*this), m_listenerTerrainInfo(*this),
+      m_cmdBus(other.m_cmdBus), m_device(other.m_device), m_eb(other.m_eb), m_cb(other.m_cb), m_qm(other.m_qm),
+      m_s(other.m_s), m_frameTracker(other.m_frameTracker)
 {
     if (m_cmdBus != nullptr)
     {
@@ -90,6 +92,11 @@ void ImageMetricManager::onCapture(image_metrics::TriggerCapture &cmd)
     recordThisFrame(cmd.mainLight, cmd.volumeObject, cmd.srcImagePath, cmd.camera);
 }
 
+void ImageMetricManager::onRegisterTerrainRecord(image_metrics::RegisterTerrainRecordInfo &cmd)
+{
+    submitToGatherTerrainInfoFromFile(cmd.terrainHeightFilePath);
+}
+
 void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Volume &volume,
                                          const std::string &imageCaptureFileName, const star::StarCamera &camera)
 {
@@ -142,7 +149,7 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
             service::image_metric_manager::FileWriteFunction{
                 mainLight, volume.getRenderer().getFogInfo(), camera.getPosition(), camera.getForwardVector(),
                 hostResource, m_device->getVulkanDevice(), semaphoreRecord->semaphore, signalValue,
-                volume.getRenderer().getFogType(), &m_storage}});
+                volume.getRenderer().getFogType(), &m_storage, m_cachedTerrainShapeInfo.get()}});
         star::command::file_io::WriteToFile writeCmd{std::move(writePayload)};
         m_cmdBus->submit(writeCmd);
     }
@@ -151,10 +158,18 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
 void ImageMetricManager::initListeners(star::core::CommandBus &cmdBus)
 {
     m_listenerCapture.init(cmdBus);
+    m_listenerTerrainInfo.init(cmdBus);
 }
 
 void ImageMetricManager::cleanupListeners(star::core::CommandBus &cmdBus)
 {
     m_listenerCapture.cleanup(cmdBus);
+    m_listenerTerrainInfo.cleanup(cmdBus);
+}
+
+void ImageMetricManager::submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath)
+{
+    assert(m_cmdBus != nullptr);
+    m_cachedTerrainShapeInfo = LoadingShapeInfo(TerrainShapeInfoLoader::SubmitForRead(std::move(terrainShapeFilePath), *m_cmdBus));
 }
 } // namespace service

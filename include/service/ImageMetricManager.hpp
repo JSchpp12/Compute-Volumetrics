@@ -1,12 +1,17 @@
 #pragma once
 
+#include "TerrainShapeInfo.hpp"
 #include "Volume.hpp"
+#include "command/image_metrics/RegisterTerrainRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "service/detail/image_metric_manager/CopyDeviceToHostMemory.hpp"
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
 
 #include <starlight/core/device/managers/GraphicsContainer.hpp>
 #include <starlight/policy/command/ListenFor.hpp>
+
+#include <future>
+#include <optional>
 
 namespace service
 {
@@ -15,6 +20,11 @@ using ListenForTriggerCapture =
     star::policy::command::ListenFor<T, image_metrics::TriggerCapture,
                                      image_metrics::trigger_capture::GetTriggerCaptureCommandTypeName, &T::onCapture>;
 
+template <typename T>
+using ListenForRegisterTerrainData =
+    star::policy::command::ListenFor<T, image_metrics::RegisterTerrainRecordInfo,
+                                     image_metrics::register_terrain_record_info::GetUniqueName,
+                                     &T::onRegisterTerrainRecord>;
 /// <summary>
 /// Responsible for gathering all needed information from shaders and compute operations needed for
 /// image label processing
@@ -39,14 +49,41 @@ class ImageMetricManager
 
     void shutdown();
 
-    void recordThisFrame(const star::Light &mainLight, const Volume &volume, const std::string &imageCaptureFileName, const star::StarCamera &camera);
+    void recordThisFrame(const star::Light &mainLight, const Volume &volume, const std::string &imageCaptureFileName,
+                         const star::StarCamera &camera);
 
     void onCapture(image_metrics::TriggerCapture &cmd);
 
+    void onRegisterTerrainRecord(image_metrics::RegisterTerrainRecordInfo &cmd);
+
   private:
+    class LoadingShapeInfo
+    {
+        std::optional<TerrainShapeInfo> m_cachedTerrainShapeInfo{std::nullopt};
+        std::future<TerrainShapeInfo> m_inProgressLoadingShapeInfo;
+
+      public:
+        LoadingShapeInfo() = default;
+        explicit LoadingShapeInfo(std::future<TerrainShapeInfo> future)
+            : m_cachedTerrainShapeInfo{std::nullopt}, m_inProgressLoadingShapeInfo(std::move(future))
+        {
+        }
+
+        TerrainShapeInfo &get() noexcept
+        {
+            if (m_cachedTerrainShapeInfo.has_value())
+                return m_cachedTerrainShapeInfo.value();
+
+            m_cachedTerrainShapeInfo = m_inProgressLoadingShapeInfo.get();
+            return m_cachedTerrainShapeInfo.value();
+        }
+    };
+
     image_metric_manager::HostVisibleStorage m_storage;
+    LoadingShapeInfo m_cachedTerrainShapeInfo;
     image_metric_manager::CopyDeviceToHostMemory m_copier;
     ListenForTriggerCapture<ImageMetricManager> m_listenerCapture;
+    ListenForRegisterTerrainData<ImageMetricManager> m_listenerTerrainInfo;
     star::core::CommandBus *m_cmdBus = nullptr;
     star::core::device::StarDevice *m_device = nullptr;
     star::common::EventBus *m_eb = nullptr;
@@ -61,5 +98,7 @@ class ImageMetricManager
     void initListeners(star::core::CommandBus &cmdBus);
 
     void cleanupListeners(star::core::CommandBus &cmdBus);
+
+    void submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath);
 };
 } // namespace service

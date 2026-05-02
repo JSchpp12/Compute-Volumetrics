@@ -3,6 +3,7 @@
 #include "DeclareDependentPasses.hpp"
 #include "OffscreenRenderer.hpp"
 #include "Terrain.hpp"
+#include "command/image_metrics/RegisterTerrainRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
@@ -52,7 +53,7 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
 {
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
 
-    const auto value = volume.getRenderer().getTimelineSignalValue(ft); 
+    const auto value = volume.getRenderer().getTimelineSignalValue(ft);
 
     cmdBus.submit(star::command_order::TriggerPass()
                       .setPass(volume.getRenderer().getCommandBuffer())
@@ -87,6 +88,15 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
                        .build();
         context.begin().set(cmd).submit();
         cmd.getReply().get()->init(context);
+
+        //register the terrain information with the image metric manager for cache
+        {
+            const auto *terrain = static_cast<const Terrain *>(cmd.getReply().get().get());
+            context.getCmdBus().submit(
+                image_metrics::RegisterTerrainRecordInfo{}.setTerrainHeightFilePath(terrain->getShapeFilePath()));
+
+        }
+
         objects.emplace_back(cmd.getReply().get());
     }
 

@@ -11,7 +11,7 @@ using nlohmann::json;
 namespace service::simulation_controller
 {
 
-static void WriteDataToFile(const std::string &path, const SimulationBounds &bounds)
+static void WriteDataToFile(const std::filesystem::path &path, const SimulationBounds &bounds)
 {
     json startData;
     util::to_json(startData, bounds.start);
@@ -28,7 +28,7 @@ static void WriteDataToFile(const std::string &path, const SimulationBounds &bou
     ostream << std::setw(4) << fullData << std::endl;
 }
 
-int Writer::operator()(const std::string &path)
+int Writer::operator()(const std::filesystem::path &path)
 {
     assert(m_bounds && "Bounds data was not properly initialized"); 
 

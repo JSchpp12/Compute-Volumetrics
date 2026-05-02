@@ -11,7 +11,7 @@ class Reader
 {
   public:
     Reader() = default;
-    int operator()(const std::string &filePath);
+    int operator()(const std::filesystem::path &filePath);
 
     std::future<SimulationData> getFuture()
     {

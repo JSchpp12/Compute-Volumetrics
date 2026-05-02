@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.0.9
+	VERSION 1.0.10
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -155,7 +155,10 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/commands/color/PostDifferentFamilies.cpp"
 	"src/render_system/fog/commands/color/PreDifferentFamilies.cpp" 
 	"src/render_system/fog/commands/color/PreMemoryBarrierRecorder.cpp"
- "src/render_system/fog/commands/distance/PreDifferentFamilies.cpp" "src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp")
+ 	"src/render_system/fog/commands/distance/PreDifferentFamilies.cpp" 
+	"src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp" 
+	"src/TerrainShapeInfo_json.cpp"
+)
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"
