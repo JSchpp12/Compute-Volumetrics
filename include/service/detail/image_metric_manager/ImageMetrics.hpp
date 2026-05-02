@@ -15,7 +15,7 @@ class ImageMetrics
   public:
     ImageMetrics(const star::Light &mainLight, const FogInfo &controlInfo, const glm::vec3 &camPosition,
                  const glm::vec3 &camLookDir, const std::string &fileName, const double &averageVisibilityDistance,
-                 Fog::Type type, const TerrainShapeInfo &terrainShapeInfo);
+                 std::string_view terrainName, Fog::Type type, const TerrainShapeInfo &terrainShapeInfo);
 
     std::string toJsonDump() const;
 
@@ -26,6 +26,7 @@ class ImageMetrics
     const glm::vec3 &m_camLookDir;
     const std::string &m_imageFileName;
     const double &m_averageVisisbilityDistance;
+    std::string_view m_terrainName;
     Fog::Type m_type;
     const TerrainShapeInfo &m_terrainShapeInfo;
 };

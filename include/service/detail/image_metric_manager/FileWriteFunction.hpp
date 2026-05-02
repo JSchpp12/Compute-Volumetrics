@@ -17,7 +17,7 @@ class FileWriteFunction
     FileWriteFunction() = default;
     FileWriteFunction(star::Light light, FogInfo controlInfo, glm::vec3 camPosition, glm::vec3 cameraLookDir,
                       star::Handle buffer, vk::Device vkDevice, vk::Semaphore done, uint64_t copyToHostBufferDoneValue,
-                      Fog::Type type, HostVisibleStorage *storage, TerrainShapeInfo terrainShapeInfo);
+                      Fog::Type type, HostVisibleStorage *storage, std::string terrainName, TerrainShapeInfo terrainShapeInfo);
 
     void write(const std::filesystem::path &path) const;
 
@@ -28,6 +28,7 @@ class FileWriteFunction
     {
         star::Light light;
         TerrainShapeInfo shapeInfo;
+        std::string terrainName;
         FogInfo controlInfo;
         glm::vec3 camPosition;
         glm::vec3 camLookDir;

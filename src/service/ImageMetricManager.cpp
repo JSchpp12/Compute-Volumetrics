@@ -149,7 +149,8 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
             service::image_metric_manager::FileWriteFunction{
                 mainLight, volume.getRenderer().getFogInfo(), camera.getPosition(), camera.getForwardVector(),
                 hostResource, m_device->getVulkanDevice(), semaphoreRecord->semaphore, signalValue,
-                volume.getRenderer().getFogType(), &m_storage, m_cachedTerrainShapeInfo.get()}});
+                volume.getRenderer().getFogType(), &m_storage, m_cachedTerrainShapeInfo.getTerrainName(),
+                m_cachedTerrainShapeInfo.get()}});
         star::command::file_io::WriteToFile writeCmd{std::move(writePayload)};
         m_cmdBus->submit(writeCmd);
     }
@@ -170,6 +171,9 @@ void ImageMetricManager::cleanupListeners(star::core::CommandBus &cmdBus)
 void ImageMetricManager::submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath)
 {
     assert(m_cmdBus != nullptr);
-    m_cachedTerrainShapeInfo = LoadingShapeInfo(TerrainShapeInfoLoader::SubmitForRead(std::move(terrainShapeFilePath), *m_cmdBus));
+    std::string terrainName = terrainShapeFilePath.parent_path().filename().string();
+
+    m_cachedTerrainShapeInfo = LoadingShapeInfo(
+        TerrainShapeInfoLoader::SubmitForRead(std::move(terrainShapeFilePath), *m_cmdBus), std::move(terrainName));
 }
 } // namespace service

@@ -2,8 +2,8 @@
 
 #include <star_common/IServiceCommand.hpp>
 
-#include <string_view>
 #include <filesystem>
+#include <string_view>
 
 namespace image_metrics
 {
@@ -15,7 +15,6 @@ inline constexpr const char *GetUniqueName()
 }
 } // namespace register_terrain_record_info
 
-
 struct RegisterTerrainRecordInfo : star::common::IServiceCommand
 {
     static inline constexpr std::string_view GetUniqueTypeName()
@@ -26,9 +25,9 @@ struct RegisterTerrainRecordInfo : star::common::IServiceCommand
     RegisterTerrainRecordInfo &setTerrainHeightFilePath(std::filesystem::path path)
     {
         terrainHeightFilePath = std::move(path);
-        return *this; 
+        return *this;
     }
 
-    std::filesystem::path terrainHeightFilePath; 
+    std::filesystem::path terrainHeightFilePath;
 };
 } // namespace image_metrics
