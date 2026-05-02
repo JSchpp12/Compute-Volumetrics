@@ -2,6 +2,8 @@
 
 #include "StarObject.hpp"
 
+#include <filesystem>
+
 class Terrain : public star::StarObject
 {
   public:
@@ -9,6 +11,15 @@ class Terrain : public star::StarObject
         : star::StarObject(LoadMaterials(terrainDefFile)), m_terrainDefFile(std::move(terrainDefFile))
     {
     };
+
+    std::filesystem::path getHeightInfoFilePath() const
+    {
+        return std::filesystem::path(m_terrainDefFile) / "height_info.json";
+    }
+    std::filesystem::path getShapeFilePath() const
+    {
+        return std::filesystem::path(m_terrainDefFile) / "Shape.json";
+    }
 
   protected:
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;

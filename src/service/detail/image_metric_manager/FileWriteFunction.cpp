@@ -4,6 +4,10 @@
 #include <boost/filesystem/path.hpp>
 #include <starlight/common/entities/Light_json.hpp>
 
+#include <execution>
+#include <numeric>
+#include <span>
+
 namespace service::image_metric_manager
 {
 
@@ -21,21 +25,18 @@ static double Mean(std::span<const float> &span)
 
 FileWriteFunction::FileWriteFunction(star::Light light, FogInfo controlInfo, glm::vec3 camPosition,
                                      glm::vec3 camLookDir, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
-                                     uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage)
-    : m_data(std::make_unique<ImageWriteData>(std::move(light), std::move(controlInfo), camPosition, camLookDir, buffer,
-                                              vkDevice, done, copyToHostBufferDoneValue, type, storage))
+                                     uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage,
+                                     TerrainShapeInfo terrainShapeInfo)
+    : m_data(std::make_unique<ImageWriteData>(std::move(light), std::move(terrainShapeInfo), std::move(controlInfo),
+                                              camPosition, camLookDir, buffer, vkDevice, done,
+                                              copyToHostBufferDoneValue, type, storage))
 {
 }
 
-void FileWriteFunction::write(const std::string &path) const
+void FileWriteFunction::write(const std::filesystem::path &path) const
 {
     const auto sourcePath = boost::filesystem::path(path);
     const auto finalPath = boost::filesystem::path(path).replace_extension(".json");
-
-    {
-        const std::string msg = "Beginning file write: " + finalPath.string();
-        star::core::logging::info(msg);
-    }
 
     waitForCopyToDstBufferDone();
 
@@ -44,11 +45,9 @@ void FileWriteFunction::write(const std::string &path) const
 
     std::ofstream out(finalPath.string(), std::ofstream::binary);
     const auto data = ImageMetrics(m_data->light, m_data->controlInfo, m_data->camPosition, m_data->camLookDir,
-                                   sourcePath.filename().string(), mean, m_data->type)
+                                   sourcePath.filename().string(), mean, m_data->type, m_data->shapeInfo)
                           .toJsonDump();
     out << data;
-
-    star::core::logging::info("Done");
 }
 
 void FileWriteFunction::waitForCopyToDstBufferDone() const
@@ -173,7 +172,7 @@ double FileWriteFunction::calculateAverageRayDistance() const
     return distance;
 }
 
-int FileWriteFunction::operator()(const std::string &filePath)
+int FileWriteFunction::operator()(const std::filesystem::path &filePath)
 {
     write(filePath);
 

@@ -27,18 +27,12 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
 
 std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::device::DeviceContext &context)
 {
-    const auto infoPath = std::filesystem::path(m_terrainDefFile) / "height_info.json";
+    const auto infoPath = getHeightInfoFilePath();
     TerrainInfoFile fileInfo = TerrainInfoFile(infoPath.string());
 
     const auto terrainPath = std::filesystem::path(m_terrainDefFile);
-    TerrainShapeInfo shapeInfo;
-    {
-        const auto terrainShapeFile = terrainPath / "Shape.json";
-        auto loader = TerrainShapeInfoLoader(terrainShapeFile.string());
-
-        shapeInfo = loader.load();
-    }
-
+    const auto terrainShapeFile = getShapeFilePath();
+    auto loadingShapeInfo = TerrainShapeInfoLoader::SubmitForRead(getShapeFilePath(), context.getCmdBus()); 
     TerrainGrid grid = TerrainGrid();
 
     std::vector<TerrainChunk> chunks;
@@ -47,6 +41,8 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
 
     std::set<std::string> alreadyProcessed = std::set<std::string>();
     bool setWorldCenter = false;
+    
+    TerrainShapeInfo shapeInfo = loadingShapeInfo.get(); 
     glm::dvec3 worldCenter(shapeInfo.center.x, shapeInfo.center.y, 0);
 
     const auto fullHeightFilePath = terrainPath / std::filesystem::path(fileInfo.getFullHeightFilePath());

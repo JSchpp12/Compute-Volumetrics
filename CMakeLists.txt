@@ -155,7 +155,10 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/commands/color/PostDifferentFamilies.cpp"
 	"src/render_system/fog/commands/color/PreDifferentFamilies.cpp" 
 	"src/render_system/fog/commands/color/PreMemoryBarrierRecorder.cpp"
- "src/render_system/fog/commands/distance/PreDifferentFamilies.cpp" "src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp")
+ 	"src/render_system/fog/commands/distance/PreDifferentFamilies.cpp" 
+	"src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp" 
+	"src/TerrainShapeInfo_json.cpp"
+)
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"

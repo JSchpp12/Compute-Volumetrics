@@ -61,7 +61,7 @@ SimulationSteps CalculateSimSteps(const SimulationBounds &bounds)
     return steps;
 }
 
-static SimulationData LoadBoundsInfoFromFile(const std::string &path)
+static SimulationData LoadBoundsInfoFromFile(const std::filesystem::path &path)
 {
     SimulationData data;
 
@@ -110,9 +110,9 @@ static SimulationData LoadBoundsInfoFromFile(const std::string &path)
     return data;
 }
 
-int Reader::operator()(const std::string &filePath)
+int Reader::operator()(const std::filesystem::path &filePath)
 {
-    assert(std::filesystem::path(filePath).extension() == ".json" && "Requested file is not an expected json file");
+    assert(filePath.extension() == ".json" && "Requested file is not an expected json file");
 
     m_loadedBounds.set_value(LoadBoundsInfoFromFile(filePath));
     return 0;
