@@ -7,6 +7,7 @@
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
+#include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "renderer/finalization/Headless.hpp"
 
 #include <starlight/command/CreateLight.hpp>
@@ -185,6 +186,8 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
             context.begin().set(cmd).submit();
             allObjects.emplace_back(cmd.getReply().get());
+
+            context.getCmdBus().submit(image_metrics::RegisterVolumeRecordInfo().setVolumeName("ambient"));
         }
 
         std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};

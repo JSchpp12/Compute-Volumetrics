@@ -12,14 +12,18 @@
 namespace service
 {
 ImageMetricManager::ImageMetricManager()
-    : m_storage(), m_copier(), m_listenerCapture(*this), m_listenerTerrainInfo(*this)
+    : m_storage(), m_cachedTerrainShapeInfo(), m_cachedVolumeNameInfo(), m_copier(), m_cmdBus(nullptr),
+      m_device(nullptr), m_eb(nullptr), m_cb(nullptr), m_qm(nullptr), m_s(nullptr), m_frameTracker(nullptr),
+      m_isRegistered(false), m_listenerCapture(*this), m_listenerTerrainInfo(*this), m_listenerVolumeInfo(*this)
 {
 }
 
 ImageMetricManager::ImageMetricManager(ImageMetricManager &&other)
-    : m_storage(std::move(other.m_storage)), m_copier(), m_listenerCapture(*this), m_listenerTerrainInfo(*this),
-      m_cmdBus(other.m_cmdBus), m_device(other.m_device), m_eb(other.m_eb), m_cb(other.m_cb), m_qm(other.m_qm),
-      m_s(other.m_s), m_frameTracker(other.m_frameTracker)
+    : m_storage(std::move(other.m_storage)), m_cachedTerrainShapeInfo(std::move(other.m_cachedTerrainShapeInfo)),
+      m_cachedVolumeNameInfo(std::move(other.m_cachedVolumeNameInfo)), m_copier(), m_cmdBus(other.m_cmdBus),
+      m_device(other.m_device), m_eb(other.m_eb), m_cb(other.m_cb), m_qm(other.m_qm), m_s(other.m_s),
+      m_frameTracker(other.m_frameTracker), m_listenerCapture(*this), m_listenerTerrainInfo(*this),
+      m_listenerVolumeInfo(*this)
 {
     if (m_cmdBus != nullptr)
     {
@@ -97,6 +101,11 @@ void ImageMetricManager::onRegisterTerrainRecord(image_metrics::RegisterTerrainR
     submitToGatherTerrainInfoFromFile(cmd.terrainHeightFilePath, cmd.terrainRenderingType);
 }
 
+void ImageMetricManager::onRegisterVolumeRecord(image_metrics::RegisterVolumeRecordInfo &cmd)
+{
+    m_cachedVolumeNameInfo = cmd.volumeName;
+}
+
 void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Volume &volume,
                                          const std::string &imageCaptureFileName, const star::StarCamera &camera)
 {
@@ -150,7 +159,8 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
                 mainLight, volume.getRenderer().getFogInfo(), camera.getPosition(), camera.getForwardVector(),
                 hostResource, m_device->getVulkanDevice(), semaphoreRecord->semaphore, signalValue,
                 volume.getRenderer().getFogType(), &m_storage, m_cachedTerrainShapeInfo.getTerrainName(),
-                m_cachedTerrainShapeInfo.get(), m_cachedTerrainShapeInfo.getTerrainRenderingType()}});
+                m_cachedTerrainShapeInfo.get(), m_cachedTerrainShapeInfo.getTerrainRenderingType(),
+                m_cachedVolumeNameInfo}});
         star::command::file_io::WriteToFile writeCmd{std::move(writePayload)};
         m_cmdBus->submit(writeCmd);
     }
@@ -160,12 +170,14 @@ void ImageMetricManager::initListeners(star::core::CommandBus &cmdBus)
 {
     m_listenerCapture.init(cmdBus);
     m_listenerTerrainInfo.init(cmdBus);
+    m_listenerVolumeInfo.init(cmdBus);
 }
 
 void ImageMetricManager::cleanupListeners(star::core::CommandBus &cmdBus)
 {
     m_listenerCapture.cleanup(cmdBus);
     m_listenerTerrainInfo.cleanup(cmdBus);
+    m_listenerVolumeInfo.cleanup(cmdBus);
 }
 
 void ImageMetricManager::submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath,

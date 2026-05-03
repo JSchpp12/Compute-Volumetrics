@@ -27,10 +27,11 @@ FileWriteFunction::FileWriteFunction(star::Light light, FogInfo controlInfo, glm
                                      glm::vec3 camLookDir, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
                                      uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage,
                                      std::string terrainName, TerrainShapeInfo terrainShapeInfo,
-                                     TerrainRenderingType terrainRenderingType)
+                                     TerrainRenderingType terrainRenderingType, std::string volumeName)
     : m_data(std::make_unique<ImageWriteData>(std::move(light), std::move(terrainShapeInfo), std::move(terrainName),
-                                              std::move(controlInfo), camPosition, camLookDir, buffer, vkDevice, done,
-                                              copyToHostBufferDoneValue, type, terrainRenderingType, storage))
+                                              std::move(volumeName), std::move(controlInfo), camPosition, camLookDir,
+                                              buffer, vkDevice, done, copyToHostBufferDoneValue, type,
+                                              terrainRenderingType, storage))
 {
 }
 
@@ -46,8 +47,8 @@ void FileWriteFunction::write(const std::filesystem::path &path) const
 
     std::ofstream out(finalPath.string(), std::ofstream::binary);
     const auto data = ImageMetrics(m_data->light, m_data->controlInfo, m_data->camPosition, m_data->camLookDir,
-                                   sourcePath.filename().string(), mean, m_data->terrainName, m_data->type,
-                                   m_data->shapeInfo, m_data->terrainRenderingType)
+                                   sourcePath.filename().string(), mean, m_data->terrainName, m_data->volumeName,
+                                   m_data->type, m_data->shapeInfo, m_data->terrainRenderingType)
                           .toJsonDump();
     out << data;
 }

@@ -11,11 +11,12 @@ namespace service::image_metric_manager
 
 ImageMetrics::ImageMetrics(const star::Light &mainLight, const FogInfo &controlInfo, const glm::vec3 &camPosition,
                            const glm::vec3 &camLookDir, const std::string &imageFileName,
-                           const double &averageVisibilityDistance, std::string_view terrainName, Fog::Type type,
-                           const TerrainShapeInfo &terrainShapeInfo, TerrainRenderingType renderingType)
+                           const double &averageVisibilityDistance, std::string_view terrainName,
+                           std::string_view volumeName, Fog::Type type, const TerrainShapeInfo &terrainShapeInfo,
+                           TerrainRenderingType renderingType)
     : m_mainLight(mainLight), m_controlInfo(controlInfo), m_camPosition(camPosition), m_camLookDir(camLookDir),
       m_imageFileName(imageFileName), m_averageVisisbilityDistance(averageVisibilityDistance),
-      m_terrainName(terrainName), m_type(type), m_terrainShapeInfo(terrainShapeInfo),
+      m_terrainName(terrainName), m_volumeName(volumeName), m_type(type), m_terrainShapeInfo(terrainShapeInfo),
       m_terrainRenderingType(renderingType)
 {
 }
@@ -39,8 +40,14 @@ std::string ImageMetrics::toJsonDump() const
     util::to_json(fogData, m_controlInfo);
 
     data["fog_params"] = fogData;
+
+    if ((m_type == Fog::Type::sMarched) && !m_volumeName.empty())
+        data["fog_volume_name"] = m_volumeName;
+    else
+        data["fog_volume_name"] = nullptr; 
+
     data["light"] = m_mainLight;
-    data["terrain_shape_info"] = m_terrainShapeInfo;
+    data["terrain_shape"] = m_terrainShapeInfo;
     data["terrain_name"] = m_terrainName;
     data["terrain_shape_type"] = toString(m_terrainRenderingType);
 

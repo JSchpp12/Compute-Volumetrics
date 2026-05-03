@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.0.13
+	VERSION 1.0.14
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
