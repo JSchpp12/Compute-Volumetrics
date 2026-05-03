@@ -6,9 +6,7 @@ from dataclasses import dataclass, asdict
 from typing import Optional
 
 from pathlib import Path
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 
 @dataclass
 class Vec3:
@@ -22,27 +20,30 @@ class Vec2:
     x: float
     y: float
 
-
 @dataclass
-class TerrainShape:
+class TerrainShapeFile:
     center: Vec2
     view_distance: int
 
     @classmethod
-    def from_dict(cls, data: dict) -> "TerrainShape":
+    def from_dict(cls, data: dict) -> "TerrainShapeFile":
         center : Optional[Vec2] = None
         if "lat" in data["center"]: 
             center = Vec2(data["center"]["lat"], data["center"]["lon"])
         else:
             center = Vec2(**data["center"])
 
+        if "range" in data:
+            vis_range = data["range"]
+        else:
+            vis_range = data["view_distance"]
         return cls(
             center,
-            view_distance=data["range"],
+            view_distance=vis_range,
         )
 
     @classmethod
-    def from_json(cls, path: Path) -> "TerrainShape":
+    def from_json(cls, path: Path) -> "TerrainShapeFile":
         with open(path, "r") as f:
             data = json.load(f)
             return cls.from_dict(data)
@@ -66,7 +67,6 @@ class LinearInfo:
     farDist: float
     nearDist: float
 
-
 @dataclass
 class MarchedInfo:
     defaultDensity: float
@@ -76,6 +76,7 @@ class MarchedInfo:
     sigmaScattering: float
     stepSizeDist: float
     stepSizeDist_light: float
+    cutoffValue : Optional[float]
 
 
 @dataclass
@@ -87,6 +88,10 @@ class FogParams:
 
     @classmethod
     def from_dict(cls, data: dict) -> "FogParams":
+        marched = None
+        if "cutoffValue" not in data["marchedInfo"]: 
+            data["cutoffValue"] = 0.001
+
         return cls(
             expFogInfo=ExpFogInfo(**data["expFogInfo"]),
             homogenousInfo=HomogenousInfo(**data["homogenousInfo"]),
@@ -103,7 +108,7 @@ class Frame:
     fog_params: FogParams
     fog_type: str
     visibility_distance: float
-    terrain_shape: Optional[TerrainShape]
+    terrain_shape: Optional[TerrainShapeFile]
     terrain_name: Optional[str]
 
     @classmethod
@@ -112,9 +117,9 @@ class Frame:
         if "terrain_name" in data:
             tName = str(data["terrain_name"])
 
-        tData: Optional[TerrainShape] = None
+        tData: Optional[TerrainShapeFile] = None
         if "terrain_shape" in data:
-            tData = TerrainShape.from_dict(data["terrain_shape"])
+            tData = TerrainShapeFile.from_dict(data["terrain_shape"])
 
         return cls(
             camera_look_dir=Vec3(**data["camera_look_dir"]),
@@ -140,18 +145,8 @@ class Frame:
 @dataclass
 class ImageToUpdate:
     path: Path
-    override_shape_info: Optional[TerrainShape]
+    override_shape_info: Optional[TerrainShapeFile]
     override_name: Optional[str]
-
-
-def process_image_file(img_data: ImageToUpdate) -> None:
-    data = Frame.from_json(img_data.path)
-
-    if img_data.override_shape_info is not None:
-        data.terrain_shape = img_data.override_shape_info
-        data.terrain_name = img_data.override_name
-
-    data.to_json(img_data.path)
 
 
 def gather_image_metric_files(root_dir: Path) -> list[ImageToUpdate]:
@@ -176,11 +171,26 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
+def process_image_file(img_data: ImageToUpdate) -> None:
+    data = Frame.from_json(img_data.path)
+
+    if img_data.override_shape_info is not None:
+        data.terrain_shape = img_data.override_shape_info
+        data.terrain_name = img_data.override_name
+
+    data.to_json(img_data.path)
 
 def main():
+    """_summary_
+    Corrects the following in image metric files: 
+    Earlier metric files do not have the terrain_shape parameter in the data. 
+    Or it might be incorrect/null. This scripts takes in a path to the root directory to patch
+    and a shape json file to manually write into the files.
+    """
+
     args = parse_args()
     metric_files: list[ImageToUpdate] = gather_image_metric_files(args.root_dir)
-    shape_info = TerrainShape.from_json(args.override_shape)
+    shape_info = TerrainShapeFile.from_json(args.override_shape)
     terrain_name = Path(args.override_shape).parent.name
 
     for file in metric_files:
