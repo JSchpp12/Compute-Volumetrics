@@ -4,6 +4,7 @@
 #include "TerrainShapeInfo.hpp"
 #include "Volume.hpp"
 #include "command/image_metrics/RegisterTerrainRecordInfo.hpp"
+#include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "service/detail/image_metric_manager/CopyDeviceToHostMemory.hpp"
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
@@ -26,6 +27,12 @@ using ListenForRegisterTerrainData =
     star::policy::command::ListenFor<T, image_metrics::RegisterTerrainRecordInfo,
                                      image_metrics::register_terrain_record_info::GetUniqueName,
                                      &T::onRegisterTerrainRecord>;
+
+template <typename T>
+using ListenForRegisterVolumeData =
+    star::policy::command::ListenFor<T, image_metrics::RegisterVolumeRecordInfo,
+                                     image_metrics::register_volume_record_info::GetUniqueName,
+                                     &T::onRegisterVolumeRecord>;
 /// <summary>
 /// Responsible for gathering all needed information from shaders and compute operations needed for
 /// image label processing
@@ -56,6 +63,8 @@ class ImageMetricManager
     void onCapture(image_metrics::TriggerCapture &cmd);
 
     void onRegisterTerrainRecord(image_metrics::RegisterTerrainRecordInfo &cmd);
+
+    void onRegisterVolumeRecord(image_metrics::RegisterVolumeRecordInfo &cmd);
 
   private:
     class LoadingShapeInfo
@@ -94,9 +103,8 @@ class ImageMetricManager
 
     image_metric_manager::HostVisibleStorage m_storage;
     LoadingShapeInfo m_cachedTerrainShapeInfo;
+    std::string m_cachedVolumeNameInfo; 
     image_metric_manager::CopyDeviceToHostMemory m_copier;
-    ListenForTriggerCapture<ImageMetricManager> m_listenerCapture;
-    ListenForRegisterTerrainData<ImageMetricManager> m_listenerTerrainInfo;
     star::core::CommandBus *m_cmdBus = nullptr;
     star::core::device::StarDevice *m_device = nullptr;
     star::common::EventBus *m_eb = nullptr;
@@ -105,6 +113,9 @@ class ImageMetricManager
     star::core::device::manager::Semaphore *m_s = nullptr;
     const star::common::FrameTracker *m_frameTracker = nullptr;
     bool m_isRegistered = false;
+    ListenForTriggerCapture<ImageMetricManager> m_listenerCapture;
+    ListenForRegisterTerrainData<ImageMetricManager> m_listenerTerrainInfo;
+    ListenForRegisterVolumeData<ImageMetricManager> m_listenerVolumeInfo;
 
     void initCopier(star::core::device::DeviceContext &context);
 
