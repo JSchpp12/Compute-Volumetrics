@@ -10,7 +10,7 @@
 #include <fstream>
 
 std::future<TerrainShapeInfo> TerrainShapeInfoLoader::SubmitForRead(std::filesystem::path filePath,
-                                                                           const star::core::CommandBus &cmdBus)
+                                                                    const star::core::CommandBus &cmdBus)
 {
     TerrainShapeInfoLoader shapeLoader{};
     auto future = shapeLoader.getFuture();
