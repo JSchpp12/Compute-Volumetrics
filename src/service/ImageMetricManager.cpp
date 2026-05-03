@@ -12,14 +12,18 @@
 namespace service
 {
 ImageMetricManager::ImageMetricManager()
-    : m_storage(), m_copier(), m_listenerCapture(*this), m_listenerTerrainInfo(*this), m_listenerVolumeInfo(*this)
+    : m_storage(), m_cachedTerrainShapeInfo(), m_cachedVolumeNameInfo(), m_copier(), m_cmdBus(nullptr),
+      m_device(nullptr), m_eb(nullptr), m_cb(nullptr), m_qm(nullptr), m_s(nullptr), m_frameTracker(nullptr),
+      m_isRegistered(false), m_listenerCapture(*this), m_listenerTerrainInfo(*this), m_listenerVolumeInfo(*this)
 {
 }
 
 ImageMetricManager::ImageMetricManager(ImageMetricManager &&other)
-    : m_storage(std::move(other.m_storage)), m_copier(), m_cmdBus(other.m_cmdBus), m_device(other.m_device),
-      m_eb(other.m_eb), m_cb(other.m_cb), m_qm(other.m_qm), m_s(other.m_s), m_frameTracker(other.m_frameTracker),
-      m_listenerCapture(*this), m_listenerTerrainInfo(*this), m_listenerVolumeInfo(*this)
+    : m_storage(std::move(other.m_storage)), m_cachedTerrainShapeInfo(std::move(other.m_cachedTerrainShapeInfo)),
+      m_cachedVolumeNameInfo(std::move(other.m_cachedVolumeNameInfo)), m_copier(), m_cmdBus(other.m_cmdBus),
+      m_device(other.m_device), m_eb(other.m_eb), m_cb(other.m_cb), m_qm(other.m_qm), m_s(other.m_s),
+      m_frameTracker(other.m_frameTracker), m_listenerCapture(*this), m_listenerTerrainInfo(*this),
+      m_listenerVolumeInfo(*this)
 {
     if (m_cmdBus != nullptr)
     {
