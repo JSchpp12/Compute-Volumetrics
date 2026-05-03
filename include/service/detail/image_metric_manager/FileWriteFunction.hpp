@@ -2,6 +2,7 @@
 
 #include "FogInfo.hpp"
 #include "FogType.hpp"
+#include "TerrainRenderingType.hpp"
 #include "TerrainShapeInfo.hpp"
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
 
@@ -17,7 +18,8 @@ class FileWriteFunction
     FileWriteFunction() = default;
     FileWriteFunction(star::Light light, FogInfo controlInfo, glm::vec3 camPosition, glm::vec3 cameraLookDir,
                       star::Handle buffer, vk::Device vkDevice, vk::Semaphore done, uint64_t copyToHostBufferDoneValue,
-                      Fog::Type type, HostVisibleStorage *storage, std::string terrainName, TerrainShapeInfo terrainShapeInfo);
+                      Fog::Type type, HostVisibleStorage *storage, std::string terrainName,
+                      TerrainShapeInfo terrainShapeInfo, TerrainRenderingType terrainRenderingType);
 
     void write(const std::filesystem::path &path) const;
 
@@ -37,6 +39,7 @@ class FileWriteFunction
         vk::Semaphore copyDone;
         uint64_t copyToHostBufferDoneValue;
         Fog::Type type;
+        TerrainRenderingType terrainRenderingType;
         HostVisibleStorage *storage{nullptr};
     };
     std::unique_ptr<ImageWriteData> m_data = nullptr;

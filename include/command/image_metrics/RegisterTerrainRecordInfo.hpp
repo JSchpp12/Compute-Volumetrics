@@ -1,5 +1,7 @@
 #pragma once
 
+#include "TerrainRenderingType.hpp"
+
 #include <star_common/IServiceCommand.hpp>
 
 #include <filesystem>
@@ -27,7 +29,13 @@ struct RegisterTerrainRecordInfo : star::common::IServiceCommand
         terrainHeightFilePath = std::move(path);
         return *this;
     }
+    RegisterTerrainRecordInfo &setTerrainRenderingType(TerrainRenderingType type)
+    {
+        terrainRenderingType = type;
+        return *this;
+    }
 
     std::filesystem::path terrainHeightFilePath;
+    TerrainRenderingType terrainRenderingType;
 };
 } // namespace image_metrics

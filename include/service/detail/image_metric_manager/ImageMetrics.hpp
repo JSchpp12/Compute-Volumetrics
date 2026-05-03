@@ -3,6 +3,7 @@
 #include "FogControlInfo.hpp"
 #include "FogType.hpp"
 #include "TerrainShapeInfo.hpp"
+#include "TerrainRenderingType.hpp"
 
 #include <starlight/common/entities/Light.hpp>
 
@@ -15,7 +16,7 @@ class ImageMetrics
   public:
     ImageMetrics(const star::Light &mainLight, const FogInfo &controlInfo, const glm::vec3 &camPosition,
                  const glm::vec3 &camLookDir, const std::string &fileName, const double &averageVisibilityDistance,
-                 std::string_view terrainName, Fog::Type type, const TerrainShapeInfo &terrainShapeInfo);
+                 std::string_view terrainName, Fog::Type type, const TerrainShapeInfo &terrainShapeInfo, TerrainRenderingType renderingType);
 
     std::string toJsonDump() const;
 
@@ -29,5 +30,6 @@ class ImageMetrics
     std::string_view m_terrainName;
     Fog::Type m_type;
     const TerrainShapeInfo &m_terrainShapeInfo;
+    TerrainRenderingType m_terrainRenderingType;
 };
 } // namespace service::image_metric_manager

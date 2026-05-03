@@ -89,12 +89,12 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
         context.begin().set(cmd).submit();
         cmd.getReply().get()->init(context);
 
-        //register the terrain information with the image metric manager for cache
+        // register the terrain information with the image metric manager for cache
         {
             const auto *terrain = static_cast<const Terrain *>(cmd.getReply().get().get());
-            context.getCmdBus().submit(
-                image_metrics::RegisterTerrainRecordInfo{}.setTerrainHeightFilePath(terrain->getShapeFilePath()));
-
+            context.getCmdBus().submit(image_metrics::RegisterTerrainRecordInfo{}
+                                           .setTerrainHeightFilePath(terrain->getShapeFilePath())
+                                           .setTerrainRenderingType(terrain->getTerrainRenderingType()));
         }
 
         objects.emplace_back(cmd.getReply().get());

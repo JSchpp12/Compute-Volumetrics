@@ -94,7 +94,7 @@ void ImageMetricManager::onCapture(image_metrics::TriggerCapture &cmd)
 
 void ImageMetricManager::onRegisterTerrainRecord(image_metrics::RegisterTerrainRecordInfo &cmd)
 {
-    submitToGatherTerrainInfoFromFile(cmd.terrainHeightFilePath);
+    submitToGatherTerrainInfoFromFile(cmd.terrainHeightFilePath, cmd.terrainRenderingType);
 }
 
 void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Volume &volume,
@@ -150,7 +150,7 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
                 mainLight, volume.getRenderer().getFogInfo(), camera.getPosition(), camera.getForwardVector(),
                 hostResource, m_device->getVulkanDevice(), semaphoreRecord->semaphore, signalValue,
                 volume.getRenderer().getFogType(), &m_storage, m_cachedTerrainShapeInfo.getTerrainName(),
-                m_cachedTerrainShapeInfo.get()}});
+                m_cachedTerrainShapeInfo.get(), m_cachedTerrainShapeInfo.getTerrainRenderingType()}});
         star::command::file_io::WriteToFile writeCmd{std::move(writePayload)};
         m_cmdBus->submit(writeCmd);
     }
@@ -168,12 +168,14 @@ void ImageMetricManager::cleanupListeners(star::core::CommandBus &cmdBus)
     m_listenerTerrainInfo.cleanup(cmdBus);
 }
 
-void ImageMetricManager::submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath)
+void ImageMetricManager::submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath,
+                                                           TerrainRenderingType renderingType)
 {
     assert(m_cmdBus != nullptr);
     std::string terrainName = terrainShapeFilePath.parent_path().filename().string();
 
-    m_cachedTerrainShapeInfo = LoadingShapeInfo(
-        TerrainShapeInfoLoader::SubmitForRead(std::move(terrainShapeFilePath), *m_cmdBus), std::move(terrainName));
+    m_cachedTerrainShapeInfo =
+        LoadingShapeInfo(TerrainShapeInfoLoader::SubmitForRead(std::move(terrainShapeFilePath), *m_cmdBus),
+                         std::move(terrainName), renderingType);
 }
 } // namespace service
