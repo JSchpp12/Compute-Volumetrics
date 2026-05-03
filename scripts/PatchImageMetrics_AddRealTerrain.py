@@ -8,6 +8,7 @@ from typing import Optional
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+
 @dataclass
 class Vec3:
     x: float
@@ -20,6 +21,7 @@ class Vec2:
     x: float
     y: float
 
+
 @dataclass
 class TerrainShapeFile:
     center: Vec2
@@ -27,8 +29,8 @@ class TerrainShapeFile:
 
     @classmethod
     def from_dict(cls, data: dict) -> "TerrainShapeFile":
-        center : Optional[Vec2] = None
-        if "lat" in data["center"]: 
+        center: Optional[Vec2] = None
+        if "lat" in data["center"]:
             center = Vec2(data["center"]["lat"], data["center"]["lon"])
         else:
             center = Vec2(**data["center"])
@@ -67,6 +69,7 @@ class LinearInfo:
     farDist: float
     nearDist: float
 
+
 @dataclass
 class MarchedInfo:
     defaultDensity: float
@@ -76,7 +79,7 @@ class MarchedInfo:
     sigmaScattering: float
     stepSizeDist: float
     stepSizeDist_light: float
-    cutoffValue : Optional[float]
+    cutoffValue: Optional[float]
 
 
 @dataclass
@@ -89,8 +92,8 @@ class FogParams:
     @classmethod
     def from_dict(cls, data: dict) -> "FogParams":
         marched = None
-        if "cutoffValue" not in data["marchedInfo"]: 
-            data["marchedInfo"]["cutoffValue"] = 0.005
+        if "cutoffValue" not in data["marchedInfo"]:
+            data["cutoffValue"] = 0.001
 
         return cls(
             expFogInfo=ExpFogInfo(**data["expFogInfo"]),
@@ -110,6 +113,7 @@ class Frame:
     visibility_distance: float
     terrain_shape: Optional[TerrainShapeFile]
     terrain_name: Optional[str]
+    terrain_shape_type: str
 
     @classmethod
     def from_dict(cls, data: dict) -> "Frame":
@@ -121,6 +125,11 @@ class Frame:
         if "terrain_shape" in data:
             tData = TerrainShapeFile.from_dict(data["terrain_shape"])
 
+        if "terrain_shape_type" in data:
+            tShapeType = data["terrain_shape_type"]
+        else:
+            tShapeType = "real"
+
         return cls(
             camera_look_dir=Vec3(**data["camera_look_dir"]),
             camera_position=Vec3(**data["camera_position"]),
@@ -130,6 +139,7 @@ class Frame:
             visibility_distance=data["visibility_distance"],
             terrain_shape=tData,
             terrain_name=tName,
+            terrain_shape_type=tShapeType,
         )
 
     @classmethod
@@ -156,7 +166,7 @@ def gather_image_metric_files(root_dir: Path) -> list[ImageToUpdate]:
         for dirpath, _, filenames in os.walk(root_dir)
         for filename in filenames
         if filename.endswith(".json")
-]
+    ]
 
 
 def parse_args() -> argparse.Namespace:
@@ -164,38 +174,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "root_dir", type=str, help="Path to the root directory to search."
     )
-    parser.add_argument(
-        "override_shape",
-        type=str,
-        help="Path to the shape file to override the image metric files with",
-    )
+
     return parser.parse_args()
+
 
 def process_image_file(img_data: ImageToUpdate) -> None:
     data = Frame.from_json(img_data.path)
 
-    if img_data.override_shape_info is not None:
-        data.terrain_shape = img_data.override_shape_info
-        data.terrain_name = img_data.override_name
-
     data.to_json(img_data.path)
+
 
 def main():
     """_summary_
-    Corrects the following in image metric files: 
-    Earlier metric files do not have the terrain_shape parameter in the data. 
+    Corrects the following in image metric files:
+    Earlier metric files do not have the terrain_shape parameter in the data.
     Or it might be incorrect/null. This scripts takes in a path to the root directory to patch
     and a shape json file to manually write into the files.
     """
 
     args = parse_args()
     metric_files: list[ImageToUpdate] = gather_image_metric_files(args.root_dir)
-    shape_info = TerrainShapeFile.from_json(args.override_shape)
-    terrain_name = Path(args.override_shape).parent.name
-
-    for file in metric_files:
-        file.override_shape_info = shape_info
-        file.override_name = terrain_name
 
     with tqdm(total=len(metric_files), desc="Processing files", unit="file") as bar:
         with ThreadPoolExecutor(max_workers=16) as executor:

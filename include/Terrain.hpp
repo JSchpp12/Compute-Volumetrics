@@ -1,6 +1,7 @@
 #pragma once
 
 #include "StarObject.hpp"
+#include "TerrainRenderingType.hpp"
 
 #include <filesystem>
 
@@ -19,6 +20,10 @@ class Terrain : public star::StarObject
     std::filesystem::path getShapeFilePath() const
     {
         return std::filesystem::path(m_terrainDefFile) / "Shape.json";
+    }
+    const TerrainRenderingType getTerrainRenderingType() const
+    {
+        return TerrainRenderingType::Real;
     }
 
   protected:
