@@ -10,7 +10,7 @@
 class Application : public star::StarApplication
 {
   public:
-    explicit Application(std::string &&terrainPath);
+    Application(std::string terrainPath, std::string volumeName);
     virtual ~Application() = default;
 
     virtual void init() override
@@ -25,6 +25,7 @@ class Application : public star::StarApplication
   protected:
     std::filesystem::path m_imageOutputDir;
     std::string m_terrainDir;
+    std::string m_volumeName; 
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
     star::StarObjectInstance *testObject = nullptr;
     std::shared_ptr<Volume> m_volume = nullptr;

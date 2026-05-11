@@ -50,11 +50,17 @@ std::string GetConfigFilePath(int argc, char **argv)
 {
     auto file = util::CmdLine::TryGetArgValue(argc, argv, "--config");
     if (!file.has_value())
-    {
-        file = "StarEngine.cfg";
-        star::core::logging::info("No config file provided, using default StarEngine.cfg");
-    }
+        throw std::runtime_error("Config file path was not provided as cmd argument");
 
     return file.value();
+}
+
+std::string GetVolumeDirPath(int argc, char **argv)
+{
+    auto dir = util::CmdLine::TryGetArgValue(argc, argv, "--volume"); 
+    if (!dir.has_value())
+        throw std::runtime_error("Volume directory was not provided as cmd argument"); 
+
+    return dir.value(); 
 }
 } // namespace util::CmdLine

@@ -1,5 +1,5 @@
+#include "structs/AppConfig.hpp"
 #include "util/CmdLine.hpp"
-
 #include <starlight/common/ConfigFile.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -11,12 +11,12 @@
 #ifdef STAR_ENABLE_PRESENTATION
 #include "InteractiveMode.hpp"
 
-static int runWindow(std::string terrainPath, std::string simControllerPath)
+static int runWindow(std::unique_ptr<AppConfig> cfg)
 {
     try
     {
         InteractiveMode interactiveInstance{};
-        return interactiveInstance.run(std::move(terrainPath), std::move(simControllerPath));
+        return interactiveInstance.run(std::move(cfg));
     }
     catch (const std::exception &ex)
     {
@@ -27,12 +27,12 @@ static int runWindow(std::string terrainPath, std::string simControllerPath)
 
 #else
 #include "HeadlessMode.hpp"
-static int runHeadless(std::string &&terrainPath, std::string &&simControllerPath)
+static int runHeadless(std::unique_ptr<AppConfig> cfg)
 {
     try
     {
         HeadlessMode headlessInstance{};
-        return headlessInstance.run(std::move(terrainPath), std::move(simControllerPath));
+        return headlessInstance.run(std::move(cfg));
     }
     catch (const std::exception &ex)
     {
@@ -44,21 +44,25 @@ static int runHeadless(std::string &&terrainPath, std::string &&simControllerPat
 
 int main(int argc, char **argv)
 {
+    openvdb::initialize();
+
+    auto cfg = std::make_unique<AppConfig>(
+        AppConfig{.volumeName = util::CmdLine::GetVolumeDirPath(argc, argv),
+                  .terrainDir = util::CmdLine::GetTerrainPath(argc, argv),
+                  .engineConfigFile = util::CmdLine::GetConfigFilePath(argc, argv),
+                  .simControllerPath = util::CmdLine::GetSimControllerFilePath(argc, argv)});
     try
     {
-        star::ConfigFile::load(util::CmdLine::GetConfigFilePath(argc, argv));
+        star::ConfigFile::load(cfg->engineConfigFile);
     }
     catch (...)
     {
         std::cerr << "Failed to load config file for engine";
         std::exit(EXIT_FAILURE);
     }
-
-    openvdb::initialize();
-
 #ifdef STAR_ENABLE_PRESENTATION
-    return runWindow(util::CmdLine::GetTerrainPath(argc, argv), util::CmdLine::GetSimControllerFilePath(argc, argv));
+    return runWindow(std::move(cfg));
 #else
-    return runHeadless(util::CmdLine::GetTerrainPath(argc, argv), util::CmdLine::GetSimControllerFilePath(argc, argv));
+    return runHeadless(std::move(cfg));
 #endif
 }

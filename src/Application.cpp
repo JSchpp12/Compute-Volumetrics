@@ -4,10 +4,10 @@
 #include "OffscreenRenderer.hpp"
 #include "Terrain.hpp"
 #include "command/image_metrics/RegisterTerrainRecordInfo.hpp"
+#include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
-#include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "renderer/finalization/Headless.hpp"
 
 #include <starlight/command/CreateLight.hpp>
@@ -115,7 +115,8 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
 
-Application::Application(std::string &&terrainPath) : m_terrainDir(std::move(terrainPath))
+Application::Application(std::string terrainPath, std::string volumeName)
+    : m_terrainDir(std::move(terrainPath)), m_volumeName(std::move(volumeName))
 {
     // const std::filesystem::path terrain(m_terrainDir);
     // if (!std::filesystem::exists(terrain))
@@ -174,14 +175,14 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         star::common::casts::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
         {
-            std::string vdbPath = mediaDirectoryPath + "volumes/ambient";
+            std::filesystem::path vdbPath = std::filesystem::path(mediaDirectoryPath) / "volumes" / m_volumeName;
             m_volume =
                 std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height, m_offRenderer,
                                          m_offRenderer->getCameraInfoBuffers(), m_offRenderer->getLightInfoBuffers(),
                                          m_offRenderer->getLightListBuffers());
             auto cmd = star::command::CreateObject::Builder()
                            .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
-                           .setUniqueName("flatWind")
+                           .setUniqueName(m_volumeName)
                            .build();
 
             context.begin().set(cmd).submit();

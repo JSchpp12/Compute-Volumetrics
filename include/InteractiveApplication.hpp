@@ -13,8 +13,10 @@ class InteractiveApplication : public Application,
                                private star::windowing::HandleKeyPressPolicy<InteractiveApplication>
 {
   public:
-    InteractiveApplication(std::string &&terrainDir, star::windowing::WindowingContext *winContext)
-        : Application(std::move(terrainDir)), star::windowing::HandleKeyReleasePolicy<InteractiveApplication>(*this),
+    InteractiveApplication(std::string terrainDir, std::string volumeName,
+                           star::windowing::WindowingContext *winContext)
+        : Application(std::move(terrainDir), std::move(volumeName)),
+          star::windowing::HandleKeyReleasePolicy<InteractiveApplication>(*this),
           star::windowing::HandleKeyPressPolicy<InteractiveApplication>(*this), m_winContext(winContext)
     {
     }
@@ -30,7 +32,7 @@ class InteractiveApplication : public Application,
     enum ModifyMode
     {
         movement,
-        rotation_global, 
+        rotation_global,
         rotation_relative
     };
 
@@ -47,15 +49,15 @@ class InteractiveApplication : public Application,
 
     void onKeyPress(const int &key, const int &scancode, const int &mods);
 
-    virtual void initImageOutputDir(star::core::CommandBus &bus) override; 
+    virtual void initImageOutputDir(star::core::CommandBus &bus) override;
 
     virtual void triggerScreenshot(star::core::device::DeviceContext &context);
 
     virtual std::shared_ptr<star::StarCamera> createMainCamera(star::core::device::DeviceContext &context) override;
 
     virtual star::common::Renderer createMainRenderer(star::core::device::DeviceContext &context,
-                                                           std::vector<std::shared_ptr<star::StarObject>> objects,
-                                                           std::shared_ptr<star::StarCamera> camera) override;
+                                                      std::vector<std::shared_ptr<star::StarObject>> objects,
+                                                      std::shared_ptr<star::StarCamera> camera) override;
 };
 
 #endif
