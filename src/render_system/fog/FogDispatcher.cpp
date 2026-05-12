@@ -136,7 +136,7 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
                     Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
             }
         }
-        else
+        else if (pipeInfo.fogType == Fog::Type::sMarched)
         {
             // distance passes always have AAbb test but no depth test
             dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);

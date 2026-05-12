@@ -4,8 +4,8 @@
 
 #include "renderer/finalization/Windowed.hpp"
 
-#include <starlight/event/TriggerScreenshot.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
+#include <starlight/event/TriggerScreenshot.hpp>
 
 #include <star_common/helper/StringHelpers.hpp>
 
@@ -387,7 +387,6 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     if (key == GLFW_KEY_V)
     {
         const auto camPos = this->m_mainScene->getCamera()->getPosition();
-        // this->m_mainScene->getCamera()->setPosition(glm::vec3{camPos.x, camPos.y, 0});
         std::ostringstream oss;
 
         star::core::logging::info("Cam position: " + std::to_string(camPos.x) + ',' + std::to_string(camPos.y) + ',' +
@@ -480,9 +479,15 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
 
 std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star::core::device::DeviceContext &context)
 {
-    auto camera = std::make_shared<star::windowing::BasicCamera>(context.getEngineResolution().width,
-                                                                 context.getEngineResolution().height, 90.0f, 0.5f,
-                                                                 25000.0f, 1000.0f, 0.1f);
+    auto camera = star::windowing::BasicCamera::Builder()
+                      .setWidth(context.getEngineResolution().width)
+                      .setHeight(context.getEngineResolution().height)
+                      .setHorizontalFieldOfView(90.0f)
+                      .setNearClippingPlaneDistance(0.5f)
+                      .setFarClippingPlaneDistance(25000.0f)
+                      .setMovementSpeed(15.0f)
+                      .setSensitivity(0.1f)
+                      .buildShared();
 
     camera->init(context.getEventBus());
     return camera;

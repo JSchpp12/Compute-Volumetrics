@@ -1,5 +1,4 @@
 #pragma once
-#pragma once
 
 #include <star_common/IServiceCommand.hpp>
 

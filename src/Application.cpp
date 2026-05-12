@@ -101,16 +101,16 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
         objects.emplace_back(cmd.getReply().get());
     }
 
-    /*{
-        auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-        auto cmd = star::command::CreateObject::Builder()
-                       .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-                       .setUniqueName("horse")
-                       .build();
-        context.begin().set(cmd).submit();
-        cmd.getReply().get()->init(context);
-        objects.emplace_back(cmd.getReply().get());
-    }*/
+    //{
+    //    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
+    //    auto cmd = star::command::CreateObject::Builder()
+    //                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
+    //                   .setUniqueName("horse")
+    //                   .build();
+    //    context.begin().set(cmd).submit();
+    //    cmd.getReply().get()->init(context);
+    //    objects.emplace_back(cmd.getReply().get());
+    //}
 
     return {context, numFramesInFlight, objects, std::move(mainLight), camera};
 }
@@ -175,11 +175,11 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         star::common::casts::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
 
         {
-            std::filesystem::path vdbPath = std::filesystem::path(mediaDirectoryPath) / "volumes" / m_volumeName;
+            auto vdbPath = std::filesystem::path(mediaDirectoryPath) / "volumes" / m_volumeName;
             m_volume =
-                std::make_shared<Volume>(context, vdbPath, fNumFramesInFlight, camera, width, height, m_offRenderer,
-                                         m_offRenderer->getCameraInfoBuffers(), m_offRenderer->getLightInfoBuffers(),
-                                         m_offRenderer->getLightListBuffers());
+                std::make_shared<Volume>(context, vdbPath.string(), fNumFramesInFlight, camera, width, height,
+                                         m_offRenderer, m_offRenderer->getCameraInfoBuffers(),
+                                         m_offRenderer->getLightInfoBuffers(), m_offRenderer->getLightListBuffers());
             auto cmd = star::command::CreateObject::Builder()
                            .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
                            .setUniqueName(m_volumeName)
@@ -188,7 +188,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
             context.begin().set(cmd).submit();
             allObjects.emplace_back(cmd.getReply().get());
 
-            context.getCmdBus().submit(image_metrics::RegisterVolumeRecordInfo().setVolumeName("ambient"));
+            context.getCmdBus().submit(image_metrics::RegisterVolumeRecordInfo().setVolumeName(m_volumeName));
         }
 
         std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
@@ -224,10 +224,10 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0001f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 100.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 250.0f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.00001f);
-    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.001f);
-    m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.3f);
-    m_volume->getRenderer().setFogType(Fog::Type::sLinear);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.001f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.005f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.9f);
+    m_volume->getRenderer().setFogType(Fog::Type::sMarched);
     m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
     m_volume->getRenderer().getFogInfo().linearInfo.farDist = 16000.0f;
     m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.6f;

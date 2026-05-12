@@ -14,11 +14,15 @@ void LevelSetData::convertVolumeFormat(openvdb::SharedPtr<openvdb::FloatGrid> &b
         STAR_THROW("Unsupported grid class type");
     }
 
-    const auto gridClass = baseGrid->getGridClass();
-    if (gridClass != m_requestedGridClass)
+    if (baseGrid->getGridClass() != m_requestedGridClass)
     {
         if (m_requestedGridClass == openvdb::GridClass::GRID_FOG_VOLUME)
         {
+            for (auto iter = grid->beginValueOn(); iter; ++iter)
+            {
+                iter.setValue(-iter.getValue());
+            }
+
             std::cout << "Converting to fog" << std::endl;
             openvdb::tools::sdfToFogVolume(*grid);
             std::cout << "Done" << std::endl;
