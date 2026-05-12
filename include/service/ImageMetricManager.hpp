@@ -103,7 +103,7 @@ class ImageMetricManager
 
     image_metric_manager::HostVisibleStorage m_storage;
     LoadingShapeInfo m_cachedTerrainShapeInfo;
-    std::string m_cachedVolumeNameInfo; 
+    std::string m_cachedVolumeNameInfo;
     image_metric_manager::CopyDeviceToHostMemory m_copier;
     star::core::CommandBus *m_cmdBus = nullptr;
     star::core::device::StarDevice *m_device = nullptr;

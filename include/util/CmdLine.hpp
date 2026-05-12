@@ -12,4 +12,7 @@ std::string GetTerrainPath(int argc, char **argv);
 std::string GetSimControllerFilePath(int argc, char **argv);
 
 std::string GetConfigFilePath(int argc, char **argv); 
+
+std::string GetVolumeDirPath(int argc, char **argv);
+
 }

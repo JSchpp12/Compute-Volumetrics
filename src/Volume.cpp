@@ -2,6 +2,7 @@
 
 #include "ConfigFile.hpp"
 #include "FogData.hpp"
+#include "LevelSetData.hpp"
 #include "ManagerRenderResource.hpp"
 #include "TransferRequest_IndicesInfo.hpp"
 #include "TransferRequest_VertInfo.hpp"
@@ -47,7 +48,7 @@ void Volume::loadModel(star::core::device::DeviceContext &context, const std::st
                                               star::ConfigFile::getSetting(star::Config_Settings::tmp_directory));
     contentProcessor.init();
     auto firstFile = contentProcessor.getProcessedFiles().front().getDataFilePath();
-    auto fileData = FogData(firstFile.string(), openvdb::GridClass::GRID_FOG_VOLUME);
+    auto fileData = LevelSetData(firstFile.string(), openvdb::GridClass::GRID_FOG_VOLUME);
     fileData.prep();
     const auto aabb = fileData.getAABB();
 

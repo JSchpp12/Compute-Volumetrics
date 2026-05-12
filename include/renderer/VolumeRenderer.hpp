@@ -11,8 +11,8 @@
 #include "VisibilityDistanceCompute.hpp"
 #include "VolumeDirectoryProcessor.hpp"
 #include "core/renderer/RenderingContext.hpp"
-#include "render_system/fog/commands/Color.hpp"
 #include "render_system/fog/FogDispatcher.hpp"
+#include "render_system/fog/commands/Color.hpp"
 
 #include <star_common/Handle.hpp>
 
@@ -53,8 +53,7 @@ class VolumeRenderer
     void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                         const uint64_t &frameIndex);
 
-
-    uint64_t getTimelineSignalValue(const star::common::FrameTracker &frameTracker) const; 
+    uint64_t getTimelineSignalValue(const star::common::FrameTracker &frameTracker) const;
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> &getRenderToImages()
     {
@@ -70,12 +69,12 @@ class VolumeRenderer
         {
             if (type == Fog::Type::sNanoSurface)
             {
-                m_staticShaderInfo->setNewResource(0, 0, 1, star::StarShaderInfo::BufferInfo{vdbInfoSDF});
+                m_staticShaderInfo->setNewResource(0, 1, star::StarShaderInfo::BufferInfo{vdbInfoSDF});
             }
             else if ((type == Fog::Type::sMarched || type == Fog::Type::sNanoBoundingBox) &&
                      (currentFogType != Fog::Type::sMarched || currentFogType != Fog::Type::sNanoBoundingBox))
             {
-                m_staticShaderInfo->setNewResource(0, 0, 1, star::StarShaderInfo::BufferInfo{vdbInfoSDF});
+                m_staticShaderInfo->setNewResource(0, 1, star::StarShaderInfo::BufferInfo{vdbInfoSDF});
             }
         }
 
@@ -130,7 +129,6 @@ class VolumeRenderer
     render_system::fog::PassPipelineInfo m_pipeInfo;
     star::Handle m_indirectDispatchPipe;
     star::Handle m_initPipe;
-
     std::shared_ptr<star::ManagerController::RenderResource::Buffer> m_infoManagerInstanceModel,
         m_infoManagerInstanceNormal, m_infoManagerGlobalCamera, m_infoManagerSceneLightInfo,
         m_infoManagerSceneLightList;
@@ -144,7 +142,6 @@ class VolumeRenderer
     FogInfoController m_fogController;
     std::unique_ptr<star::StarShaderInfo> m_staticShaderInfo{nullptr}, m_dynamicShaderInfo{nullptr};
     std::vector<star::Handle> aabbInfoBuffers;
-    uint32_t graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex;
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
         std::vector<std::shared_ptr<star::StarTextures::Texture>>();
     std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers, computeRayAtCutoffDistanceBuffers;
@@ -154,9 +151,9 @@ class VolumeRenderer
         std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
     std::vector<star::Handle> m_timelineSemaphores;
     VisibilityDistanceCompute m_distanceComputer;
-    render_system::fog::FogDispatcher m_chunkHandler; 
-    std::vector<star::StarBuffers::Buffer> m_activeRayStorage; 
-
+    render_system::fog::FogDispatcher m_chunkHandler;
+    std::vector<star::StarBuffers::Buffer> m_activeRayStorage;
+    uint32_t transferQueueFamilyIndex{0};
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
     Fog::Type currentFogType = Fog::Type::sMarched;
     bool isReady = false;
@@ -172,8 +169,6 @@ class VolumeRenderer
                                std::vector<vk::PipelineStageFlags> dataWaitPoints,
                                std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue);
 
-    void recordQueueFamilyInfo(star::core::device::DeviceContext &context);
-
     std::vector<std::pair<vk::DescriptorType, const uint32_t>> getDescriptorRequests(const int &numFramesInFlight);
 
     void recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer, const uint8_t &frameinFlightIndex,
@@ -186,14 +181,6 @@ class VolumeRenderer
 
     void updateRenderingContext(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
 
-    std::array<vk::BufferMemoryBarrier2, 2> getBufferBarriersFromTransferQueues(
-        const star::common::FrameTracker &ft) const;
-
-    std::array<vk::BufferMemoryBarrier2, 2> getBufferBarriersToTransferQueues(
-        const star::common::FrameTracker &ft) const;
-
-    std::vector<std::shared_ptr<star::StarTextures::Texture>> createComputeWriteToImages(
-        star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate) const;
     std::vector<star::StarBuffers::Buffer> createComputeWriteToBuffers(star::core::device::DeviceContext &context,
                                                                        const vk::Extent2D &screenSize,
                                                                        const size_t &dataTypeSize,

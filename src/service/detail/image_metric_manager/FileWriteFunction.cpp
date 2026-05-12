@@ -1,8 +1,9 @@
 #include "service/detail/image_metric_manager/FileWriteFunction.hpp"
 
 #include "service/detail/image_metric_manager/ImageMetrics.hpp"
-#include <boost/filesystem/path.hpp>
 #include <starlight/common/entities/Light_json.hpp>
+
+#include <boost/filesystem/path.hpp>
 
 #include <execution>
 #include <numeric>
@@ -10,8 +11,6 @@
 
 namespace service::image_metric_manager
 {
-
-// WARNING: may result in slight inconsistency or error in result
 static double Mean(std::span<const float> &span)
 {
     if (span.empty())
@@ -28,10 +27,10 @@ FileWriteFunction::FileWriteFunction(star::Light light, FogInfo controlInfo, glm
                                      uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage,
                                      std::string terrainName, TerrainShapeInfo terrainShapeInfo,
                                      TerrainRenderingType terrainRenderingType, std::string volumeName)
-    : m_data(std::make_unique<ImageWriteData>(std::move(light), std::move(terrainShapeInfo), std::move(terrainName),
-                                              std::move(volumeName), std::move(controlInfo), camPosition, camLookDir,
-                                              buffer, vkDevice, done, copyToHostBufferDoneValue, type,
-                                              terrainRenderingType, storage))
+    : m_data(std::make_unique<ImageWriteData>(std::move(terrainName), std::move(volumeName), std::move(light),
+                                              std::move(controlInfo), type, std::move(terrainShapeInfo),
+                                              terrainRenderingType, camPosition, camLookDir, buffer, vkDevice, done,
+                                              copyToHostBufferDoneValue, storage))
 {
 }
 

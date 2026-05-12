@@ -16,8 +16,10 @@ void VolumeDataBase::prep()
     {
         m_nanoVDB = prepVDBFile();
     }
-
-    m_nanoVDB = prepNVDBFile();
+    else
+    {
+        m_nanoVDB = prepNVDBFile();
+    }
 }
 
 void VolumeDataBase::writeDataToBuffer(star::StarBuffers::Buffer &buffer) const
@@ -94,7 +96,7 @@ openvdb::GridBase::Ptr VolumeDataBase::LoadVDBBaseGrid(const std::string &pathTo
 
 std::unique_ptr<nanovdb::GridHandle<nanovdb::HostBuffer>> VolumeDataBase::LoadNanoVDB(
     openvdb::SharedPtr<openvdb::FloatGrid> &grid)
-{ 
+{
     return std::make_unique<nanovdb::GridHandle<nanovdb::HostBuffer>>(nanovdb::tools::createNanoGrid(*grid));
 }
 

@@ -48,10 +48,6 @@ float gridReadAtTrilinear(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccess
     // World to index space
     pnanovdb_vec3_t indexCoord = pnanovdb_grid_world_to_indexf(nanoVDBBuffer, grid, position.xyz);
 
-    // Fractional part for interpolation weights
-    vec3 f = vec3(indexCoord.x - floor(indexCoord.x), indexCoord.y - floor(indexCoord.y),
-                  indexCoord.z - floor(indexCoord.z));
-
     // Sample all 8 corners of the surrounding voxel cube
     vec3 i000 = vec3(floor(indexCoord.x), floor(indexCoord.y), floor(indexCoord.z));
     float v000 = gridReadAtIndex(grid, acc, type, i000);
@@ -63,6 +59,10 @@ float gridReadAtTrilinear(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccess
     float v011 = gridReadAtIndex(grid, acc, type, i000 + vec3(0, 1, 1));
     float v111 = gridReadAtIndex(grid, acc, type, i000 + vec3(1, 1, 1));
 
+    // Fractional part for interpolation weights
+    vec3 f = vec3(indexCoord.x - floor(indexCoord.x), indexCoord.y - floor(indexCoord.y),
+                  indexCoord.z - floor(indexCoord.z));
+                  
     // Trilinear interpolation - lerp along x, then y, then z
     float v00 = mix(v000, v100, f.x);
     float v10 = mix(v010, v110, f.x);

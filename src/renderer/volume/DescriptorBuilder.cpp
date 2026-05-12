@@ -145,7 +145,7 @@ void DescriptorBuilder::createDescriptors()
                      "shaders" / "volumeRenderer";
     *m_nanoVDBPipeline_hitBoundingBox =
         BuildPipeline(shaderDir, "volume_debugColorRedActiveRays.comp", cLay, m_graphicsManagers);
-    *m_nanoVDBPipeline_surface = BuildPipeline(shaderDir, "nanoVDBSurface.comp", cLay, m_graphicsManagers);
+    *m_nanoVDBPipeline_surface = BuildPipeline(shaderDir, "volume_nanoVDBSurface.comp", cLay, m_graphicsManagers);
     *m_marchedPipeline = BuildPipeline(shaderDir, "volume_color.comp", cLay, m_graphicsManagers);
     *m_linearPipeline = BuildPipeline(shaderDir, "volume_linear.comp", cLay, m_graphicsManagers);
     *m_expPipeline = BuildPipeline(shaderDir, "volume_exp.comp", cLay, m_graphicsManagers);

@@ -19,7 +19,8 @@ class FileWriteFunction
     FileWriteFunction(star::Light light, FogInfo controlInfo, glm::vec3 camPosition, glm::vec3 cameraLookDir,
                       star::Handle buffer, vk::Device vkDevice, vk::Semaphore done, uint64_t copyToHostBufferDoneValue,
                       Fog::Type type, HostVisibleStorage *storage, std::string terrainName,
-                      TerrainShapeInfo terrainShapeInfo, TerrainRenderingType terrainRenderingType, std::string volumeName);
+                      TerrainShapeInfo terrainShapeInfo, TerrainRenderingType terrainRenderingType,
+                      std::string volumeName);
 
     void write(const std::filesystem::path &path) const;
 
@@ -28,19 +29,19 @@ class FileWriteFunction
   private:
     struct ImageWriteData
     {
-        star::Light light;
-        TerrainShapeInfo shapeInfo;
         std::string terrainName;
         std::string volumeName;
+        star::Light light;
         FogInfo controlInfo;
+        Fog::Type type;
+        TerrainShapeInfo shapeInfo;
+        TerrainRenderingType terrainRenderingType;
         glm::vec3 camPosition;
         glm::vec3 camLookDir;
         star::Handle hostVisibleRayDistanceBuffer;
         vk::Device vkDevice = VK_NULL_HANDLE;
         vk::Semaphore copyDone;
         uint64_t copyToHostBufferDoneValue;
-        Fog::Type type;
-        TerrainRenderingType terrainRenderingType;
         HostVisibleStorage *storage{nullptr};
     };
     std::unique_ptr<ImageWriteData> m_data = nullptr;
