@@ -31,8 +31,10 @@ class FogDispatcher
   private:
     friend class FogDispatcherBuilder;
     std::vector<ChunkOrchestrator> m_passes;
+    std::vector<vk::CommandBufferSubmitInfo> m_cbSubmitInfo; 
     sync::SyncProvider m_syncApproach;
     star::core::CommandBus *m_cmdBus{nullptr};
+    uint8_t m_numCbRecorded{0};
 
     void createChunks(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady);
 };

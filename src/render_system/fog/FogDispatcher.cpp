@@ -37,118 +37,6 @@ static std::tuple<uint32_t, uint32_t, uint32_t> GetQueueFamilyIndices(star::core
     return std::make_tuple(graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex);
 }
 
-void FogDispatcher::prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
-{
-    m_cmdBus = &ctx.getCmdBus();
-
-    const auto *queueInfo = ctx.getManagerCommandBuffer().m_manager.getInUseInfoForType(star::Queue_Type::Tcompute);
-    assert(queueInfo != nullptr && "Failed to get queue info from manager");
-
-    m_syncApproach = {signal::CalcFromFt{1, 1, &ctx.frameTracker()}, wait::GatherFromCO{passReg, &ctx.getCmdBus()}};
-
-    createChunks(ctx, passReg, isReady);
-}
-
-void FogDispatcher::cleanupRender(star::core::device::DeviceContext &ctx)
-{
-    for (auto &chunk : m_passes)
-    {
-        chunk.cleanupRender(ctx);
-    }
-}
-
-void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk::Semaphore> dataSemaphores,
-                           std::vector<vk::PipelineStageFlags> dataWaitPoints,
-                           std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue,
-                           const star::Handle &registration)
-{
-    assert(m_passes.size() > 0);
-
-    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
-    std::vector<vk::CommandBufferSubmitInfo> cbInfo;
-    cbInfo.resize(m_passes.size());
-
-    auto gCmd = star::command_order::GetPassInfo{registration};
-    m_cmdBus->submit(gCmd);
-    const auto workingSemaphore = gCmd.getReply().get().signaledSemaphore;
-    for (size_t i{0}; i < m_passes.size(); i++)
-    {
-        cbInfo[i] = vk::CommandBufferSubmitInfo().setCommandBuffer(m_passes[i].getCmdBuffer().buffer(ii));
-    }
-
-    assert(dataSemaphores.size() == dataWaitPoints.size());
-
-    uint32_t waitInfoCount{0};
-    vk::SemaphoreSubmitInfo waitInfo[5];
-    {
-        auto wait = m_syncApproach.getWaitInfo();
-        for (uint8_t i{0}; i < wait.count; i++)
-        {
-            waitInfo[waitInfoCount] = wait.info[i];
-            waitInfoCount++;
-        }
-    }
-
-    for (size_t i{0}; i < dataWaitPoints.size(); i++)
-    {
-        waitInfo[waitInfoCount] = vk::SemaphoreSubmitInfo()
-                                      .setSemaphore(dataSemaphores[i])
-                                      .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
-        waitInfoCount++;
-    }
-
-    vk::SemaphoreSubmitInfo signalInfo = vk::SemaphoreSubmitInfo()
-                                             .setSemaphore(workingSemaphore)
-                                             .setValue(getTimelineDoneSignalValue(ft))
-                                             .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
-
-    {
-        vk::SubmitInfo2 submitInfo = vk::SubmitInfo2()
-                                         .setPSignalSemaphoreInfos(&signalInfo)
-                                         .setSignalSemaphoreInfoCount(1)
-                                         .setPCommandBufferInfos(cbInfo.data())
-                                         .setCommandBufferInfoCount(cbInfo.size())
-                                         .setPWaitSemaphoreInfos(waitInfo)
-                                         .setWaitSemaphoreInfoCount(waitInfoCount);
-
-        queue.getVulkanQueue().submit2(submitInfo);
-    }
-}
-void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::FrameTracker &ft, const PassInfo &pInfo,
-                                   const PassPipelineInfo &pipeInfo)
-{
-    assert(m_passes.size() > 0);
-
-    // TODO: move the wait for semaphore value from the volume renderer to here
-
-    for (size_t i{0}; i < m_passes.size(); i++)
-    {
-        if (i == 0)
-        {
-            switch (pipeInfo.fogType)
-            {
-            case (Fog::Type::sExponential):
-            case (Fog::Type::sLinear):
-                dInfo.shaderOptionFlags = Pack(InitShaderFlags::None, MarchShaderFlags::None);
-                break;
-            default:
-                dInfo.shaderOptionFlags =
-                    Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
-            }
-        }
-        else if (pipeInfo.fogType == Fog::Type::sMarched)
-        {
-            // distance passes always have AAbb test but no depth test
-            dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
-        }
-
-        m_passes[i].recordCommands(dInfo, pInfo, pipeInfo, ft);
-    }
-}
-uint64_t FogDispatcher::getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const
-{
-    return m_syncApproach.getSignalInfo().value;
-}
 
 static ChunkOrchestrator CreateColorPass(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
 {
@@ -210,6 +98,126 @@ static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx,
         std::move(pass), &isReady};
 }
 
+void FogDispatcher::prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
+{
+    m_cmdBus = &ctx.getCmdBus();
+
+    const auto *queueInfo = ctx.getManagerCommandBuffer().m_manager.getInUseInfoForType(star::Queue_Type::Tcompute);
+    assert(queueInfo != nullptr && "Failed to get queue info from manager");
+
+    m_syncApproach = {signal::CalcFromFt{1, 1, &ctx.frameTracker()}, wait::GatherFromCO{passReg, &ctx.getCmdBus()}};
+
+    createChunks(ctx, passReg, isReady);
+}
+
+void FogDispatcher::cleanupRender(star::core::device::DeviceContext &ctx)
+{
+    for (auto &chunk : m_passes)
+    {
+        chunk.cleanupRender(ctx);
+    }
+}
+
+void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk::Semaphore> dataSemaphores,
+                           std::vector<vk::PipelineStageFlags> dataWaitPoints,
+                           std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue,
+                           const star::Handle &registration)
+{
+    assert(m_passes.size() > 0);
+
+    const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+
+    vk::Semaphore workingSemaphore{VK_NULL_HANDLE};
+    {
+        auto gCmd = star::command_order::GetPassInfo{registration};
+        m_cmdBus->submit(gCmd);
+        workingSemaphore = gCmd.getReply().get().signaledSemaphore;
+    }
+
+    for (uint8_t i{0}; i < m_numCbRecorded; i++)
+        m_cbSubmitInfo[i] = vk::CommandBufferSubmitInfo().setCommandBuffer(m_passes[i].getCmdBuffer().buffer(ii));
+
+    assert(dataSemaphores.size() == dataWaitPoints.size());
+
+    uint32_t waitInfoCount{0};
+    vk::SemaphoreSubmitInfo waitInfo[5];
+    {
+        auto wait = m_syncApproach.getWaitInfo();
+        for (uint8_t i{0}; i < wait.count; i++)
+        {
+            waitInfo[waitInfoCount] = wait.info[i];
+            waitInfoCount++;
+        }
+    }
+
+    for (size_t i{0}; i < dataWaitPoints.size(); i++)
+    {
+        waitInfo[waitInfoCount] = vk::SemaphoreSubmitInfo()
+                                      .setSemaphore(dataSemaphores[i])
+                                      .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
+        waitInfoCount++;
+    }
+
+    vk::SemaphoreSubmitInfo signalInfo = vk::SemaphoreSubmitInfo()
+                                             .setSemaphore(workingSemaphore)
+                                             .setValue(getTimelineDoneSignalValue(ft))
+                                             .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
+
+    {
+        vk::SubmitInfo2 submitInfo = vk::SubmitInfo2()
+                                         .setPSignalSemaphoreInfos(&signalInfo)
+                                         .setSignalSemaphoreInfoCount(1)
+                                         .setPCommandBufferInfos(m_cbSubmitInfo.data())
+                                         .setCommandBufferInfoCount(m_numCbRecorded)
+                                         .setPWaitSemaphoreInfos(waitInfo)
+                                         .setWaitSemaphoreInfoCount(waitInfoCount);
+
+        queue.getVulkanQueue().submit2(submitInfo);
+    }
+}
+
+void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::FrameTracker &ft, const PassInfo &pInfo,
+                                   const PassPipelineInfo &pipeInfo)
+{
+    assert(m_passes.size() > 0);
+    m_numCbRecorded = 0; 
+
+
+    // TODO: move the wait for semaphore value from the volume renderer to here
+    for (size_t i{0}; i < m_passes.size(); i++)
+    {
+        if (i == 0)
+        {
+            switch (pipeInfo.fogType)
+            {
+            case (Fog::Type::sExponential):
+            case (Fog::Type::sLinear):
+                dInfo.shaderOptionFlags = Pack(InitShaderFlags::None, MarchShaderFlags::None);
+                break;
+            default:
+                dInfo.shaderOptionFlags =
+                    Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
+            }
+        }
+        else if (pipeInfo.fogType == Fog::Type::sMarched)
+        {
+            // distance passes always have AAbb test but no depth test
+            dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
+        }
+
+        // only dispatch the distance compute for the marched option. All others have analytical solutions.
+        if ((i == 1 && pipeInfo.fogType != Fog::Type::sMarched) || i == 0)
+        {
+            m_passes[i].recordCommands(dInfo, pInfo, pipeInfo, ft);
+            m_numCbRecorded++; 
+        }
+    }
+}
+uint64_t FogDispatcher::getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const
+{
+    return m_syncApproach.getSignalInfo().value;
+}
+
 void FogDispatcher::createChunks(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
 {
     const size_t nf = static_cast<size_t>(ctx.frameTracker().getSetup().getNumFramesInFlight());
@@ -217,5 +225,8 @@ void FogDispatcher::createChunks(star::core::device::DeviceContext &ctx, star::H
     m_passes.resize(2);
     m_passes[0] = CreateColorPass(ctx, passReg, isReady);
     m_passes[1] = CreateDepthPass(ctx, passReg, isReady);
+
+    m_cbSubmitInfo.resize(2); 
+    m_numCbRecorded = 0;
 }
 } // namespace render_system::fog
