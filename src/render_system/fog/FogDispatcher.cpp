@@ -37,7 +37,6 @@ static std::tuple<uint32_t, uint32_t, uint32_t> GetQueueFamilyIndices(star::core
     return std::make_tuple(graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex);
 }
 
-
 static ChunkOrchestrator CreateColorPass(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
 {
     const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
@@ -180,8 +179,7 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
                                    const PassPipelineInfo &pipeInfo)
 {
     assert(m_passes.size() > 0);
-    m_numCbRecorded = 0; 
-
+    m_numCbRecorded = 0;
 
     // TODO: move the wait for semaphore value from the volume renderer to here
     for (size_t i{0}; i < m_passes.size(); i++)
@@ -206,13 +204,14 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
         }
 
         // only dispatch the distance compute for the marched option. All others have analytical solutions.
-        if ((i == 1 && pipeInfo.fogType != Fog::Type::sMarched) || i == 0)
+        if ((i == 1 && pipeInfo.fogType == Fog::Type::sMarched) || i == 0)
         {
             m_passes[i].recordCommands(dInfo, pInfo, pipeInfo, ft);
-            m_numCbRecorded++; 
+            m_numCbRecorded++;
         }
     }
 }
+
 uint64_t FogDispatcher::getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const
 {
     return m_syncApproach.getSignalInfo().value;
@@ -226,7 +225,7 @@ void FogDispatcher::createChunks(star::core::device::DeviceContext &ctx, star::H
     m_passes[0] = CreateColorPass(ctx, passReg, isReady);
     m_passes[1] = CreateDepthPass(ctx, passReg, isReady);
 
-    m_cbSubmitInfo.resize(2); 
+    m_cbSubmitInfo.resize(2);
     m_numCbRecorded = 0;
 }
 } // namespace render_system::fog
