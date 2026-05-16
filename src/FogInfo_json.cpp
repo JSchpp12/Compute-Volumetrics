@@ -1,27 +1,28 @@
-#include "util/json/FogInfoStruct.hpp"
+#include "FogInfo.hpp"
+#include "FogInfo_json.hpp"
 
-void util::to_json(nlohmann::json &j, const ::FogInfo::LinearFogInfo &v)
+void to_json(nlohmann::json &j, const ::FogInfo::LinearFogInfo &v)
 {
     j = nlohmann::json{{"nearDist", v.nearDist}, {"farDist", v.farDist}};
 }
 
-void util::from_json(const nlohmann::json &j, ::FogInfo::LinearFogInfo &v)
+void from_json(const nlohmann::json &j, ::FogInfo::LinearFogInfo &v)
 {
     v.nearDist = j.value("nearDist", v.nearDist);
     v.farDist = j.value("farDist", v.farDist);
 }
 
-void util::to_json(nlohmann::json &j, const FogInfo::ExpFogInfo &v)
+void to_json(nlohmann::json &j, const FogInfo::ExpFogInfo &v)
 {
     j = nlohmann::json{{"density", v.density}};
 }
 
-void util::from_json(const nlohmann::json &j, FogInfo::ExpFogInfo &v)
+void from_json(const nlohmann::json &j, FogInfo::ExpFogInfo &v)
 {
     v.density = j.value("density", v.density);
 }
 
-void util::to_json(nlohmann::json &j, const FogInfo::MarchedFogInfo &v)
+void to_json(nlohmann::json &j, const FogInfo::MarchedFogInfo &v)
 {
     j = nlohmann::json{{"defaultDensity", v.defaultDensity},
                        {"sigmaAbsorption", v.getSigmaAbsorption()},
@@ -33,7 +34,7 @@ void util::to_json(nlohmann::json &j, const FogInfo::MarchedFogInfo &v)
                        {"cutoffValue", v.getCutoffValue()}};
 }
 
-void util::from_json(const nlohmann::json &j, FogInfo::MarchedFogInfo &v)
+void from_json(const nlohmann::json &j, FogInfo::MarchedFogInfo &v)
 {
     // Public fields
     v.defaultDensity = j.value("defaultDensity", v.defaultDensity);
@@ -54,17 +55,17 @@ void util::from_json(const nlohmann::json &j, FogInfo::MarchedFogInfo &v)
     v.setCutoffValue(cutoffValue);
 }
 
-void util::to_json(nlohmann::json &j, const FogInfo::HomogenousRendering &v)
+void to_json(nlohmann::json &j, const FogInfo::HomogenousRendering &v)
 {
     j = nlohmann::json{{"maxNumSteps", v.maxNumSteps}};
 }
 
-void util::from_json(const nlohmann::json &j, FogInfo::HomogenousRendering &v)
+void from_json(const nlohmann::json &j, FogInfo::HomogenousRendering &v)
 {
     v.maxNumSteps = j.value("maxNumSteps", v.maxNumSteps);
 }
 
-void util::to_json(nlohmann::json &j, const FogInfo &v)
+void to_json(nlohmann::json &j, const FogInfo &v)
 {
     nlohmann::json linearData;
     to_json(linearData, v.linearInfo);
@@ -81,7 +82,7 @@ void util::to_json(nlohmann::json &j, const FogInfo &v)
                        {"homogenousInfo", homoData}};
 }
 
-void util::from_json(const nlohmann::json &j, FogInfo &v)
+void from_json(const nlohmann::json &j, FogInfo &v)
 {
     // Use existing defaults if sections are absent
     from_json(j["linearInfo"], v.linearInfo);

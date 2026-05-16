@@ -2,10 +2,12 @@
 
 #include <nlohmann/json.hpp>
 
-#include "FogInfo.hpp"
+struct FogInfo; 
+struct FogInfo::HomogenousRendering;
+struct FogInfo::LinearFogInfo; 
+struct FogInfo::ExpFogInfo;
+struct FogInfo::MarchedFogInfo;
 
-namespace util
-{
 void to_json(nlohmann::json &j, const ::FogInfo::LinearFogInfo &v);
 void from_json(const nlohmann::json &j, ::FogInfo::LinearFogInfo &v);
 void to_json(nlohmann::json &j, const ::FogInfo::ExpFogInfo &v);
@@ -16,4 +18,3 @@ void to_json(nlohmann::json &j, const ::FogInfo::HomogenousRendering &v);
 void from_json(const nlohmann::json &j, ::FogInfo::HomogenousRendering &v);
 void to_json(nlohmann::json &j, const ::FogInfo &v);
 void from_json(const nlohmann::json &j, ::FogInfo &v);
-} // namespace util

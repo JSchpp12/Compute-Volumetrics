@@ -156,11 +156,9 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
         auto writePayload = star::job::tasks::io::CreateWriteTask(star::job::tasks::io::WritePayload{
             imageCaptureFileName,
             service::image_metric_manager::FileWriteFunction{
-                mainLight, volume.getRenderer().getFogInfo(), camera.getPosition(), camera.getForwardVector(),
-                hostResource, m_device->getVulkanDevice(), semaphoreRecord->semaphore, signalValue,
-                volume.getRenderer().getFogType(), &m_storage, m_cachedTerrainShapeInfo.getTerrainName(),
-                m_cachedTerrainShapeInfo.get(), m_cachedTerrainShapeInfo.getTerrainRenderingType(),
-                m_cachedVolumeNameInfo}});
+                camera, volume, mainLight, hostResource, m_device->getVulkanDevice(), semaphoreRecord->semaphore,
+                signalValue, &m_storage, m_cachedTerrainShapeInfo.getTerrainName(), m_cachedTerrainShapeInfo.get(),
+                m_cachedTerrainShapeInfo.getTerrainRenderingType(), m_cachedVolumeNameInfo}});
         star::command::file_io::WriteToFile writeCmd{std::move(writePayload)};
         m_cmdBus->submit(writeCmd);
     }

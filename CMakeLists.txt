@@ -113,8 +113,6 @@ set(${PROJECT_NAME}_SOURCES
 	"src/FogInfo.cpp"
 	"src/util/Math.cpp"
 	"src/util/CmdLine.cpp"
-	"src/util/json/MathStructs.cpp"
-	"src/util/json/FogInfoStruct.cpp"
 	"src/VolumeDataBase.cpp"
 	"src/FogData.cpp"
 	"src/LevelSetData.cpp"
@@ -158,7 +156,9 @@ set(${PROJECT_NAME}_SOURCES
  	"src/render_system/fog/commands/distance/PreDifferentFamilies.cpp" 
 	"src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp" 
 	"src/TerrainShapeInfo_json.cpp"
-)
+	 
+	"src/service/detail/image_metric_manager/VolumeInfo_json.cpp" 
+	"src/FogInfo_json.cpp")
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"
@@ -205,8 +205,6 @@ set(${PROJECT_NAME}_HEADERS
 	"include/FogInfo.hpp"
 	"include/util/Math.hpp"
 	"include/util/CmdLine.hpp"
-	"include/util/json/MathStructs.hpp"
-	"include/util/json/FogInfoStruct.hpp"
 	"include/VolumeDataBase.hpp"
 	"include/FogData.hpp"
 	"include/LevelSetData.hpp"
