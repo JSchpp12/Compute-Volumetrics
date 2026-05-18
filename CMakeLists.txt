@@ -156,7 +156,6 @@ set(${PROJECT_NAME}_SOURCES
  	"src/render_system/fog/commands/distance/PreDifferentFamilies.cpp" 
 	"src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp" 
 	"src/TerrainShapeInfo_json.cpp"
-	 
 	"src/service/detail/image_metric_manager/VolumeInfo_json.cpp" 
 	"src/FogInfo_json.cpp")
 

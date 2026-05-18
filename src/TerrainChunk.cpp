@@ -77,10 +77,12 @@ double TerrainChunk::GetCenterHeightFromGDAL(const std::string &geoTiff)
     return result;
 }
 
-void TerrainChunk::load()
+void TerrainChunk::load(GDALDataset *sharedDataset)
 {
+    assert(sharedDataset != nullptr);
+
     TerrainDataset dataset =
-        TerrainDataset(this->fullHeightFile, m_northEast, m_southEast, m_southWest, m_northWest, m_center, m_offset);
+        TerrainDataset(sharedDataset, m_northEast, m_southEast, m_southWest, m_northWest, m_center, m_offset);
 
     loadGeomInfo(dataset, verts, inds, this->firstLine, this->lastLine);
 }
@@ -338,13 +340,13 @@ TerrainChunk::TerrainDataset::~TerrainDataset()
     }
 }
 
-TerrainChunk::TerrainDataset::TerrainDataset(std::string path, const glm::dvec2 &northEast, const glm::dvec2 &southEast,
-                                             const glm::dvec2 &southWest, const glm::dvec2 &northWest,
-                                             const glm::dvec2 &center, const glm::dvec3 &offset)
-    : m_path(std::move(path)), m_northEast(northEast), m_southEast(southEast), m_southWest(southWest),
-      m_northWest(northWest), m_center(center), m_offset(offset)
+TerrainChunk::TerrainDataset::TerrainDataset(GDALDataset *dataset, const glm::dvec2 &northEast,
+                                             const glm::dvec2 &southEast, const glm::dvec2 &southWest,
+                                             const glm::dvec2 &northWest, const glm::dvec2 &center,
+                                             const glm::dvec3 &offset)
+    : m_northEast(northEast), m_southEast(southEast), m_southWest(southWest), m_northWest(northWest), m_center(center),
+      m_offset(offset)
 {
-    GDALDataset *dataset = (GDALDataset *)GDALOpen(m_path.c_str(), GA_ReadOnly);
     if (dataset == NULL)
     {
         STAR_THROW("Failed to create dataset");
@@ -354,8 +356,6 @@ TerrainChunk::TerrainDataset::TerrainDataset(std::string path, const glm::dvec2 
     initPixelCoords();
     initBandSizes(dataset);
     initGDALBuffer(dataset);
-
-    GDALClose(dataset);
 }
 
 std::optional<double> TerrainChunk::GetHeightAtLocationFromGDAL(const std::string &path, double latDeg, double lonDeg)

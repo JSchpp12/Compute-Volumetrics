@@ -65,19 +65,6 @@ class VolumeRenderer
     }
     void setFogType(Fog::Type type)
     {
-        if (m_staticShaderInfo != nullptr)
-        {
-            if (type == Fog::Type::sNanoSurface)
-            {
-                m_staticShaderInfo->setNewResource(0, 1, star::StarShaderInfo::BufferInfo{vdbInfoSDF});
-            }
-            else if ((type == Fog::Type::sMarched || type == Fog::Type::sNanoBoundingBox) &&
-                     (currentFogType != Fog::Type::sMarched || currentFogType != Fog::Type::sNanoBoundingBox))
-            {
-                m_staticShaderInfo->setNewResource(0, 1, star::StarShaderInfo::BufferInfo{vdbInfoSDF});
-            }
-        }
-
         this->currentFogType = std::move(type);
     }
     Fog::Type getFogType() const
@@ -165,9 +152,9 @@ class VolumeRenderer
 
     vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                                std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                               std::vector<vk::Semaphore> dataSemaphores,
-                               std::vector<vk::PipelineStageFlags> dataWaitPoints,
-                               std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue);
+                               std::vector<vk::Semaphore> &dataSemaphores,
+                               std::vector<vk::PipelineStageFlags> &dataWaitPoints,
+                               std::vector<std::optional<uint64_t>> &previousSignaledValues, star::StarQueue &queue);
 
     std::vector<std::pair<vk::DescriptorType, const uint32_t>> getDescriptorRequests(const int &numFramesInFlight);
 

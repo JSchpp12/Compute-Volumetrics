@@ -22,7 +22,6 @@ struct ContainerRenderResourceData
         std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalLightList;
         std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalLightInfo;
         star::Handle *cameraShaderInfo;
-        star::Handle *vdbInfoSDF;
         star::Handle *vdbInfoFog;
         star::Handle *randomValueTexture;
         std::vector<star::StarBuffers::Buffer> *activeRayStorageBuffers{nullptr};

@@ -20,7 +20,7 @@ class TerrainChunk
                  const glm::dvec3 &offset, const glm::dvec2 &center);
 
     /// @brief Load meshes from the provided files
-    void load();
+    void load(GDALDataset *sharedDataset);
 
     std::unique_ptr<star::StarMesh> getMesh(star::core::device::DeviceContext &context,
                                             std::shared_ptr<star::StarMaterial> myMaterial);
@@ -41,9 +41,14 @@ class TerrainChunk
         return *this->vertBuffer;
     }
 
+    [[nodiscard]] const std::string &getHeightFile() noexcept
+    {
+        return fullHeightFile;
+    }
+
     static double GetCenterHeightFromGDAL(const std::string &geoTiff);
 
-    static std::optional<double> GetHeightAtLocationFromGDAL(const std::string &path, double latDeg, double lonDeg); 
+    static std::optional<double> GetHeightAtLocationFromGDAL(const std::string &path, double latDeg, double lonDeg);
 
     std::vector<glm::dvec3> lastLine;
     std::vector<glm::dvec3> firstLine;
@@ -67,7 +72,7 @@ class TerrainChunk
     class TerrainDataset
     {
       public:
-        TerrainDataset(std::string path, const glm::dvec2 &northEast, const glm::dvec2 &southEast,
+        TerrainDataset(GDALDataset *dataset, const glm::dvec2 &northEast, const glm::dvec2 &southEast,
                        const glm::dvec2 &southWest, const glm::dvec2 &northWest, const glm::dvec2 &center,
                        const glm::dvec3 &offset);
 
@@ -117,8 +122,7 @@ class TerrainChunk
         }
 
       private:
-        glm::ivec2 m_bufferSize{0,0};
-        std::string m_path;
+        glm::ivec2 m_bufferSize{0, 0};
         glm::dvec2 m_northEast, m_southEast, m_southWest, m_northWest, m_center;
         glm::dvec3 m_offset;
         const int pixBorderSize = 2;
@@ -176,20 +180,49 @@ class TerrainChunk
     static glm::dvec2 calcIntersection(const Line &lineA, const Line &lineB);
 };
 
+struct ThreadLocalDataset
+{
+    GDALDataset *ds{nullptr};
+    GDALRasterBand *band{nullptr};
+
+    ThreadLocalDataset(const std::string &path)
+    {
+        ds = static_cast<GDALDataset *>(GDALOpen(path.c_str(), GA_ReadOnly));
+        if (!ds)
+            STAR_THROW("Failed to open GDAL dataset");
+
+        band = ds->GetRasterBand(1);
+    }
+
+    ~ThreadLocalDataset()
+    {
+        if (ds)
+            GDALClose(ds);
+    }
+};
+
 struct TerrainChunkProcessor
 {
     TerrainChunkProcessor(TerrainChunk chunks[]) : chunks(chunks) {};
-
     void operator()(const tbb::blocked_range<size_t> &r) const
     {
+        thread_local std::unique_ptr<ThreadLocalDataset> dataset;
+
         TerrainChunk *localChunks = this->chunks;
+        if (!dataset)
+        {
+            dataset = std::make_unique<ThreadLocalDataset>(localChunks[0].getHeightFile());
+
+            if (!dataset)
+                STAR_THROW("Failed to load gdal dataset");
+        }
 
         for (size_t i = r.begin(); i != r.end(); ++i)
         {
-            localChunks[i].load();
+            localChunks[i].load(dataset->ds);
         }
     }
 
   private:
-    TerrainChunk *const chunks;
+    TerrainChunk *const chunks{nullptr};
 };
