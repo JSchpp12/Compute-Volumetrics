@@ -217,7 +217,6 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
                 .globalLightList = m_infoManagerSceneLightList,
                 .globalLightInfo = m_infoManagerSceneLightInfo,
                 .cameraShaderInfo = &cameraShaderInfo,
-                .vdbInfoSDF = &vdbInfoSDF,
                 .vdbInfoFog = &vdbInfoFog,
                 .randomValueTexture = &randomValueTexture,
                 .activeRayStorageBuffers = &m_activeRayStorage},
@@ -379,9 +378,9 @@ uint64_t VolumeRenderer::getTimelineSignalValue(const star::common::FrameTracker
 vk::Semaphore VolumeRenderer::submitBuffer(star::StarCommandBuffer &buffer,
                                            const star::common::FrameTracker &frameTracker,
                                            std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                                           std::vector<vk::Semaphore> dataSemaphores,
-                                           std::vector<vk::PipelineStageFlags> dataWaitPoints,
-                                           std::vector<std::optional<uint64_t>> previousSignaledValues,
+                                           std::vector<vk::Semaphore> &dataSemaphores,
+                                           std::vector<vk::PipelineStageFlags> &dataWaitPoints,
+                                           std::vector<std::optional<uint64_t>> &previousSignaledValues,
                                            star::StarQueue &queue)
 {
 
@@ -432,12 +431,6 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
     const auto &frontPath = processor.getProcessedFiles().front().getDataFilePath();
     // fog sim is fog
-    this->vdbInfoSDF = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), context.getSemaphoreManager().get(vdbSemaphore)->semaphore,
-        std::make_unique<VDBTransfer>(
-            computeQueueFamilyIndex,
-            std::make_unique<FogData>(frontPath.string(), openvdb::GridClass::GRID_LEVEL_SET)),
-        nullptr, true);
     const auto vdbFogSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 

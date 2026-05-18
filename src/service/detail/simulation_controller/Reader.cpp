@@ -6,7 +6,7 @@
 #include "service/detail/simulation_controller/camera_controller/Circle.hpp"
 #include "service/detail/simulation_controller/camera_controller/Circle_json.hpp"
 #include "util/Math.hpp"
-#include "util/json/FogInfoStruct.hpp"
+#include "FogInfo_json.hpp"
 
 #include <starlight/common/helpers/FileHelpers.hpp>
 #include <starlight/core/Exceptions.hpp>
@@ -74,8 +74,8 @@ static SimulationData LoadBoundsInfoFromFile(const std::filesystem::path &path)
             is >> j;
 
             SimulationBounds bounds;
-            util::from_json(j["startData"], bounds.start);
-            util::from_json(j["stopData"], bounds.stop);
+            bounds.start = j["startData"]; 
+            bounds.stop = j["stopData"];
 
             std::string type = j["camera_controller_type"].get<std::string>();
             if (type == "circle")

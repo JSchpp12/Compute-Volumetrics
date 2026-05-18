@@ -70,14 +70,8 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const 
     {
         const float stepEnd = min(stepStart + mainStepSize, marchStopDistance);
         const float ds = stepEnd - stepStart;
-        if (ds <= 0)
+        if (ds <= 0 || transparency < cutoffValue)
         {
-            break;
-        }
-
-        if (transparency < cutoffValue)
-        {
-            transparency = 0.00;
             break;
         }
 
@@ -124,15 +118,10 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const 
 
                     const int fittedNumStepsLight = max(1, int(ceil(lMarchStopDist / lightStepSize)));
                     // initialize offset by random value
-                    
-                    const uint lightSeed = makeSeed(
-                        pixelCoord,
-                        0u,
-                        uint(i) * 1664525u + uint(j) * 1013904223u,
-                        1u
-                    );
+
+                    const uint lightSeed = makeSeed(pixelCoord, 0u, uint(i) * 1664525u + uint(j) * 1013904223u, 1u);
                     const float lightJitter = rand01(lightSeed);
-                    
+
                     float lStepStart = 0.0f;
                     for (int k = 0; k < fittedNumStepsLight; k++)
                     {
@@ -157,7 +146,8 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const 
                 }
             }
 
-            const float pTransmission = exp(-ds * pDensity * sigmaT);
+            const float tau = ds * pDensity * sigmaT;
+            const float pTransmission = exp(-tau);
             transparency *= pTransmission;
         }
 

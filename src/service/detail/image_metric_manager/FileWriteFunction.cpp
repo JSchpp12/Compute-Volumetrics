@@ -1,7 +1,9 @@
 #include "service/detail/image_metric_manager/FileWriteFunction.hpp"
 
 #include "service/detail/image_metric_manager/ImageMetrics.hpp"
+
 #include <starlight/common/entities/Light_json.hpp>
+#include <starlight/core/helper/star_object/ObjectHelpers.hpp>
 
 #include <boost/filesystem/path.hpp>
 
@@ -22,15 +24,21 @@ static double Mean(std::span<const float> &span)
     return sum / static_cast<double>(span.size());
 }
 
-FileWriteFunction::FileWriteFunction(star::Light light, FogInfo controlInfo, glm::vec3 camPosition,
-                                     glm::vec3 camLookDir, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
-                                     uint64_t copyToHostBufferDoneValue, Fog::Type type, HostVisibleStorage *storage,
+FileWriteFunction::FileWriteFunction(const star::StarCamera &camera, const Volume &volume, star::Light light,
+                                     star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
+                                     uint64_t copyToHostBufferDoneValue, HostVisibleStorage *storage,
                                      std::string terrainName, TerrainShapeInfo terrainShapeInfo,
                                      TerrainRenderingType terrainRenderingType, std::string volumeName)
-    : m_data(std::make_unique<ImageWriteData>(std::move(terrainName), std::move(volumeName), std::move(light),
-                                              std::move(controlInfo), type, std::move(terrainShapeInfo),
-                                              terrainRenderingType, camPosition, camLookDir, buffer, vkDevice, done,
-                                              copyToHostBufferDoneValue, storage))
+    : m_data(std::make_unique<ImageWriteData>(
+          std::move(terrainName), std::move(volumeName),
+          ImageWriteData::CameraInfo{camera.getPosition(), camera.getForwardVector()},
+          VolumeInfo{.position = volume.getInstance().getPosition(),
+                     .rotation =
+                         star::core::helper::star_object::ExtractRotationDegrees(volume.getInstance().getRotationMat()),
+                     .scale = volume.getInstance().getScale()},
+          std::move(light), volume.getRenderer().getFogInfo(), volume.getRenderer().getFogType(),
+          std::move(terrainShapeInfo), terrainRenderingType, buffer, vkDevice, done, copyToHostBufferDoneValue,
+          storage))
 {
 }
 
@@ -45,10 +53,11 @@ void FileWriteFunction::write(const std::filesystem::path &path) const
     m_data->storage->returnBuffer(m_data->hostVisibleRayDistanceBuffer);
 
     std::ofstream out(finalPath.string(), std::ofstream::binary);
-    const auto data = ImageMetrics(m_data->light, m_data->controlInfo, m_data->camPosition, m_data->camLookDir,
-                                   sourcePath.filename().string(), mean, m_data->terrainName, m_data->volumeName,
-                                   m_data->type, m_data->shapeInfo, m_data->terrainRenderingType)
-                          .toJsonDump();
+    const auto data =
+        ImageMetrics(m_data->light, m_data->volumeInfo, m_data->controlInfo, m_data->cameraInfo.position,
+                     m_data->cameraInfo.lookDir, sourcePath.filename().string(), mean, m_data->terrainName,
+                     m_data->volumeName, m_data->type, m_data->shapeInfo, m_data->terrainRenderingType)
+            .toJsonDump();
     out << data;
 }
 

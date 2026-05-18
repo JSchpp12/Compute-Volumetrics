@@ -232,6 +232,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     m_volume->getRenderer().getFogInfo().linearInfo.farDist = 16000.0f;
     m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.6f;
     m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(11.0f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setCutoffValue(0.000001f);
     return m_mainScene;
 }
 

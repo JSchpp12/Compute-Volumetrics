@@ -2,12 +2,12 @@
 
 #include "TerrainChunk.hpp"
 #include "TerrainGrid.hpp"
-#include "TerrainShapeInfoLoader.hpp"
 #include "TerrainInfoFile.hpp"
+#include "TerrainShapeInfoLoader.hpp"
 
-#include <starlight/common/materials/TextureMaterial.hpp>
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/helpers/FileHelpers.hpp>
+#include <starlight/common/materials/TextureMaterial.hpp>
 
 std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
 {
@@ -32,7 +32,7 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
 
     const auto terrainPath = std::filesystem::path(m_terrainDefFile);
     const auto terrainShapeFile = getShapeFilePath();
-    auto loadingShapeInfo = TerrainShapeInfoLoader::SubmitForRead(getShapeFilePath(), context.getCmdBus()); 
+    auto loadingShapeInfo = TerrainShapeInfoLoader::SubmitForRead(getShapeFilePath(), context.getCmdBus());
     TerrainGrid grid = TerrainGrid();
 
     std::vector<TerrainChunk> chunks;
@@ -41,8 +41,8 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
 
     std::set<std::string> alreadyProcessed = std::set<std::string>();
     bool setWorldCenter = false;
-    
-    TerrainShapeInfo shapeInfo = loadingShapeInfo.get(); 
+
+    TerrainShapeInfo shapeInfo = loadingShapeInfo.get();
     glm::dvec3 worldCenter(shapeInfo.center.x, shapeInfo.center.y, 0);
 
     const auto fullHeightFilePath = terrainPath / std::filesystem::path(fileInfo.getFullHeightFilePath());
@@ -63,12 +63,22 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
                             fileInfo.infos()[i].cornerSE, fileInfo.infos()[i].cornerSW, fileInfo.infos()[i].cornerNW,
                             worldCenter, fileInfo.infos()[i].center);
     }
+    star::core::logging::info("Launching load tasks");
+    tbb::enumerable_thread_specific<std::unique_ptr<ThreadLocalDataset>> tls;
 
-    // parallel load meshes
-    std::cout << "Launching load tasks" << std::endl;
-    TerrainChunkProcessor chunkProcessor = TerrainChunkProcessor(chunks.data());
-    oneapi::tbb::parallel_for(tbb::blocked_range<size_t>(0, chunks.size()), chunkProcessor);
-    std::cout << "Done" << std::endl;
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, chunks.size()), [&](const tbb::blocked_range<size_t> &r) {
+        auto &local = tls.local();
+
+        if (!local)
+            local = std::make_unique<ThreadLocalDataset>(fullHeightFilePath.string());
+
+        for (size_t i = r.begin(); i != r.end(); ++i)
+        {
+            chunks[i].load(local->ds);
+        }
+    });
+    tls.clear();
+    star::core::logging::info("Done");
 
     auto terrainMeshes = std::vector<std::unique_ptr<star::StarMesh>>(chunks.size());
     assert(chunks.size() == m_meshMaterials.size() && "Every chunk should have its own material");
