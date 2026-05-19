@@ -27,17 +27,11 @@ std::string ImageMetrics::toJsonDump() const
 {
     nlohmann::json data;
     data["file_name"] = m_imageFileName;
-    {
-        nlohmann::json cData;
-        cData["camera_position"] = m_camPosition;
-        cData["camera_look_dir"] = m_camLookDir;
-    }
-
+    data["camera_position"] = m_camPosition;
+    data["camera_look_dir"] = m_camLookDir;
     data["visibility_distance"] = m_averageVisisbilityDistance;
     data["fog_type"] = Fog::TypeToString(m_type);
-
-    nlohmann::json fogData = m_controlInfo;
-    data["fog_params"] = fogData;
+    data["fog_params"] = m_controlInfo;
 
     if ((m_type == Fog::Type::sMarched) && !m_volumeName.empty())
         data["fog_volume_name"] = m_volumeName;
