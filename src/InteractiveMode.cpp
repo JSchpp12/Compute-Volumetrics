@@ -15,7 +15,11 @@ int InteractiveMode::run(std::unique_ptr<AppConfig> cfg)
     using win_loop = star::windowing::EngineMainLoopPolicy;
 
     star::windowing::WindowingContext winContext;
-    policy::WindowEngineInitPolicy windowInit{std::move(cfg->simControllerPath), winContext};
+    policy::WindowEngineInitPolicy windowInit =
+        cfg->overrideRenderingDevice.has_value()
+            ? policy::WindowEngineInitPolicy{std::move(cfg->simControllerPath), winContext,
+                                             cfg->overrideRenderingDevice.value()}
+            : policy::WindowEngineInitPolicy{std::move(cfg->simControllerPath), winContext};
     win_loop windowLoop{winContext};
     win_exit windowExit{winContext};
 

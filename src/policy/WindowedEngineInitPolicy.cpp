@@ -1,21 +1,14 @@
 #include "policy/WindowedEngineInitPolicy.hpp"
 
 #ifdef STAR_ENABLE_PRESENTATION
-#include "service/SimulationController.hpp"
 #include "service/ImageMetricManager.hpp"
+#include "service/SimulationController.hpp"
 
 namespace policy
 {
 static star::service::Service CreateCameraControllerService(std::string controllerFilePath)
 {
     return star::service::Service{SimulationControllerService(std::move(controllerFilePath))};
-}
-
-WindowEngineInitPolicy::WindowEngineInitPolicy(std::string controllerFilePath,
-                                               star::windowing::WindowingContext &winContext)
-    : m_controllerFilePath(std::move(controllerFilePath)),
-    m_winPolicy(winContext)
-{
 }
 
 star::core::RenderingInstance WindowEngineInitPolicy::createRenderingInstance(std::string appName)

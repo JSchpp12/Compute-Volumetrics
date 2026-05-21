@@ -485,7 +485,7 @@ std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star:
                       .setHorizontalFieldOfView(90.0f)
                       .setNearClippingPlaneDistance(0.5f)
                       .setFarClippingPlaneDistance(25000.0f)
-                      .setMovementSpeed(15.0f)
+                      .setMovementSpeed(1000.0f)
                       .setSensitivity(0.1f)
                       .buildShared();
 

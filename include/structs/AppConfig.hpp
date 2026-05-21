@@ -11,6 +11,7 @@ struct AppConfig
     std::string terrainDir;
     std::string engineConfigFile;
     std::string simControllerPath;
+    std::optional<int> overrideRenderingDevice{std::nullopt};
 
     // Load from a JSON file path
     static AppConfig load(const std::string &path)
@@ -33,6 +34,8 @@ struct AppConfig
         cfg.volumeName = j.value("volume_dir", "");
         cfg.terrainDir = j.value("terrain_dir", "");
         cfg.engineConfigFile = j.value("config_file", "");
+        if (j.contains("rendering_device_index"))
+            cfg.overrideRenderingDevice = j.value("rendering_device_index", -1);
         return cfg;
     }
 

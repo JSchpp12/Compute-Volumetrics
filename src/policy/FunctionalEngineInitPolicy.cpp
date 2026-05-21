@@ -1,12 +1,22 @@
 #include "policy/FunctionalEngineInitPolicy.hpp"
 
 #include "service/ImageMetricManager.hpp"
-#include "service/SimulationController.hpp"
 
-FunctionalEngineInitPolicy::FunctionalEngineInitPolicy(
-    std::function<std::vector<star::service::Service>(void)> addServicesFun)
-    : m_addServicesFun(std::move(addServicesFun))
+star::core::device::StarDevice FunctionalEngineInitPolicy::createNewDevice(
+    star::core::RenderingInstance &renderingInstance, std::set<star::Rendering_Features> &engineRenderingFeatures,
+    std::set<star::Rendering_Device_Features> &engineRenderingDeviceFeatures)
 {
+    auto builder = star::core::device::StarDevice::Builder(renderingInstance)
+                       .setRenderingDeviceFeatures(engineRenderingDeviceFeatures)
+                       .setRenderingFeatures(engineRenderingFeatures);
+
+    int selectedOverride = m_overrideDeviceIndex.has_value()
+                               ? m_overrideDeviceIndex.value()
+                               : star::ConfigFile::getInt(star::Config_Settings::required_device_feature_gpu_index, -1);
+    if (selectedOverride != -1)
+        builder.setOverrideDeviceID(selectedOverride);
+
+    return builder.build();
 }
 
 std::vector<star::service::Service> FunctionalEngineInitPolicy::addAdditionalServices()
