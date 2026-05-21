@@ -9,7 +9,8 @@
 #include <starlight/StarEngine.hpp>
 #include <starlight/policy/DefaultEngineLoopPolicy.hpp>
 
-static FunctionalEngineInitPolicy CreateInit(std::shared_ptr<bool> doneFlag, std::string controllerFilePath)
+static FunctionalEngineInitPolicy CreateInit(std::shared_ptr<bool> doneFlag, std::string controllerFilePath,
+                                             std::optional<int> forcedDeviceIndex = std::nullopt)
 {
     auto fun = [doneFlag, controllerFilePath](void) -> std::vector<star::service::Service> {
         auto serv = std::vector<star::service::Service>(1);
@@ -17,21 +18,22 @@ static FunctionalEngineInitPolicy CreateInit(std::shared_ptr<bool> doneFlag, std
 
         return serv;
     };
-    return FunctionalEngineInitPolicy(fun);
+
+    return forcedDeviceIndex.has_value() ? FunctionalEngineInitPolicy(fun, forcedDeviceIndex.value())
+                                         : FunctionalEngineInitPolicy(fun);
 }
 
 int HeadlessMode::run(std::unique_ptr<AppConfig> cfg)
 {
     using loop = star::policy::DefaultEngineLoopPolicy;
-
-    std::shared_ptr<bool> controllerSequenceDone = std::make_shared<bool>(false);
     using exit = EngineExitOnFlag;
+    std::shared_ptr<bool> controllerSequenceDone = std::make_shared<bool>(false);
 
     Application application(std::move(cfg->terrainDir), std::move(cfg->volumeName));
 
     auto engine = star::StarEngine<FunctionalEngineInitPolicy, loop, exit>(
-        CreateInit(controllerSequenceDone, std::move(cfg->simControllerPath)), loop{}, exit{controllerSequenceDone},
-        application);
+        CreateInit(controllerSequenceDone, std::move(cfg->simControllerPath), cfg->overrideRenderingDevice), loop{},
+        exit{controllerSequenceDone}, application);
     engine.run();
 
     return 0;

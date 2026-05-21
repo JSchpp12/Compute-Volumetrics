@@ -50,7 +50,8 @@ int main(int argc, char **argv)
         AppConfig{.volumeName = util::CmdLine::GetVolumeDirPath(argc, argv),
                   .terrainDir = util::CmdLine::GetTerrainPath(argc, argv),
                   .engineConfigFile = util::CmdLine::GetConfigFilePath(argc, argv),
-                  .simControllerPath = util::CmdLine::GetSimControllerFilePath(argc, argv)});
+                  .simControllerPath = util::CmdLine::GetSimControllerFilePath(argc, argv),
+                  .overrideRenderingDevice = util::CmdLine::TryGetDeviceIndexOverride(argc, argv)});
     try
     {
         star::ConfigFile::load(cfg->engineConfigFile);
@@ -60,6 +61,7 @@ int main(int argc, char **argv)
         std::cerr << "Failed to load config file for engine";
         std::exit(EXIT_FAILURE);
     }
+
 #ifdef STAR_ENABLE_PRESENTATION
     return runWindow(std::move(cfg));
 #else

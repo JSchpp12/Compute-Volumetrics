@@ -2,6 +2,8 @@
 
 #include "FogType.hpp"
 
+#include <array>
+
 namespace service::simulation_controller
 {
 class FogEnabler
