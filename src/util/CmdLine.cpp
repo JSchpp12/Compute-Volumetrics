@@ -1,7 +1,7 @@
 #include "util/CmdLine.hpp"
 
-#include <optional>
 #include <logging/LoggingFactory.hpp>
+#include <optional>
 
 namespace util::CmdLine
 {
@@ -57,10 +57,18 @@ std::string GetConfigFilePath(int argc, char **argv)
 
 std::string GetVolumeDirPath(int argc, char **argv)
 {
-    auto dir = util::CmdLine::TryGetArgValue(argc, argv, "--volume"); 
+    auto dir = util::CmdLine::TryGetArgValue(argc, argv, "--volume");
     if (!dir.has_value())
-        throw std::runtime_error("Volume directory was not provided as cmd argument"); 
+        throw std::runtime_error("Volume directory was not provided as cmd argument");
 
-    return dir.value(); 
+    return dir.value();
+}
+std::optional<int> TryGetDeviceIndexOverride(int argc, char **argv)
+{
+    auto value = util::CmdLine::TryGetArgValue(argc, argv, "--forceRenderingDeviceIndex");
+    if (!value.has_value())
+        return std::nullopt;
+
+    return std::stoi(value.value());
 }
 } // namespace util::CmdLine

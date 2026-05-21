@@ -6,6 +6,7 @@
 #include <iostream>
 #include <array>
 #include <functional>
+#include <algorithm>
 
 namespace util
 {
