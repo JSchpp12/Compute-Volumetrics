@@ -180,8 +180,9 @@ void Volume::initVolume(star::core::device::DeviceContext &context, std::string 
     loadModel(context, vdbFilePath);
 
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
-        context, m_instanceInfo.getControllerModel(), m_instanceInfo.getControllerNormal(), std::move(sceneCameraInfos),
-        std::move(lightList), std::move(lightInfos), m_offscreenRenderer, vdbFilePath, this->camera, this->aabbBounds);
+        context, &m_instanceInfo.getControllerModel(), &m_instanceInfo.getControllerNormal(),
+        std::move(sceneCameraInfos), std::move(lightList), std::move(lightInfos), m_offscreenRenderer, vdbFilePath,
+        this->camera, this->aabbBounds);
 }
 
 void Volume::updateGridTransforms()

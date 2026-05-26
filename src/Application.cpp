@@ -63,7 +63,7 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
 }
 
 static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus,
-                                            const renderer::finalization::FinalizationRenderer &finalizationRenderer,
+                                            const renderer::finalization::IFinalizationRenderer &finalizationRenderer,
                                             size_t currentNumTimesFrameProcessed, size_t currentFrameInFlight)
 {
     cmdBus.submit(star::command_order::TriggerPass()
@@ -112,7 +112,7 @@ OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::Devic
     //    objects.emplace_back(cmd.getReply().get());
     //}
 
-    return {context, numFramesInFlight, objects, std::move(mainLight), camera};
+    return {context, objects, std::move(mainLight), camera};
 }
 
 Application::Application(std::string terrainPath, std::string volumeName)
@@ -125,8 +125,7 @@ Application::Application(std::string terrainPath, std::string volumeName)
     // }
 }
 
-std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::DeviceContext &context,
-                                                        const uint8_t &numFramesInFlight)
+std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::DeviceContext &context)
 {
     initImageOutputDir(context.getCmdBus());
     initListeners(context);
@@ -172,7 +171,8 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         std::vector<star::Handle> lightInfos(numInFlight);
 
         size_t fNumFramesInFlight = 0;
-        star::common::casts::SafeCast<uint8_t, size_t>(numFramesInFlight, fNumFramesInFlight);
+        star::common::casts::SafeCast<uint8_t, size_t>(context.frameTracker().getSetup().getNumFramesInFlight(),
+                                                       fNumFramesInFlight);
 
         {
             auto vdbPath = std::filesystem::path(mediaDirectoryPath) / "volumes" / m_volumeName;
@@ -222,8 +222,8 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     //     .setProducer()
 
     m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0001f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 100.0f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 250.0f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 150.0f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 300.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.001f);
     m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(0.005f);
     m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(0.9f);
@@ -231,7 +231,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
     m_volume->getRenderer().getFogInfo().linearInfo.farDist = 16000.0f;
     m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.6f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(11.0f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(1.0f);
     m_volume->getRenderer().getFogInfo().marchedInfo.setCutoffValue(0.000001f);
     return m_mainScene;
 }
@@ -338,14 +338,13 @@ star::common::Renderer Application::createMainRenderer(star::core::device::Devic
                                                        std::vector<std::shared_ptr<star::StarObject>> objects,
                                                        std::shared_ptr<star::StarCamera> camera)
 {
-    star::common::Renderer sc{
-        renderer::finalization::Headless{context, context.frameTracker().getSetup().getNumFramesInFlight(), objects,
-                                         m_mainLight, camera, vk::PipelineStageFlagBits::eAllCommands}};
+    star::common::Renderer sc{renderer::finalization::Headless{context, objects, m_mainLight, camera,
+                                                               vk::PipelineStageFlagBits::eAllCommands}};
 
     auto *renderer = sc.getRaw<renderer::finalization::Headless>();
     context.getEventBus().emit(star::event::RegisterMainGraphicsRenderer{renderer});
 
-    m_finalizationCmds = static_cast<renderer::finalization::FinalizationRenderer *>(renderer);
+    m_finalizationCmds = static_cast<renderer::finalization::IFinalizationRenderer *>(renderer);
 
     return sc;
 }

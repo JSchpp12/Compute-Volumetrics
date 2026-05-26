@@ -171,8 +171,8 @@ static vk::SemaphoreSubmitInfo GetSignalSemaphoreInfo(const star::core::CommandB
 }
 
 VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
-                               std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
-                               std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceNormalInfo,
+                               star::ManagerController::RenderResource::Buffer *instanceManagerInfo,
+                               star::ManagerController::RenderResource::Buffer *instanceNormalInfo,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightList,
@@ -213,9 +213,9 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
                 .offscreenRenderToDepths = &m_offscreenRenderer->getRenderToDepthImages(),
                 .instanceManagerInfo = m_infoManagerInstanceModel,
                 .instanceNormalInfo = m_infoManagerInstanceNormal,
-                .globalInfoBuffers = m_infoManagerGlobalCamera,
-                .globalLightList = m_infoManagerSceneLightList,
-                .globalLightInfo = m_infoManagerSceneLightInfo,
+                .globalInfoBuffers = m_infoManagerGlobalCamera.get(),
+                .globalLightList = m_infoManagerSceneLightList.get(),
+                .globalLightInfo = m_infoManagerSceneLightInfo.get(),
                 .cameraShaderInfo = &cameraShaderInfo,
                 .vdbInfoFog = &vdbInfoFog,
                 .randomValueTexture = &randomValueTexture,

@@ -3,7 +3,7 @@
 #include "OffscreenRenderer.hpp"
 #include "StarApplication.hpp"
 #include "Volume.hpp"
-#include "renderer/finalization/FinalizationRenderer.hpp"
+#include "renderer/finalization/IFinalizationRenderer.hpp"
 
 #include <memory>
 
@@ -17,8 +17,7 @@ class Application : public star::StarApplication
     {
     }
 
-    std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context,
-                                                       const uint8_t &numFramesInFlight) override;
+    std::shared_ptr<star::StarScene> loadScene(star::core::device::DeviceContext &context) override;
 
     virtual void shutdown(star::core::device::DeviceContext &context) override;
 
@@ -32,7 +31,7 @@ class Application : public star::StarApplication
     OffscreenRenderer *m_offRenderer{nullptr}; 
     std::shared_ptr<std::vector<star::Light>> m_mainLight;
     std::vector<star::Handle> m_screenshotRegistrations;
-    renderer::finalization::FinalizationRenderer *m_finalizationCmds{nullptr};
+    renderer::finalization::IFinalizationRenderer *m_finalizationCmds{nullptr};
     bool m_flipScreenshotState = false;
 
     void submitPasses(star::core::device::DeviceContext &context);

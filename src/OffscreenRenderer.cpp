@@ -29,11 +29,11 @@ static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus
     return handles;
 }
 
-OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
+OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context,
                                      std::vector<std::shared_ptr<star::StarObject>> objects,
                                      std::shared_ptr<std::vector<star::Light>> lights,
                                      std::shared_ptr<star::StarCamera> camera)
-    : star::core::renderer::DefaultRenderer(context, numFramesInFlight, std::move(lights), camera, objects)
+    : star::core::renderer::DefaultRenderer(context, std::move(lights), camera, objects)
 {
 }
 
@@ -203,8 +203,8 @@ void OffscreenRenderer::updateDependentData(star::core::device::DeviceContext &c
         auto [semaphore, toSignalValue, currentSignalValue] =
             GetVolumeRendererSemaphoreFromNeighbor(context.getCmdBus(), m_commandBuffer);
 
-        transferSyncWithComputeInfo.workWaitOn.semaphore = std::move(semaphore); 
-        transferSyncWithComputeInfo.workWaitOn.signalValue = std::move(currentSignalValue); 
+        transferSyncWithComputeInfo.workWaitOn.semaphore = std::move(semaphore);
+        transferSyncWithComputeInfo.workWaitOn.signalValue = std::move(currentSignalValue);
     }
 
     vk::Semaphore dataSemaphore{VK_NULL_HANDLE};

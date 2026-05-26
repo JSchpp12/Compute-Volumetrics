@@ -16,11 +16,11 @@ struct ContainerRenderResourceData
         std::vector<star::Handle> *aabbInfoBuffers;
         const std::vector<star::Handle> *offscreenRenderToColors;
         const std::vector<star::Handle> *offscreenRenderToDepths;
-        std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo;
-        std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceNormalInfo;
-        std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers;
-        std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalLightList;
-        std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalLightInfo;
+        star::ManagerController::RenderResource::Buffer *instanceManagerInfo;
+        star::ManagerController::RenderResource::Buffer *instanceNormalInfo;
+        star::ManagerController::RenderResource::Buffer *globalInfoBuffers;
+        star::ManagerController::RenderResource::Buffer *globalLightList;
+        star::ManagerController::RenderResource::Buffer *globalLightInfo;
         star::Handle *cameraShaderInfo;
         star::Handle *vdbInfoFog;
         star::Handle *randomValueTexture;

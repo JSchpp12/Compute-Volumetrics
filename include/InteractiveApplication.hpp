@@ -40,6 +40,8 @@ class InteractiveApplication : public Application,
     friend class star::windowing::HandleKeyPressPolicy<InteractiveApplication>;
     star::windowing::WindowingContext *m_winContext = nullptr;
     ModifyMode m_mode{ModifyMode::movement};
+    std::chrono::time_point<std::chrono::steady_clock> m_timeLastFrame; 
+
     bool m_switchMode{false};
     bool m_actDir[3]{false, false, false};
     bool m_invAct{false};

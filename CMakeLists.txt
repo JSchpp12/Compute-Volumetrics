@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.0.22
+	VERSION 1.0.23
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -92,7 +92,6 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/commands/PostMemoryBarrierContributor.cpp"
 	"src/render_system/fog/commands/Pass.cpp"
 	"src/renderer/distance/CreatePipelines.cpp"
-	"src/renderer/finalization/FinalizationRenderer.cpp"
 	"src/renderer/finalization/Windowed.cpp"
 	"src/renderer/finalization/Headless.cpp"
 	"src/render_system/fog/commands/Distance.cpp"
@@ -185,7 +184,6 @@ set(${PROJECT_NAME}_HEADERS
 	"include/renderer/volume/DescriptorBuilder.hpp"
 	"include/renderer/VolumeRenderer.hpp"
 	"include/renderer/distance/CreatePipelines.hpp"
-	"include/renderer/finalization/FinalizationRenderer.hpp"
 	"include/renderer/finalization/Headless.hpp"
 	"include/renderer/finalization/Windowed.hpp"
 	"include/VisibilityDistanceCompute.hpp"

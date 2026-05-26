@@ -4,17 +4,17 @@
 
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 
-#include <memory>
-#include <cstdint>
-#include <vector>
-#include <vulkan/vulkan_handles.hpp>
-#include <star_common/Handle.hpp>
-#include <device/managers/GraphicsContainer.hpp>
-#include <device/StarDevice.hpp>
-#include <ManagerRenderResource.hpp>
 #include <ManagerController_RenderResource_Buffer.hpp>
+#include <ManagerRenderResource.hpp>
 #include <StarBuffers/Buffer.hpp>
 #include <StarShaderInfo.hpp>
+#include <cstdint>
+#include <device/StarDevice.hpp>
+#include <device/managers/GraphicsContainer.hpp>
+#include <memory>
+#include <star_common/Handle.hpp>
+#include <vector>
+#include <vulkan/vulkan_handles.hpp>
 
 namespace renderer::distance
 {
@@ -23,11 +23,11 @@ struct CreatePipelines
 {
     struct Inputs
     {
-        std::shared_ptr<star::ManagerController::RenderResource::Buffer> infoManagerInstanceModel{nullptr};
-        std::shared_ptr<star::ManagerController::RenderResource::Buffer> infoManagerInstanceNormal{nullptr};
-        std::shared_ptr<star::ManagerController::RenderResource::Buffer> infoManagerGlobalCamera{nullptr};
-        std::shared_ptr<star::ManagerController::RenderResource::Buffer> infoManagerSceneLightInfo{nullptr};
-        std::shared_ptr<star::ManagerController::RenderResource::Buffer> infoManagerSceneLightList{nullptr};
+        star::ManagerController::RenderResource::Buffer *infoManagerInstanceModel{nullptr};
+        star::ManagerController::RenderResource::Buffer *infoManagerInstanceNormal{nullptr};
+        star::ManagerController::RenderResource::Buffer *infoManagerGlobalCamera{nullptr};
+        star::ManagerController::RenderResource::Buffer *infoManagerSceneLightInfo{nullptr};
+        star::ManagerController::RenderResource::Buffer *infoManagerSceneLightList{nullptr};
         star::Handle *randomValueTexture{nullptr};
         FogInfoController *fogController{nullptr};
         std::vector<star::StarBuffers::Buffer> *computeRayDistBuffers{nullptr};
@@ -52,10 +52,10 @@ struct CreatePipelines
         star::core::device::manager::GraphicsContainer *graphicsManagers{nullptr};
     };
 
-    Inputs inputs; 
+    Inputs inputs;
     Outputs outputs;
     DeviceContext context;
-    uint8_t numFramesInFlight; 
+    uint8_t numFramesInFlight;
 
     int operator()()
     {

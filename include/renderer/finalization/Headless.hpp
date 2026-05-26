@@ -1,13 +1,13 @@
 #pragma once
 
-#include "FinalizationRenderer.hpp"
+#include "IFinalizationRenderer.hpp"
 #include "renderer/VolumeRenderer.hpp"
 
 #include <starlight/core/renderer/HeadlessRenderer.hpp>
 
 namespace renderer::finalization
 {
-class Headless : public star::core::renderer::HeadlessRenderer, public FinalizationRenderer
+class Headless : public star::core::renderer::HeadlessRenderer, public IFinalizationRenderer
 {
     uint8_t m_graphicsQueueFamilyIndex{0};
     uint8_t m_computeQueueFamilyIndex{0};
@@ -16,35 +16,30 @@ class Headless : public star::core::renderer::HeadlessRenderer, public Finalizat
 
   public:
     Headless() = default;
-    Headless(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
-             std::vector<std::shared_ptr<star::StarObject>> objects, std::shared_ptr<std::vector<star::Light>> lights,
-             std::shared_ptr<star::StarCamera> camera)
-        : star::core::renderer::HeadlessRenderer(context, numFramesInFlight, objects, lights, camera)
+    Headless(star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
+             std::shared_ptr<std::vector<star::Light>> lights, std::shared_ptr<star::StarCamera> camera)
+        : star::core::renderer::HeadlessRenderer(context, objects, lights, camera)
     {
     }
-    Headless(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
-             std::vector<std::shared_ptr<star::StarObject>> objects, std::shared_ptr<std::vector<star::Light>> lights,
-             std::shared_ptr<star::StarCamera> camera, vk::PipelineStageFlags waitPoint)
-        : star::core::renderer::HeadlessRenderer(context, numFramesInFlight, objects, lights, camera, waitPoint)
+    Headless(star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
+             std::shared_ptr<std::vector<star::Light>> lights, std::shared_ptr<star::StarCamera> camera,
+             vk::PipelineStageFlags waitPoint)
+        : star::core::renderer::HeadlessRenderer(context, objects, lights, camera, waitPoint)
     {
     }
-    Headless(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
-             std::vector<std::shared_ptr<star::StarObject>> objects,
+    Headless(star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
              std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightData,
              std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightListData,
              std::shared_ptr<star::ManagerController::RenderResource::Buffer> cameraData)
-        : star::core::renderer::HeadlessRenderer(context, numFramesInFlight, objects, lightData, lightListData,
-                                                 cameraData)
+        : star::core::renderer::HeadlessRenderer(context, objects, lightData, lightListData, cameraData)
     {
     }
-    Headless(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight,
-             std::vector<std::shared_ptr<star::StarObject>> objects,
+    Headless(star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
              std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightData,
              std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightListData,
              std::shared_ptr<star::ManagerController::RenderResource::Buffer> cameraData,
              vk::PipelineStageFlags waitPoint)
-        : star::core::renderer::HeadlessRenderer(context, numFramesInFlight, objects, lightData, lightListData,
-                                                 cameraData)
+        : star::core::renderer::HeadlessRenderer(context, objects, lightData, lightListData, cameraData)
     {
     }
 

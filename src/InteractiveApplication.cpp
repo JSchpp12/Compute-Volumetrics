@@ -42,7 +42,7 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
 }
 
 static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus,
-                                            const renderer::finalization::FinalizationRenderer &finalizationRenderer,
+                                            const renderer::finalization::IFinalizationRenderer &finalizationRenderer,
                                             size_t currentNumTimesFrameProcessed, size_t currentFrameInFlight)
 {
     cmdBus.submit(star::command_order::TriggerPass()
@@ -53,28 +53,33 @@ static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus
 
 void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
-    auto &d = context.getAllDevices().getData()[0];
+    const auto timeNow = std::chrono::steady_clock::now();
 
+    float dTime = std::chrono::duration<float>(timeNow - m_timeLastFrame).count();
+    m_timeLastFrame = timeNow;
+
+    auto &d = context.getAllDevices().getData()[0];
     submitPasses(d);
 
+    const float moveAmount = 50.0f * dTime;
     if (m_actDir[star::Type::Axis::x])
     {
         switch (m_mode)
         {
         case (ModifyMode::movement): {
-            const glm::vec3 dir{10.0f, 0.0f, 0.0f};
+            const glm::vec3 dir{moveAmount, 0.0f, 0.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
             break;
         }
 
         case (ModifyMode::rotation_relative): {
-            m_volume->getInstance(0).rotateRelative(star::Type::Axis::x, 90);
+            m_volume->getInstance(0).rotateRelative(star::Type::Axis::x, 90.0f);
             m_actDir[star::Type::Axis::x] = false;
             break;
         }
 
         case (ModifyMode::rotation_global): {
-            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::x, 90);
+            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::x, 90.0f);
             m_actDir[star::Type::Axis::x] = false;
             break;
         }
@@ -85,17 +90,17 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         switch (m_mode)
         {
         case (ModifyMode::movement): {
-            const glm::vec3 dir{00.0f, 10.0f, 0.0f};
+            const glm::vec3 dir{0.0f, moveAmount, 0.0f};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
             break;
         }
         case (ModifyMode::rotation_relative): {
-            m_volume->getInstance(0).rotateRelative(star::Type::Axis::y, 90);
+            m_volume->getInstance(0).rotateRelative(star::Type::Axis::y, 90.0f);
             m_actDir[star::Type::Axis::y] = false;
             break;
         }
         case (ModifyMode::rotation_global): {
-            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90);
+            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::y, 90.0f);
             m_actDir[star::Type::Axis::y] = false;
             break;
         }
@@ -106,18 +111,18 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         switch (m_mode)
         {
         case (ModifyMode::movement): {
-            const glm::vec3 dir{0.0f, 0.0f, 10.0f};
+            const glm::vec3 dir{0.0f, 0.0f, moveAmount};
             m_volume->getInstance(0).moveRelative(m_invAct ? -dir : dir);
             break;
         }
 
         case (ModifyMode::rotation_relative): {
-            m_volume->getInstance(0).rotateRelative(star::Type::Axis::z, 90);
+            m_volume->getInstance(0).rotateRelative(star::Type::Axis::z, 90.0f * dTime);
             m_actDir[star::Type::Axis::z] = false;
             break;
         }
         case (ModifyMode::rotation_global): {
-            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::z, 90);
+            m_volume->getInstance(0).rotateGlobal(star::Type::Axis::z, 90.0f * dTime);
             m_actDir[star::Type::Axis::z] = false;
             break;
         }
@@ -500,9 +505,8 @@ star::common::Renderer InteractiveApplication::createMainRenderer(
     vk::SwapchainKHR swapchain{VK_NULL_HANDLE};
     context.getEventBus().emit(star::windowing::event::RequestSwapChainFromService{swapchain});
 
-    auto sc = star::common::Renderer{renderer::finalization::Windowed{
-        m_winContext, std::move(swapchain), context, context.frameTracker().getSetup().getNumFramesInFlight(), objects,
-        m_mainLight, camera}};
+    auto sc = star::common::Renderer{
+        renderer::finalization::Windowed{m_winContext, std::move(swapchain), context, objects, m_mainLight, camera}};
 
     m_finalizationCmds = sc.getRaw<renderer::finalization::Windowed>();
     return sc;

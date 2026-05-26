@@ -87,11 +87,6 @@ class Volume : public star::StarObject
            std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
            std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList);
 
-    // star::Handle buildPipeline(star::core::device::DeviceContext &device,
-    //                                                   vk::Extent2D swapChainExtent, vk::PipelineLayout
-    //                                                   pipelineLayout, star::core::renderer::RenderingTargetInfo
-    //                                                   renderInfo) override;
-
     /// <summary>
     /// Expensive, only call when necessary.
     /// </summary>

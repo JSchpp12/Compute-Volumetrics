@@ -29,8 +29,8 @@ class VolumeRenderer
     friend class render_system::fog::commands::Color;
 
     VolumeRenderer(star::core::device::DeviceContext &context,
-                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceManagerInfo,
-                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> instanceNormalInfo,
+                   star::ManagerController::RenderResource::Buffer *instanceManagerInfo,
+                   star::ManagerController::RenderResource::Buffer *instanceNormalInfo,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalLightList,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
@@ -116,9 +116,10 @@ class VolumeRenderer
     render_system::fog::PassPipelineInfo m_pipeInfo;
     star::Handle m_indirectDispatchPipe;
     star::Handle m_initPipe;
-    std::shared_ptr<star::ManagerController::RenderResource::Buffer> m_infoManagerInstanceModel,
-        m_infoManagerInstanceNormal, m_infoManagerGlobalCamera, m_infoManagerSceneLightInfo,
-        m_infoManagerSceneLightList;
+    star::ManagerController::RenderResource::Buffer *m_infoManagerInstanceModel{nullptr},
+        *m_infoManagerInstanceNormal{nullptr};
+    std::shared_ptr<star::ManagerController::RenderResource::Buffer> m_infoManagerGlobalCamera,
+        m_infoManagerSceneLightInfo, m_infoManagerSceneLightList;
     OffscreenRenderer *m_offscreenRenderer = nullptr;
     std::string m_vdbFilePath;
     star::core::renderer::RenderingContext m_renderingContext = star::core::renderer::RenderingContext();
