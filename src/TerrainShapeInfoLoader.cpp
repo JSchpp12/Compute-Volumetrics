@@ -9,7 +9,7 @@
 
 #include <fstream>
 
-std::future<TerrainShapeInfo> TerrainShapeInfoLoader::SubmitForRead(std::filesystem::path filePath,
+std::future<star::terrain::CoverageInfo> TerrainShapeInfoLoader::SubmitForRead(std::filesystem::path filePath,
                                                                     const star::core::CommandBus &cmdBus)
 {
     TerrainShapeInfoLoader shapeLoader{};
@@ -32,7 +32,7 @@ int TerrainShapeInfoLoader::operator()(const std::filesystem::path &filePath)
     return 0;
 }
 
-TerrainShapeInfo TerrainShapeInfoLoader::load(const std::string &filePath) const
+star::terrain::CoverageInfo TerrainShapeInfoLoader::load(const std::string &filePath) const
 {
     if (!star::file_helpers::FileExists(filePath))
     {
@@ -46,5 +46,5 @@ TerrainShapeInfo TerrainShapeInfoLoader::load(const std::string &filePath) const
     glm::dvec2 center = {std::stod(jData["center"]["lat"].get<std::string>()),
                          std::stod(jData["center"]["lon"].get<std::string>())};
 
-    return {.viewDistance = 10, .center = std::move(center)};
+    return {.center = std::move(center), .viewDistance = 10};
 }

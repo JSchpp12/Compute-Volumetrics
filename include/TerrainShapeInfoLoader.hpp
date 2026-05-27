@@ -1,6 +1,6 @@
 #pragma once
 
-#include "TerrainShapeInfo.hpp"
+#include <star_terrain/file_data/coverage_info/CoverageInfo.hpp>
 
 #include <starlight/core/CommandBus.hpp>
 
@@ -10,19 +10,19 @@
 class TerrainShapeInfoLoader
 {
   public:
-    static std::future<TerrainShapeInfo> SubmitForRead(std::filesystem::path filePath,
+    static std::future<star::terrain::CoverageInfo> SubmitForRead(std::filesystem::path filePath,
                                                         const star::core::CommandBus &cmdBus); 
 
     int operator()(const std::filesystem::path &filePath); 
 
-    std::future<TerrainShapeInfo> getFuture()
+    std::future<star::terrain::CoverageInfo> getFuture()
     {
         return m_shapeInfo.get_future();
     } 
 
 
   private:
-    std::promise<TerrainShapeInfo> m_shapeInfo;
+    std::promise<star::terrain::CoverageInfo> m_shapeInfo;
 
-    TerrainShapeInfo load(const std::string &filePath) const;
+    star::terrain::CoverageInfo load(const std::string &filePath) const;
 };

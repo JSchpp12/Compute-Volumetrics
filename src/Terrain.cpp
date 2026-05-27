@@ -3,8 +3,7 @@
 #include "TerrainChunk.hpp"
 #include "TerrainGrid.hpp"
 
-#include <star_terrain/struct/TerrainInfo.hpp>
-#include <star_terrain/io/TerrainInfo.hpp>
+#include <star_terrain/file_data/texture_data_info/Reader.hpp>
 #include "TerrainShapeInfoLoader.hpp"
 
 #include <starlight/common/ConfigFile.hpp>
@@ -30,12 +29,11 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
 std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::device::DeviceContext &context)
 {
     const auto infoPath = getHeightInfoFilePath();
-    auto [readResult, fileInfo] = star::terrain::io::ReadTerrainInfo(infoPath.string()); 
+    auto [readResult, fileInfo] = star::terrain::ReadTerrainTextureInfo(infoPath.string()); 
 
     const auto terrainPath = std::filesystem::path(m_terrainDefFile);
     const auto terrainShapeFile = getShapeFilePath();
     auto loadingShapeInfo = TerrainShapeInfoLoader::SubmitForRead(getShapeFilePath(), context.getCmdBus());
-    TerrainGrid grid = TerrainGrid();
 
     std::vector<TerrainChunk> chunks;
     // make sure gdal init is setup before multi-thread init
@@ -44,7 +42,7 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
     std::set<std::string> alreadyProcessed = std::set<std::string>();
     bool setWorldCenter = false;
 
-    TerrainShapeInfo shapeInfo = loadingShapeInfo.get();
+    star::terrain::CoverageInfo shapeInfo = loadingShapeInfo.get();
     glm::dvec3 worldCenter(shapeInfo.center.x, shapeInfo.center.y, 0);
 
     const auto fullHeightFilePath = terrainPath / std::filesystem::path(fileInfo.fullHeightFilePath);
@@ -97,7 +95,7 @@ std::vector<std::shared_ptr<star::StarMaterial>> Terrain::LoadMaterials(const st
 {
     const auto terrainDirPath = std::filesystem::path(terrainDir);
 
-    auto [readResult, fileInfo] = star::terrain::io::ReadTerrainInfo((terrainDirPath / "height_info.json").string());
+    auto [readResult, fileInfo] = star::terrain::ReadTerrainTextureInfo((terrainDirPath / "height_info.json").string());
     std::vector<std::shared_ptr<star::StarMaterial>> materials =
         std::vector<std::shared_ptr<star::StarMaterial>>(fileInfo.chunks.size());
 

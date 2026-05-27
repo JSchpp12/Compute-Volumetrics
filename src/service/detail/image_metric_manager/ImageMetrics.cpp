@@ -1,7 +1,8 @@
 #include "service/detail/image_metric_manager/ImageMetrics.hpp"
 
 #include "FogInfo_json.hpp"
-#include "TerrainShapeInfo_json.hpp"
+#include <star_terrain/file_data/coverage_info/CoverageInfo.hpp>
+#include <star_terrain/file_data/coverage_info/CoverageInfo_json.hpp>
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo_json.hpp"
 
@@ -14,7 +15,7 @@ namespace service::image_metric_manager
 ImageMetrics::ImageMetrics(const star::Light &mainLight, const VolumeInfo &volumeInfo, const FogInfo &controlInfo,
                            const glm::vec3 &camPosition, const glm::vec3 &camLookDir, const std::string &imageFileName,
                            const double &averageVisibilityDistance, std::string_view terrainName,
-                           std::string_view volumeName, Fog::Type type, const TerrainShapeInfo &terrainShapeInfo,
+                           std::string_view volumeName, Fog::Type type, const star::terrain::CoverageInfo &terrainShapeInfo,
                            TerrainRenderingType renderingType)
     : m_mainLight(mainLight), m_volumeInfo(volumeInfo), m_controlInfo(controlInfo), m_camPosition(camPosition),
       m_camLookDir(camLookDir), m_imageFileName(imageFileName), m_averageVisisbilityDistance(averageVisibilityDistance),

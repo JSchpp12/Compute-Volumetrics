@@ -27,7 +27,7 @@ static double Mean(std::span<const float> &span)
 FileWriteFunction::FileWriteFunction(const star::StarCamera &camera, const Volume &volume, star::Light light,
                                      star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
                                      uint64_t copyToHostBufferDoneValue, HostVisibleStorage *storage,
-                                     std::string terrainName, TerrainShapeInfo terrainShapeInfo,
+                                     std::string terrainName, star::terrain::CoverageInfo terrainShapeInfo,
                                      TerrainRenderingType terrainRenderingType, std::string volumeName)
     : m_data(std::make_unique<ImageWriteData>(
           std::move(terrainName), std::move(volumeName),

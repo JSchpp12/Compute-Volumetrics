@@ -1,14 +1,15 @@
 #pragma once
 
 #include "TerrainRenderingType.hpp"
-#include "TerrainShapeInfo.hpp"
 #include "Volume.hpp"
+
 #include "command/image_metrics/RegisterTerrainRecordInfo.hpp"
 #include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "service/detail/image_metric_manager/CopyDeviceToHostMemory.hpp"
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
 
+#include <star_terrain/file_data/coverage_info/CoverageInfo.hpp>
 #include <starlight/core/device/managers/GraphicsContainer.hpp>
 #include <starlight/policy/command/ListenFor.hpp>
 
@@ -69,21 +70,21 @@ class ImageMetricManager
   private:
     class LoadingShapeInfo
     {
-        std::optional<TerrainShapeInfo> m_cachedTerrainShapeInfo{std::nullopt};
-        std::future<TerrainShapeInfo> m_inProgressLoadingShapeInfo;
+        std::optional<star::terrain::CoverageInfo> m_cachedTerrainShapeInfo{std::nullopt};
+        std::future<star::terrain::CoverageInfo> m_inProgressLoadingShapeInfo;
         std::string m_terrainName;
         TerrainRenderingType m_terrainRenderingType;
 
       public:
         LoadingShapeInfo() = default;
-        explicit LoadingShapeInfo(std::future<TerrainShapeInfo> future, std::string terrainName,
+        explicit LoadingShapeInfo(std::future<star::terrain::CoverageInfo> future, std::string terrainName,
                                   TerrainRenderingType terrainRenderingType)
             : m_cachedTerrainShapeInfo{std::nullopt}, m_inProgressLoadingShapeInfo(std::move(future)),
               m_terrainName(std::move(terrainName)), m_terrainRenderingType(terrainRenderingType)
         {
         }
 
-        TerrainShapeInfo &get() noexcept
+        star::terrain::CoverageInfo &get() noexcept
         {
             if (m_cachedTerrainShapeInfo.has_value())
                 return m_cachedTerrainShapeInfo.value();

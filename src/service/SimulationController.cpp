@@ -2,8 +2,6 @@
 
 #include "MathHelpers.hpp"
 #include "TerrainChunk.hpp"
-#include "TerrainShapeInfo.hpp"
-#include "TerrainShapeInfoLoader.hpp"
 #include "service/detail/simulation_controller/Reader.hpp"
 #include "service/detail/simulation_controller/Writer.hpp"
 

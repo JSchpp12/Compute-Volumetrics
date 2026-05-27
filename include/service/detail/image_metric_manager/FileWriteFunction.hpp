@@ -3,7 +3,7 @@
 #include "FogInfo.hpp"
 #include "FogType.hpp"
 #include "TerrainRenderingType.hpp"
-#include "TerrainShapeInfo.hpp"
+#include <star_terrain/file_data/coverage_info/CoverageInfo.hpp>
 #include "Volume.hpp"
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
@@ -21,7 +21,8 @@ class FileWriteFunction
     FileWriteFunction() = default;
     FileWriteFunction(const star::StarCamera &camera, const Volume &volume, star::Light light, star::Handle buffer,
                       vk::Device vkDevice, vk::Semaphore done, uint64_t copyToHostBufferDoneValue,
-                      HostVisibleStorage *storage, std::string terrainName, TerrainShapeInfo terrainShapeInfo,
+                      HostVisibleStorage *storage, std::string terrainName,
+                      star::terrain::CoverageInfo terrainShapeInfo,
                       TerrainRenderingType terrainRenderingType, std::string volumeName);
 
     void write(const std::filesystem::path &path) const;
@@ -45,7 +46,7 @@ class FileWriteFunction
         star::Light light;
         FogInfo controlInfo;
         Fog::Type type;
-        TerrainShapeInfo shapeInfo;
+        star::terrain::CoverageInfo shapeInfo;
         TerrainRenderingType terrainRenderingType;
         star::Handle hostVisibleRayDistanceBuffer;
         vk::Device vkDevice = VK_NULL_HANDLE;
