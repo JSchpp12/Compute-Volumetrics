@@ -2,7 +2,9 @@
 
 #include "TerrainChunk.hpp"
 #include "TerrainGrid.hpp"
-#include "TerrainInfoFile.hpp"
+
+#include <star_terrain/struct/TerrainInfo.hpp>
+#include <star_terrain/io/TerrainInfo.hpp>
 #include "TerrainShapeInfoLoader.hpp"
 
 #include <starlight/common/ConfigFile.hpp>
@@ -28,7 +30,7 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
 std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::device::DeviceContext &context)
 {
     const auto infoPath = getHeightInfoFilePath();
-    TerrainInfoFile fileInfo = TerrainInfoFile(infoPath.string());
+    auto [readResult, fileInfo] = star::terrain::io::ReadTerrainInfo(infoPath.string()); 
 
     const auto terrainPath = std::filesystem::path(m_terrainDefFile);
     const auto terrainShapeFile = getShapeFilePath();
@@ -45,10 +47,10 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
     TerrainShapeInfo shapeInfo = loadingShapeInfo.get();
     glm::dvec3 worldCenter(shapeInfo.center.x, shapeInfo.center.y, 0);
 
-    const auto fullHeightFilePath = terrainPath / std::filesystem::path(fileInfo.getFullHeightFilePath());
-    for (size_t i = 0; i < fileInfo.infos().size(); i++)
+    const auto fullHeightFilePath = terrainPath / std::filesystem::path(fileInfo.fullHeightFilePath);
+    for (size_t i = 0; i < fileInfo.chunks.size(); i++)
     {
-        const auto infoPath = terrainPath / fileInfo.infos()[i].textureFile;
+        const auto infoPath = terrainPath / fileInfo.chunks[i].textureFile;
         if (!setWorldCenter)
         {
             setWorldCenter = true;
@@ -59,9 +61,9 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
             worldCenter.z = height;
         }
 
-        chunks.emplace_back(fullHeightFilePath.string(), infoPath.string(), fileInfo.infos()[i].cornerNE,
-                            fileInfo.infos()[i].cornerSE, fileInfo.infos()[i].cornerSW, fileInfo.infos()[i].cornerNW,
-                            worldCenter, fileInfo.infos()[i].center);
+        chunks.emplace_back(fullHeightFilePath.string(), infoPath.string(), fileInfo.chunks[i].cornerNE,
+                            fileInfo.chunks[i].cornerSE, fileInfo.chunks[i].cornerSW, fileInfo.chunks[i].cornerNW,
+                            worldCenter, fileInfo.chunks[i].center);
     }
     star::core::logging::info("Launching load tasks");
     tbb::enumerable_thread_specific<std::unique_ptr<ThreadLocalDataset>> tls;
@@ -95,15 +97,15 @@ std::vector<std::shared_ptr<star::StarMaterial>> Terrain::LoadMaterials(const st
 {
     const auto terrainDirPath = std::filesystem::path(terrainDir);
 
-    TerrainInfoFile fileInfo = TerrainInfoFile((terrainDirPath / "height_info.json").string());
+    auto [readResult, fileInfo] = star::terrain::io::ReadTerrainInfo((terrainDirPath / "height_info.json").string());
     std::vector<std::shared_ptr<star::StarMaterial>> materials =
-        std::vector<std::shared_ptr<star::StarMaterial>>(fileInfo.infos().size());
+        std::vector<std::shared_ptr<star::StarMaterial>>(fileInfo.chunks.size());
 
-    for (size_t i = 0; i < fileInfo.infos().size(); i++)
+    for (size_t i = 0; i < fileInfo.chunks.size(); i++)
     {
         const std::filesystem::path *found = nullptr;
         auto files = star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(
-            terrainDir, fileInfo.infos()[i].textureFile);
+            terrainDir, fileInfo.chunks[i].textureFile);
         for (const auto &file : files)
         {
             if (file.extension() == ".ktx2")
@@ -115,7 +117,7 @@ std::vector<std::shared_ptr<star::StarMaterial>> Terrain::LoadMaterials(const st
         if (found == nullptr)
         {
             std::ostringstream oss;
-            oss << "Failed to find matching texture for file: " << fileInfo.infos()[i].textureFile << std::endl
+            oss << "Failed to find matching texture for file: " << fileInfo.chunks[i].textureFile << std::endl
                 << "Ensure terrains are prepared with compressed textures" << std::endl;
             STAR_THROW(oss.str());
         }

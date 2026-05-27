@@ -55,6 +55,7 @@ find_package(TBB CONFIG REQUIRED)
 set(starlight_common_DIR "${CMAKE_BINARY_DIR}/extern/Starlight-Common" CACHE PATH "")
 add_subdirectory("extern/Starlight-Common")
 add_subdirectory("extern/starlight")
+add_subdirectory("extern/Starlight-Terrain")
 
 if (NOT HEADLESS)
 	add_subdirectory("extern/Starlight-Windowing")
@@ -102,10 +103,8 @@ set(${PROJECT_NAME}_SOURCES
 	"src/CameraInfo.cpp"
 	"src/Screen.cpp"
 	"src/VolumeSampler.cpp"
-	"src/TerrainInfoFile.cpp"
 	"src/TerrainChunk.cpp"
 	"src/MathHelpers.cpp"
-	"src/TerrainChunkInfo.cpp"
 	"src/TerrainGrid.cpp"
 	"src/FogControlInfo.cpp"
 	"src/CopyDepthTextureToBuffer.cpp"
@@ -192,10 +191,8 @@ set(${PROJECT_NAME}_HEADERS
 	"include/CameraInfo.hpp"
 	"include/Screen.hpp"
 	"include/VolumeSampler.hpp"
-	"include/TerrainInfoFile.hpp"
 	"include/TerrainChunk.hpp"
 	"include/MathHelpers.hpp"
-	"include/TerrainChunkInfo.hpp"
 	"include/TerrainGrid.hpp"
 	"include/FogControlInfo.hpp"
 	"include/CopyDepthTextureToBuffer.hpp"
@@ -242,6 +239,7 @@ if (WIN32)
 		target_link_libraries(${PROJECT_NAME}_lib
 		PUBLIC 
 			Starlight::starlight
+			Starlight::terrain
 			OpenVDB::openvdb
 			GDAL::GDAL
 			TBB::tbb
@@ -251,6 +249,7 @@ if (WIN32)
 		target_link_libraries(${PROJECT_NAME}_lib
 		PUBLIC
 			Starlight::windowing
+			Starlight::terrain
 			OpenVDB::openvdb
 			GDAL::GDAL
 			TBB::tbb
@@ -264,6 +263,7 @@ else()
 		target_link_libraries(${PROJECT_NAME}_lib
 			PUBLIC 
 				Starlight::starlight
+				Starlight::terrain
 				OpenVDB::openvdb
 				GDAL::GDAL
 				TBB::tbb
@@ -274,6 +274,7 @@ else()
 		target_link_libraries(${PROJECT_NAME}_lib
 			PUBLIC 
 				starlight_windowing
+				Starlight::terrain
 				OpenVDB::openvdb
 				GDAL::GDAL
 				TBB::tbb
