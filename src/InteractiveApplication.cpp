@@ -61,7 +61,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     auto &d = context.getAllDevices().getData()[0];
     submitPasses(d);
 
-    const float moveAmount = 50.0f * dTime;
+    const float moveAmount = 500.0f * dTime;
     if (m_actDir[star::Type::Axis::x])
     {
         switch (m_mode)
