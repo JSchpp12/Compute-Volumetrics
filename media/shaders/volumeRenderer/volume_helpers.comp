@@ -12,7 +12,7 @@ Ray transformWorldRayToGridLocal(const in Ray worldRay, const in mat4 inverseMod
 Ray createGridLocalRay(vec3 origin, vec3 viewDirection, const in mat4 inverseModelMatrix)
 {
     const vec4 originLocal = inverseModelMatrix * vec4(origin, 1.0);
-    const vec4 viewDirectionLocal = inverseModelMatrix * vec4(viewDirection, 0.0); 
+    const vec4 viewDirectionLocal = inverseModelMatrix * vec4(viewDirection, 0.0);
     return createRay(originLocal.xyz, viewDirectionLocal.xyz);
 }
 
@@ -32,9 +32,7 @@ float gridReadAtIndex(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccessor_t
     ijk.z = int(floor(indexCoord.z));
 
     if (!pnanovdb_readaccessor_is_active(type, nanoVDBBuffer, acc, ijk))
-    {
-        return 0.0;
-    }
+        return 0.0f;
 
     pnanovdb_address_t address = pnanovdb_readaccessor_get_value_address(type, nanoVDBBuffer, acc, ijk);
     return pnanovdb_read_float(nanoVDBBuffer, address);
@@ -56,12 +54,12 @@ float gridReadAtTrilinear(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccess
     // Sample all 8 corners of the surrounding voxel cube
     vec3 i000 = vec3(floor(indexCoord.x), floor(indexCoord.y), floor(indexCoord.z));
     {
-        pnanovdb_coord_t ijk; 
-        ijk.x = int(i000.x); 
+        pnanovdb_coord_t ijk;
+        ijk.x = int(i000.x);
         ijk.y = int(i000.y);
         ijk.z = int(i000.z);
         if (!pnanovdb_readaccessor_is_active(type, nanoVDBBuffer, acc, ijk))
-            return 0.0;
+            return 0.0f;
     }
 
     float v000 = gridReadAtIndex(grid, acc, type, i000);
@@ -76,7 +74,7 @@ float gridReadAtTrilinear(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccess
     // Fractional part for interpolation weights
     vec3 f = vec3(indexCoord.x - floor(indexCoord.x), indexCoord.y - floor(indexCoord.y),
                   indexCoord.z - floor(indexCoord.z));
-                  
+
     // Trilinear interpolation - lerp along x, then y, then z
     float v00 = mix(v000, v100, f.x);
     float v10 = mix(v010, v110, f.x);
@@ -116,8 +114,8 @@ bool rayBoxIntersect(in pnanovdb_grid_handle_t grid, in Ray gridRay, inout float
     float tmax = (1.0 / 0.0);
     float txmin = 0, txmax = 0, tymin = 0, tymax = 0, tzmin = 0, tzmax = 0;
 
-    vec3 invDir = vec3(1.0, 1.0, 1.0); 
-    bool signed[3]; 
+    vec3 invDir = vec3(1.0, 1.0, 1.0);
+    bool signed[3];
     inverseRayForAABB(gridRay, invDir, signed);
 
     txmin = (bounds[int(signed[0])].x - gridRay.origin.x) * invDir.x;
