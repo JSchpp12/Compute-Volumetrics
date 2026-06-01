@@ -31,6 +31,11 @@ float gridReadAtIndex(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccessor_t
     ijk.y = int(floor(indexCoord.y));
     ijk.z = int(floor(indexCoord.z));
 
+    if (!pnanovdb_readaccessor_is_active(type, nanoVDBBuffer, acc, ijk))
+    {
+        return 0.0;
+    }
+
     pnanovdb_address_t address = pnanovdb_readaccessor_get_value_address(type, nanoVDBBuffer, acc, ijk);
     return pnanovdb_read_float(nanoVDBBuffer, address);
 }
@@ -50,6 +55,15 @@ float gridReadAtTrilinear(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccess
 
     // Sample all 8 corners of the surrounding voxel cube
     vec3 i000 = vec3(floor(indexCoord.x), floor(indexCoord.y), floor(indexCoord.z));
+    {
+        pnanovdb_coord_t ijk; 
+        ijk.x = int(i000.x); 
+        ijk.y = int(i000.y);
+        ijk.z = int(i000.z);
+        if (!pnanovdb_readaccessor_is_active(type, nanoVDBBuffer, acc, ijk))
+            return 0.0;
+    }
+
     float v000 = gridReadAtIndex(grid, acc, type, i000);
     float v100 = gridReadAtIndex(grid, acc, type, i000 + vec3(1, 0, 0));
     float v010 = gridReadAtIndex(grid, acc, type, i000 + vec3(0, 1, 0));
