@@ -15,7 +15,7 @@ static std::vector<std::filesystem::path> ListFiles(const std::filesystem::path 
 
     if (!std::filesystem::exists(dir))
     {
-        STAR_THROW("Provided path to ListFiles does not exist: " + dir.string()); 
+        STAR_THROW("Provided path to ListFiles does not exist: " + dir.string());
     }
 
     for (const auto &entry : std::filesystem::directory_iterator(dir))
@@ -85,14 +85,23 @@ void VolumeDirectoryProcessor::init()
     decompressAllFiles();
 }
 
+static std::filesystem::path CreateDstPath(const std::filesystem::path &dataDir, const std::filesystem::path &tmpDir)
+{
+    return tmpDir / dataDir.filename();
+}
+
 void VolumeDirectoryProcessor::decompressAllFiles()
 {
     const std::vector<std::filesystem::path> filesToDecompress = ListFiles(m_dataDir);
     m_processedFiles.resize(filesToDecompress.size());
 
+    const auto dstDir = CreateDstPath(m_dataDir, m_tmpWorkingDir);
+    if (!std::filesystem::exists(dstDir))
+        std::filesystem::create_directory(dstDir);
+
     for (size_t i{0}; i < filesToDecompress.size(); i++)
     {
-        m_processedFiles[i] = VolumeFile(filesToDecompress[i], m_tmpWorkingDir / filesToDecompress[i].filename());
+        m_processedFiles[i] = VolumeFile(filesToDecompress[i], dstDir / filesToDecompress[i].parent_path().filename());
     }
 
     star::core::logging::info("Dispatching threads to decompress all files");
