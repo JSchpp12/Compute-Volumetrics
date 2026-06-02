@@ -75,7 +75,9 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const 
             break;
         }
 
-        const float t = stepStart + jitter * ds;
+        const uint stepSeed = hash_u32(seed + uint(i));   // ← unique per step
+        const float stepJitter = rand01(stepSeed);
+        const float t = stepStart + stepJitter * ds;
         const vec3 marchPos = ray.origin.xyz + (t * ray.direction.xyz);
         float pDensity = gridReadAt(grid, acc, gType, marchPos, true) * densityMultiplier;
         if (pDensity == 0.0f)
@@ -130,7 +132,9 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const 
                     {
                         const float lStepEnd = min(lStepStart + lightStepSize, lMarchStopDist);
                         const float lds = lStepEnd - lStepStart;
-                        const float lt = lStepStart + lightJitter * lds;
+                        const uint lStepSeed = hash_u32(lightSeed + uint(k));  // ← unique per light step
+                        const float lStepJitter = rand01(lStepSeed);
+                        const float lt = lStepStart + lStepJitter * lds;
 
                         const vec3 lMarchPos = rayToLight.origin.xyz + (lt * rayToLight.direction.xyz);
                         float lDensity = (gridReadAt(grid, acc, gType, lMarchPos, true) * densityMultiplier);
