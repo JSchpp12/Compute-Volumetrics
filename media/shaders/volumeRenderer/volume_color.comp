@@ -138,13 +138,18 @@ void main()
     Ray localRay;
     localRay.origin = vec4(rayState.origin, 1.0);
     localRay.direction = vec4(rayState.direction, 0.0);
+    const vec4 randomValues = imageLoad(randomTexture, rayState.targetPixel);
+
     forwardMarch(grid, uvec2(rayState.targetPixel), resultingColor, localRay, rayState.t0, rayState.tEnd,
                  inverseModelMatrix, fogInfo.marchedFog_sigmaAbsorption * scale,
                  fogInfo.marchedFog_sigmaScattering * scale, fogInfo.marchedFog_lightPropertyDirG,
                  fogInfo.marchedFog_stepSizeDist / scale, fogInfo.marchedFog_stepSizeDist_light / scale,
-                 rayState.localDepthDistance, imageLoad(randomTexture, rayState.targetPixel),
-                 fogInfo.marchedFog_defaultDensity, fogInfo.marchedFog_densityMultiplier,
-                 fogInfo.marchedFog_cutoffValue, 0u, resultingColor, rayState.rayDistanceTraveled);
+                 rayState.localDepthDistance, randomValues, fogInfo.marchedFog_defaultDensity,
+                 fogInfo.marchedFog_densityMultiplier, fogInfo.marchedFog_cutoffValue, 0u, resultingColor,
+                 rayState.rayDistanceTraveled);
 
+    //apply triangular noise distribution function for banding
+    float tpdfNoise = (randomValues.r + randomValues.g - 1.0) / 255; 
+    resultingColor += vec3(tpdfNoise); 
     imageStore(outputImage, rayState.targetPixel, vec4(resultingColor, 1.0));
 }
