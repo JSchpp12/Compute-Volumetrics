@@ -185,6 +185,9 @@ void SimulationControllerService::incrementMarched(Volume &volume, float t) cons
     volume.getRenderer().getFogInfo().marchedInfo.setCutoffValue(
         m_loadedSteps.start.marchedInfo.getCutoffValue() +
         t * m_loadedSteps.fogInfoChanges.marchedInfo.getCutoffValue());
+    volume.getRenderer().getFogInfo().marchedInfo.setLightExtinctionScale(
+        m_loadedSteps.start.marchedInfo.getLightExtinctionScale() +
+        t * m_loadedSteps.fogInfoChanges.marchedInfo.getLightExtinctionScale());
 }
 
 bool SimulationControllerService::isDone() const

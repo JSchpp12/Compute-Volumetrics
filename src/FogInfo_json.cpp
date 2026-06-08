@@ -1,28 +1,32 @@
-#include "FogInfo.hpp"
 #include "FogInfo_json.hpp"
+#include "structs/ExpFogInfo.hpp"
+#include "structs/FogInfo.hpp"
+#include "structs/HomogenousRendering.hpp"
+#include "structs/LinearFogInfo.hpp"
+#include "structs/MarchedFogInfo.hpp"
 
-void to_json(nlohmann::json &j, const ::FogInfo::LinearFogInfo &v)
+void to_json(nlohmann::json &j, const LinearFogInfo &v)
 {
     j = nlohmann::json{{"nearDist", v.nearDist}, {"farDist", v.farDist}};
 }
 
-void from_json(const nlohmann::json &j, ::FogInfo::LinearFogInfo &v)
+void from_json(const nlohmann::json &j, LinearFogInfo &v)
 {
     v.nearDist = j.value("nearDist", v.nearDist);
     v.farDist = j.value("farDist", v.farDist);
 }
 
-void to_json(nlohmann::json &j, const FogInfo::ExpFogInfo &v)
+void to_json(nlohmann::json &j, const ExpFogInfo &v)
 {
     j = nlohmann::json{{"density", v.density}};
 }
 
-void from_json(const nlohmann::json &j, FogInfo::ExpFogInfo &v)
+void from_json(const nlohmann::json &j, ExpFogInfo &v)
 {
     v.density = j.value("density", v.density);
 }
 
-void to_json(nlohmann::json &j, const FogInfo::MarchedFogInfo &v)
+void to_json(nlohmann::json &j, const MarchedFogInfo &v)
 {
     j = nlohmann::json{{"defaultDensity", v.defaultDensity},
                        {"sigmaAbsorption", v.getSigmaAbsorption()},
@@ -31,10 +35,11 @@ void to_json(nlohmann::json &j, const FogInfo::MarchedFogInfo &v)
                        {"stepSizeDist", v.stepSizeDist},
                        {"stepSizeDist_light", v.stepSizeDist_light},
                        {"densityMultiplier", v.getDensityMultiplier()},
-                       {"cutoffValue", v.getCutoffValue()}};
+                       {"cutoffValue", v.getCutoffValue()},
+                       {"lightExtinctionScale", v.getLightExtinctionScale()}};
 }
 
-void from_json(const nlohmann::json &j, FogInfo::MarchedFogInfo &v)
+void from_json(const nlohmann::json &j, MarchedFogInfo &v)
 {
     // Public fields
     v.defaultDensity = j.value("defaultDensity", v.defaultDensity);
@@ -47,20 +52,22 @@ void from_json(const nlohmann::json &j, FogInfo::MarchedFogInfo &v)
     const float g = j.value("lightPropertyDirG", v.getLightPropertyDirG());
     const float densityMulti = j.value("densityMultiplier", v.getDensityMultiplier());
     const float cutoffValue = j.value("cutoffValue", v.getCutoffValue());
+    const float lightExtinctionScale = j.value("lightExtinctionScale", v.getLightExtinctionScale());
 
     v.setSigmaAbsorption(sigmaAbs);
     v.setSigmaScattering(sigmaSca);
     v.setLightPropertyDirG(g);
     v.setDensityMultiplier(densityMulti);
     v.setCutoffValue(cutoffValue);
+    v.setLightExtinctionScale(lightExtinctionScale);
 }
 
-void to_json(nlohmann::json &j, const FogInfo::HomogenousRendering &v)
+void to_json(nlohmann::json &j, const HomogenousRendering &v)
 {
     j = nlohmann::json{{"maxNumSteps", v.maxNumSteps}};
 }
 
-void from_json(const nlohmann::json &j, FogInfo::HomogenousRendering &v)
+void from_json(const nlohmann::json &j, HomogenousRendering &v)
 {
     v.maxNumSteps = j.value("maxNumSteps", v.maxNumSteps);
 }

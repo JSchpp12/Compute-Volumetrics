@@ -1,7 +1,7 @@
 #pragma once
 
 #include "FogControlInfo.hpp"
-#include "FogInfo.hpp"
+#include "structs/FogInfo.hpp"
 #include "FogType.hpp"
 #include "ManagerController_RenderResource_Buffer.hpp"
 #include "OffscreenRenderer.hpp"
