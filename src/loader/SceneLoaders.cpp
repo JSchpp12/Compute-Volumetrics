@@ -94,8 +94,8 @@ SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const 
     constexpr uint8_t numCubes{3};
 
     SceneDescription desc;
-     //desc.addObject(LoadTerrain(ctx, terrainPath));
-    desc.addObject(LoadHorse(ctx, mediaDirPath));
+     desc.addObject(LoadTerrain(ctx, terrainPath));
+    //desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addDeugSquare(LoadCube(ctx, numCubes), loader::DebugCubeComponent{numCubes});
     return desc;
 }
