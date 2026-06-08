@@ -10,11 +10,11 @@
 #include "ScreenMaterial.hpp"
 #include "StarCamera.hpp"
 #include "StarCommandBuffer.hpp"
-#include "StarObject.hpp"
 #include "VertColorMaterial.hpp"
 #include "Vertex.hpp"
 #include "VolumeDirectoryProcessor.hpp"
 #include "renderer/VolumeRenderer.hpp"
+#include "starlight/object/StarObject.hpp"
 
 #include <openvdb/Grid.h>
 #include <openvdb/openvdb.h>
@@ -149,7 +149,7 @@ class Volume : public star::StarObject
 
     void convertToFog(openvdb::FloatGrid::Ptr &grid);
 
-    std::vector<std::unique_ptr<star::StarMesh>> loadMeshes(star::core::device::DeviceContext &context) override;
+    std::vector<star::StarMesh> loadMeshes(star::core::device::DeviceContext &context) override;
 
     // virtual void recordRenderPassCommands(vk::CommandBuffer &commandBuffer, vk::PipelineLayout &pipelineLayout,
     //                                       int swapChainIndexNum) override;

@@ -2,20 +2,19 @@
 
 #include "DeclareDependentPasses.hpp"
 #include "OffscreenRenderer.hpp"
-#include "Terrain.hpp"
-#include "command/image_metrics/RegisterTerrainRecordInfo.hpp"
 #include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
+#include "loader/SceneLoaders.hpp"
 #include "renderer/finalization/Headless.hpp"
+#include "util/Distance.hpp"
 
 #include <starlight/command/CreateLight.hpp>
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
 #include <starlight/command/detail/create_object/DirectObjCreation.hpp>
-#include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/command/headless_render_result_write/GetFileNameForFrame.hpp>
 #include <starlight/command/headless_render_result_write/GetSetOutputDir.hpp>
 #include <starlight/common/ConfigFile.hpp>
@@ -72,51 +71,49 @@ static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus
                       .setSignalValue(++currentNumTimesFrameProcessed));
 }
 
-OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::DeviceContext &context,
+OffscreenRenderer Application::createOffscreenRenderer(star::core::device::DeviceContext &context,
                                                        const uint8_t &numFramesInFlight,
                                                        std::shared_ptr<star::StarCamera> camera,
                                                        const std::string &terrainPath,
                                                        std::shared_ptr<std::vector<star::Light>> mainLight)
 {
+    assert(m_loaderFn);
+
     std::vector<std::shared_ptr<star::StarObject>> objects;
-    const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
+    const std::filesystem::path mediaPath{star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)};
 
+    auto desc = m_loaderFn(context, mediaPath, terrainPath);
+    objects.reserve(desc.getCount());
+    for (uint32_t i{0}; i < desc.getCount(); i++)
     {
-        auto cmd = star::command::CreateObject::Builder()
-                       .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-                           std::make_shared<Terrain>(context, terrainPath)))
-                       .setUniqueName("terrain")
-                       .build();
-        context.begin().set(cmd).submit();
-        cmd.getReply().get()->init(context);
+        auto obj = desc.getObject(i);
+        assert(obj != nullptr && "Container did not provide object");
 
-        // register the terrain information with the image metric manager for cache
+        auto *sqComponent = desc.getSquareComponent(i);
+
+        if (sqComponent != nullptr)
         {
-            const auto *terrain = static_cast<const Terrain *>(cmd.getReply().get().get());
-            context.getCmdBus().submit(image_metrics::RegisterTerrainRecordInfo{}
-                                           .setTerrainHeightFilePath(terrain->getShapeFilePath())
-                                           .setTerrainRenderingType(terrain->getTerrainRenderingType()));
+            m_debugCubeInfo =
+                std::make_optional(DebugCubeInfo{.debugCube = obj, .numCubes = sqComponent->numberOfDebugSquares});
+
+            for (uint8_t i{0}; i < sqComponent->numberOfDebugSquares; i++)
+            {
+                obj->createInstance();
+            }
+
+            placeDebugCubes(*camera);
         }
 
-        objects.emplace_back(cmd.getReply().get());
+        objects.push_back(std::move(obj));
     }
 
-    //{
-    //    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    //    auto cmd = star::command::CreateObject::Builder()
-    //                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-    //                   .setUniqueName("horse")
-    //                   .build();
-    //    context.begin().set(cmd).submit();
-    //    cmd.getReply().get()->init(context);
-    //    objects.emplace_back(cmd.getReply().get());
-    //}
+    m_loaderFn = nullptr;
 
     return {context, objects, std::move(mainLight), camera};
 }
 
-Application::Application(std::string terrainPath, std::string volumeName)
-    : m_terrainDir(std::move(terrainPath)), m_volumeName(std::move(volumeName))
+Application::Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName)
+    : m_loaderFn(std::move(objectLoader)), m_terrainDir(std::move(terrainPath)), m_volumeName(std::move(volumeName))
 {
     // const std::filesystem::path terrain(m_terrainDir);
     // if (!std::filesystem::exists(terrain))
@@ -154,10 +151,10 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         star::common::casts::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
     }
 
-    star::StarObjectInstance *volumeInstance = nullptr;
+    star::StarEntity *volumeInstance = nullptr;
     {
         auto oRenderer =
-            star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_terrainDir, m_mainLight));
+            star::common::Renderer(createOffscreenRenderer(context, numInFlight, camera, m_terrainDir, m_mainLight));
         m_offRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
         for (auto &object : m_offRenderer->getObjects())
@@ -221,7 +218,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     //     .setConsumer()
     //     .setProducer()
 
-    m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0001f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 150.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 300.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.001f);
@@ -274,6 +271,22 @@ void Application::frameUpdate(star::core::SystemContext &context)
 
         TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
         triggerImageRecord(d, d.frameTracker(), cmd.getReply().get());
+    }
+}
+
+void Application::placeDebugCubes(const star::StarCamera &cam)
+{
+    assert(m_debugCubeInfo && "Debug cubes object was never registered");
+
+    glm::vec3 pos{}, scale{10.0f, 1000.0f, 10.0f};
+    for (uint8_t i{0}; i < m_debugCubeInfo.value().numCubes; i++)
+    {
+        pos.x = cam.getPosition().x + (cam.getForwardVector().x * util::metersToMiles(i));
+        pos.y = cam.getPosition().y + (cam.getForwardVector().y * util::mileToMeters(i)) + 500.0f;
+        pos.z = cam.getPosition().z + (cam.getForwardVector().z * util::mileToMeters(i)) + (5.0f * i);
+        auto &instance = m_debugCubeInfo.value().debugCube->getInstance(i);
+        instance.setPosition(std::move(pos));
+        instance.setScale(scale);
     }
 }
 

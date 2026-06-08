@@ -212,30 +212,28 @@ float Volume::henyeyGreensteinPhase(const glm::vec3 &viewDirection, const glm::v
     return 1.0f / (4.0f * glm::pi<float>()) * (1.0f - gValue * gValue) / denom;
 }
 
-std::vector<std::unique_ptr<star::StarMesh>> Volume::loadMeshes(star::core::device::DeviceContext &context)
+std::vector<star::StarMesh> Volume::loadMeshes(star::core::device::DeviceContext &context)
 {
-    std::vector<std::unique_ptr<star::StarMesh>> meshes;
+    std::vector<star::StarMesh> meshes;
 
-    auto verts = std::vector<star::Vertex>{star::Vertex{glm::vec3{-1.0f, -1.0f, 0.0f}, // position
-                                                        glm::vec3{0.0f, 1.0f, 0.0f},   // normal - posy
-                                                        glm::vec3{0.0f, 1.0f, 0.0f},   // color
-                                                        glm::vec2{0.0f, 0.0f}},
-                                           star::Vertex{glm::vec3{1.0f, -1.0f, 0.0f}, // position
-                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
-                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // color
-                                                        glm::vec2{1.0f, 0.0f}},
-                                           star::Vertex{glm::vec3{1.0f, 1.0f, 0.0f}, // position
-                                                        glm::vec3{0.0f, 1.0f, 0.0f}, // normal - posy
-                                                        glm::vec3{1.0f, 0.0f, 0.0f}, // color
-                                                        glm::vec2{1.0f, 1.0f}},
-                                           star::Vertex{glm::vec3{-1.0f, 1.0f, 0.0f}, // position
-                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
-                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // color
-                                                        glm::vec2{0.0f, 1.0f}}};
+    std::vector<star::Vertex> verts{star::Vertex{glm::vec3{-1.0f, -1.0f, 0.0f}, // position
+                                                 glm::vec3{0.0f, 1.0f, 0.0f},   // normal - posy
+                                                 glm::vec3{0.0f, 1.0f, 0.0f},   // color
+                                                 glm::vec2{0.0f, 0.0f}},
+                                    star::Vertex{glm::vec3{1.0f, -1.0f, 0.0f}, // position
+                                                 glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
+                                                 glm::vec3{0.0f, 1.0f, 0.0f},  // color
+                                                 glm::vec2{1.0f, 0.0f}},
+                                    star::Vertex{glm::vec3{1.0f, 1.0f, 0.0f}, // position
+                                                 glm::vec3{0.0f, 1.0f, 0.0f}, // normal - posy
+                                                 glm::vec3{1.0f, 0.0f, 0.0f}, // color
+                                                 glm::vec2{1.0f, 1.0f}},
+                                    star::Vertex{glm::vec3{-1.0f, 1.0f, 0.0f}, // position
+                                                 glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
+                                                 glm::vec3{0.0f, 1.0f, 0.0f},  // color
+                                                 glm::vec2{0.0f, 1.0f}}};
 
-    std::vector<uint32_t> inds = std::vector<uint32_t>{0, 3, 2, 0, 2, 1};
-
-    auto newMeshes = std::vector<std::unique_ptr<star::StarMesh>>();
+    std::vector<uint32_t> inds{0, 3, 2, 0, 2, 1};
 
     const auto vertSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
@@ -250,10 +248,8 @@ std::vector<std::unique_ptr<star::StarMesh>> Volume::loadMeshes(star::core::devi
         context.getDeviceID(), context.getSemaphoreManager().get(indSemaphore)->semaphore,
         std::make_unique<star::TransferRequest::IndicesInfo>(this->graphicsQueueFamily, inds));
 
-    newMeshes.emplace_back(std::make_unique<star::StarMesh>(vertBuffer, indBuffer, verts, inds, m_meshMaterials.at(0),
-                                                            this->aabbBounds[0], this->aabbBounds[1], false));
-
-    return newMeshes;
+    return {star::StarMesh{vertBuffer, indBuffer, verts, inds, m_meshMaterials.at(0), this->aabbBounds[0],
+                           this->aabbBounds[1], false}};
 }
 
 openvdb::Mat4R Volume::getTransform(const glm::mat4 &objectDisplayMat)

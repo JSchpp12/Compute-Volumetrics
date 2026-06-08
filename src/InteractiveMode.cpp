@@ -2,6 +2,7 @@
 
 #ifdef STAR_ENABLE_PRESENTATION
 
+#include "loader/SceneLoaders.hpp"
 #include "InteractiveApplication.hpp"
 #include "policy/WindowedEngineInitPolicy.hpp"
 
@@ -23,7 +24,7 @@ int InteractiveMode::run(std::unique_ptr<AppConfig> cfg)
     win_loop windowLoop{winContext};
     win_exit windowExit{winContext};
 
-    InteractiveApplication application(std::move(cfg->terrainDir), std::move(cfg->volumeName), &winContext);
+    InteractiveApplication application(&loader::DebugSceneLoader, std::move(cfg->terrainDir), std::move(cfg->volumeName), &winContext);
     auto engine = star::StarEngine<policy::WindowEngineInitPolicy, win_loop, win_exit>(
         std::move(windowInit), std::move(windowLoop), std::move(windowExit), application);
 

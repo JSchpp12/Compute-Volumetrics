@@ -181,6 +181,12 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
             m_triggerScreenshot = false;
         }
     }
+
+    if (m_updateDebugCubes)
+    {
+        placeDebugCubes(*m_mainScene->getCamera());
+        m_updateDebugCubes = false; 
+    }
 }
 
 void InteractiveApplication::initListeners(star::core::device::DeviceContext &context)
@@ -389,15 +395,6 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         m_volume->setFogType(Fog::Type::sMarchedHomogenous);
     }
 
-    if (key == GLFW_KEY_V)
-    {
-        const auto camPos = this->m_mainScene->getCamera()->getPosition();
-        std::ostringstream oss;
-
-        star::core::logging::info("Cam position: " + std::to_string(camPos.x) + ',' + std::to_string(camPos.y) + ',' +
-                                  std::to_string(camPos.z));
-    }
-
     if (key == GLFW_KEY_O)
     {
         glm::vec3 newScale = static_cast<const star::StarObject *>(m_volume.get())->getInstance(0).getScale();
@@ -438,6 +435,11 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         m_actDir[0] = false;
         m_actDir[1] = false;
         m_actDir[2] = false;
+    }
+
+    if (key == GLFW_KEY_V)
+    {
+        m_updateDebugCubes = true; 
     }
 }
 
@@ -490,7 +492,7 @@ std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star:
                       .setHorizontalFieldOfView(90.0f)
                       .setNearClippingPlaneDistance(0.5f)
                       .setFarClippingPlaneDistance(25000.0f)
-                      .setMovementSpeed(1000.0f)
+                      .setMovementSpeed(50.0f)
                       .setSensitivity(0.1f)
                       .buildShared();
 

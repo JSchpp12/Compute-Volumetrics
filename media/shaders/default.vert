@@ -2,8 +2,8 @@
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inNormal; 
-layout(location = 2) in vec3 inColor;		//vertex color
-layout(location = 3) in vec2 inTexCoord;	//texture coordinate for vertex 
+layout(location = 2) in vec3 inColor;		
+layout(location = 3) in vec2 inTexCoord; 
 layout(location = 4) in vec3 inTangent; 
 layout(location = 5) in vec3 inBiTangent; 
 //per veterx materials
@@ -59,5 +59,4 @@ void main() {
 	outFragMatSpecular = inMatSpecular; 
 	outFragMatShininess = inMatShininess; 
 	outTBNMat = mat3(T, B, N); 
-
 }

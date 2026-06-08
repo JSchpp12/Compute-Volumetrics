@@ -13,9 +13,9 @@ class InteractiveApplication : public Application,
                                private star::windowing::HandleKeyPressPolicy<InteractiveApplication>
 {
   public:
-    InteractiveApplication(std::string terrainDir, std::string volumeName,
+    InteractiveApplication(LoaderFn objectLoader, std::string terrainDir, std::string volumeName,
                            star::windowing::WindowingContext *winContext)
-        : Application(std::move(terrainDir), std::move(volumeName)),
+        : Application(std::move(objectLoader), std::move(terrainDir), std::move(volumeName)),
           star::windowing::HandleKeyReleasePolicy<InteractiveApplication>(*this),
           star::windowing::HandleKeyPressPolicy<InteractiveApplication>(*this), m_winContext(winContext)
     {
@@ -40,12 +40,13 @@ class InteractiveApplication : public Application,
     friend class star::windowing::HandleKeyPressPolicy<InteractiveApplication>;
     star::windowing::WindowingContext *m_winContext = nullptr;
     ModifyMode m_mode{ModifyMode::movement};
-    std::chrono::time_point<std::chrono::steady_clock> m_timeLastFrame; 
+    std::chrono::time_point<std::chrono::steady_clock> m_timeLastFrame;
 
     bool m_switchMode{false};
     bool m_actDir[3]{false, false, false};
     bool m_invAct{false};
     bool m_triggerScreenshot{false};
+    bool m_updateDebugCubes{false};
 
     void onKeyRelease(const int &key, const int &scancode, const int &mods);
 
