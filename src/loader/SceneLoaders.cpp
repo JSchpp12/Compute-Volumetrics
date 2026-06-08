@@ -64,14 +64,7 @@ static std::shared_ptr<star::StarObject> LoadCube(star::core::device::DeviceCont
         cubeDesc.push_back({.color = color});
     }
 
-    auto cmd = star::command::CreateObject::Builder()
-                   .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-                       star::debug::CreateCube(std::move(cubeDesc))))
-                   .setUniqueName("debugCube")
-                   .build();
-
-    ctx.getCmdBus().submit(cmd);
-    return cmd.getReply().get();
+    return star::debug::CreateCube(std::move(cubeDesc));
 }
 
 static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceContext &ctx,
@@ -91,7 +84,7 @@ static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceCon
 SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
                                   const std::filesystem::path &terrainPath)
 {
-    constexpr uint8_t numCubes{3};
+    constexpr uint8_t numCubes{15};
 
     SceneDescription desc;
      desc.addObject(LoadTerrain(ctx, terrainPath));

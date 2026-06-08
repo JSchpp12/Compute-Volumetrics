@@ -184,8 +184,8 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 
     if (m_updateDebugCubes)
     {
-        placeDebugCubes(*m_mainScene->getCamera());
-        m_updateDebugCubes = false; 
+        placeDebugCubes(m_mainScene->getCamera()->getForwardVector(), m_mainScene->getCamera()->getPosition());
+        //m_updateDebugCubes = false;
     }
 }
 
@@ -439,7 +439,7 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
     if (key == GLFW_KEY_V)
     {
-        m_updateDebugCubes = true; 
+        m_updateDebugCubes = true;
     }
 }
 

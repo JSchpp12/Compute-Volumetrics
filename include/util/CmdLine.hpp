@@ -16,4 +16,6 @@ std::string GetConfigFilePath(int argc, char **argv);
 std::string GetVolumeDirPath(int argc, char **argv);
 
 std::optional<int> TryGetDeviceIndexOverride(int argc, char **argv);
+
+bool DoesContainEnableDebugging(int argc, char **argv); 
 } // namespace util::CmdLine

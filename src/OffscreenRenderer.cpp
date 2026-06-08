@@ -435,7 +435,6 @@ star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::ge
 
 void OffscreenRenderer::prepRender(star::common::IDeviceContext &c)
 {
-
     auto &context = static_cast<star::core::device::DeviceContext &>(c);
 
     m_cmdBus = &context.getCmdBus();

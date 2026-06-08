@@ -104,7 +104,8 @@ class Volume : public star::StarObject
     virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
 
     virtual void frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
-                             const star::Handle &targetCommandBuffer) override;
+                             const star::Handle &targetCommandBuffer,
+                             const star::core::graphics::GPUWorkSyncInfo &transferRequestSync) override;
 
     glm::vec3 getCenterOfVDB() const
     {

@@ -3,8 +3,9 @@
 #include "OffscreenRenderer.hpp"
 #include "StarApplication.hpp"
 #include "Volume.hpp"
-#include "renderer/finalization/IFinalizationRenderer.hpp"
+#include "command/sim_controller/TriggerUpdate.hpp"
 #include "loader/SceneDescription.hpp"
+#include "renderer/finalization/IFinalizationRenderer.hpp"
 
 #include <functional>
 #include <memory>
@@ -30,7 +31,7 @@ class Application : public star::StarApplication
     struct DebugCubeInfo
     {
         std::shared_ptr<star::StarObject> debugCube;
-        uint8_t numCubes{0}; 
+        uint8_t numCubes{0};
     };
 
     LoaderFn m_loaderFn;
@@ -53,7 +54,7 @@ class Application : public star::StarApplication
 
     void frameUpdate(star::core::SystemContext &context) override;
 
-    void placeDebugCubes(const star::StarCamera &cam); 
+    void placeDebugCubes(const glm::vec3 &direction, const glm::vec3 &startPosition);
 
     void setHeadlessServiceOutputDir(star::core::device::DeviceContext &context) const;
 
@@ -71,7 +72,8 @@ class Application : public star::StarApplication
 
     static bool CheckIfControllerIsDone(star::core::CommandBus &cmd);
 
-    static void TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume, star::StarCamera &camera);
+    static sim_controller::UpdateStatus TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume,
+                                                         star::StarCamera &camera);
 
     static float PromptForFloat(const std::string &prompt, const bool &allowNegative = false);
 
@@ -82,13 +84,11 @@ class Application : public star::StarApplication
     static int ProcessIntInput();
 
     OffscreenRenderer createOffscreenRenderer(star::core::device::DeviceContext &context,
-                                                     const uint8_t &numFramesInFlight,
-                                                     std::shared_ptr<star::StarCamera> camera,
-                                                     const std::string &terrainPath,
-                                                     std::shared_ptr<std::vector<star::Light>> mainLight);
+                                              const uint8_t &numFramesInFlight,
+                                              std::shared_ptr<star::StarCamera> camera, const std::string &terrainPath,
+                                              std::shared_ptr<std::vector<star::Light>> mainLight);
 
     static star::Light CreateMainLight(glm::vec3 position);
 
     static void SetVolumeToCamera(Volume &volume, star::StarCamera &camera);
-
 };

@@ -46,6 +46,7 @@ std::string GetSimControllerFilePath(int argc, char **argv)
 
     return controllerPath.value();
 }
+
 std::string GetConfigFilePath(int argc, char **argv)
 {
     auto file = util::CmdLine::TryGetArgValue(argc, argv, "--config");
@@ -63,6 +64,7 @@ std::string GetVolumeDirPath(int argc, char **argv)
 
     return dir.value();
 }
+
 std::optional<int> TryGetDeviceIndexOverride(int argc, char **argv)
 {
     auto value = util::CmdLine::TryGetArgValue(argc, argv, "--forceRenderingDeviceIndex");
@@ -70,5 +72,18 @@ std::optional<int> TryGetDeviceIndexOverride(int argc, char **argv)
         return std::nullopt;
 
     return std::stoi(value.value());
+}
+
+bool DoesContainEnableDebugging(int argc, char **argv)
+{
+    for (int i{0}; i < argc; i++)
+    {
+        std::string arg = argv[i];
+        if (arg == "--enableDistanceDebugging")
+        {
+            return true;
+        }
+    }
+    return false;
 }
 } // namespace util::CmdLine

@@ -135,9 +135,10 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
 }
 
 void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
-                         const star::Handle &targetCommandBuffer)
+                         const star::Handle &targetCommandBuffer,
+                         const star::core::graphics::GPUWorkSyncInfo &transferRequestSync)
 {
-    star::StarObject::frameUpdate(context, frameInFlightIndex, targetCommandBuffer);
+    star::StarObject::frameUpdate(context, frameInFlightIndex, targetCommandBuffer, transferRequestSync);
 
     if (isReady)
     {

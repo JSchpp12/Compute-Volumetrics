@@ -5,8 +5,6 @@
 #include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
-#include "command/sim_controller/TriggerUpdate.hpp"
-#include "loader/SceneLoaders.hpp"
 #include "renderer/finalization/Headless.hpp"
 #include "util/Distance.hpp"
 
@@ -96,12 +94,7 @@ OffscreenRenderer Application::createOffscreenRenderer(star::core::device::Devic
             m_debugCubeInfo =
                 std::make_optional(DebugCubeInfo{.debugCube = obj, .numCubes = sqComponent->numberOfDebugSquares});
 
-            for (uint8_t i{0}; i < sqComponent->numberOfDebugSquares; i++)
-            {
-                obj->createInstance();
-            }
-
-            placeDebugCubes(*camera);
+            placeDebugCubes(camera->getForwardVector(), camera->getPosition());
         }
 
         objects.push_back(std::move(obj));
@@ -269,24 +262,35 @@ void Application::frameUpdate(star::core::SystemContext &context)
         auto cmd = star::headless_render_result_write::GetFileNameForFrame();
         d.begin().set(cmd).submit();
 
-        TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
+        const auto result = TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
+        if (m_debugCubeInfo.has_value() && result.cameraViewDirection)
+            placeDebugCubes(m_mainScene->getCamera()->getForwardVector(), m_mainScene->getCamera()->getPosition());
+
         triggerImageRecord(d, d.frameTracker(), cmd.getReply().get());
     }
 }
 
-void Application::placeDebugCubes(const star::StarCamera &cam)
+void Application::placeDebugCubes(const glm::vec3 &direction, const glm::vec3 &startPosition)
 {
     assert(m_debugCubeInfo && "Debug cubes object was never registered");
 
-    glm::vec3 pos{}, scale{10.0f, 1000.0f, 10.0f};
+    constexpr float degPerStep = 3.0f;
+    constexpr glm::vec3 rotAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+
+    glm::vec3 offset{}, scale{20.0f, 20000.0f, 20.0f};
+    float rotDeg = degPerStep;
     for (uint8_t i{0}; i < m_debugCubeInfo.value().numCubes; i++)
     {
-        pos.x = cam.getPosition().x + (cam.getForwardVector().x * util::metersToMiles(i));
-        pos.y = cam.getPosition().y + (cam.getForwardVector().y * util::mileToMeters(i)) + 500.0f;
-        pos.z = cam.getPosition().z + (cam.getForwardVector().z * util::mileToMeters(i)) + (5.0f * i);
+        const glm::quat rotQuat = glm::angleAxis(glm::radians(rotDeg), rotAxis);
+        const glm::vec3 rotForward = rotQuat * direction;
+        const float distance = util::mileToMeters(i + 1);
+        offset = {rotForward.x * distance, rotForward.y * distance, rotForward.z * distance};
+
         auto &instance = m_debugCubeInfo.value().debugCube->getInstance(i);
-        instance.setPosition(std::move(pos));
+        instance.setPosition(startPosition + offset);
         instance.setScale(scale);
+
+        rotDeg += degPerStep;
     }
 }
 
@@ -377,10 +381,13 @@ void Application::triggerImageRecord(star::core::device::DeviceContext &context,
         image_metrics::TriggerCapture{outputFilePath, m_mainLight->front(), *m_volume, *m_mainScene->getCamera()});
 }
 
-void Application::TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume, star::StarCamera &camera)
+sim_controller::UpdateStatus Application::TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume,
+                                                           star::StarCamera &camera)
 {
     sim_controller::TriggerUpdate trigger(volume, camera);
     cmd.submit(trigger);
+
+    return trigger.getReply().get();
 }
 
 bool Application::CheckIfControllerIsDone(star::core::CommandBus &cmd)

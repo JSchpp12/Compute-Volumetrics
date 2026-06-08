@@ -51,7 +51,8 @@ int main(int argc, char **argv)
                   .terrainDir = util::CmdLine::GetTerrainPath(argc, argv),
                   .engineConfigFile = util::CmdLine::GetConfigFilePath(argc, argv),
                   .simControllerPath = util::CmdLine::GetSimControllerFilePath(argc, argv),
-                  .overrideRenderingDevice = util::CmdLine::TryGetDeviceIndexOverride(argc, argv)});
+                  .overrideRenderingDevice = util::CmdLine::TryGetDeviceIndexOverride(argc, argv),
+                  .enableDistanceDebugging = util::CmdLine::DoesContainEnableDebugging(argc, argv)});
     try
     {
         star::ConfigFile::load(cfg->engineConfigFile);
