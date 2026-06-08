@@ -81,7 +81,7 @@ static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx,
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
 
     pass[0] =
-        Pass{ComputeContributor{Init{ctx.getEngineResolution()}},
+        Pass{ComputeContributor{Init{ctx.getEngineResolution(), true}},
              PreMemoryBarrierContributor{distance::PreMemoryBarrierRecorder{distance::PreDifferentFamilies{info}}}};
 
     pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};

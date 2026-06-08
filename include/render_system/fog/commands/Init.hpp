@@ -12,9 +12,10 @@ namespace render_system::fog::commands
 class Init
 {
     std::array<uint32_t, 2> m_workgroupSize{0, 0};
+    bool m_needsMemoryBarrierProtectFromPreviousDispatch{false};
 
   public:
-    Init(const vk::Extent2D &screenResolution); 
+    Init(const vk::Extent2D &screenResolution, bool needsMemoryBarrierProtectFromPreviousDispatch=false); 
 
     void recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuffer,
                         const star::common::FrameTracker &ft);

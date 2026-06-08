@@ -4,18 +4,39 @@
 
 namespace render_system::fog::commands
 {
-static void AddMemoryBarrier(const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuf) noexcept
+static void AddBarrierDepCompute(const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuf) noexcept
 {
-    const auto waitForZero = vk::BufferMemoryBarrier2()
-                                 .setSrcStageMask(vk::PipelineStageFlagBits2::eTransfer)
-                                 .setSrcAccessMask(vk::AccessFlagBits2::eTransferWrite)
-                                 .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                                 .setDstAccessMask(vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite)
-                                 .setBuffer(pipeInfo.indirectDispatchBuffer)
-                                 .setOffset(0)
-                                 .setSize(vk::WholeSize);
+    const auto barrier = vk::BufferMemoryBarrier2()
+                             .setSrcStageMask(vk::PipelineStageFlagBits2::eTransfer)
+                             .setSrcAccessMask(vk::AccessFlagBits2::eTransferWrite)
+                             .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+                             .setDstAccessMask(vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite)
+                             .setBuffer(pipeInfo.indirectDispatchBuffer)
+                             .setOffset(0)
+                             .setSize(vk::WholeSize);
 
-    cmdBuf.pipelineBarrier2(vk::DependencyInfo().setBufferMemoryBarrierCount(1).setPBufferMemoryBarriers(&waitForZero));
+    cmdBuf.pipelineBarrier2(vk::DependencyInfo().setBufferMemoryBarrierCount(1).setPBufferMemoryBarriers(&barrier));
+}
+
+static void AddBarrierDepPreviousIndirectRead(const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuf,
+                                              bool addProtectPreviousWriteToIndirectBarrier) noexcept
+{
+    vk::PipelineStageFlags2 srcStage = vk::PipelineStageFlagBits2::eDrawIndirect;
+    vk::AccessFlags2 srcAccess = vk::AccessFlagBits2::eNone;
+
+    if (addProtectPreviousWriteToIndirectBarrier)
+    {
+        srcStage |= vk::PipelineStageFlagBits2::eComputeShader;
+        srcAccess |= vk::AccessFlagBits2::eShaderStorageWrite;
+    }
+
+    const auto barrier = vk::MemoryBarrier2()
+                             .setSrcStageMask(srcStage)
+                             .setSrcAccessMask(srcAccess)
+                             .setDstStageMask(vk::PipelineStageFlagBits2::eClear)
+                             .setDstAccessMask(vk::AccessFlagBits2::eTransferWrite);
+
+    cmdBuf.pipelineBarrier2(vk::DependencyInfo().setMemoryBarrierCount(1).setPMemoryBarriers(&barrier));
 }
 
 static std::array<uint32_t, 2> CalculateWorkgroupSize(const vk::Extent2D &screenResolution)
@@ -26,7 +47,9 @@ static std::array<uint32_t, 2> CalculateWorkgroupSize(const vk::Extent2D &screen
     return {width, height};
 }
 
-Init::Init(const vk::Extent2D &screenResolution) : m_workgroupSize(CalculateWorkgroupSize(screenResolution))
+Init::Init(const vk::Extent2D &screenResolution, bool needsMemoryBarrierProtectFromPreviousDispatch)
+    : m_workgroupSize(CalculateWorkgroupSize(screenResolution)),
+      m_needsMemoryBarrierProtectFromPreviousDispatch(needsMemoryBarrierProtectFromPreviousDispatch)
 {
 }
 
@@ -36,10 +59,12 @@ void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pip
     assert(pipeInfo.initPipeline && "Init pipeline should have been provided in PassPipelineInfo");
     assert(pipeInfo.colorPipe.layout != VK_NULL_HANDLE);
 
+    AddBarrierDepPreviousIndirectRead(pipeInfo, cmdBuffer, m_needsMemoryBarrierProtectFromPreviousDispatch);
+
     cmdBuffer.fillBuffer(pipeInfo.indirectDispatchBuffer, 0, sizeof(DispatchIndirectCommand), 0);
     cmdBuffer.fillBuffer(pipeInfo.indirectDispatchBuffer, sizeof(DispatchIndirectCommand), sizeof(uint32_t), 0);
 
-    AddMemoryBarrier(pipeInfo, cmdBuffer);
+    AddBarrierDepCompute(pipeInfo, cmdBuffer);
 
     cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.initPipeline);
 
