@@ -5,7 +5,10 @@
         "tbb",
         {
             "name": "openvdb",
-            "features": ["nanovdb","nanovdb-tools"]
+            "features": [
+                "nanovdb",
+                "nanovdb-tools"
+            ]
         },
         "abseil",
         "nlohmann-json",
@@ -13,20 +16,27 @@
         "blosc",
         "glm",
         "vulkan-memory-allocator",
-        "basisu", 
-        "tinyobjloader", 
-        "boost-thread", 
-        "boost-lockfree", 
-        "boost-container", 
-        "boost-filesystem", 
+        "basisu",
+        "tinyobjloader",
+        "boost-thread",
+        "boost-lockfree",
+        "boost-container",
+        "boost-filesystem",
         "boost-log",
         {
             "name": "ktx",
-            "features": ["vulkan"]
+            "features": [
+                "vulkan"
+            ]
         },
         {
             "name": "gdal",
-            "features": ["png", "geos"]
+            "default-features": false,
+            "features": [
+                "recommended-features",
+                "curl",
+                "geos"
+            ]
         },
         "gtest"
     ],

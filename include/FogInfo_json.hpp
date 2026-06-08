@@ -2,7 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
-struct FogInfo;
+class FogInfo;
 
 void to_json(nlohmann::json &j, const ::FogInfo::LinearFogInfo &v);
 void from_json(const nlohmann::json &j, ::FogInfo::LinearFogInfo &v);

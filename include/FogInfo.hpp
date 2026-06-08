@@ -10,7 +10,7 @@ class FogInfo
         float linearFog_nearDist = 0.0f, linearFog_farDist = 0.0f, expFog_density = 0.0f,
               marchedFog_defaultDensity = 0.0f, marchedFog_sigmaAbsorption = 0.0f, marchedFog_sigmaScattering = 0.0f,
               marchedFog_lightPropertyDirG = 0.0f, marchedFog_stepSizeDist = 1.0f, marchedFog_stepSizeDist_light = 3.0f,
-              marchedFog_densityMultiplier = 0.0f, marchedFog_cutoffValue = 0.01;
+              marchedFog_densityMultiplier = 0.0f, marchedFog_cutoffValue = 0.01f;
         uint32_t marchedFog_maxNumSteps = 25600, vdb_gridType = 0;
 
         FinalizedInfo(const float &linearFog_nearDist, const float &linearFog_farDist, const float &expFog_density,
@@ -111,16 +111,16 @@ class FogInfo
         MarchedFogInfo(const float &defaultDensity, const float &sigmaAbsorption, const float &sigmaScattering,
                        const float &lightPropertyDirG, const float &stepSizeDist, const float &stepSizeDist_light,
                        const float densityMultiplier, float cutoffValue)
-            : defaultDensity(defaultDensity), sigmaAbsorption(sigmaAbsorption), sigmaScattering(sigmaScattering),
-              lightPropertyDirG(lightPropertyDirG), stepSizeDist(stepSizeDist), stepSizeDist_light(stepSizeDist_light),
+            : defaultDensity(defaultDensity), stepSizeDist(stepSizeDist), stepSizeDist_light(stepSizeDist_light),
+              lightPropertyDirG(lightPropertyDirG), sigmaAbsorption(sigmaAbsorption), sigmaScattering(sigmaScattering),
               densityMultiplier(densityMultiplier), cutoffValue(std::move(cutoffValue))
         {
         }
 
         MarchedFogInfo(const MarchedFogInfo &other)
-            : defaultDensity(other.defaultDensity), sigmaAbsorption(other.sigmaAbsorption),
-              sigmaScattering(other.sigmaScattering), lightPropertyDirG(other.lightPropertyDirG),
-              stepSizeDist(other.stepSizeDist), stepSizeDist_light(other.stepSizeDist_light),
+            : defaultDensity(other.defaultDensity), stepSizeDist(other.stepSizeDist),
+              stepSizeDist_light(other.stepSizeDist_light), lightPropertyDirG(other.lightPropertyDirG),
+              sigmaAbsorption(other.sigmaAbsorption), sigmaScattering(other.sigmaScattering),
               densityMultiplier(other.densityMultiplier), cutoffValue(other.cutoffValue)
         {
         }
@@ -215,7 +215,7 @@ class FogInfo
 
       private:
         float lightPropertyDirG = 0.0f, sigmaAbsorption = 0.0f, sigmaScattering = 0.0f, densityMultiplier = 1.0,
-              cutoffValue = 0.01;
+              cutoffValue = 0.01f;
 
         bool validateSigmaTotal(const float &sigmaAbsorption, const float &sigmaScattering) const
         {
