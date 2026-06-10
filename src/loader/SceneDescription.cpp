@@ -9,18 +9,18 @@ void SceneDescription::addObject(std::shared_ptr<star::StarObject> obj)
     m_counter++;
 }
 
-void SceneDescription::addDeugSquare(std::shared_ptr<star::StarObject> obj, DebugCubeComponent square)
+void SceneDescription::addDebugCube(DebugCubeComponent cube)
 {
-    assert(!m_objectComponents.contains(m_counter) && !m_squareComponents.contains(m_counter));
-    m_objectComponents[m_counter] = std::move(obj);
-    m_squareComponents[m_counter] = std::move(square);
+    assert(!m_cubeComponents.contains(m_counter) && !m_cubeComponents.contains(m_counter));
+    m_cubeComponents[m_counter] = std::move(cube);
     m_counter++;
 }
+
 DebugCubeComponent* SceneDescription::getSquareComponent(uint32_t index)
 {
-    if (m_squareComponents.contains(index))
+    if (m_cubeComponents.contains(index))
     {
-        return &m_squareComponents[index];
+        return &m_cubeComponents[index];
     }
 
     return nullptr; 

@@ -36,7 +36,7 @@ class Application : public star::StarApplication
     struct DebugCubeInfo
     {
         std::shared_ptr<star::StarObject> debugCube;
-        uint8_t numCubes{0};
+        uint8_t numUniqueCubes{0};
     };
 
     LoaderFn m_loaderFn;

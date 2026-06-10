@@ -54,7 +54,7 @@ static std::vector<star::Color> CreateNeonColors(std::size_t count)
     return colors;
 }
 
-static std::shared_ptr<star::StarObject> LoadCube(star::core::device::DeviceContext &ctx, size_t numToCreate)
+static DebugCubeComponent LoadCube(star::core::device::DeviceContext &ctx, size_t numToCreate)
 {
     std::vector<star::primitive::CubeDesc> cubeDesc;
     std::vector<star::Color> colors = CreateNeonColors(numToCreate);
@@ -64,7 +64,7 @@ static std::shared_ptr<star::StarObject> LoadCube(star::core::device::DeviceCont
         cubeDesc.push_back({.color = color});
     }
 
-    return star::debug::CreateCube(std::move(cubeDesc));
+    return DebugCubeComponent{.cubeInfos = std::move(cubeDesc), .numberOfDebugSquares = static_cast<uint8_t>(colors.size())};
 }
 
 static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceContext &ctx,
@@ -87,9 +87,9 @@ SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const 
     constexpr uint8_t numCubes{15};
 
     SceneDescription desc;
-     desc.addObject(LoadTerrain(ctx, terrainPath));
-    //desc.addObject(LoadHorse(ctx, mediaDirPath));
-    desc.addDeugSquare(LoadCube(ctx, numCubes), loader::DebugCubeComponent{numCubes});
+    desc.addObject(LoadTerrain(ctx, terrainPath));
+    // desc.addObject(LoadHorse(ctx, mediaDirPath));
+    desc.addDebugCube(LoadCube(ctx, numCubes));
     return desc;
 }
 

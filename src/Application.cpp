@@ -84,20 +84,31 @@ OffscreenRenderer Application::createOffscreenRenderer(star::core::device::Devic
     objects.reserve(desc.getCount());
     for (uint32_t i{0}; i < desc.getCount(); i++)
     {
-        auto obj = desc.getObject(i);
-        assert(obj != nullptr && "Container did not provide object");
-
         auto *sqComponent = desc.getSquareComponent(i);
-
-        if (sqComponent != nullptr)
+        auto obj = desc.getObject(i);
+        if (obj)
         {
-            m_debugCubeInfo =
-                std::make_optional(DebugCubeInfo{.debugCube = obj, .numCubes = sqComponent->numberOfDebugSquares});
+            objects.push_back(std::move(obj));
+        }
+        else if (sqComponent != nullptr)
+        {
+            // make starlight object
+            auto &cubeInfos = sqComponent->cubeInfos;
+            // duplicate colors
+            const size_t currentSize{cubeInfos.size()};
+            cubeInfos.reserve(currentSize * 2);
+            for (size_t i{0}; i < currentSize; i++)
+            {
+                cubeInfos.push_back(cubeInfos[i]);
+            }
+
+            auto cube = star::debug::CreateCube(sqComponent->cubeInfos);
+            m_debugCubeInfo = std::make_optional(
+                DebugCubeInfo{.debugCube = cube, .numUniqueCubes = sqComponent->numberOfDebugSquares});
 
             placeDebugCubes(camera->getForwardVector(), camera->getPosition());
+            objects.push_back(std::move(cube));
         }
-
-        objects.push_back(std::move(obj));
     }
 
     m_loaderFn = nullptr;
@@ -279,22 +290,28 @@ void Application::placeDebugCubes(const glm::vec3 &direction, const glm::vec3 &s
     assert(m_debugCubeInfo && "Debug cubes object was never registered");
 
     constexpr float degPerStep = 3.0f;
-    constexpr glm::vec3 rotAxis = glm::vec3(0.0f, 1.0f, 0.0f);
 
-    glm::vec3 offset{}, scale{20.0f, 20000.0f, 20.0f};
-    float rotDeg = degPerStep;
-    for (uint8_t i{0}; i < m_debugCubeInfo.value().numCubes; i++)
+    // duplicate cubes in opposite directions
+    glm::vec3 scale{20.0f, 20000.0f, 20.0f};
+    for (uint8_t i{0}; i < 2; i++)
     {
-        const glm::quat rotQuat = glm::angleAxis(glm::radians(rotDeg), rotAxis);
-        const glm::vec3 rotForward = rotQuat * direction;
-        const float distance = util::mileToMeters(i + 1);
-        offset = {rotForward.x * distance, rotForward.y * distance, rotForward.z * distance};
+        glm::vec3 offset{};
+        glm::vec3 rotAxis = i == 0 ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(0.0, -1.0, 0.0);
+        float rotDeg = degPerStep;
 
-        auto &instance = m_debugCubeInfo.value().debugCube->getInstance(i);
-        instance.setPosition(startPosition + offset);
-        instance.setScale(scale);
+        for (uint8_t j{0}; j < m_debugCubeInfo.value().numUniqueCubes; j++)
+        {
+            const glm::quat rotQuat = glm::angleAxis(glm::radians(rotDeg), rotAxis);
+            const glm::vec3 rotForward = rotQuat * direction;
+            const float distance = util::mileToMeters(j + 1);
+            offset = {rotForward.x * distance, rotForward.y * distance, rotForward.z * distance};
 
-        rotDeg += degPerStep;
+            auto &instance = m_debugCubeInfo.value().debugCube->getInstance(i * m_debugCubeInfo.value().numUniqueCubes + j);
+            instance.setPosition(startPosition + offset);
+            instance.setScale(scale);
+
+            rotDeg += degPerStep;
+        }
     }
 }
 
