@@ -198,7 +198,8 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
                 break;
             default:
                 dInfo.shaderOptionFlags =
-                    Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest,
+                    Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest |
+                             InitShaderFlags::EnableColorOutput,
                          m_enableColorDebugCutoff ? MarchShaderFlags::EnableDebugHighlightCutoffValue
                                                   : MarchShaderFlags::None);
             }

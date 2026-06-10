@@ -166,15 +166,8 @@ bool forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const 
 void writeDistanceInfo(const float d, const bool isValid, const ivec2 tPix, const uvec2 cSize)
 {
     const uint index = tPix.x + (tPix.y * cSize.x);
-    if (isValid)
-    {
-        isAtMaxDistance[index] = 0u;
-        rayDistData[index] = d;
-    }
-    else
-    {
-        isAtMaxDistance[index] = 1u;
-    }
+    rayDistData[index] = d;
+    isAtMaxDistance[index] = isValid ? 1u : 0u;
 }
 
 void main()
