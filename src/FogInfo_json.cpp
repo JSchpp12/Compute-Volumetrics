@@ -35,7 +35,8 @@ void to_json(nlohmann::json &j, const MarchedFogInfo &v)
                        {"stepSizeDist", v.stepSizeDist},
                        {"stepSizeDist_light", v.stepSizeDist_light},
                        {"densityMultiplier", v.getDensityMultiplier()},
-                       {"cutoffValue", v.getCutoffValue()},
+                       {"colorTransparencyCutoff", v.getColorTransparencyCutoff()},
+                       {"distanceTransparencyCutoff", v.getDistanceTransparencyCutoff()},
                        {"lightExtinctionScale", v.getLightExtinctionScale()}};
 }
 
@@ -51,14 +52,18 @@ void from_json(const nlohmann::json &j, MarchedFogInfo &v)
     const float sigmaSca = j.value("sigmaScattering", v.getSigmaScattering());
     const float g = j.value("lightPropertyDirG", v.getLightPropertyDirG());
     const float densityMulti = j.value("densityMultiplier", v.getDensityMultiplier());
-    const float cutoffValue = j.value("cutoffValue", v.getCutoffValue());
+    const float colorTransparencyCutoff = j.value(
+        "colorTransparencyCutoff", j.value("cutoffValue", v.getColorTransparencyCutoff()));
+    const float distanceTransparencyCutoff = j.value(
+        "distanceTransparencyCutoff", colorTransparencyCutoff);
     const float lightExtinctionScale = j.value("lightExtinctionScale", v.getLightExtinctionScale());
 
     v.setSigmaAbsorption(sigmaAbs);
     v.setSigmaScattering(sigmaSca);
     v.setLightPropertyDirG(g);
     v.setDensityMultiplier(densityMulti);
-    v.setCutoffValue(cutoffValue);
+    v.setColorTransparencyCutoff(colorTransparencyCutoff);
+    v.setDistanceTransparencyCutoff(distanceTransparencyCutoff);
     v.setLightExtinctionScale(lightExtinctionScale);
 }
 

@@ -85,7 +85,7 @@ class Volume : public star::StarObject
            OffscreenRenderer *offscreenRenderer,
            std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
            std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList);
+           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList, bool enableCutoffHighlighting);
 
     /// <summary>
     /// Expensive, only call when necessary.
@@ -144,7 +144,8 @@ class Volume : public star::StarObject
     void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
                     std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
                     std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList);
+                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList,
+                    bool enableCutoffHighlighting);
 
     void loadModel(star::core::device::DeviceContext &context, const std::string &filePath);
 

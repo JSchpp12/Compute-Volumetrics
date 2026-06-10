@@ -3,6 +3,8 @@
 #include "struct_DispatchIndirectCommand.comp"
 #include "struct_RayState.comp"
 
+const uint FLAG_ENABLE_DEBUG_CUTOFF = 1u << 16u;
+
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 #include "layout_pushConstants.comp"
@@ -101,7 +103,9 @@ layout(set = 1, binding = 5) uniform FogControllerInfo
     float marchedFog_stepSizeDist;
     float marchedFog_stepSizeDist_light;
     float marchedFog_densityMultiplier;
-    float marchedFog_cutoffValue;
+    float marchedFog_colorTransparencyCutoff;
+    float marchedFog_distanceTransparencyCutoff;
+    float marchedFog_lightExtinctionScale;
     uint marchedFog_uniform_maxNumSteps;
     uint gridType;
 }
@@ -153,13 +157,14 @@ float applyHenyeyGreensteinPhase(const float cosTheta, const float g)
     return (1.0 / (4.0 * PI)) * (1.0 - g * g) / pow(denom, 1.5);
 }
 
-void forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const vec3 backgroundColor, const Ray ray,
+bool forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const vec3 backgroundColor, const Ray ray,
                   const float t0, const float t1, const mat4 inverseModelMatrix, float sigmaAbsorption,
                   float sigmaScattering, float lightPropertyDir_g, float mainStepSize, float lightStepSize,
                   const float cutOffDistance, const vec4 randomValues, const float defaultDensity,
-                  const float densityMultiplier, const float cutoffValue, const uint frame, inout vec3 resultingColor,
-                  inout float rayDistanceTraveled)
+                  const float densityMultiplier, const float cutoffValue, const float lightExtinctionScale,
+                  const uint frame, inout vec3 resultingColor, inout float rayDistanceTraveled)
 {
+    bool hitTransparencyCutoff = false;
     Light_Type lChecker = createLightTypeStruct();
 
     pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
@@ -182,18 +187,24 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const 
     {
         const float stepEnd = min(stepStart + mainStepSize, marchStopDistance);
         const float ds = stepEnd - stepStart;
-        if (ds <= 0 || transparency < cutoffValue)
+        if (ds <= 0)
         {
             break;
         }
+        if (transparency < cutoffValue)
+        {
+            transparency = 0.0;
+            hitTransparencyCutoff = true;
+            break;
+        }
 
-        const uint stepSeed = hash_u32(seed + uint(i));   // ← unique per step
+        const uint stepSeed = hash_u32(seed + uint(i)); // ← unique per step
         const float stepJitter = rand01(stepSeed);
         const float t = stepStart + stepJitter * ds;
         const vec3 marchPos = ray.origin.xyz + (t * ray.direction.xyz);
         float pDensity = gridReadAt(grid, acc, gType, marchPos, true) * densityMultiplier;
         if (pDensity == 0.0f)
-            pDensity = defaultDensity; 
+            pDensity = defaultDensity * densityMultiplier;
 
         if (pDensity > 0.0f)
         {
@@ -244,20 +255,20 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const 
                     {
                         const float lStepEnd = min(lStepStart + lightStepSize, lMarchStopDist);
                         const float lds = lStepEnd - lStepStart;
-                        const uint lStepSeed = hash_u32(lightSeed + uint(k));  // ← unique per light step
+                        const uint lStepSeed = hash_u32(lightSeed + uint(k)); // ← unique per light step
                         const float lStepJitter = rand01(lStepSeed);
                         const float lt = lStepStart + lStepJitter * lds;
 
                         const vec3 lMarchPos = rayToLight.origin.xyz + (lt * rayToLight.direction.xyz);
                         float lDensity = (gridReadAt(grid, acc, gType, lMarchPos, true) * densityMultiplier);
                         if (lDensity == 0.0f)
-                            lDensity = defaultDensity; 
+                            lDensity = defaultDensity;
 
                         lTau += lDensity * lds;
                         lStepStart = lStepEnd;
                     }
 
-                    const float shadowSigmaT = sigmaT * 0.05;
+                    const float shadowSigmaT = sigmaT * lightExtinctionScale;
                     const float lRayAttenuation = exp(-lTau * shadowSigmaT);
                     const float cosTheta = dot(-ray.direction.xyz, -rayToLight.direction.xyz);
                     const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g);
@@ -278,6 +289,7 @@ void forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const 
     }
 
     resultingColor = backgroundColor * transparency + resultingRadiance;
+    return hitTransparencyCutoff;
 }
 
 void main()
@@ -299,16 +311,25 @@ void main()
     localRay.direction = vec4(rayState.direction, 0.0);
     const vec4 randomValues = imageLoad(randomTexture, rayState.targetPixel);
 
-    forwardMarch(grid, uvec2(rayState.targetPixel), resultingColor, localRay, rayState.t0, rayState.tEnd,
-                 inverseModelMatrix, fogInfo.marchedFog_sigmaAbsorption * scale,
-                 fogInfo.marchedFog_sigmaScattering * scale, fogInfo.marchedFog_lightPropertyDirG,
-                 fogInfo.marchedFog_stepSizeDist / scale, fogInfo.marchedFog_stepSizeDist_light / scale,
-                 rayState.localDepthDistance, randomValues, fogInfo.marchedFog_defaultDensity,
-                 fogInfo.marchedFog_densityMultiplier, fogInfo.marchedFog_cutoffValue, 0u, resultingColor,
-                 rayState.rayDistanceTraveled);
+    bool hitTransparencyCutoff =
+        forwardMarch(grid, uvec2(rayState.targetPixel), resultingColor, localRay, rayState.t0, rayState.tEnd,
+                     inverseModelMatrix, fogInfo.marchedFog_sigmaAbsorption * scale,
+                     fogInfo.marchedFog_sigmaScattering * scale, fogInfo.marchedFog_lightPropertyDirG,
+                     fogInfo.marchedFog_stepSizeDist / scale, fogInfo.marchedFog_stepSizeDist_light / scale,
+                     rayState.localDepthDistance, randomValues, fogInfo.marchedFog_defaultDensity,
+                     fogInfo.marchedFog_densityMultiplier, fogInfo.marchedFog_colorTransparencyCutoff,
+                     fogInfo.marchedFog_lightExtinctionScale, 0u, resultingColor, rayState.rayDistanceTraveled);
 
-    //apply triangular noise distribution function for banding
-    float tpdfNoise = (randomValues.r + randomValues.g - 1.0) / 255; 
-    resultingColor += vec3(tpdfNoise); 
+    if (hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_CUTOFF) && hitTransparencyCutoff)
+    {
+        resultingColor = vec3(1.0, 0.0, 0.0);
+    }
+    else
+    {
+        // apply triangular noise distribution function for banding
+        float tpdfNoise = (randomValues.r + randomValues.g - 1.0) / 255;
+        resultingColor += vec3(tpdfNoise);
+    }
+
     imageStore(outputImage, rayState.targetPixel, vec4(resultingColor, 1.0));
 }

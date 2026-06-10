@@ -25,10 +25,11 @@ int InteractiveMode::run(std::unique_ptr<AppConfig> cfg)
     win_exit windowExit{winContext};
 
     InteractiveApplication application =
-        cfg->enableDistanceDebugging ? InteractiveApplication(&loader::DebugSceneLoader, std::move(cfg->terrainDir),
-                                                             std::move(cfg->volumeName), &winContext)
-                                    : InteractiveApplication(&loader::ReleaseSceneLoader, std::move(cfg->terrainDir),
-                                                             std::move(cfg->volumeName), &winContext);
+        cfg->enableDistanceMarkers
+            ? InteractiveApplication(&loader::DebugSceneLoader, std::move(cfg->terrainDir), std::move(cfg->volumeName),
+                                     &winContext, {cfg->enableCutoffHighlighting})
+            : InteractiveApplication(&loader::ReleaseSceneLoader, std::move(cfg->terrainDir),
+                                     std::move(cfg->volumeName), &winContext, {cfg->enableCutoffHighlighting});
     auto engine = star::StarEngine<policy::WindowEngineInitPolicy, win_loop, win_exit>(
         std::move(windowInit), std::move(windowLoop), std::move(windowExit), application);
 

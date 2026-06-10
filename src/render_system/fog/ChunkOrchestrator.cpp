@@ -56,7 +56,20 @@ void render_system::fog::ChunkOrchestrator::recordCommands(const DispatchInfo &d
         app.recordPreCommands(vInfo, cmdBuf, ft);
 
         if (m_isReady)
+        {
+            if (m_isDistance)
+            {
+                const std::array<commands::Init::OptionalClearBuffer, 2> clears = {
+                    commands::Init::OptionalClearBuffer{vInfo.computeRayAtCutoffDistance, 1},
+                    commands::Init::OptionalClearBuffer{vInfo.computeRayDistance, 0}};
+
+                app.setAdditionalClears(clears);
+            }
+
+
             app.recordCommands(dInfo, pipeInfo, cmdBuf, ft);
+        }
+
 
         app.recordPostCommands(vInfo, cmdBuf, ft);
     }

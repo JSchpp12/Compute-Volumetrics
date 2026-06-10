@@ -115,7 +115,7 @@ static float Sum(std::span<const float> &span)
     return std::reduce(std::execution::unseq, span.begin(), span.end(), 0.0);
 }
 
-static uint32_t GetNumRaysAtMaxDistance(const star::StarBuffers::Buffer &computeRayAtMaxBuffer)
+static std::tuple<uint32_t, size_t> GetNumRaysAtMaxDistance(const star::StarBuffers::Buffer &computeRayAtMaxBuffer)
 {
     void *d = nullptr;
     auto result = computeRayAtMaxBuffer.invalidate();
@@ -131,13 +131,13 @@ static uint32_t GetNumRaysAtMaxDistance(const star::StarBuffers::Buffer &compute
     uint32_t nAtMax = std::reduce(std::execution::unseq, span.begin(), span.end(), 0u, std::plus<uint32_t>());
     computeRayAtMaxBuffer.unmap();
 
-    return nAtMax;
+    return std::make_tuple(nAtMax, n);
 }
 
 static double CalcVisDistanceFromRayBuffers(const star::StarBuffers::Buffer &rayDistance,
                                             const star::StarBuffers::Buffer &rayAtCutoff)
 {
-    uint32_t nAtMax = GetNumRaysAtMaxDistance(rayAtCutoff);
+    const auto [nAtMax, totalN] = GetNumRaysAtMaxDistance(rayAtCutoff);
     double mean = 0.0;
     {
         void *d = nullptr;

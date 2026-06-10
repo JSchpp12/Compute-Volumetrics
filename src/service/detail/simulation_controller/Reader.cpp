@@ -38,7 +38,8 @@ static MarchedFogInfo CalcSteps(const MarchedFogInfo &start, const MarchedFogInf
             util::CalcDiff(start.stepSizeDist, stop.stepSizeDist),
             util::CalcDiff(start.stepSizeDist_light, stop.stepSizeDist_light),
             util::CalcDiff(start.getDensityMultiplier(), stop.getDensityMultiplier()),
-            util::CalcDiff(start.getCutoffValue(), stop.getCutoffValue()),
+            util::CalcDiff(start.getColorTransparencyCutoff(), stop.getColorTransparencyCutoff()),
+            util::CalcDiff(start.getDistanceTransparencyCutoff(), stop.getDistanceTransparencyCutoff()),
             util::CalcDiff(start.getLightExtinctionScale(), stop.getLightExtinctionScale())};
 }
 

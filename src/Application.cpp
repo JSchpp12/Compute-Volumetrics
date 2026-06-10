@@ -105,8 +105,11 @@ OffscreenRenderer Application::createOffscreenRenderer(star::core::device::Devic
     return {context, objects, std::move(mainLight), camera};
 }
 
-Application::Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName)
-    : m_loaderFn(std::move(objectLoader)), m_terrainDir(std::move(terrainPath)), m_volumeName(std::move(volumeName))
+Application::Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName,
+                         VolumeRenderingOptions volumeOptions)
+    : m_loaderFn(std::move(objectLoader)), m_terrainDir(std::move(terrainPath)), m_volumeName(std::move(volumeName)),
+      m_screenshotRegistrations(), m_debugCubeInfo(), m_mainScene(nullptr), m_volume(), m_offRenderer(), m_mainLight(),
+      m_finalizationCmds(), m_volumeOptions(volumeOptions)
 {
     // const std::filesystem::path terrain(m_terrainDir);
     // if (!std::filesystem::exists(terrain))
@@ -166,10 +169,10 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
         {
             auto vdbPath = std::filesystem::path(mediaDirectoryPath) / "volumes" / m_volumeName;
-            m_volume =
-                std::make_shared<Volume>(context, vdbPath.string(), fNumFramesInFlight, camera, width, height,
-                                         m_offRenderer, m_offRenderer->getCameraInfoBuffers(),
-                                         m_offRenderer->getLightInfoBuffers(), m_offRenderer->getLightListBuffers());
+            m_volume = std::make_shared<Volume>(
+                context, vdbPath.string(), fNumFramesInFlight, camera, width, height, m_offRenderer,
+                m_offRenderer->getCameraInfoBuffers(), m_offRenderer->getLightInfoBuffers(),
+                m_offRenderer->getLightListBuffers(), m_volumeOptions.enableCutoffHighlighting);
             auto cmd = star::command::CreateObject::Builder()
                            .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
                            .setUniqueName(m_volumeName)
@@ -222,7 +225,8 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     m_volume->getRenderer().getFogInfo().linearInfo.farDist = 16000.0f;
     m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.6f;
     m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(1.0f);
-    m_volume->getRenderer().getFogInfo().marchedInfo.setCutoffValue(0.000001f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setColorTransparencyCutoff(0.000001f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setDistanceTransparencyCutoff(0.000001f);
     return m_mainScene;
 }
 

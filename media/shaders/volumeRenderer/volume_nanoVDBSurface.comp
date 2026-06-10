@@ -104,7 +104,9 @@ layout(set = 1, binding = 5) uniform FogControllerInfo
     float marchedFog_stepSizeDist;
     float marchedFog_stepSizeDist_light;
     float marchedFog_densityMultiplier;
-    float marchedFog_cutoffValue;
+    float marchedFog_colorTransparencyCutoff;
+    float marchedFog_distanceTransparencyCutoff;
+    float marchedFog_lightExtinctionScale;
     uint marchedFog_uniform_maxNumSteps;
     uint gridType;
 }

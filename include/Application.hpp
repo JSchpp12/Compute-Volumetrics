@@ -13,10 +13,15 @@
 class Application : public star::StarApplication
 {
   public:
+    struct VolumeRenderingOptions
+    {
+        bool enableCutoffHighlighting{false};
+    };
     using LoaderFn = std::function<loader::SceneDescription(
         star::core::device::DeviceContext &, const std::filesystem::path &, const std::filesystem::path &)>;
 
-    Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName);
+    Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName,
+                VolumeRenderingOptions volumeOptions);
     virtual ~Application() = default;
 
     virtual void init() override
@@ -45,6 +50,7 @@ class Application : public star::StarApplication
     OffscreenRenderer *m_offRenderer{nullptr};
     std::shared_ptr<std::vector<star::Light>> m_mainLight;
     renderer::finalization::IFinalizationRenderer *m_finalizationCmds{nullptr};
+    VolumeRenderingOptions m_volumeOptions;
 
     bool m_flipScreenshotState = false;
 

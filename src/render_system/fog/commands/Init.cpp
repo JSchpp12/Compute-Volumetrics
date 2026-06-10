@@ -1,6 +1,7 @@
 #include "render_system/fog/commands/Init.hpp"
 
 #include "render_system/fog/struct/DispatchIndirectCommand.hpp"
+#include <algorithm>
 
 namespace render_system::fog::commands
 {
@@ -54,7 +55,7 @@ Init::Init(const vk::Extent2D &screenResolution, bool needsMemoryBarrierProtectF
 }
 
 void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuffer,
-                          const star::common::FrameTracker &ft)
+                          const star::common::FrameTracker &ft, std::span<OptionalClearBuffer> optionalClears)
 {
     assert(pipeInfo.initPipeline && "Init pipeline should have been provided in PassPipelineInfo");
     assert(pipeInfo.colorPipe.layout != VK_NULL_HANDLE);
@@ -63,6 +64,11 @@ void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pip
 
     cmdBuffer.fillBuffer(pipeInfo.indirectDispatchBuffer, 0, sizeof(DispatchIndirectCommand), 0);
     cmdBuffer.fillBuffer(pipeInfo.indirectDispatchBuffer, sizeof(DispatchIndirectCommand), sizeof(uint32_t), 0);
+
+    for (uint32_t i{ 0 }; i < m_additionalClearCount; i++)
+    {
+        cmdBuffer.fillBuffer(m_additionalClears[i].buffer, 0, vk::WholeSize, m_additionalClears[i].fillValue);
+    }
 
     AddBarrierDepCompute(pipeInfo, cmdBuffer);
 
@@ -80,5 +86,15 @@ void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pip
                                  static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
 
     cmdBuffer.dispatch(m_workgroupSize[0], m_workgroupSize[1], 1);
+
+    m_additionalClearCount = 0;
+}
+
+void Init::setAdditionalClears(std::span<const OptionalClearBuffer> clears)
+{
+    assert(clears.size() <= MaxAdditionalClears);
+
+    m_additionalClearCount = static_cast<uint32_t>(clears.size());
+    std::copy(clears.begin(), clears.end(), m_additionalClears.begin());
 }
 } // namespace render_system::fog::commands

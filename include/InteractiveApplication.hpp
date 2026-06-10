@@ -14,8 +14,8 @@ class InteractiveApplication : public Application,
 {
   public:
     InteractiveApplication(LoaderFn objectLoader, std::string terrainDir, std::string volumeName,
-                           star::windowing::WindowingContext *winContext)
-        : Application(std::move(objectLoader), std::move(terrainDir), std::move(volumeName)),
+                           star::windowing::WindowingContext *winContext, Application::VolumeRenderingOptions options)
+        : Application(std::move(objectLoader), std::move(terrainDir), std::move(volumeName), std::move(options)),
           star::windowing::HandleKeyReleasePolicy<InteractiveApplication>(*this),
           star::windowing::HandleKeyPressPolicy<InteractiveApplication>(*this), m_winContext(winContext)
     {

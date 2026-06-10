@@ -174,18 +174,15 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     if (m_triggerScreenshot)
     {
         TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
-        triggerScreenshot(d);
-
-        if (CheckIfControllerIsDone(d.getCmdBus()))
-        {
-            m_triggerScreenshot = false;
-        }
+        //triggerScreenshot(d);
+        m_flipScreenshotState = false;
+        m_triggerScreenshot = false; 
     }
 
     if (m_updateDebugCubes)
     {
         placeDebugCubes(m_mainScene->getCamera()->getForwardVector(), m_mainScene->getCamera()->getPosition());
-        //m_updateDebugCubes = false;
+        // m_updateDebugCubes = false;
     }
 }
 
@@ -473,13 +470,14 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
         "Test" + std::to_string(context.frameTracker().getCurrent().getGlobalFrameCounter()) + ".png";
     const auto path = (std::filesystem::path(m_imageOutputDir) / name).string();
 
-    size_t index = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());
+    const size_t index = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());
     auto *render = m_mainScene->getPrimaryRenderer().getRaw<star::windowing::SwapChainRenderer>();
 
     // submit screenshot processing
     context.getEventBus().emit(
         star::event::TriggerScreenshot(context.getImageManager().get(render->getRenderToColorImages()[index])->texture,
-                                       path, render->getCommandBuffer(), m_screenshotRegistrations[index]));
+                                       path, render->getCommandBuffer(), m_screenshotRegistrations[index],
+                                       &m_finalizationCmds->getTimelineSemaphore(index)));
 
     triggerImageRecord(context, frameTracker, name);
 }

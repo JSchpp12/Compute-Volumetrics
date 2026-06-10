@@ -1,7 +1,6 @@
 #pragma once
 
 #include "FogControlInfo.hpp"
-#include "structs/FogInfo.hpp"
 #include "FogType.hpp"
 #include "ManagerController_RenderResource_Buffer.hpp"
 #include "OffscreenRenderer.hpp"
@@ -13,6 +12,7 @@
 #include "core/renderer/RenderingContext.hpp"
 #include "render_system/fog/FogDispatcher.hpp"
 #include "render_system/fog/commands/Color.hpp"
+#include "structs/FogInfo.hpp"
 
 #include <star_common/Handle.hpp>
 
@@ -35,7 +35,8 @@ class VolumeRenderer
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalLightList,
                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
                    OffscreenRenderer *offscreenRenderer, std::string vdbFilePath,
-                   const std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds);
+                   const std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds,
+                   bool enableCutoffHighlighting);
 
     void init(star::core::device::DeviceContext &context);
 

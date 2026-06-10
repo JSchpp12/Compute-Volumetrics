@@ -182,9 +182,12 @@ void SimulationControllerService::incrementMarched(Volume &volume, float t) cons
     volume.getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(
         m_loadedSteps.start.marchedInfo.getDensityMultiplier() +
         t * m_loadedSteps.fogInfoChanges.marchedInfo.getDensityMultiplier());
-    volume.getRenderer().getFogInfo().marchedInfo.setCutoffValue(
-        m_loadedSteps.start.marchedInfo.getCutoffValue() +
-        t * m_loadedSteps.fogInfoChanges.marchedInfo.getCutoffValue());
+    volume.getRenderer().getFogInfo().marchedInfo.setColorTransparencyCutoff(
+        m_loadedSteps.start.marchedInfo.getColorTransparencyCutoff() +
+        t * m_loadedSteps.fogInfoChanges.marchedInfo.getColorTransparencyCutoff());
+    volume.getRenderer().getFogInfo().marchedInfo.setDistanceTransparencyCutoff(
+        m_loadedSteps.start.marchedInfo.getDistanceTransparencyCutoff() +
+        t * m_loadedSteps.fogInfoChanges.marchedInfo.getDistanceTransparencyCutoff());
     volume.getRenderer().getFogInfo().marchedInfo.setLightExtinctionScale(
         m_loadedSteps.start.marchedInfo.getLightExtinctionScale() +
         t * m_loadedSteps.fogInfoChanges.marchedInfo.getLightExtinctionScale());

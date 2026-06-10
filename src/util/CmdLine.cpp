@@ -74,12 +74,12 @@ std::optional<int> TryGetDeviceIndexOverride(int argc, char **argv)
     return std::stoi(value.value());
 }
 
-bool DoesContainEnableDebugging(int argc, char **argv)
+bool DoesContainOption(int argc, char **argv, const std::string &flag)
 {
     for (int i{0}; i < argc; i++)
     {
         std::string arg = argv[i];
-        if (arg == "--enableDistanceDebugging")
+        if (arg == flag)
         {
             return true;
         }

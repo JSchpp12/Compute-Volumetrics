@@ -12,7 +12,8 @@ struct AppConfig
     std::string engineConfigFile;
     std::string simControllerPath;
     std::optional<int> overrideRenderingDevice{std::nullopt};
-    bool enableDistanceDebugging{false};
+    bool enableDistanceMarkers{false};
+    bool enableCutoffHighlighting{false};
 
     // Load from a JSON file path
     static AppConfig load(const std::string &path)

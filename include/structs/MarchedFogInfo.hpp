@@ -8,11 +8,12 @@ struct MarchedFogInfo
 
     MarchedFogInfo(const float &defaultDensity, const float &sigmaAbsorption, const float &sigmaScattering,
                    const float &lightPropertyDirG, const float &stepSizeDist, const float &stepSizeDist_light,
-                   const float densityMultiplier, float cutoffValue, float lightExtinctionScale)
+                float densityMultiplier, float colorTransparencyCutoff,
+                    float distanceTransparencyCutoff, float lightExtinctionScale)
         : defaultDensity(defaultDensity), stepSizeDist(stepSizeDist), stepSizeDist_light(stepSizeDist_light),
           lightPropertyDirG(lightPropertyDirG), sigmaAbsorption(sigmaAbsorption), sigmaScattering(sigmaScattering),
-          densityMultiplier(densityMultiplier), cutoffValue(std::move(cutoffValue)),
-          lightExtinctionScale(std::move(lightExtinctionScale))
+          densityMultiplier(densityMultiplier), colorTransparencyCutoff(colorTransparencyCutoff),
+          distanceTransparencyCutoff(distanceTransparencyCutoff), lightExtinctionScale(lightExtinctionScale)
     {
     }
 
@@ -20,8 +21,9 @@ struct MarchedFogInfo
         : defaultDensity(other.defaultDensity), stepSizeDist(other.stepSizeDist),
           stepSizeDist_light(other.stepSizeDist_light), lightPropertyDirG(other.lightPropertyDirG),
           sigmaAbsorption(other.sigmaAbsorption), sigmaScattering(other.sigmaScattering),
-          densityMultiplier(other.densityMultiplier), cutoffValue(other.cutoffValue),
-          lightExtinctionScale(std::move(other.lightExtinctionScale))
+          densityMultiplier(other.densityMultiplier), colorTransparencyCutoff(other.colorTransparencyCutoff),
+          distanceTransparencyCutoff(other.distanceTransparencyCutoff),
+          lightExtinctionScale(other.lightExtinctionScale)
     {
     }
 
@@ -36,7 +38,8 @@ struct MarchedFogInfo
             this->stepSizeDist = other.stepSizeDist;
             this->stepSizeDist_light = other.stepSizeDist_light;
             this->densityMultiplier = other.densityMultiplier;
-            this->cutoffValue = other.cutoffValue;
+            this->colorTransparencyCutoff = other.colorTransparencyCutoff;
+            this->distanceTransparencyCutoff = other.distanceTransparencyCutoff;
             this->lightExtinctionScale = other.lightExtinctionScale;
         }
 
@@ -48,7 +51,9 @@ struct MarchedFogInfo
         return this->defaultDensity == other.defaultDensity && this->sigmaAbsorption == other.sigmaAbsorption &&
                this->sigmaScattering == other.sigmaScattering && this->lightPropertyDirG == other.lightPropertyDirG &&
                this->stepSizeDist == other.stepSizeDist && this->stepSizeDist_light == other.stepSizeDist_light &&
-               this->densityMultiplier == other.densityMultiplier && this->cutoffValue == other.cutoffValue &&
+               this->densityMultiplier == other.densityMultiplier &&
+               this->colorTransparencyCutoff == other.colorTransparencyCutoff &&
+               this->distanceTransparencyCutoff == other.distanceTransparencyCutoff &&
                this->lightExtinctionScale == other.lightExtinctionScale;
     }
 
@@ -57,7 +62,9 @@ struct MarchedFogInfo
         return this->defaultDensity != other.defaultDensity || this->sigmaAbsorption != other.sigmaAbsorption ||
                this->sigmaScattering != other.sigmaScattering || this->lightPropertyDirG != other.lightPropertyDirG ||
                this->stepSizeDist != other.stepSizeDist || this->stepSizeDist_light != other.stepSizeDist_light ||
-               this->densityMultiplier != other.densityMultiplier || this->cutoffValue != other.cutoffValue ||
+               this->densityMultiplier != other.densityMultiplier ||
+               this->colorTransparencyCutoff != other.colorTransparencyCutoff ||
+               this->distanceTransparencyCutoff != other.distanceTransparencyCutoff ||
                this->lightExtinctionScale != other.lightExtinctionScale;
     }
 
@@ -97,34 +104,50 @@ struct MarchedFogInfo
     {
         return sigmaScattering;
     }
+
     void setDensityMultiplier(const float &value)
     {
         densityMultiplier = value;
     }
+
     float getDensityMultiplier() const
     {
         return densityMultiplier;
     }
-    void setCutoffValue(float value)
+
+    void setColorTransparencyCutoff(float value)
     {
-        cutoffValue = std::move(value);
+        colorTransparencyCutoff = std::move(value);
     }
-    float getCutoffValue() const
+
+    float getColorTransparencyCutoff() const
     {
-        return cutoffValue;
+        return colorTransparencyCutoff;
     }
+
+    void setDistanceTransparencyCutoff(float value)
+    {
+        distanceTransparencyCutoff = std::move(value);
+    }
+
+    float getDistanceTransparencyCutoff() const
+    {
+        return distanceTransparencyCutoff;
+    }
+
     void setLightExtinctionScale(float value)
     {
         lightExtinctionScale = std::move(value);
     }
+
     float getLightExtinctionScale() const
     {
         return lightExtinctionScale;
     }
 
   private:
-    float lightPropertyDirG = 0.0f, sigmaAbsorption = 0.0f, sigmaScattering = 0.0f, densityMultiplier = 1.0,
-          cutoffValue = 0.01f, lightExtinctionScale = 1.0f;
+    float lightPropertyDirG = 0.0f, sigmaAbsorption = 0.0f, sigmaScattering = 0.0f, densityMultiplier = 1.0f,
+          colorTransparencyCutoff = 0.01f, distanceTransparencyCutoff = 0.01f, lightExtinctionScale = 1.0f;
 
     bool validateSigmaTotal(const float &sigmaAbsorption, const float &sigmaScattering) const
     {

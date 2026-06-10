@@ -63,7 +63,7 @@ static ChunkOrchestrator CreateColorPass(star::core::device::DeviceContext &ctx,
         star::StarCommandBuffer(ctx.getDevice().getVulkanDevice(),
                                 static_cast<int>(ctx.frameTracker().getSetup().getNumFramesInFlight()),
                                 &queueInfo->pool, star::Queue_Type::Tcompute, false, false),
-        std::move(pass), &isReady};
+        std::move(pass), false, &isReady};
 }
 
 static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
@@ -94,7 +94,7 @@ static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx,
         star::StarCommandBuffer(ctx.getDevice().getVulkanDevice(),
                                 static_cast<int>(ctx.frameTracker().getSetup().getNumFramesInFlight()),
                                 &queueInfo->pool, star::Queue_Type::Tcompute, false, false),
-        std::move(pass), &isReady};
+        std::move(pass), true, &isReady};
 }
 
 void FogDispatcher::prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
@@ -181,6 +181,10 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
     assert(m_passes.size() > 0);
     m_numCbRecorded = 0;
 
+    // know the index 1 is the distance dispatch so hardcode for now
+
+    // m_passes[1].
+
     // TODO: move the wait for semaphore value from the volume renderer to here
     for (size_t i{0}; i < m_passes.size(); i++)
     {
@@ -190,17 +194,21 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
             {
             case (Fog::Type::sExponential):
             case (Fog::Type::sLinear):
-                dInfo.shaderOptionFlags = Pack(InitShaderFlags::None, MarchShaderFlags::None);
+                dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableColorOutput, MarchShaderFlags::None);
                 break;
             default:
                 dInfo.shaderOptionFlags =
-                    Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
+                    Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest,
+                         m_enableColorDebugCutoff ? MarchShaderFlags::EnableDebugHighlightCutoffValue
+                                                  : MarchShaderFlags::None);
             }
         }
         else if (pipeInfo.fogType == Fog::Type::sMarched)
         {
             // distance passes always have AAbb test but no depth test
-            dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
+            dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableAabbTest,
+                                           m_enableColorDebugCutoff ? MarchShaderFlags::EnableDebugHighlightCutoffValue
+                                                                    : MarchShaderFlags::None);
         }
 
         // only dispatch the distance compute for the marched option. All others have analytical solutions.
