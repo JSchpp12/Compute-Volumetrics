@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FogInfo.hpp"
+#include "structs/FogInfo.hpp"
 #include "FogType.hpp"
 #include "TerrainRenderingType.hpp"
 #include "TerrainShapeInfo.hpp"

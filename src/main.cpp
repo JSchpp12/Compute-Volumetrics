@@ -46,12 +46,14 @@ int main(int argc, char **argv)
 {
     openvdb::initialize();
 
-    auto cfg = std::make_unique<AppConfig>(
-        AppConfig{.volumeName = util::CmdLine::GetVolumeDirPath(argc, argv),
-                  .terrainDir = util::CmdLine::GetTerrainPath(argc, argv),
-                  .engineConfigFile = util::CmdLine::GetConfigFilePath(argc, argv),
-                  .simControllerPath = util::CmdLine::GetSimControllerFilePath(argc, argv),
-                  .overrideRenderingDevice = util::CmdLine::TryGetDeviceIndexOverride(argc, argv)});
+    auto cfg = std::make_unique<AppConfig>(AppConfig{
+        .volumeName = util::CmdLine::GetVolumeDirPath(argc, argv),
+        .terrainDir = util::CmdLine::GetTerrainPath(argc, argv),
+        .engineConfigFile = util::CmdLine::GetConfigFilePath(argc, argv),
+        .simControllerPath = util::CmdLine::GetSimControllerFilePath(argc, argv),
+        .overrideRenderingDevice = util::CmdLine::TryGetDeviceIndexOverride(argc, argv),
+        .enableDistanceMarkers = util::CmdLine::DoesContainOption(argc, argv, "--enableDistanceMarkers"),
+        .enableCutoffHighlighting = util::CmdLine::DoesContainOption(argc, argv, "--enableCutoffHighlighting")});
     try
     {
         star::ConfigFile::load(cfg->engineConfigFile);

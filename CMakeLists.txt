@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.0.25
+	VERSION 1.0.26
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -109,7 +109,6 @@ set(${PROJECT_NAME}_SOURCES
 	"src/TerrainGrid.cpp"
 	"src/FogControlInfo.cpp"
 	"src/CopyDepthTextureToBuffer.cpp"
-	"src/FogInfo.cpp"
 	"src/util/Math.cpp"
 	"src/util/CmdLine.cpp"
 	"src/VolumeDataBase.cpp"
@@ -156,7 +155,9 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp" 
 	"src/TerrainShapeInfo_json.cpp"
 	"src/service/detail/image_metric_manager/VolumeInfo_json.cpp" 
-	"src/FogInfo_json.cpp")
+	"src/FogInfo_json.cpp" 
+	"src/loader/SceneLoaders.cpp"  
+	"src/loader/SceneDescription.cpp" "src/util/Color.cpp")
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"
@@ -199,7 +200,6 @@ set(${PROJECT_NAME}_HEADERS
 	"include/TerrainGrid.hpp"
 	"include/FogControlInfo.hpp"
 	"include/CopyDepthTextureToBuffer.hpp"
-	"include/FogInfo.hpp"
 	"include/util/Math.hpp"
 	"include/util/CmdLine.hpp"
 	"include/VolumeDataBase.hpp"

@@ -21,3 +21,9 @@ void render_system::fog::commands::Pass::recordCommands(const DispatchInfo &dInf
     if (m_mainCmds.has_value())
         m_mainCmds.value().recordCommands(dInfo, passInfo, cmdBuf, ft);
 }
+
+void render_system::fog::commands::Pass::setAdditionalClears(std::span<const Init::OptionalClearBuffer> clears)
+{
+    if (m_mainCmds.has_value())
+        m_mainCmds.value().setAdditionalClears(clears); 
+}

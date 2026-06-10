@@ -178,12 +178,12 @@ VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
                                std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightList,
                                OffscreenRenderer *offscreenRenderer, std::string vdbFilePath,
                                const std::shared_ptr<star::StarCamera> camera,
-                               const std::array<glm::vec4, 2> &aabbBounds)
+                               const std::array<glm::vec4, 2> &aabbBounds, bool enableCutoffHighlighting)
     : m_infoManagerInstanceModel(instanceManagerInfo), m_infoManagerInstanceNormal(instanceNormalInfo),
       m_infoManagerGlobalCamera(globalInfoBuffers), m_infoManagerSceneLightInfo(sceneLightInfoBuffers),
       m_infoManagerSceneLightList(sceneLightList), m_offscreenRenderer(offscreenRenderer),
       m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(),
-      m_distanceComputer()
+      m_distanceComputer(), m_chunkHandler(enableCutoffHighlighting)
 {
 }
 
@@ -641,7 +641,8 @@ std::vector<star::StarBuffers::Buffer> VolumeRenderer::createComputeWriteToBuffe
                 vk::BufferCreateInfo()
                     .setSharingMode(vk::SharingMode::eExclusive)
                     .setSize(bufferSize)
-                    .setUsage(vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eStorageBuffer),
+                    .setUsage(vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eStorageBuffer |
+                              vk::BufferUsageFlagBits::eTransferDst),
                 debugName)
             .setInstanceCount(1)
             .setInstanceSize(bufferSize);

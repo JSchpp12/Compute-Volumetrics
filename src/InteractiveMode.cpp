@@ -3,6 +3,7 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "InteractiveApplication.hpp"
+#include "loader/SceneLoaders.hpp"
 #include "policy/WindowedEngineInitPolicy.hpp"
 
 #include <star_windowing/policy/EngineExitPolicy.hpp>
@@ -23,7 +24,12 @@ int InteractiveMode::run(std::unique_ptr<AppConfig> cfg)
     win_loop windowLoop{winContext};
     win_exit windowExit{winContext};
 
-    InteractiveApplication application(std::move(cfg->terrainDir), std::move(cfg->volumeName), &winContext);
+    InteractiveApplication application =
+        cfg->enableDistanceMarkers
+            ? InteractiveApplication(&loader::DebugSceneLoader, std::move(cfg->terrainDir), std::move(cfg->volumeName),
+                                     &winContext, {cfg->enableCutoffHighlighting})
+            : InteractiveApplication(&loader::ReleaseSceneLoader, std::move(cfg->terrainDir),
+                                     std::move(cfg->volumeName), &winContext, {cfg->enableCutoffHighlighting});
     auto engine = star::StarEngine<policy::WindowEngineInitPolicy, win_loop, win_exit>(
         std::move(windowInit), std::move(windowLoop), std::move(windowExit), application);
 

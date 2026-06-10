@@ -30,5 +30,8 @@ class ComputeContributor
 
     void recordCommands(const render_system::fog::DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo,
                         vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
+
+    void setAdditionalClears(std::span<const Init::OptionalClearBuffer> clears); 
+
 };
 } // namespace render_system::fog::commands

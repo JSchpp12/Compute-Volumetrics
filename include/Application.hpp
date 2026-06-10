@@ -3,14 +3,25 @@
 #include "OffscreenRenderer.hpp"
 #include "StarApplication.hpp"
 #include "Volume.hpp"
+#include "command/sim_controller/TriggerUpdate.hpp"
+#include "loader/SceneDescription.hpp"
 #include "renderer/finalization/IFinalizationRenderer.hpp"
 
+#include <functional>
 #include <memory>
 
 class Application : public star::StarApplication
 {
   public:
-    Application(std::string terrainPath, std::string volumeName);
+    struct VolumeRenderingOptions
+    {
+        bool enableCutoffHighlighting{false};
+    };
+    using LoaderFn = std::function<loader::SceneDescription(
+        star::core::device::DeviceContext &, const std::filesystem::path &, const std::filesystem::path &)>;
+
+    Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName,
+                VolumeRenderingOptions volumeOptions);
     virtual ~Application() = default;
 
     virtual void init() override
@@ -22,16 +33,25 @@ class Application : public star::StarApplication
     virtual void shutdown(star::core::device::DeviceContext &context) override;
 
   protected:
+    struct DebugCubeInfo
+    {
+        std::shared_ptr<star::StarObject> debugCube;
+        uint8_t numUniqueCubes{0};
+    };
+
+    LoaderFn m_loaderFn;
     std::filesystem::path m_imageOutputDir;
     std::string m_terrainDir;
-    std::string m_volumeName; 
-    std::shared_ptr<star::StarScene> m_mainScene = nullptr;
-    star::StarObjectInstance *testObject = nullptr;
-    std::shared_ptr<Volume> m_volume = nullptr;
-    OffscreenRenderer *m_offRenderer{nullptr}; 
-    std::shared_ptr<std::vector<star::Light>> m_mainLight;
+    std::string m_volumeName;
     std::vector<star::Handle> m_screenshotRegistrations;
+    std::optional<DebugCubeInfo> m_debugCubeInfo{std::nullopt};
+    std::shared_ptr<star::StarScene> m_mainScene = nullptr;
+    std::shared_ptr<Volume> m_volume;
+    OffscreenRenderer *m_offRenderer{nullptr};
+    std::shared_ptr<std::vector<star::Light>> m_mainLight;
     renderer::finalization::IFinalizationRenderer *m_finalizationCmds{nullptr};
+    VolumeRenderingOptions m_volumeOptions;
+
     bool m_flipScreenshotState = false;
 
     void submitPasses(star::core::device::DeviceContext &context);
@@ -40,13 +60,15 @@ class Application : public star::StarApplication
 
     void frameUpdate(star::core::SystemContext &context) override;
 
+    void placeDebugCubes(const glm::vec3 &direction, const glm::vec3 &startPosition);
+
     void setHeadlessServiceOutputDir(star::core::device::DeviceContext &context) const;
 
     virtual std::shared_ptr<star::StarCamera> createMainCamera(star::core::device::DeviceContext &context);
 
     virtual star::common::Renderer createMainRenderer(star::core::device::DeviceContext &context,
-                                                           std::vector<std::shared_ptr<star::StarObject>> objects,
-                                                           std::shared_ptr<star::StarCamera> camera);
+                                                      std::vector<std::shared_ptr<star::StarObject>> objects,
+                                                      std::shared_ptr<star::StarCamera> camera);
 
     virtual void triggerImageRecord(star::core::device::DeviceContext &context,
                                     const star::common::FrameTracker &frameTracker,
@@ -56,7 +78,8 @@ class Application : public star::StarApplication
 
     static bool CheckIfControllerIsDone(star::core::CommandBus &cmd);
 
-    static void TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume, star::StarCamera &camera);
+    static sim_controller::UpdateStatus TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume,
+                                                         star::StarCamera &camera);
 
     static float PromptForFloat(const std::string &prompt, const bool &allowNegative = false);
 
@@ -66,11 +89,10 @@ class Application : public star::StarApplication
 
     static int ProcessIntInput();
 
-    static OffscreenRenderer CreateOffscreenRenderer(star::core::device::DeviceContext &context,
-                                                     const uint8_t &numFramesInFlight,
-                                                     std::shared_ptr<star::StarCamera> camera,
-                                                     const std::string &terrainPath,
-                                                     std::shared_ptr<std::vector<star::Light>> mainLight);
+    OffscreenRenderer createOffscreenRenderer(star::core::device::DeviceContext &context,
+                                              const uint8_t &numFramesInFlight,
+                                              std::shared_ptr<star::StarCamera> camera, const std::string &terrainPath,
+                                              std::shared_ptr<std::vector<star::Light>> mainLight);
 
     static star::Light CreateMainLight(glm::vec3 position);
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "StarObject.hpp"
 #include "TerrainRenderingType.hpp"
+#include "starlight/object/StarObject.hpp"
 
 #include <filesystem>
 
@@ -9,9 +9,7 @@ class Terrain : public star::StarObject
 {
   public:
     Terrain(star::core::device::DeviceContext &context, std::string terrainDefFile)
-        : star::StarObject(LoadMaterials(terrainDefFile)), m_terrainDefFile(std::move(terrainDefFile))
-    {
-    };
+        : star::StarObject(LoadMaterials(terrainDefFile)), m_terrainDefFile(std::move(terrainDefFile)) {};
 
     std::filesystem::path getHeightInfoFilePath() const
     {
@@ -29,7 +27,7 @@ class Terrain : public star::StarObject
   protected:
     std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
-    std::vector<std::unique_ptr<star::StarMesh>> loadMeshes(star::core::device::DeviceContext &context) override;
+    std::vector<star::StarMesh> loadMeshes(star::core::device::DeviceContext &context) override;
 
   private:
     std::string m_terrainDefFile;

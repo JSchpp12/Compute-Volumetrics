@@ -103,7 +103,7 @@ static void WriteDefaultControllerInfo(star::core::CommandBus &cmdBus, const std
 
 void SimulationControllerService::onTriggerUpdate(sim_controller::TriggerUpdate &cmd)
 {
-    updateSim(cmd.volume, cmd.camera);
+    cmd.getReply().set(updateSim(cmd.volume, cmd.camera));
 }
 
 void SimulationControllerService::setInitParameters(star::service::InitParameters &params)
@@ -182,9 +182,15 @@ void SimulationControllerService::incrementMarched(Volume &volume, float t) cons
     volume.getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(
         m_loadedSteps.start.marchedInfo.getDensityMultiplier() +
         t * m_loadedSteps.fogInfoChanges.marchedInfo.getDensityMultiplier());
-    volume.getRenderer().getFogInfo().marchedInfo.setCutoffValue(
-        m_loadedSteps.start.marchedInfo.getCutoffValue() +
-        t * m_loadedSteps.fogInfoChanges.marchedInfo.getCutoffValue());
+    volume.getRenderer().getFogInfo().marchedInfo.setColorTransparencyCutoff(
+        m_loadedSteps.start.marchedInfo.getColorTransparencyCutoff() +
+        t * m_loadedSteps.fogInfoChanges.marchedInfo.getColorTransparencyCutoff());
+    volume.getRenderer().getFogInfo().marchedInfo.setDistanceTransparencyCutoff(
+        m_loadedSteps.start.marchedInfo.getDistanceTransparencyCutoff() +
+        t * m_loadedSteps.fogInfoChanges.marchedInfo.getDistanceTransparencyCutoff());
+    volume.getRenderer().getFogInfo().marchedInfo.setLightExtinctionScale(
+        m_loadedSteps.start.marchedInfo.getLightExtinctionScale() +
+        t * m_loadedSteps.fogInfoChanges.marchedInfo.getLightExtinctionScale());
 }
 
 bool SimulationControllerService::isDone() const
@@ -193,8 +199,10 @@ bool SimulationControllerService::isDone() const
            selectNextFogType() == Fog::Type::sCount;
 }
 
-void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &camera)
+sim_controller::UpdateStatus SimulationControllerService::updateSim(Volume &volume, star::StarCamera &camera)
 {
+    sim_controller::UpdateStatus status;
+
     // check if the bounds are loaded
     if (!m_loadedSteps)
     {
@@ -234,6 +242,9 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
         m_loadedController.reset(camera);
         m_stepCounter = 0;
         m_isPrimed = true;
+
+        status.cameraLocation = true;
+        status.cameraViewDirection = true;
     }
     else if (m_stepCounter == m_loadedSteps.numSteps - 1)
     {
@@ -257,7 +268,7 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
         else
         {
             star::core::logging::info("Incrementing camera controller");
-
+            status.cameraViewDirection = true;
             m_loadedController.tick(camera);
             m_stepCounter = 0;
         }
@@ -268,6 +279,7 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
     }
 
     float t = (m_stepCounter > 0) ? float(m_stepCounter) / float(m_loadedSteps.numSteps - 1) : 0.0f;
+    status.fogParameters = true;
     switch (static_cast<Fog::Type>(m_fogTypeTracker))
     {
     case (Fog::Type::sMarched):
@@ -281,14 +293,15 @@ void SimulationControllerService::updateSim(Volume &volume, star::StarCamera &ca
         incrementExp(volume, t);
         break;
     default:
-        return;
+        return status;
     }
 
     if (isDone() && m_doneFlag)
     {
         *m_doneFlag = true;
-        return;
     }
+
+    return status;
 }
 
 Fog::Type SimulationControllerService::selectNextFogType() const

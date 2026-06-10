@@ -1,12 +1,12 @@
 #include "service/detail/simulation_controller/Reader.hpp"
 
+#include "FogInfo_json.hpp"
 #include "service/detail/simulation_controller/FogEnabler.hpp"
 #include "service/detail/simulation_controller/FogEnabler_json.hpp"
 #include "service/detail/simulation_controller/SimulationBounds.hpp"
 #include "service/detail/simulation_controller/camera_controller/Circle.hpp"
 #include "service/detail/simulation_controller/camera_controller/Circle_json.hpp"
 #include "util/Math.hpp"
-#include "FogInfo_json.hpp"
 
 #include <starlight/common/helpers/FileHelpers.hpp>
 #include <starlight/core/Exceptions.hpp>
@@ -19,17 +19,17 @@ using nlohmann::json;
 
 namespace service::simulation_controller
 {
-static FogInfo::LinearFogInfo CalcSteps(const FogInfo::LinearFogInfo &start, const FogInfo::LinearFogInfo &stop)
+static LinearFogInfo CalcSteps(const LinearFogInfo &start, const LinearFogInfo &stop)
 {
     return {util::CalcDiff(start.nearDist, stop.nearDist), util::CalcDiff(start.farDist, stop.farDist)};
 }
 
-static FogInfo::ExpFogInfo CalcSteps(const FogInfo::ExpFogInfo &start, const FogInfo::ExpFogInfo &stop)
+static ExpFogInfo CalcSteps(const ExpFogInfo &start, const ExpFogInfo &stop)
 {
     return {util::CalcDiff(start.density, stop.density)};
 }
 
-static FogInfo::MarchedFogInfo CalcSteps(const FogInfo::MarchedFogInfo &start, const FogInfo::MarchedFogInfo &stop)
+static MarchedFogInfo CalcSteps(const MarchedFogInfo &start, const MarchedFogInfo &stop)
 {
     return {util::CalcDiff(start.defaultDensity, stop.defaultDensity),
             util::CalcDiff(start.getSigmaAbsorption(), stop.getSigmaAbsorption()),
@@ -38,13 +38,15 @@ static FogInfo::MarchedFogInfo CalcSteps(const FogInfo::MarchedFogInfo &start, c
             util::CalcDiff(start.stepSizeDist, stop.stepSizeDist),
             util::CalcDiff(start.stepSizeDist_light, stop.stepSizeDist_light),
             util::CalcDiff(start.getDensityMultiplier(), stop.getDensityMultiplier()),
-            util::CalcDiff(start.getCutoffValue(), stop.getCutoffValue())};
+            util::CalcDiff(start.getColorTransparencyCutoff(), stop.getColorTransparencyCutoff()),
+            util::CalcDiff(start.getDistanceTransparencyCutoff(), stop.getDistanceTransparencyCutoff()),
+            util::CalcDiff(start.getLightExtinctionScale(), stop.getLightExtinctionScale())};
 }
 
-static FogInfo::HomogenousRendering CalcSteps(const FogInfo::HomogenousRendering &start,
-                                              const FogInfo::HomogenousRendering &stop)
+static HomogenousRendering CalcSteps(const HomogenousRendering &start,
+                                              const HomogenousRendering &stop)
 {
-    return FogInfo::HomogenousRendering(util::CalcDiff(start.maxNumSteps, stop.maxNumSteps));
+    return HomogenousRendering(util::CalcDiff(start.maxNumSteps, stop.maxNumSteps));
 }
 
 SimulationSteps CalculateSimSteps(const SimulationBounds &bounds)
@@ -74,7 +76,7 @@ static SimulationData LoadBoundsInfoFromFile(const std::filesystem::path &path)
             is >> j;
 
             SimulationBounds bounds;
-            bounds.start = j["startData"]; 
+            bounds.start = j["startData"];
             bounds.stop = j["stopData"];
 
             std::string type = j["camera_controller_type"].get<std::string>();

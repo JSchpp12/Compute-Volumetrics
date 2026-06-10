@@ -10,11 +10,11 @@
 #include "ScreenMaterial.hpp"
 #include "StarCamera.hpp"
 #include "StarCommandBuffer.hpp"
-#include "StarObject.hpp"
 #include "VertColorMaterial.hpp"
 #include "Vertex.hpp"
 #include "VolumeDirectoryProcessor.hpp"
 #include "renderer/VolumeRenderer.hpp"
+#include "starlight/object/StarObject.hpp"
 
 #include <openvdb/Grid.h>
 #include <openvdb/openvdb.h>
@@ -85,7 +85,7 @@ class Volume : public star::StarObject
            OffscreenRenderer *offscreenRenderer,
            std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
            std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList);
+           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList, bool enableCutoffHighlighting);
 
     /// <summary>
     /// Expensive, only call when necessary.
@@ -104,7 +104,8 @@ class Volume : public star::StarObject
     virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
 
     virtual void frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
-                             const star::Handle &targetCommandBuffer) override;
+                             const star::Handle &targetCommandBuffer,
+                             const star::core::graphics::GPUWorkSyncInfo &transferRequestSync) override;
 
     glm::vec3 getCenterOfVDB() const
     {
@@ -143,13 +144,14 @@ class Volume : public star::StarObject
     void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
                     std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
                     std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList);
+                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList,
+                    bool enableCutoffHighlighting);
 
     void loadModel(star::core::device::DeviceContext &context, const std::string &filePath);
 
     void convertToFog(openvdb::FloatGrid::Ptr &grid);
 
-    std::vector<std::unique_ptr<star::StarMesh>> loadMeshes(star::core::device::DeviceContext &context) override;
+    std::vector<star::StarMesh> loadMeshes(star::core::device::DeviceContext &context) override;
 
     // virtual void recordRenderPassCommands(vk::CommandBuffer &commandBuffer, vk::PipelineLayout &pipelineLayout,
     //                                       int swapChainIndexNum) override;

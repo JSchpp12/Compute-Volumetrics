@@ -17,12 +17,13 @@ Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePa
                OffscreenRenderer *offscreenRenderer,
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList)
+               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList,
+               bool enableCutoffHighlighting)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
       camera(camera), screenDimensions(screenWidth, screenHeight), m_offscreenRenderer(offscreenRenderer)
 {
     initVolume(context, std::move(vdbFilePath), std::move(sceneCameraInfos), std::move(lightInfos),
-               std::move(lightList));
+               std::move(lightList), enableCutoffHighlighting);
 }
 
 std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
@@ -135,9 +136,10 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
 }
 
 void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
-                         const star::Handle &targetCommandBuffer)
+                         const star::Handle &targetCommandBuffer,
+                         const star::core::graphics::GPUWorkSyncInfo &transferRequestSync)
 {
-    star::StarObject::frameUpdate(context, frameInFlightIndex, targetCommandBuffer);
+    star::StarObject::frameUpdate(context, frameInFlightIndex, targetCommandBuffer, transferRequestSync);
 
     if (isReady)
     {
@@ -175,14 +177,15 @@ bool Volume::isRenderReady(star::core::device::DeviceContext &context)
 void Volume::initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
                         std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
                         std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList)
+                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList,
+                        bool enableCutoffHighlighting)
 {
     loadModel(context, vdbFilePath);
 
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
         context, &m_instanceInfo.getControllerModel(), &m_instanceInfo.getControllerNormal(),
         std::move(sceneCameraInfos), std::move(lightList), std::move(lightInfos), m_offscreenRenderer, vdbFilePath,
-        this->camera, this->aabbBounds);
+        this->camera, this->aabbBounds, enableCutoffHighlighting);
 }
 
 void Volume::updateGridTransforms()
@@ -212,30 +215,28 @@ float Volume::henyeyGreensteinPhase(const glm::vec3 &viewDirection, const glm::v
     return 1.0f / (4.0f * glm::pi<float>()) * (1.0f - gValue * gValue) / denom;
 }
 
-std::vector<std::unique_ptr<star::StarMesh>> Volume::loadMeshes(star::core::device::DeviceContext &context)
+std::vector<star::StarMesh> Volume::loadMeshes(star::core::device::DeviceContext &context)
 {
-    std::vector<std::unique_ptr<star::StarMesh>> meshes;
+    std::vector<star::StarMesh> meshes;
 
-    auto verts = std::vector<star::Vertex>{star::Vertex{glm::vec3{-1.0f, -1.0f, 0.0f}, // position
-                                                        glm::vec3{0.0f, 1.0f, 0.0f},   // normal - posy
-                                                        glm::vec3{0.0f, 1.0f, 0.0f},   // color
-                                                        glm::vec2{0.0f, 0.0f}},
-                                           star::Vertex{glm::vec3{1.0f, -1.0f, 0.0f}, // position
-                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
-                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // color
-                                                        glm::vec2{1.0f, 0.0f}},
-                                           star::Vertex{glm::vec3{1.0f, 1.0f, 0.0f}, // position
-                                                        glm::vec3{0.0f, 1.0f, 0.0f}, // normal - posy
-                                                        glm::vec3{1.0f, 0.0f, 0.0f}, // color
-                                                        glm::vec2{1.0f, 1.0f}},
-                                           star::Vertex{glm::vec3{-1.0f, 1.0f, 0.0f}, // position
-                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
-                                                        glm::vec3{0.0f, 1.0f, 0.0f},  // color
-                                                        glm::vec2{0.0f, 1.0f}}};
+    std::vector<star::Vertex> verts{star::Vertex{glm::vec3{-1.0f, -1.0f, 0.0f}, // position
+                                                 glm::vec3{0.0f, 1.0f, 0.0f},   // normal - posy
+                                                 glm::vec3{0.0f, 1.0f, 0.0f},   // color
+                                                 glm::vec2{0.0f, 0.0f}},
+                                    star::Vertex{glm::vec3{1.0f, -1.0f, 0.0f}, // position
+                                                 glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
+                                                 glm::vec3{0.0f, 1.0f, 0.0f},  // color
+                                                 glm::vec2{1.0f, 0.0f}},
+                                    star::Vertex{glm::vec3{1.0f, 1.0f, 0.0f}, // position
+                                                 glm::vec3{0.0f, 1.0f, 0.0f}, // normal - posy
+                                                 glm::vec3{1.0f, 0.0f, 0.0f}, // color
+                                                 glm::vec2{1.0f, 1.0f}},
+                                    star::Vertex{glm::vec3{-1.0f, 1.0f, 0.0f}, // position
+                                                 glm::vec3{0.0f, 1.0f, 0.0f},  // normal - posy
+                                                 glm::vec3{0.0f, 1.0f, 0.0f},  // color
+                                                 glm::vec2{0.0f, 1.0f}}};
 
-    std::vector<uint32_t> inds = std::vector<uint32_t>{0, 3, 2, 0, 2, 1};
-
-    auto newMeshes = std::vector<std::unique_ptr<star::StarMesh>>();
+    std::vector<uint32_t> inds{0, 3, 2, 0, 2, 1};
 
     const auto vertSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
@@ -250,10 +251,8 @@ std::vector<std::unique_ptr<star::StarMesh>> Volume::loadMeshes(star::core::devi
         context.getDeviceID(), context.getSemaphoreManager().get(indSemaphore)->semaphore,
         std::make_unique<star::TransferRequest::IndicesInfo>(this->graphicsQueueFamily, inds));
 
-    newMeshes.emplace_back(std::make_unique<star::StarMesh>(vertBuffer, indBuffer, verts, inds, m_meshMaterials.at(0),
-                                                            this->aabbBounds[0], this->aabbBounds[1], false));
-
-    return newMeshes;
+    return {star::StarMesh{vertBuffer, indBuffer, verts, inds, m_meshMaterials.at(0), this->aabbBounds[0],
+                           this->aabbBounds[1], false}};
 }
 
 openvdb::Mat4R Volume::getTransform(const glm::mat4 &objectDisplayMat)

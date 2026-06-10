@@ -22,7 +22,7 @@ class TerrainChunk
     /// @brief Load meshes from the provided files
     void load(GDALDataset *sharedDataset);
 
-    std::unique_ptr<star::StarMesh> getMesh(star::core::device::DeviceContext &context,
+    star::StarMesh getMesh(star::core::device::DeviceContext &context,
                                             std::shared_ptr<star::StarMaterial> myMaterial);
 
     std::string &getTextureFile();

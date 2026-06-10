@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FogInfo.hpp"
+#include "structs/FogInfo.hpp"
 #include "ManagerController_RenderResource_Buffer.hpp"
 #include "TransferRequest_Buffer.hpp"
 
