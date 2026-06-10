@@ -135,12 +135,11 @@ bool forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const 
         if (ds <= 0)
         {
             return false;
-            break;
         }
 
         const float t = stepStart + 0.5 * ds;
         const vec3 marchPos = ray.origin.xyz + (t * ray.direction.xyz);
-        float pDensity = gridReadAt(grid, acc, gType, marchPos, false) * densityMultiplier;
+        float pDensity = gridReadAt(grid, acc, gType, marchPos, true) * densityMultiplier;
         if (pDensity == 0.0f)
             pDensity = defaultDensity * densityMultiplier;
 
