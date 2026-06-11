@@ -6,6 +6,7 @@
 #include "TerrainShapeInfo.hpp"
 #include "Volume.hpp"
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
+#include "service/detail/image_metric_manager/VisibilityMetrics.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
 
 #include <starlight/common/entities/Light.hpp>
@@ -56,6 +57,6 @@ class FileWriteFunction
     std::unique_ptr<ImageWriteData> m_data = nullptr;
 
     void waitForCopyToDstBufferDone() const;
-    double calculateAverageRayDistance() const;
+    VisibilityMetrics calculateVisibilityMetrics() const;
 };
 } // namespace service::image_metric_manager

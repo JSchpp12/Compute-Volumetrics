@@ -155,6 +155,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp" 
 	"src/TerrainShapeInfo_json.cpp"
 	"src/service/detail/image_metric_manager/VolumeInfo_json.cpp" 
+	"src/service/detail/image_metric_manager/VisibilityMetrics_json.cpp"
 	"src/FogInfo_json.cpp" 
 	"src/loader/SceneLoaders.cpp"  
 	"src/loader/SceneDescription.cpp" "src/util/Color.cpp")
@@ -226,6 +227,8 @@ set(${PROJECT_NAME}_HEADERS
 	"include/service/detail/image_metric_manager/FileWriteFunction.hpp"
 	"include/service/detail/image_metric_manager/HostVisibleStorage.hpp"
 	"include/service/detail/image_metric_manager/ImageMetrics.hpp"
+	"include/service/detail/image_metric_manager/VisibilityMetrics.hpp"
+	"include/service/detail/image_metric_manager/VisibilityMetrics_json.hpp"
 )
 
 add_library(${PROJECT_NAME}_lib 
