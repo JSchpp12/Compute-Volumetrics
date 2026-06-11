@@ -2,7 +2,7 @@
 
 #include "FogInfo_json.hpp"
 #include "TerrainShapeInfo_json.hpp"
-#include "service/detail/image_metric_manager/VisibilityMetrics_json.hpp"
+#include "service/detail/image_metric_manager/RayDistanceMetrics_json.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo_json.hpp"
 
@@ -14,11 +14,11 @@ namespace service::image_metric_manager
 
 ImageMetrics::ImageMetrics(const star::Light &mainLight, const VolumeInfo &volumeInfo, const FogInfo &controlInfo,
                            const glm::vec3 &camPosition, const glm::vec3 &camLookDir, const std::string &imageFileName,
-                           const VisibilityMetrics &visibilityMetrics, std::string_view terrainName,
+                           const RayDistanceMetrics &distanceMetrics, std::string_view terrainName,
                            std::string_view volumeName, Fog::Type type, const TerrainShapeInfo &terrainShapeInfo,
                            TerrainRenderingType renderingType)
     : m_mainLight(mainLight), m_volumeInfo(volumeInfo), m_controlInfo(controlInfo), m_camPosition(camPosition),
-      m_camLookDir(camLookDir), m_imageFileName(imageFileName), m_visibilityMetrics(visibilityMetrics),
+      m_camLookDir(camLookDir), m_imageFileName(imageFileName), m_distanceMetrics(distanceMetrics),
       m_terrainName(terrainName), m_volumeName(volumeName), m_type(type), m_terrainShapeInfo(terrainShapeInfo),
       m_terrainRenderingType(renderingType)
 {
@@ -30,7 +30,7 @@ std::string ImageMetrics::toJsonDump() const
     data["file_name"] = m_imageFileName;
     data["camera_position"] = m_camPosition;
     data["camera_look_dir"] = m_camLookDir;
-    data["visibility_metrics"] = m_visibilityMetrics;
+    data["distance_metrics"] = m_distanceMetrics;
     data["fog_type"] = Fog::TypeToString(m_type);
     data["fog_params"] = m_controlInfo;
 

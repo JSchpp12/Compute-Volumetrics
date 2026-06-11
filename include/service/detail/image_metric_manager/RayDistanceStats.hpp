@@ -3,7 +3,7 @@
 namespace service::image_metric_manager
 {
 
-struct VisibilityMetrics
+struct RayDistanceStats
 {
     double average;
     double minimum;

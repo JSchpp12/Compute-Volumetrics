@@ -6,8 +6,9 @@
 #include "TerrainShapeInfo.hpp"
 #include "Volume.hpp"
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
-#include "service/detail/image_metric_manager/VisibilityMetrics.hpp"
+#include "service/detail/image_metric_manager/RayDistanceStats.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
+#include "service/detail/image_metric_manager/RayDistanceMetrics.hpp"
 
 #include <starlight/common/entities/Light.hpp>
 #include <starlight/virtual/StarCamera.hpp>
@@ -57,6 +58,6 @@ class FileWriteFunction
     std::unique_ptr<ImageWriteData> m_data = nullptr;
 
     void waitForCopyToDstBufferDone() const;
-    VisibilityMetrics calculateVisibilityMetrics() const;
+    RayDistanceMetrics calculateDistanceMetrics() const;
 };
 } // namespace service::image_metric_manager

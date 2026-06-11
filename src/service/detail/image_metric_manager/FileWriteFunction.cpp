@@ -15,11 +15,6 @@
 
 namespace service::image_metric_manager
 {
-static VisibilityMetrics MakeNanVisibilityMetrics()
-{
-    const double nan = std::numeric_limits<double>::quiet_NaN();
-    return VisibilityMetrics{nan, nan, nan, nan};
-}
 
 FileWriteFunction::FileWriteFunction(const star::StarCamera &camera, const Volume &volume, star::Light light,
                                      star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
@@ -46,13 +41,13 @@ void FileWriteFunction::write(const std::filesystem::path &path) const
 
     waitForCopyToDstBufferDone();
 
-    const VisibilityMetrics visibilityMetrics = calculateVisibilityMetrics();
+    const RayDistanceMetrics distanceMetrics = calculateDistanceMetrics();
     m_data->storage->returnBuffer(m_data->hostVisibleRayDistanceBuffer);
 
     std::ofstream out(finalPath.string(), std::ofstream::binary);
     const auto data =
         ImageMetrics(m_data->light, m_data->volumeInfo, m_data->controlInfo, m_data->cameraInfo.position,
-                     m_data->cameraInfo.lookDir, sourcePath.filename().string(), visibilityMetrics,
+                     m_data->cameraInfo.lookDir, sourcePath.filename().string(), distanceMetrics,
                      m_data->terrainName, m_data->volumeName, m_data->type, m_data->shapeInfo,
                      m_data->terrainRenderingType)
             .toJsonDump();
@@ -93,7 +88,7 @@ static double CalcVisDistanceLinear(const FogInfo &info)
     return info.linearInfo.farDist;
 }
 
-static VisibilityMetrics CalcVisDistanceFromRayBuffers(const star::StarBuffers::Buffer &rayDistance,
+static RayDistanceMetrics CalcVisDistanceFromRayBuffers(const star::StarBuffers::Buffer &rayDistance,
                                                        const star::StarBuffers::Buffer &validRayMask)
 {
     auto distanceResult = rayDistance.invalidate();
@@ -128,9 +123,14 @@ static VisibilityMetrics CalcVisDistanceFromRayBuffers(const star::StarBuffers::
     std::span<const float> distanceSpan{distances, distanceCount};
     std::span<const float> validMaskSpan{validMask, maskCount};
 
-    VisibilityMetrics stats = MakeNanVisibilityMetrics();
+    RayDistanceMetrics result{{std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN()},
+                              {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN()},
+                              0};
+
     if (!distanceSpan.empty())
     {
+        result.rayCount = distanceSpan.size();
+
         const double includingInvalidSum =
             std::transform_reduce(std::execution::unseq, distanceSpan.begin(), distanceSpan.end(),
                                   validMaskSpan.begin(), 0.0, std::plus<double>(),
@@ -162,21 +162,21 @@ static VisibilityMetrics CalcVisDistanceFromRayBuffers(const star::StarBuffers::
                 return valid > 0.0f ? static_cast<double>(distance) : std::numeric_limits<double>::infinity();
             });
 
-        stats.averageIncludingInvalid = includingInvalidSum / static_cast<double>(distanceSpan.size());
-        stats.averageExcludingInvalid =
+        result.includingInvalidRays.average = includingInvalidSum / static_cast<double>(distanceSpan.size());
+        result.excludingInvalidRays.average =
             validRayCount > 0.0 ? excludingInvalidSum / validRayCount : std::numeric_limits<double>::quiet_NaN();
-        stats.minimumIncludingInvalid = includingInvalidMin;
-        stats.minimumExcludingInvalid =
+        result.includingInvalidRays.minimum = includingInvalidMin;
+        result.excludingInvalidRays.minimum =
             validRayCount > 0.0 ? excludingInvalidMin : std::numeric_limits<double>::quiet_NaN();
     }
 
     validRayMask.unmap();
     rayDistance.unmap();
 
-    return stats;
+    return result;
 }
 
-VisibilityMetrics FileWriteFunction::calculateVisibilityMetrics() const
+RayDistanceMetrics FileWriteFunction::calculateDistanceMetrics() const
 {
     assert(m_data->storage != nullptr);
 
@@ -185,21 +185,27 @@ VisibilityMetrics FileWriteFunction::calculateVisibilityMetrics() const
     m_data->storage->getRayDistanceBuffers(m_data->hostVisibleRayDistanceBuffer, &rayDistance, &rayAtCutoff);
     assert(rayDistance != nullptr && rayAtCutoff != nullptr && "Failed to get buffers");
 
-    VisibilityMetrics distance;
+    RayDistanceMetrics distance;
     switch (m_data->type)
     {
     case (Fog::Type::sExponential):
-        distance.averageIncludingInvalid = CalcVisDistanceExponential(m_data->controlInfo, 0.98f);
-        distance.averageExcludingInvalid = distance.averageIncludingInvalid;
-        distance.minimumIncludingInvalid = distance.averageIncludingInvalid;
-        distance.minimumExcludingInvalid = distance.averageIncludingInvalid;
+    {
+        const double val = CalcVisDistanceExponential(m_data->controlInfo, 0.98f);
+        distance.includingInvalidRays.average = val;
+        distance.excludingInvalidRays.average = val;
+        distance.includingInvalidRays.minimum = val;
+        distance.excludingInvalidRays.minimum = val;
         break;
+    }
     case (Fog::Type::sLinear):
-        distance.averageIncludingInvalid = CalcVisDistanceLinear(m_data->controlInfo);
-        distance.averageExcludingInvalid = distance.averageIncludingInvalid;
-        distance.minimumIncludingInvalid = distance.averageIncludingInvalid;
-        distance.minimumExcludingInvalid = distance.averageIncludingInvalid;
+    {
+        const double val = CalcVisDistanceLinear(m_data->controlInfo);
+        distance.includingInvalidRays.average = val;
+        distance.excludingInvalidRays.average = val;
+        distance.includingInvalidRays.minimum = val;
+        distance.excludingInvalidRays.minimum = val;
         break;
+    }
     default:
         distance = CalcVisDistanceFromRayBuffers(*rayDistance, *rayAtCutoff);
         break;
