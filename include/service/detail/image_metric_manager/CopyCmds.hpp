@@ -1,5 +1,8 @@
 #pragma once
 
+#include "service/detail/image_metric_manager/CopyDstResources.hpp"
+#include "service/detail/image_metric_manager/CopySrcResources.hpp"
+
 #include <starlight/core/device/DeviceContext.hpp>
 #include <starlight/core/device/managers/Semaphore.hpp>
 #include <starlight/data_structure/dynamic/ThreadSharedObjectPool.hpp>
@@ -10,27 +13,24 @@
 
 namespace service::image_metric_manager
 {
-struct CopyResources
+struct SynchronizedCopyResourcesInfo
 {
     uint64_t signalValue;
-    star::Handle semaphoreRecordHandle;
+    star::Handle timelineRecordHandle;
     const star::core::device::manager::SemaphoreRecord *timelineRecord = nullptr;
-    const star::StarBuffers::Buffer *rayDistance = nullptr;
-    const star::StarBuffers::Buffer *rayAtCutoff = nullptr;
+    CopyDstResources cpyDst;
 };
 
 class CopyCmds
 {
   public:
-    explicit CopyCmds(CopyResources &cpyResources);
+    CopyCmds(CopySrcResources &cpySrcResources, SynchronizedCopyResourcesInfo &cpyDstResources);
 
     void prepRender(star::core::device::StarDevice &device, star::core::CommandBus &cmdBus, star::common::EventBus &eb,
                     star::core::device::manager::ManagerCommandBuffer &cb, star::core::device::manager::Queue &qm,
                     const star::common::FrameTracker &frameTracker);
 
-    void trigger(star::core::device::manager::ManagerCommandBuffer &cmdManager, star::core::CommandBus &cmdBus,
-                 const star::StarBuffers::Buffer &targetRayCutoff, const star::StarBuffers::Buffer &targetRayDistance,
-                 star::Handle fogRendererRegistration);
+    void trigger(star::core::device::manager::ManagerCommandBuffer &cmdManager, star::core::CommandBus &cmdBus);
 
     const star::Handle &getCommandBuffer() const
     {
@@ -38,20 +38,9 @@ class CopyCmds
     }
 
   private:
-    struct CopyTargetInfo
-    {
-        struct BufferInfo
-        {
-            const star::StarBuffers::Buffer *buffer = nullptr;
-        };
+    SynchronizedCopyResourcesInfo &m_cpyDstResources;
+    CopySrcResources &m_cpySrcResources;
 
-        star::Handle rendererRegistration;
-        BufferInfo rayDistance;
-        BufferInfo rayAtCutoffDistance;
-    };
-
-    CopyResources &m_cpyResources;
-    CopyTargetInfo m_targetInfo;
     star::Handle m_cmdBuffer;
     uint8_t m_transferQueueFamilyIndex = 0;
     uint8_t m_computeQueueFamilyIndex = 0;

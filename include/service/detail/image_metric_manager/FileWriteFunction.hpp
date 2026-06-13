@@ -1,14 +1,14 @@
 #pragma once
 
-#include "structs/FogInfo.hpp"
 #include "FogType.hpp"
 #include "TerrainRenderingType.hpp"
 #include "TerrainShapeInfo.hpp"
 #include "Volume.hpp"
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
+#include "service/detail/image_metric_manager/RayDistanceMetrics.hpp"
 #include "service/detail/image_metric_manager/RayDistanceStats.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
-#include "service/detail/image_metric_manager/RayDistanceMetrics.hpp"
+#include "structs/FogInfo.hpp"
 
 #include <starlight/common/entities/Light.hpp>
 #include <starlight/virtual/StarCamera.hpp>
@@ -21,17 +21,17 @@ class FileWriteFunction
 {
   public:
     FileWriteFunction() = default;
-    FileWriteFunction(const star::StarCamera &camera, const Volume &volume, star::Light light, star::Handle buffer,
-                      vk::Device vkDevice, vk::Semaphore done, uint64_t copyToHostBufferDoneValue,
-                      HostVisibleStorage *storage, std::string terrainName, TerrainShapeInfo terrainShapeInfo,
-                      TerrainRenderingType terrainRenderingType, std::string volumeName);
+    FileWriteFunction(vk::Extent2D screenResolution, const star::StarCamera &camera, const Volume &volume,
+                      star::Light light, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
+                      uint64_t copyToHostBufferDoneValue, HostVisibleStorage *storage, std::string terrainName,
+                      TerrainShapeInfo terrainShapeInfo, TerrainRenderingType terrainRenderingType,
+                      std::string volumeName);
 
     void write(const std::filesystem::path &path) const;
 
     int operator()(const std::filesystem::path &filePath);
 
   private:
-
     struct ImageWriteData
     {
         struct CameraInfo
@@ -42,8 +42,9 @@ class FileWriteFunction
 
         std::string terrainName;
         std::string volumeName;
+        vk::Extent2D screenResolution;
         CameraInfo cameraInfo;
-        VolumeInfo volumeInfo; 
+        VolumeInfo volumeInfo;
         star::Light light;
         FogInfo controlInfo;
         Fog::Type type;
@@ -58,6 +59,6 @@ class FileWriteFunction
     std::unique_ptr<ImageWriteData> m_data = nullptr;
 
     void waitForCopyToDstBufferDone() const;
-    RayDistanceMetrics calculateDistanceMetrics() const;
+    RayDistanceMetrics calculateDistanceMetrics(const service::image_metric_manager::CopyDstResources &resources) const;
 };
 } // namespace service::image_metric_manager

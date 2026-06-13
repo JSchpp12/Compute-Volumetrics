@@ -12,7 +12,7 @@ void to_json(nlohmann::json &j, const RayDistanceMetrics &v)
     nlohmann::json exc;
     to_json(exc, v.excludingInvalidRays);
 
-    j = nlohmann::json{{"includingInvalidRays", inc}, {"excludingInvalidRays", exc}, {"rayCount", v.rayCount}};
+    j = nlohmann::json{{"includingInvalidRays", inc}, {"excludingInvalidRays", exc}};
 }
 
 void from_json(const nlohmann::json &j, RayDistanceMetrics &v)
@@ -20,7 +20,6 @@ void from_json(const nlohmann::json &j, RayDistanceMetrics &v)
     // Use existing defaults if sections are absent
     from_json(j["includingInvalidRays"], v.includingInvalidRays);
     from_json(j["excludingInvalidRays"], v.excludingInvalidRays);
-    v.rayCount = j.value("rayCount", size_t{0});
 }
 
 } // namespace service::image_metric_manager

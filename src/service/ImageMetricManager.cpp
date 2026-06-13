@@ -124,15 +124,16 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
     // select resource to use
     const size_t fi = static_cast<size_t>(m_frameTracker->getCurrent().getFrameInFlightIndex());
     star::Handle hostResource;
+
+    vk::Extent2D iResolution;
     {
         const auto &resolution = volume.getRenderer().getRenderToImages().at(fi)->getBaseExtent();
-        const auto iResolution = vk::Extent2D().setHeight(resolution.height).setWidth(resolution.width);
-
+        iResolution.setHeight(resolution.height).setWidth(resolution.width);
         if (!m_storage.contains(iResolution))
         {
             m_storage.createResourcePoolForResolution(iResolution, *m_frameTracker, *m_device, *m_eb);
         }
-        hostResource = m_storage.getAvailableBufferToUse(iResolution);
+        hostResource = m_storage.getAvailableResource(iResolution);
     }
 
     const uint64_t signalValue = m_frameTracker->getCurrent().getNumTimesFrameProcessed() + 1;
@@ -142,23 +143,22 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
     star::core::device::manager::SemaphoreRecord *semaphoreRecord = m_s->get(semaphore);
 
     assert(m_cb != nullptr);
-    const star::StarBuffers::Buffer *rayDistance = nullptr;
-    const star::StarBuffers::Buffer *rayAtCutoff = nullptr;
-    m_storage.getRayDistanceBuffers(hostResource, &rayDistance, &rayAtCutoff);
-
-    m_copier.trigger(*m_cb, *m_cmdBus, *rayAtCutoff, *rayDistance, volume.getRenderer().getRayAtCutoffBufferAt(fi),
-                     volume.getRenderer().getRayDistanceBufferAt(fi), semaphore, semaphoreRecord, signalValue,
-                     volume.getRenderer().getCommandBuffer());
+    auto resources = m_storage.getResource(hostResource);
+    m_copier.setCopyDst(signalValue, resources, semaphore, semaphoreRecord);
+    m_copier.setCopySrc({.registration = volume.getRenderer().getCommandBuffer(),
+                         .rayDistance = volume.getRenderer().getRayDistanceBufferAt(fi),
+                         .rayAtCutoffDist = volume.getRenderer().getRayAtCutoffBufferAt(fi)});
+    m_copier.trigger(*m_cb, *m_cmdBus);
 
     star::core::logging::info("Submitting write task for file: " +
                               std::filesystem::path(imageCaptureFileName).replace_extension(".json").string());
     {
         auto writePayload = star::job::tasks::io::CreateWriteTask(star::job::tasks::io::WritePayload{
-            imageCaptureFileName,
-            service::image_metric_manager::FileWriteFunction{
-                camera, volume, mainLight, hostResource, m_device->getVulkanDevice(), semaphoreRecord->semaphore,
-                signalValue, &m_storage, m_cachedTerrainShapeInfo.getTerrainName(), m_cachedTerrainShapeInfo.get(),
-                m_cachedTerrainShapeInfo.getTerrainRenderingType(), m_cachedVolumeNameInfo}});
+            imageCaptureFileName, service::image_metric_manager::FileWriteFunction{
+                                      iResolution, camera, volume, mainLight, hostResource, m_device->getVulkanDevice(),
+                                      semaphoreRecord->semaphore, signalValue, &m_storage,
+                                      m_cachedTerrainShapeInfo.getTerrainName(), m_cachedTerrainShapeInfo.get(),
+                                      m_cachedTerrainShapeInfo.getTerrainRenderingType(), m_cachedVolumeNameInfo}});
         star::command::file_io::WriteToFile writeCmd{std::move(writePayload)};
         m_cmdBus->submit(writeCmd);
     }
