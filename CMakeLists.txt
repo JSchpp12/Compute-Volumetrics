@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.0.26
+	VERSION 1.0.27
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -134,7 +134,10 @@ set(${PROJECT_NAME}_SOURCES
 	"src/service/detail/image_metric_manager/CopyCmds.cpp"
 	"src/service/detail/image_metric_manager/FileWriteFunction.cpp"
 	"src/service/detail/image_metric_manager/HostVisibleStorage.cpp"
+	"src/service/detail/image_metric_manager/SharedBufferHandle.cpp"
 	"src/service/detail/image_metric_manager/ImageMetrics.cpp"
+	"src/service/detail/image_metric_manager/SharedBufferWriteImagePayload.cpp"
+	"src/service/detail/image_metric_manager/SharedBufferWriteValidityMaskPayload.cpp"
 	"src/render_system/fog/FogDispatcher.cpp"
 	"src/render_system/FogDispatcherBuilder.cpp"
 	"src/render_system/fog/sync/signal/CalcFromFt.cpp"
@@ -155,9 +158,13 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp" 
 	"src/TerrainShapeInfo_json.cpp"
 	"src/service/detail/image_metric_manager/VolumeInfo_json.cpp" 
+	"src/service/detail/image_metric_manager/RayDistanceStats_json.cpp"
+	"src/service/detail/image_metric_manager/RayDistanceMetrics_json.cpp"
+	"src/service/detail/image_metric_manager/RayMaskFiles_json.cpp"
 	"src/FogInfo_json.cpp" 
 	"src/loader/SceneLoaders.cpp"  
-	"src/loader/SceneDescription.cpp" "src/util/Color.cpp")
+	"src/loader/SceneDescription.cpp" 
+	"src/util/Color.cpp")
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"
@@ -225,7 +232,16 @@ set(${PROJECT_NAME}_HEADERS
 	"include/service/detail/image_metric_manager/CopyCmds.hpp"
 	"include/service/detail/image_metric_manager/FileWriteFunction.hpp"
 	"include/service/detail/image_metric_manager/HostVisibleStorage.hpp"
+	"include/service/detail/image_metric_manager/SharedBufferHandle.hpp"
+	"include/service/detail/image_metric_manager/SharedBufferWriteImagePayload.hpp"
+	"include/service/detail/image_metric_manager/SharedBufferWriteValidityMaskPayload.hpp"
 	"include/service/detail/image_metric_manager/ImageMetrics.hpp"
+	"include/service/detail/image_metric_manager/RayDistanceStats.hpp"
+	"include/service/detail/image_metric_manager/RayDistanceMetrics.hpp"
+	"include/service/detail/image_metric_manager/RayDistanceStats_json.hpp"
+	"include/service/detail/image_metric_manager/RayDistanceMetrics_json.hpp"
+	"include/service/detail/image_metric_manager/RayMaskFiles.hpp"
+	"include/service/detail/image_metric_manager/RayMaskFiles_json.hpp"
 )
 
 add_library(${PROJECT_NAME}_lib 

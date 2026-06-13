@@ -2,6 +2,7 @@
 
 #include <starlight/core/device/managers/Semaphore.hpp>
 #include <starlight/core/device/system/event/ManagerRequest.hpp>
+#include <starlight/wrappers/graphics/policies/GenericImageCreateAllocatePolicy.hpp>
 
 #include <star_common/helper/CastHelpers.hpp>
 
@@ -34,9 +35,9 @@ void HostVisibleStorage::cleanupRender()
     m_resolutionToPool.clear();
 }
 
-void HostVisibleStorage::returnBuffer(const star::Handle &handle)
+void HostVisibleStorage::returnResource(const star::Handle &handle)
 {
-    auto &pool = getPool(handle);
+    auto &pool = getPoolData(handle);
     pool.rayAtCutoffBuffers->release(handle);
     pool.rayDistBuffers->release(handle);
 }
@@ -57,11 +58,11 @@ void HostVisibleStorage::createResourcePoolForResolution(const vk::Extent2D &res
                                                          star::common::EventBus &eb)
 {
     std::unique_ptr<star::data_structure::dynamic::ThreadSharedObjectPool<
-        star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 40>>
+        star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 10>>
         rayDist = nullptr;
 
     std::unique_ptr<star::data_structure::dynamic::ThreadSharedObjectPool<
-        star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 40>>
+        star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 10>>
         rayAtCutoff = nullptr;
 
     {
@@ -82,7 +83,7 @@ void HostVisibleStorage::createResourcePoolForResolution(const vk::Extent2D &res
             .instanceCount = 1};
 
         rayDist = std::make_unique<star::data_structure::dynamic::ThreadSharedObjectPool<
-            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 40>>(
+            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 10>>(
             create);
     }
 
@@ -104,11 +105,11 @@ void HostVisibleStorage::createResourcePoolForResolution(const vk::Extent2D &res
             .instanceCount = 1};
 
         rayAtCutoff = std::make_unique<star::data_structure::dynamic::ThreadSharedObjectPool<
-            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 40>>(
+            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 10>>(
             create);
     }
 
-    m_pools.emplace_back(HostBuffers{std::move(rayDist), std::move(rayAtCutoff)});
+    m_pools.emplace_back(std::move(rayDist), std::move(rayAtCutoff));
 
     {
         uint16_t t = 0;
@@ -120,29 +121,23 @@ void HostVisibleStorage::createResourcePoolForResolution(const vk::Extent2D &res
     }
 }
 
-star::Handle HostVisibleStorage::getAvailableBufferToUse(const vk::Extent2D &resolutionTarget)
+star::Handle HostVisibleStorage::getAvailableResource(const vk::Extent2D &resolutionTarget)
 {
-    //const auto &r = getPoolReference(resolutionTarget);
-    //auto &pool = getPool(r);
-
-    auto &pool = m_pools.front(); 
+    const auto &r = getPoolReference(resolutionTarget);
+    auto &pool = getPoolData(r);
     auto rayDist = pool.rayDistBuffers->acquireBlocking();
     const auto rayCutoff = pool.rayAtCutoffBuffers->acquireBlocking();
 
     assert(rayDist == rayCutoff);
-
-    //rayDist.type = r.getType();
     return rayDist;
 }
 
-void HostVisibleStorage::getRayDistanceBuffers(const star::Handle &handle,
-                                               const star::StarBuffers::Buffer **rayDistBuffer,
-                                               const star::StarBuffers::Buffer **rayAtCutoffDistBuffer) const
+CopyDstResources HostVisibleStorage::getResource(const star::Handle &handle) const
 {
-    auto &pool = getPool(handle);
+    auto &pool = getPoolData(handle);
 
-    *rayDistBuffer = &pool.rayDistBuffers->get(handle);
-    *rayAtCutoffDistBuffer = &pool.rayAtCutoffBuffers->get(handle);
+    return {.rayDistanceBuffer = &pool.rayDistBuffers->get(handle),
+            .rayAtCutoffDistBuffer = &pool.rayAtCutoffBuffers->get(handle)};
 }
 
 std::vector<star::Handle> HostVisibleStorage::createTimelineSemaphore(const star::common::FrameTracker &ft,
@@ -175,19 +170,19 @@ const star::Handle &HostVisibleStorage::getPoolReference(const vk::Extent2D &tar
     return m_resolutionToPool.at(targetResolution);
 }
 
-HostVisibleStorage::HostBuffers &HostVisibleStorage::getPool(const star::Handle &handle)
+HostVisibleStorage::HostData &HostVisibleStorage::getPoolData(const star::Handle &handle)
 {
-    const size_t index = static_cast<size_t>(handle.getType()); 
+    const size_t index = static_cast<size_t>(handle.getType());
     assert(handle.getType() < m_pools.size());
 
     return m_pools[static_cast<size_t>(handle.getType())];
 }
 
-const HostVisibleStorage::HostBuffers &HostVisibleStorage::getPool(const star::Handle &handle) const
+const HostVisibleStorage::HostData &HostVisibleStorage::getPoolData(const star::Handle &handle) const
 {
     const size_t index = static_cast<size_t>(handle.getType());
     assert(index < m_pools.size());
 
     return m_pools[index];
 }
-} // namespace image_metric_manager
+} // namespace service::image_metric_manager

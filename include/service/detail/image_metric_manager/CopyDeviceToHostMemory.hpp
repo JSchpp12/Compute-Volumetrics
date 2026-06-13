@@ -1,6 +1,8 @@
 #pragma once
 
 #include "service/detail/image_metric_manager/CopyCmds.hpp"
+#include "service/detail/image_metric_manager/CopyDstResources.hpp"
+#include "service/detail/image_metric_manager/CopySrcResources.hpp"
 
 #include <starlight/core/device/DeviceContext.hpp>
 
@@ -13,7 +15,7 @@ namespace service::image_metric_manager
 class CopyDeviceToHostMemory
 {
   public:
-    CopyDeviceToHostMemory() : m_cpyCmds(m_resources)
+    CopyDeviceToHostMemory() : m_srcResources(), m_dstResources(), m_cpyCmds(m_srcResources, m_dstResources)
     {
     }
     CopyDeviceToHostMemory(const CopyDeviceToHostMemory &&) = delete;
@@ -26,12 +28,21 @@ class CopyDeviceToHostMemory
                     star::core::device::manager::ManagerCommandBuffer &cb, star::core::device::manager::Queue &qm,
                     const star::common::FrameTracker &frameTracker);
 
-    void trigger(star::core::device::manager::ManagerCommandBuffer &bufferManager, star::core::CommandBus &cmdBus,
-                 const star::StarBuffers::Buffer &hostRayCutoff, const star::StarBuffers::Buffer &hostRayDist,
-                 const star::StarBuffers::Buffer &targetRayCutoffBuffer,
-                 const star::StarBuffers::Buffer &targetRayDistanceBuffer, star::Handle timlineRecordHandle,
-                 star::core::device::manager::SemaphoreRecord *timeline, const uint64_t &valueToSignal,
-                 star::Handle fogRendererRegistration);
+    void trigger(star::core::device::manager::ManagerCommandBuffer &bufferManager, star::core::CommandBus &cmdBus);
+
+    void setCopySrc(CopySrcResources cpyResource)
+    {
+        m_srcResources = std::move(cpyResource);
+    }
+
+    void setCopyDst(uint64_t signalValue, CopyDstResources cpyResource, star::Handle timelineRecordHandle,
+                    star::core::device::manager::SemaphoreRecord *timelineRecord)
+    {
+        m_dstResources.signalValue = std::move(signalValue);
+        m_dstResources.cpyDst = std::move(cpyResource);
+        m_dstResources.timelineRecordHandle = std::move(timelineRecordHandle);
+        m_dstResources.timelineRecord = timelineRecord;
+    }
 
     const star::Handle &getCommandBuffer()
     {
@@ -39,7 +50,8 @@ class CopyDeviceToHostMemory
     }
 
   private:
-    CopyResources m_resources;
+    CopySrcResources m_srcResources;
+    SynchronizedCopyResourcesInfo m_dstResources;
     CopyCmds m_cpyCmds;
 };
 } // namespace service::image_metric_manager

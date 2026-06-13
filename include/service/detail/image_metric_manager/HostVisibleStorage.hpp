@@ -1,5 +1,7 @@
 #pragma once
 
+#include "service/detail/image_metric_manager/CopyDstResources.hpp"
+
 #include <starlight/core/device/DeviceContext.hpp>
 #include <starlight/data_structure/dynamic/ThreadSharedObjectPool.hpp>
 #include <starlight/wrappers/graphics/policies/GenericBufferCreateAllocatePolicy.hpp>
@@ -25,12 +27,11 @@ class HostVisibleStorage
 
     void cleanupRender();
 
-    star::Handle getAvailableBufferToUse(const vk::Extent2D &targetResolution);
+    star::Handle getAvailableResource(const vk::Extent2D &targetResolution);
 
-    void returnBuffer(const star::Handle &handle);
+    void returnResource(const star::Handle &handle);
 
-    void getRayDistanceBuffers(const star::Handle &handle, const star::StarBuffers::Buffer **rayDistBuffer,
-                               const star::StarBuffers::Buffer **rayAtCutoffDistBuffer) const;
+    CopyDstResources getResource(const star::Handle &handle) const;
 
     bool contains(const vk::Extent2D &targetResolution) const;
 
@@ -43,16 +44,17 @@ class HostVisibleStorage
     }
 
   private:
-    struct HostBuffers
+    struct HostData
     {
         std::unique_ptr<star::data_structure::dynamic::ThreadSharedObjectPool<
-            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 40>>
+            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 10>>
             rayDistBuffers;
         std::unique_ptr<star::data_structure::dynamic::ThreadSharedObjectPool<
-            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 40>>
+            star::StarBuffers::Buffer, star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy, 10>>
             rayAtCutoffBuffers;
     };
-    std::vector<HostBuffers> m_pools;
+
+    std::vector<HostData> m_pools;
     absl::flat_hash_map<vk::Extent2D, star::Handle, Extent2DHash, Extent2DEqual> m_resolutionToPool;
 
     std::vector<star::Handle> m_copyDoneSemaphores;
@@ -62,8 +64,8 @@ class HostVisibleStorage
 
     const star::Handle &getPoolReference(const vk::Extent2D &targetResolution) const;
 
-    HostBuffers &getPool(const star::Handle &handle);
+    HostData &getPoolData(const star::Handle &handle);
 
-    const HostBuffers &getPool(const star::Handle &handle) const;
+    const HostData &getPoolData(const star::Handle &handle) const;
 };
-} // namespace image_metric_manager
+} // namespace service::image_metric_manager

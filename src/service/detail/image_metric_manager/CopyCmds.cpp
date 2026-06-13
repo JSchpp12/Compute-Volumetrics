@@ -8,7 +8,8 @@
 
 namespace service::image_metric_manager
 {
-CopyCmds::CopyCmds(CopyResources &cpyResources) : m_cpyResources(cpyResources)
+CopyCmds::CopyCmds(CopySrcResources &cpySrcResources, SynchronizedCopyResourcesInfo &cpyDstResources)
+    : m_cpySrcResources(cpySrcResources), m_cpyDstResources(cpyDstResources)
 {
 }
 
@@ -22,21 +23,15 @@ void CopyCmds::prepRender(star::core::device::StarDevice &device, star::core::Co
     m_targetTransferQueue = getTransferQueue(eb, qm);
 }
 
-void CopyCmds::trigger(star::core::device::manager::ManagerCommandBuffer &cmdManager, star::core::CommandBus &cmdBus,
-                       const star::StarBuffers::Buffer &targetRayCutoff,
-                       const star::StarBuffers::Buffer &targetRayDistance, star::Handle volumeRendererRegistration)
+void CopyCmds::trigger(star::core::device::manager::ManagerCommandBuffer &cmdManager, star::core::CommandBus &cmdBus)
 {
     assert(m_cmdBuffer.isInitialized() &&
            "CopyCmds instance must be registered with manager before request to record + submit can be made");
 
     cmdBus.submit(star::command_order::TriggerPass()
                       .setPass(m_cmdBuffer)
-                      .setTimelineSemaphore(m_cpyResources.semaphoreRecordHandle)
-                      .setSignalValue(m_cpyResources.signalValue));
-
-    m_targetInfo.rayAtCutoffDistance.buffer = &targetRayCutoff;
-    m_targetInfo.rayDistance.buffer = &targetRayDistance;
-    m_targetInfo.rendererRegistration = std::move(volumeRendererRegistration);
+                      .setTimelineSemaphore(m_cpyDstResources.timelineRecordHandle)
+                      .setSignalValue(m_cpyDstResources.signalValue));
 
     cmdManager.submitDynamicBuffer(m_cmdBuffer);
 }
@@ -50,8 +45,9 @@ void CopyCmds::recordCommandBuffer(star::StarCommandBuffer &buffer, const star::
 
     vk::CommandBuffer &b = buffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex());
     addPreMemoryBarriers(b);
-    copyBuffer(buffer, frameTracker, *m_targetInfo.rayDistance.buffer, *m_cpyResources.rayDistance);
-    copyBuffer(buffer, frameTracker, *m_targetInfo.rayAtCutoffDistance.buffer, *m_cpyResources.rayAtCutoff);
+    copyBuffer(buffer, frameTracker, m_cpySrcResources.rayDistance, *m_cpyDstResources.cpyDst.rayDistanceBuffer);
+    copyBuffer(buffer, frameTracker, m_cpySrcResources.rayAtCutoffDist,
+               *m_cpyDstResources.cpyDst.rayAtCutoffDistBuffer);
     addPostMemoryBarriers(b);
 
     b.end();
@@ -60,8 +56,6 @@ void CopyCmds::recordCommandBuffer(star::StarCommandBuffer &buffer, const star::
 void CopyCmds::copyBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                           const star::StarBuffers::Buffer &src, const star::StarBuffers::Buffer &dst) const
 {
-    assert(m_targetInfo.rayDistance.buffer != nullptr);
-
     auto &b = buffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex());
 
     b.copyBuffer(src.getVulkanBuffer(), dst.getVulkanBuffer(),
@@ -71,13 +65,14 @@ void CopyCmds::copyBuffer(star::StarCommandBuffer &buffer, const star::common::F
 void CopyCmds::waitForSemaphoreIfNecessary(const star::common::FrameTracker &frameTracker) const
 {
     // check what the last value of the semaphore was
-    assert(m_cpyResources.timelineRecord != nullptr);
+    assert(m_cpyDstResources.timelineRecord != nullptr);
 
-    if (m_cpyResources.timelineRecord->timelineValue.value() == frameTracker.getCurrent().getNumTimesFrameProcessed())
+    if (m_cpyDstResources.timelineRecord->timelineValue.value() ==
+        frameTracker.getCurrent().getNumTimesFrameProcessed())
     {
-        const auto &value = m_cpyResources.timelineRecord->timelineValue.value();
+        const auto &value = m_cpyDstResources.timelineRecord->timelineValue.value();
         const auto waitResult = m_device.waitSemaphores(
-            vk::SemaphoreWaitInfo().setSemaphores(m_cpyResources.timelineRecord->semaphore).setValues(value),
+            vk::SemaphoreWaitInfo().setSemaphores(m_cpyDstResources.timelineRecord->semaphore).setValues(value),
             UINT64_MAX);
 
         if (waitResult != vk::Result::eSuccess)
@@ -135,7 +130,7 @@ vk::Semaphore CopyCmds::submitBuffer(star::StarCommandBuffer &buffer, const star
     vk::Semaphore volumeSignaledSemaphore{VK_NULL_HANDLE};
     uint64_t volumeSignaledSemaphoreValue{0};
     {
-        auto gather = star::command_order::GetPassInfo{m_targetInfo.rendererRegistration};
+        auto gather = star::command_order::GetPassInfo{m_cpySrcResources.registration};
         m_cmdBus->submit(gather);
         volumeSignaledSemaphore = std::move(gather.getReply().get().signaledSemaphore);
         volumeSignaledSemaphoreValue = std::move(gather.getReply().get().toSignalValue);
@@ -145,8 +140,8 @@ vk::Semaphore CopyCmds::submitBuffer(star::StarCommandBuffer &buffer, const star
         vk::SemaphoreSubmitInfo().setSemaphore(volumeSignaledSemaphore).setValue(volumeSignaledSemaphoreValue)};
 
     const vk::SemaphoreSubmitInfo signalInfo[1]{vk::SemaphoreSubmitInfo()
-                                                    .setSemaphore(m_cpyResources.timelineRecord->semaphore)
-                                                    .setValue(m_cpyResources.signalValue)};
+                                                    .setSemaphore(m_cpyDstResources.timelineRecord->semaphore)
+                                                    .setValue(m_cpyDstResources.signalValue)};
     const auto cbInfo = vk::CommandBufferSubmitInfo().setCommandBuffer(
         buffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()));
 
@@ -199,22 +194,22 @@ static vk::BufferMemoryBarrier2 MakePreBarrierSameQueue(vk::Buffer buffer)
 
 std::vector<vk::BufferMemoryBarrier2> CopyCmds::getPreBufferBarriers() const
 {
-    assert(m_cpyResources.rayDistance != nullptr && m_cpyResources.rayAtCutoff != nullptr &&
-           "All buffer must be defined in m_cpyResources before barriers can be made");
+    assert(m_cpyDstResources.cpyDst.rayDistanceBuffer != nullptr &&
+           m_cpyDstResources.cpyDst.rayAtCutoffDistBuffer != nullptr &&
+           "All buffer must be defined in m_cpyDstResources before barriers can be made");
 
     const bool diffFamilies = m_transferQueueFamilyIndex != m_computeQueueFamilyIndex;
-
     if (diffFamilies)
     {
         return {MakePreBarrier(m_computeQueueFamilyIndex, m_transferQueueFamilyIndex,
-                               m_targetInfo.rayDistance.buffer->getVulkanBuffer()),
+                               m_cpySrcResources.rayDistance.getVulkanBuffer()),
                 MakePreBarrier(m_computeQueueFamilyIndex, m_transferQueueFamilyIndex,
-                               m_targetInfo.rayAtCutoffDistance.buffer->getVulkanBuffer())};
+                               m_cpySrcResources.rayAtCutoffDist.getVulkanBuffer())};
     }
     else
     {
-        return {MakePreBarrierSameQueue(m_targetInfo.rayDistance.buffer->getVulkanBuffer()),
-                MakePreBarrierSameQueue(m_targetInfo.rayAtCutoffDistance.buffer->getVulkanBuffer())};
+        return {MakePreBarrierSameQueue(m_cpySrcResources.rayDistance.getVulkanBuffer()),
+                MakePreBarrierSameQueue(m_cpySrcResources.rayAtCutoffDist.getVulkanBuffer())};
     }
 }
 
@@ -253,21 +248,22 @@ static vk::BufferMemoryBarrier2 MakeBarrierForTransfer(vk::Buffer buffer)
 
 std::vector<vk::BufferMemoryBarrier2> CopyCmds::getPostBufferBarriers() const
 {
-    assert(m_cpyResources.rayDistance != nullptr && m_cpyResources.rayAtCutoff != nullptr &&
-           "All buffer must be defined in m_cpyResources before barriers can be made");
+    assert(m_cpyDstResources.cpyDst.rayDistanceBuffer != nullptr &&
+           m_cpyDstResources.cpyDst.rayAtCutoffDistBuffer != nullptr &&
+           "All buffer must be defined in m_cpyDstResources before barriers can be made");
 
     const bool diffFamilies = m_transferQueueFamilyIndex != m_computeQueueFamilyIndex;
 
     std::vector<vk::BufferMemoryBarrier2> barriers = std::vector<vk::BufferMemoryBarrier2>(4);
 
-    barriers[0] = MakeBarrierForTransfer(m_cpyResources.rayDistance->getVulkanBuffer());
-    barriers[1] = MakeBarrierForTransfer(m_cpyResources.rayAtCutoff->getVulkanBuffer());
+    barriers[0] = MakeBarrierForTransfer(m_cpyDstResources.cpyDst.rayDistanceBuffer->getVulkanBuffer());
+    barriers[1] = MakeBarrierForTransfer(m_cpyDstResources.cpyDst.rayAtCutoffDistBuffer->getVulkanBuffer());
     if (diffFamilies)
     {
         barriers[2] = MakePostBarrier(m_transferQueueFamilyIndex, m_computeQueueFamilyIndex,
-                                      m_targetInfo.rayAtCutoffDistance.buffer->getVulkanBuffer());
+                                      m_cpySrcResources.rayAtCutoffDist.getVulkanBuffer());
         barriers[3] = MakePostBarrier(m_transferQueueFamilyIndex, m_computeQueueFamilyIndex,
-                                      m_targetInfo.rayDistance.buffer->getVulkanBuffer());
+                                      m_cpySrcResources.rayDistance.getVulkanBuffer());
     }
     else
     {
