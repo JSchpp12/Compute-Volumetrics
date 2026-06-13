@@ -4,16 +4,16 @@
 #include "TerrainRenderingType.hpp"
 #include "TerrainShapeInfo.hpp"
 #include "Volume.hpp"
-#include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
 #include "service/detail/image_metric_manager/RayDistanceMetrics.hpp"
 #include "service/detail/image_metric_manager/RayDistanceStats.hpp"
+#include "service/detail/image_metric_manager/SharedBufferHandle.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
 #include "structs/FogInfo.hpp"
 
 #include <starlight/common/entities/Light.hpp>
 #include <starlight/virtual/StarCamera.hpp>
 
-#include <vulkan/vulkan.hpp>
+#include <memory>
 
 namespace service::image_metric_manager
 {
@@ -21,18 +21,18 @@ class FileWriteFunction
 {
   public:
     FileWriteFunction() = default;
-    FileWriteFunction(vk::Extent2D screenResolution, const star::StarCamera &camera, const Volume &volume,
-                      star::Light light, star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
-                      uint64_t copyToHostBufferDoneValue, HostVisibleStorage *storage, std::string terrainName,
-                      TerrainShapeInfo terrainShapeInfo, TerrainRenderingType terrainRenderingType,
-                      std::string volumeName);
+    FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferHandle, vk::Extent2D screenResolution,
+                      const star::StarCamera &camera, const Volume &volume, star::Light light,
+                      std::string terrainName, TerrainShapeInfo terrainShapeInfo,
+                      TerrainRenderingType terrainRenderingType, std::string volumeName,
+                      std::string sourceImageName);
 
     void write(const std::filesystem::path &path) const;
 
     int operator()(const std::filesystem::path &filePath);
 
   private:
-    struct ImageWriteData
+    struct MetricWriteData
     {
         struct CameraInfo
         {
@@ -40,8 +40,10 @@ class FileWriteFunction
             glm::vec3 lookDir;
         };
 
+        std::shared_ptr<SharedBufferHandle> bufferHandle;
         std::string terrainName;
         std::string volumeName;
+        std::string sourceImageName;
         vk::Extent2D screenResolution;
         CameraInfo cameraInfo;
         VolumeInfo volumeInfo;
@@ -50,15 +52,9 @@ class FileWriteFunction
         Fog::Type type;
         TerrainShapeInfo shapeInfo;
         TerrainRenderingType terrainRenderingType;
-        star::Handle hostVisibleRayDistanceBuffer;
-        vk::Device vkDevice = VK_NULL_HANDLE;
-        vk::Semaphore copyDone;
-        uint64_t copyToHostBufferDoneValue;
-        HostVisibleStorage *storage{nullptr};
     };
-    std::unique_ptr<ImageWriteData> m_data = nullptr;
+    std::unique_ptr<MetricWriteData> m_data = nullptr;
 
-    void waitForCopyToDstBufferDone() const;
-    RayDistanceMetrics calculateDistanceMetrics(const service::image_metric_manager::CopyDstResources &resources) const;
+    RayDistanceMetrics calculateDistanceMetrics() const;
 };
 } // namespace service::image_metric_manager
