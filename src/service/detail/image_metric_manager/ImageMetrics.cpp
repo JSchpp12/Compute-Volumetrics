@@ -3,6 +3,7 @@
 #include "FogInfo_json.hpp"
 #include "TerrainShapeInfo_json.hpp"
 #include "service/detail/image_metric_manager/RayDistanceMetrics_json.hpp"
+#include "service/detail/image_metric_manager/RayMaskFiles_json.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo_json.hpp"
 
@@ -16,11 +17,11 @@ ImageMetrics::ImageMetrics(const star::Light &mainLight, const VolumeInfo &volum
                            const glm::vec3 &camPosition, const glm::vec3 &camLookDir, const std::string &imageFileName,
                            const RayDistanceMetrics &distanceMetrics, std::string_view terrainName,
                            std::string_view volumeName, Fog::Type type, const TerrainShapeInfo &terrainShapeInfo,
-                           TerrainRenderingType renderingType)
+                           TerrainRenderingType renderingType, const RayMaskFiles &rayMaskFiles)
     : m_mainLight(mainLight), m_volumeInfo(volumeInfo), m_controlInfo(controlInfo), m_camPosition(camPosition),
       m_camLookDir(camLookDir), m_imageFileName(imageFileName), m_distanceMetrics(distanceMetrics),
       m_terrainName(terrainName), m_volumeName(volumeName), m_type(type), m_terrainShapeInfo(terrainShapeInfo),
-      m_terrainRenderingType(renderingType)
+      m_terrainRenderingType(renderingType), m_rayMaskFiles(rayMaskFiles)
 {
 }
 
@@ -44,6 +45,7 @@ std::string ImageMetrics::toJsonDump() const
     data["terrain_name"] = m_terrainName;
     data["terrain_shape_type"] = toString(m_terrainRenderingType);
     data["volume_info"] = m_volumeInfo;
+    data["ray_masks"] = m_rayMaskFiles;
 
     std::ostringstream oss;
     oss << std::setw(4) << data;

@@ -34,7 +34,8 @@ class SharedBufferHandle
     const CopyDstResources &getResources() const; 
     const star::StarBuffers::Buffer &getRayDistanceBuffer() const;
     const star::StarBuffers::Buffer &getRayAtCutoffDistBuffer() const;
-    vk::Extent2D getResolution() const;
+    const vk::Extent2D &getResolution() const;
+    vk::Extent3D getImageExtent() const;
 
   private:
     HostVisibleStorage *m_pool;

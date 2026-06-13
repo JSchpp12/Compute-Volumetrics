@@ -129,8 +129,13 @@ const star::StarBuffers::Buffer &SharedBufferHandle::getRayAtCutoffDistBuffer() 
     return *m_resources.rayAtCutoffDistBuffer;
 }
 
-vk::Extent2D SharedBufferHandle::getResolution() const
+const vk::Extent2D &SharedBufferHandle::getResolution() const
 {
     return m_resolution;
+}
+
+vk::Extent3D SharedBufferHandle::getImageExtent() const
+{
+    return vk::Extent3D().setWidth(m_resolution.width).setHeight(m_resolution.height).setDepth(1);
 }
 } // namespace service::image_metric_manager

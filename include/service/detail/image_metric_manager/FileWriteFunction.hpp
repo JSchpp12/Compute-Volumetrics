@@ -6,6 +6,7 @@
 #include "Volume.hpp"
 #include "service/detail/image_metric_manager/RayDistanceMetrics.hpp"
 #include "service/detail/image_metric_manager/RayDistanceStats.hpp"
+#include "service/detail/image_metric_manager/RayMaskFiles.hpp"
 #include "service/detail/image_metric_manager/SharedBufferHandle.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
 #include "structs/FogInfo.hpp"
@@ -25,7 +26,7 @@ class FileWriteFunction
                       const star::StarCamera &camera, const Volume &volume, star::Light light,
                       std::string terrainName, TerrainShapeInfo terrainShapeInfo,
                       TerrainRenderingType terrainRenderingType, std::string volumeName,
-                      std::string sourceImageName);
+                      std::string sourceImageName, RayMaskFiles rayMaskFiles);
 
     void write(const std::filesystem::path &path) const;
 
@@ -52,6 +53,7 @@ class FileWriteFunction
         Fog::Type type;
         TerrainShapeInfo shapeInfo;
         TerrainRenderingType terrainRenderingType;
+        RayMaskFiles rayMaskFiles;
     };
     std::unique_ptr<MetricWriteData> m_data = nullptr;
 

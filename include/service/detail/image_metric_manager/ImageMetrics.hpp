@@ -4,7 +4,10 @@
 #include "FogType.hpp"
 #include "TerrainRenderingType.hpp"
 #include "TerrainShapeInfo.hpp"
+#include "Volume.hpp"
 #include "service/detail/image_metric_manager/RayDistanceMetrics.hpp"
+#include "service/detail/image_metric_manager/RayDistanceStats.hpp"
+#include "service/detail/image_metric_manager/RayMaskFiles.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
 
 #include <starlight/common/entities/Light.hpp>
@@ -19,7 +22,8 @@ class ImageMetrics
     ImageMetrics(const star::Light &mainLight, const VolumeInfo &volumeInfo, const FogInfo &controlInfo,
                  const glm::vec3 &camPosition, const glm::vec3 &camLookDir, const std::string &fileName,
                  const RayDistanceMetrics &distanceMetrics, std::string_view terrainName, std::string_view volumeName,
-                 Fog::Type type, const TerrainShapeInfo &terrainShapeInfo, TerrainRenderingType renderingType);
+                 Fog::Type type, const TerrainShapeInfo &terrainShapeInfo, TerrainRenderingType renderingType,
+                 const RayMaskFiles &rayMaskFiles);
 
     std::string toJsonDump() const;
 
@@ -36,5 +40,6 @@ class ImageMetrics
     Fog::Type m_type;
     const TerrainShapeInfo &m_terrainShapeInfo;
     TerrainRenderingType m_terrainRenderingType;
+    RayMaskFiles m_rayMaskFiles;
 };
 } // namespace service::image_metric_manager

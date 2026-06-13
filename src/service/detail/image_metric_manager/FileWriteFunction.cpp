@@ -19,7 +19,7 @@ FileWriteFunction::FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferH
                                       const star::StarCamera &camera, const Volume &volume, star::Light light,
                                       std::string terrainName, TerrainShapeInfo terrainShapeInfo,
                                       TerrainRenderingType terrainRenderingType, std::string volumeName,
-                                      std::string sourceImageName)
+                                      std::string sourceImageName, RayMaskFiles rayMaskFiles)
     : m_data(std::make_unique<MetricWriteData>(
           std::move(bufferHandle), std::move(terrainName), std::move(volumeName), std::move(sourceImageName),
           std::move(screenResolution),
@@ -29,7 +29,7 @@ FileWriteFunction::FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferH
                          star::core::helper::star_object::ExtractRotationDegrees(volume.getInstance().getRotationMat()),
                      .scale = volume.getInstance().getScale()},
           std::move(light), volume.getRenderer().getFogInfo(), volume.getRenderer().getFogType(),
-          std::move(terrainShapeInfo), terrainRenderingType))
+          std::move(terrainShapeInfo), terrainRenderingType, std::move(rayMaskFiles)))
 {
 }
 
@@ -149,7 +149,7 @@ void FileWriteFunction::write(const std::filesystem::path &path) const
     const auto data =
         ImageMetrics(m_data->light, m_data->volumeInfo, m_data->controlInfo, m_data->cameraInfo.position,
                      m_data->cameraInfo.lookDir, m_data->sourceImageName, distanceMetrics, m_data->terrainName,
-                     m_data->volumeName, m_data->type, m_data->shapeInfo, m_data->terrainRenderingType)
+                     m_data->volumeName, m_data->type, m_data->shapeInfo, m_data->terrainRenderingType, m_data->rayMaskFiles)
             .toJsonDump();
     out << data;
 }
