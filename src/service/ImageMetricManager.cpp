@@ -160,6 +160,8 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
 
     const auto basePath = std::filesystem::path(imageCaptureFileName);
     const auto maskPath = (basePath.parent_path() / (basePath.stem().string() + "_distanceMask.tif")).string();
+    const auto normalizedMaskPath =
+        (basePath.parent_path() / (basePath.stem().string() + "_distanceMaskNorm.tif")).string();
     const auto jsonPath = std::filesystem::path(imageCaptureFileName).replace_extension(".json").string();
     const auto rayValidityMaskPath = (basePath.parent_path() / (basePath.stem().string() + "_validMask.png")).string();
 
@@ -169,6 +171,21 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
                 .bufferHandle = sharedHandle, .imageFormat = vk::Format::eR32Sfloat, .path = maskPath});
 
         star::command::task_scheduler::SubmitTask tifCmd(std::move(tifPayload),
+                                                         star::job::tasks::write_image_to_disk::WriteImageTypeName);
+        m_cmdBus->submit(tifCmd);
+    }
+
+    {
+        auto normalizedTifPayload =
+            star::job::tasks::write_image_to_disk::Create(image_metric_manager::SharedBufferWriteImagePayload{
+                .bufferHandle = sharedHandle,
+                .imageFormat = vk::Format::eR32Sfloat,
+                .path = normalizedMaskPath,
+                .normalizeFloatRanges = true,
+                .applyCompression = false,
+            });
+
+        star::command::task_scheduler::SubmitTask tifCmd(std::move(normalizedTifPayload),
                                                          star::job::tasks::write_image_to_disk::WriteImageTypeName);
         m_cmdBus->submit(tifCmd);
     }
@@ -185,12 +202,12 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
 
     {
         auto jsonPayload = star::job::tasks::io::CreateWriteTask(star::job::tasks::io::WritePayload{
-            jsonPath, image_metric_manager::FileWriteFunction{sharedHandle, iResolution, camera, volume, mainLight,
-                                                              m_cachedTerrainShapeInfo.getTerrainName(),
-                                                              m_cachedTerrainShapeInfo.get(),
-                                                              m_cachedTerrainShapeInfo.getTerrainRenderingType(),
-                                                              m_cachedVolumeNameInfo, imageCaptureFileName,
-                                                              image_metric_manager::RayMaskFiles{rayValidityMaskPath, maskPath}}});
+            jsonPath,
+            image_metric_manager::FileWriteFunction{
+                sharedHandle, iResolution, camera, volume, mainLight, m_cachedTerrainShapeInfo.getTerrainName(),
+                m_cachedTerrainShapeInfo.get(), m_cachedTerrainShapeInfo.getTerrainRenderingType(),
+                m_cachedVolumeNameInfo, imageCaptureFileName,
+                image_metric_manager::RayMaskFiles{rayValidityMaskPath, maskPath, normalizedMaskPath}}});
 
         star::command::file_io::WriteToFile jsonCmd(std::move(jsonPayload));
         m_cmdBus->submit(jsonCmd);

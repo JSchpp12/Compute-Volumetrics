@@ -17,7 +17,8 @@ struct SharedBufferWriteImagePayload
     std::shared_ptr<SharedBufferHandle> bufferHandle;
     vk::Format imageFormat;
     std::string path;
-
+    bool normalizeFloatRanges{false};
+    bool applyCompression{false};
     void operator()();
 };
 } // namespace service::image_metric_manager
