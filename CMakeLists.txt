@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.0.27
+	VERSION 1.0.28
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -136,7 +136,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/service/detail/image_metric_manager/HostVisibleStorage.cpp"
 	"src/service/detail/image_metric_manager/SharedBufferHandle.cpp"
 	"src/service/detail/image_metric_manager/ImageMetrics.cpp"
-	"src/service/detail/image_metric_manager/SharedBufferWriteImagePayload.cpp"
+	"src/service/detail/image_metric_manager/SharedBufferWriteDistanceMaskPayload.cpp"
 	"src/service/detail/image_metric_manager/SharedBufferWriteValidityMaskPayload.cpp"
 	"src/render_system/fog/FogDispatcher.cpp"
 	"src/render_system/FogDispatcherBuilder.cpp"
@@ -233,7 +233,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/service/detail/image_metric_manager/FileWriteFunction.hpp"
 	"include/service/detail/image_metric_manager/HostVisibleStorage.hpp"
 	"include/service/detail/image_metric_manager/SharedBufferHandle.hpp"
-	"include/service/detail/image_metric_manager/SharedBufferWriteImagePayload.hpp"
+	"include/service/detail/image_metric_manager/SharedBufferWriteDistanceMaskPayload.hpp"
 	"include/service/detail/image_metric_manager/SharedBufferWriteValidityMaskPayload.hpp"
 	"include/service/detail/image_metric_manager/ImageMetrics.hpp"
 	"include/service/detail/image_metric_manager/RayDistanceStats.hpp"

@@ -29,16 +29,19 @@
                 "vulkan"
             ]
         },
-        {
-            "name": "gdal",
-            "default-features": false,
-            "features": [
-                "recommended-features",
-                "curl",
-                "geos"
-            ]
-        },
-        "tiff",
+      {
+        "name": "gdal",
+        "default-features": false,
+        "features": [
+          "recommended-features",
+          "curl",
+          "geos"
+        ]
+      },
+      {
+        "name": "tiff",
+        "features": ["zstd"]
+      },
         "gtest"
     ],
     "features": {
