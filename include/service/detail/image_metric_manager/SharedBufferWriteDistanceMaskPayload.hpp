@@ -12,7 +12,7 @@
 
 namespace service::image_metric_manager
 {
-struct SharedBufferWriteImagePayload
+struct SharedBufferWriteDistanceMaskPayload
 {
     std::shared_ptr<SharedBufferHandle> bufferHandle;
     vk::Format imageFormat;

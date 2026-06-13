@@ -3,7 +3,7 @@
 #include "TerrainShapeInfoLoader.hpp"
 #include "service/detail/image_metric_manager/FileWriteFunction.hpp"
 #include "service/detail/image_metric_manager/RayMaskFiles.hpp"
-#include "service/detail/image_metric_manager/SharedBufferWriteImagePayload.hpp"
+#include "service/detail/image_metric_manager/SharedBufferWriteDistanceMaskPayload.hpp"
 #include "service/detail/image_metric_manager/SharedBufferWriteValidityMaskPayload.hpp"
 
 #include <starlight/command/FileIO/WriteToFile.hpp>
@@ -159,15 +159,15 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
         signalValue);
 
     const auto basePath = std::filesystem::path(imageCaptureFileName);
-    const auto maskPath = (basePath.parent_path() / (basePath.stem().string() + "_distanceMask.tif")).string();
+    const auto maskPath = (basePath.parent_path() / (basePath.stem().string() + "_distMask.tif")).string();
     const auto normalizedMaskPath =
-        (basePath.parent_path() / (basePath.stem().string() + "_distanceMaskNorm.tif")).string();
+        (basePath.parent_path() / (basePath.stem().string() + "_distNormSmlMask.tif")).string();
     const auto jsonPath = std::filesystem::path(imageCaptureFileName).replace_extension(".json").string();
     const auto rayValidityMaskPath = (basePath.parent_path() / (basePath.stem().string() + "_validMask.png")).string();
 
     {
         auto tifPayload =
-            star::job::tasks::write_image_to_disk::Create(image_metric_manager::SharedBufferWriteImagePayload{
+            star::job::tasks::write_image_to_disk::Create(image_metric_manager::SharedBufferWriteDistanceMaskPayload{
                 .bufferHandle = sharedHandle, .imageFormat = vk::Format::eR32Sfloat, .path = maskPath});
 
         star::command::task_scheduler::SubmitTask tifCmd(std::move(tifPayload),
@@ -177,12 +177,12 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
 
     {
         auto normalizedTifPayload =
-            star::job::tasks::write_image_to_disk::Create(image_metric_manager::SharedBufferWriteImagePayload{
+            star::job::tasks::write_image_to_disk::Create(image_metric_manager::SharedBufferWriteDistanceMaskPayload{
                 .bufferHandle = sharedHandle,
                 .imageFormat = vk::Format::eR32Sfloat,
                 .path = normalizedMaskPath,
                 .normalizeFloatRanges = true,
-                .applyCompression = false,
+                .applyCompression = true,
             });
 
         star::command::task_scheduler::SubmitTask tifCmd(std::move(normalizedTifPayload),
