@@ -158,12 +158,13 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
         &m_storage, hostResource, resources, iResolution, m_device->getVulkanDevice(), semaphoreRecord->semaphore,
         signalValue);
 
-    const auto basePath = std::filesystem::path(imageCaptureFileName);
-    const auto maskPath = (basePath.parent_path() / (basePath.stem().string() + "_distMask.tif")).string();
-    const auto normalizedMaskPath =
-        (basePath.parent_path() / (basePath.stem().string() + "_distNormSmlMask.tif")).string();
-    const auto jsonPath = std::filesystem::path(imageCaptureFileName).replace_extension(".json").string();
-    const auto rayValidityMaskPath = (basePath.parent_path() / (basePath.stem().string() + "_validMask.png")).string();
+    const std::filesystem::path basePath = std::filesystem::path(imageCaptureFileName);
+    std::filesystem::path maskPath = (basePath.parent_path() / (basePath.stem().string() + "_distMask.tif"));
+    std::filesystem::path normalizedMaskPath =
+        (basePath.parent_path() / (basePath.stem().string() + "_distNormSmlMask.tif"));
+    const std::filesystem::path jsonPath = std::filesystem::path(imageCaptureFileName).replace_extension(".json");
+    std::filesystem::path rayValidityMaskPath =
+        (basePath.parent_path() / std::filesystem::path(basePath.stem().string() + "_validMask.png"));
 
     {
         auto tifPayload =
@@ -207,7 +208,9 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
                 sharedHandle, iResolution, camera, volume, mainLight, m_cachedTerrainShapeInfo.getTerrainName(),
                 m_cachedTerrainShapeInfo.get(), m_cachedTerrainShapeInfo.getTerrainRenderingType(),
                 m_cachedVolumeNameInfo, imageCaptureFileName,
-                image_metric_manager::RayMaskFiles{rayValidityMaskPath, maskPath, normalizedMaskPath}}});
+                image_metric_manager::RayMaskFiles{.rayValidityName = rayValidityMaskPath.filename(),
+                                                   .rayDistanceName = maskPath.filename(),
+                                                   .rayNormalizedDistanceName = normalizedMaskPath.filename()}}});
 
         star::command::file_io::WriteToFile jsonCmd(std::move(jsonPayload));
         m_cmdBus->submit(jsonCmd);

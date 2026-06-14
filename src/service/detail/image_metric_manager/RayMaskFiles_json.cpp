@@ -5,15 +5,15 @@ namespace service::image_metric_manager
 {
 void to_json(nlohmann::json &j, const RayMaskFiles &v)
 {
-    j = nlohmann::json{{"ray_validity", v.rayValidity},
-                       {"ray_distance", v.rayDistance},
-                       {"ray_normalized_distance", v.rayNormalizedDistance}};
+    j = nlohmann::json{{"ray_validity_name", v.rayValidityName},
+                       {"ray_distance_name", v.rayDistanceName},
+                       {"ray_normalized_distance_name", v.rayNormalizedDistanceName}};
 }
 
 void from_json(const nlohmann::json &j, RayMaskFiles &v)
 {
-    j.at("ray_validity").get_to(v.rayValidity);
-    j.at("ray_distance").get_to(v.rayDistance);
-    j.at("ray_normalized_distance").get_to(v.rayNormalizedDistance);
+    j.at("ray_validity_name").get_to(v.rayValidityName);
+    j.at("ray_distance_name").get_to(v.rayDistanceName);
+    j.at("ray_normalized_distance_name").get_to(v.rayNormalizedDistanceName);
 }
 } // namespace service::image_metric_manager
