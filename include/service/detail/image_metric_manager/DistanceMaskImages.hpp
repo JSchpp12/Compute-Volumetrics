@@ -4,7 +4,7 @@
 
 namespace service::image_metric_manager
 {
-struct RayMaskFiles
+struct DistanceMaskImages
 {
     std::string rayValidityName;
     std::string rayDistanceName;

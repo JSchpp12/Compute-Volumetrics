@@ -2,8 +2,8 @@
 
 #include "FogInfo_json.hpp"
 #include "TerrainShapeInfo_json.hpp"
-#include "service/detail/image_metric_manager/RayDistanceMetrics_json.hpp"
-#include "service/detail/image_metric_manager/RayMaskFiles_json.hpp"
+#include "service/detail/image_metric_manager/VisibilityDistanceInfo_json.hpp"
+#include "service/detail/image_metric_manager/ImageFilesInfo_json.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo_json.hpp"
 
@@ -14,21 +14,21 @@ namespace service::image_metric_manager
 {
 
 ImageMetrics::ImageMetrics(const star::Light &mainLight, const VolumeInfo &volumeInfo, const FogInfo &controlInfo,
-                           const glm::vec3 &camPosition, const glm::vec3 &camLookDir, const std::string &imageFileName,
-                           const RayDistanceMetrics &distanceMetrics, std::string_view terrainName,
+                           const glm::vec3 &camPosition, const glm::vec3 &camLookDir,
+                           const VisibilityDistanceInfo &distanceMetrics, std::string_view terrainName,
                            std::string_view volumeName, Fog::Type type, const TerrainShapeInfo &terrainShapeInfo,
-                           TerrainRenderingType renderingType, const RayMaskFiles &rayMaskFiles)
+                           TerrainRenderingType renderingType, const ImageFilesInfo &imageFilesInfo)
     : m_mainLight(mainLight), m_volumeInfo(volumeInfo), m_controlInfo(controlInfo), m_camPosition(camPosition),
-      m_camLookDir(camLookDir), m_imageFileName(imageFileName), m_distanceMetrics(distanceMetrics),
+      m_camLookDir(camLookDir), m_distanceMetrics(distanceMetrics),
       m_terrainName(terrainName), m_volumeName(volumeName), m_type(type), m_terrainShapeInfo(terrainShapeInfo),
-      m_terrainRenderingType(renderingType), m_rayMaskFiles(rayMaskFiles)
+      m_terrainRenderingType(renderingType), m_imageFilesInfo(imageFilesInfo)
 {
 }
 
 std::string ImageMetrics::toJsonDump() const
 {
     nlohmann::json data;
-    data["file_name"] = m_imageFileName;
+    data["image_files"] = m_imageFilesInfo;
     data["camera_position"] = m_camPosition;
     data["camera_look_dir"] = m_camLookDir;
     data["distance_metrics"] = m_distanceMetrics;
@@ -45,7 +45,6 @@ std::string ImageMetrics::toJsonDump() const
     data["terrain_name"] = m_terrainName;
     data["terrain_shape_type"] = toString(m_terrainRenderingType);
     data["volume_info"] = m_volumeInfo;
-    data["ray_masks"] = m_rayMaskFiles;
 
     std::ostringstream oss;
     oss << std::setw(4) << data;
