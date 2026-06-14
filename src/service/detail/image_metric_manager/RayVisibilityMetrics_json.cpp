@@ -1,11 +1,11 @@
-#include "service/detail/image_metric_manager/RayDistanceMetrics_json.hpp"
-#include "service/detail/image_metric_manager/RayDistanceMetrics.hpp"
+#include "service/detail/image_metric_manager/RayVisibilityMetrics_json.hpp"
+#include "service/detail/image_metric_manager/RayVisibilityMetrics.hpp"
 #include "service/detail/image_metric_manager/RayDistanceStats_json.hpp"
 
 namespace service::image_metric_manager
 {
 
-void to_json(nlohmann::json &j, const RayDistanceMetrics &v)
+void to_json(nlohmann::json &j, const RayVisibilityMetrics &v)
 {
     nlohmann::json inc;
     to_json(inc, v.includingInvalidRays);
@@ -15,9 +15,8 @@ void to_json(nlohmann::json &j, const RayDistanceMetrics &v)
     j = nlohmann::json{{"includingInvalidRays", inc}, {"excludingInvalidRays", exc}};
 }
 
-void from_json(const nlohmann::json &j, RayDistanceMetrics &v)
+void from_json(const nlohmann::json &j, RayVisibilityMetrics &v)
 {
-    // Use existing defaults if sections are absent
     from_json(j["includingInvalidRays"], v.includingInvalidRays);
     from_json(j["excludingInvalidRays"], v.excludingInvalidRays);
 }

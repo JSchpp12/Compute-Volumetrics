@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.0.33
+	VERSION 1.0.34
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -159,8 +159,10 @@ set(${PROJECT_NAME}_SOURCES
 	"src/TerrainShapeInfo_json.cpp"
 	"src/service/detail/image_metric_manager/VolumeInfo_json.cpp" 
 	"src/service/detail/image_metric_manager/RayDistanceStats_json.cpp"
-	"src/service/detail/image_metric_manager/RayDistanceMetrics_json.cpp"
-	"src/service/detail/image_metric_manager/RayMaskFiles_json.cpp"
+	"src/service/detail/image_metric_manager/RayVisibilityMetrics_json.cpp"
+	"src/service/detail/image_metric_manager/VisibilityDistanceInfo_json.cpp"
+	"src/service/detail/image_metric_manager/ImageFilesInfo_json.cpp"
+	"src/service/detail/image_metric_manager/DistanceMaskImages_json.cpp"
 	"src/FogInfo_json.cpp" 
 	"src/loader/SceneLoaders.cpp"  
 	"src/loader/SceneDescription.cpp" 
@@ -237,11 +239,15 @@ set(${PROJECT_NAME}_HEADERS
 	"include/service/detail/image_metric_manager/SharedBufferWriteValidityMaskPayload.hpp"
 	"include/service/detail/image_metric_manager/ImageMetrics.hpp"
 	"include/service/detail/image_metric_manager/RayDistanceStats.hpp"
-	"include/service/detail/image_metric_manager/RayDistanceMetrics.hpp"
+	"include/service/detail/image_metric_manager/RayVisibilityMetrics.hpp"
+	"include/service/detail/image_metric_manager/VisibilityDistanceInfo.hpp"
 	"include/service/detail/image_metric_manager/RayDistanceStats_json.hpp"
-	"include/service/detail/image_metric_manager/RayDistanceMetrics_json.hpp"
-	"include/service/detail/image_metric_manager/RayMaskFiles.hpp"
-	"include/service/detail/image_metric_manager/RayMaskFiles_json.hpp"
+	"include/service/detail/image_metric_manager/RayVisibilityMetrics_json.hpp"
+	"include/service/detail/image_metric_manager/VisibilityDistanceInfo_json.hpp"
+	"include/service/detail/image_metric_manager/ImageFilesInfo.hpp"
+	"include/service/detail/image_metric_manager/ImageFilesInfo_json.hpp"
+	"include/service/detail/image_metric_manager/DistanceMaskImages.hpp"
+	"include/service/detail/image_metric_manager/DistanceMaskImages_json.hpp"
 )
 
 add_library(${PROJECT_NAME}_lib 

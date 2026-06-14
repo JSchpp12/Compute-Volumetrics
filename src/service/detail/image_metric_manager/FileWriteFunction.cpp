@@ -19,16 +19,16 @@ FileWriteFunction::FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferH
                                      const star::StarCamera &camera, const Volume &volume, star::Light light,
                                      std::string terrainName, TerrainShapeInfo terrainShapeInfo,
                                      TerrainRenderingType terrainRenderingType, std::string volumeName,
-                                     std::string sourceImageName, RayMaskFiles rayMaskFiles)
+                                     ImageFilesInfo imageFilesInfo)
     : m_data(std::make_unique<MetricWriteData>(
-          std::move(bufferHandle), std::move(terrainName), std::move(volumeName), std::move(sourceImageName),
+          std::move(bufferHandle), std::move(terrainName), std::move(volumeName),
           std::move(screenResolution), MetricWriteData::CameraInfo{camera.getPosition(), camera.getForwardVector()},
           VolumeInfo{.position = volume.getInstance().getPosition(),
                      .rotation =
                          star::core::helper::star_object::ExtractRotationDegrees(volume.getInstance().getRotationMat()),
                      .scale = volume.getInstance().getScale()},
           std::move(light), volume.getRenderer().getFogInfo(), volume.getRenderer().getFogType(),
-          std::move(terrainShapeInfo), terrainRenderingType, std::move(rayMaskFiles)))
+          std::move(terrainShapeInfo), terrainRenderingType, std::move(imageFilesInfo)))
 {
 }
 
@@ -73,8 +73,8 @@ static double CalcMedian(const std::span<const float> &distanceSpan, const std::
     return CalcMedian(filteredDistances);
 }
 
-static RayDistanceMetrics CalcVisDistanceFromMappedData(const float *distances, size_t distanceCount,
-                                                        const uint32_t *validMask, size_t maskCount)
+static RayVisibilityMetrics CalcVisDistanceFromMappedData(const float *distances, size_t distanceCount,
+                                                          const uint32_t *validMask, size_t maskCount)
 {
     if (distanceCount != maskCount)
     {
@@ -84,10 +84,10 @@ static RayDistanceMetrics CalcVisDistanceFromMappedData(const float *distances, 
     std::span<const float> distanceSpan{distances, distanceCount};
     std::span<const uint32_t> validMaskSpan{validMask, maskCount};
 
-    RayDistanceMetrics result{{std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),
-                               std::numeric_limits<double>::quiet_NaN(), 0},
-                              {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),
-                               std::numeric_limits<double>::quiet_NaN(), 0}};
+    RayVisibilityMetrics result{{std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),
+                                 std::numeric_limits<double>::quiet_NaN(), 0},
+                                {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),
+                                 std::numeric_limits<double>::quiet_NaN(), 0}};
 
     if (!distanceSpan.empty())
     {
@@ -139,59 +139,44 @@ static RayDistanceMetrics CalcVisDistanceFromMappedData(const float *distances, 
     return result;
 }
 
-RayDistanceMetrics FileWriteFunction::calculateDistanceMetrics() const
+VisibilityDistanceInfo FileWriteFunction::calculateDistanceMetrics() const
 {
     assert(m_data != nullptr);
     assert(m_data->bufferHandle != nullptr);
 
     const auto &resources = m_data->bufferHandle->getResources();
 
-    RayDistanceMetrics distance;
     switch (m_data->type)
     {
     case (Fog::Type::sExponential): {
         const double val = CalcVisDistanceExponential(m_data->controlInfo, 0.98f);
-        distance.includingInvalidRays.average = val;
-        distance.excludingInvalidRays.average = val;
-        distance.includingInvalidRays.minimum = val;
-        distance.excludingInvalidRays.minimum = val;
-        distance.excludingInvalidRays.median = val;
-        distance.includingInvalidRays.median = val;
-        break;
+        return VisibilityDistanceInfo{.simpleDistance = val};
     }
     case (Fog::Type::sLinear): {
         const double val = CalcVisDistanceLinear(m_data->controlInfo);
-        distance.includingInvalidRays.average = val;
-        distance.excludingInvalidRays.average = val;
-        distance.includingInvalidRays.minimum = val;
-        distance.excludingInvalidRays.minimum = val;
-        distance.includingInvalidRays.median = val;
-        distance.excludingInvalidRays.median = val;
-        break;
+        return VisibilityDistanceInfo{.simpleDistance = val};
     }
     default:
         assert(resources.rayDistanceBuffer != nullptr && resources.rayAtCutoffDistBuffer != nullptr);
-        distance = CalcVisDistanceFromMappedData(m_data->bufferHandle->getMappedRayDistanceData(),
-                                                 m_data->bufferHandle->getRayDistanceElementCount(),
-                                                 m_data->bufferHandle->getMappedRayAtCutoffDistData(),
-                                                 m_data->bufferHandle->getRayAtCutoffDistElementCount());
-        break;
+        return VisibilityDistanceInfo{.rayMetrics = CalcVisDistanceFromMappedData(
+                                         m_data->bufferHandle->getMappedRayDistanceData(),
+                                         m_data->bufferHandle->getRayDistanceElementCount(),
+                                         m_data->bufferHandle->getMappedRayAtCutoffDistData(),
+                                         m_data->bufferHandle->getRayAtCutoffDistElementCount())};
     }
-
-    return distance;
 }
 
 void FileWriteFunction::write(const std::filesystem::path &path) const
 {
     m_data->bufferHandle->waitForCopyToDstBufferDone();
     m_data->bufferHandle->ensureMapped();
-    const RayDistanceMetrics distanceMetrics = calculateDistanceMetrics();
+    const VisibilityDistanceInfo distanceMetrics = calculateDistanceMetrics();
 
     std::ofstream out(path.string(), std::ofstream::binary);
     const auto data = ImageMetrics(m_data->light, m_data->volumeInfo, m_data->controlInfo, m_data->cameraInfo.position,
-                                   m_data->cameraInfo.lookDir, m_data->sourceImageName, distanceMetrics,
+                                   m_data->cameraInfo.lookDir, distanceMetrics,
                                    m_data->terrainName, m_data->volumeName, m_data->type, m_data->shapeInfo,
-                                   m_data->terrainRenderingType, m_data->rayMaskFiles)
+                                   m_data->terrainRenderingType, m_data->imageFilesInfo)
                           .toJsonDump();
     out << data;
 }
