@@ -2,7 +2,6 @@
 
 #include "service/detail/image_metric_manager/ImageMetrics.hpp"
 
-#include <starlight/common/entities/Light_json.hpp>
 #include <starlight/core/helper/star_object/ObjectHelpers.hpp>
 
 #include <algorithm>

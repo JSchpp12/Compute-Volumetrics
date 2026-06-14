@@ -169,7 +169,7 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
     {
         auto tifPayload =
             star::job::tasks::write_image_to_disk::Create(image_metric_manager::SharedBufferWriteDistanceMaskPayload{
-                .bufferHandle = sharedHandle, .imageFormat = vk::Format::eR32Sfloat, .path = maskPath});
+                .bufferHandle = sharedHandle, .imageFormat = vk::Format::eR32Sfloat, .path = maskPath.string()});
 
         star::command::task_scheduler::SubmitTask tifCmd(std::move(tifPayload),
                                                          star::job::tasks::write_image_to_disk::WriteImageTypeName);
@@ -181,7 +181,7 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
             star::job::tasks::write_image_to_disk::Create(image_metric_manager::SharedBufferWriteDistanceMaskPayload{
                 .bufferHandle = sharedHandle,
                 .imageFormat = vk::Format::eR32Sfloat,
-                .path = normalizedMaskPath,
+                .path = normalizedMaskPath.string(),
                 .normalizeFloatRanges = true,
                 .applyCompression = true,
             });
@@ -192,9 +192,10 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
     }
 
     {
-        auto rayValidityPayload =
-            star::job::tasks::write_image_to_disk::Create(image_metric_manager::SharedBufferWriteValidityMaskPayload{
-                .bufferHandle = sharedHandle, .imageFormat = vk::Format::eR8Uint, .path = rayValidityMaskPath});
+        auto rayValidityPayload = star::job::tasks::write_image_to_disk::Create(
+            image_metric_manager::SharedBufferWriteValidityMaskPayload{.bufferHandle = sharedHandle,
+                                                                       .imageFormat = vk::Format::eR8Uint,
+                                                                       .path = rayValidityMaskPath.string()});
 
         star::command::task_scheduler::SubmitTask validityCmd(
             std::move(rayValidityPayload), star::job::tasks::write_image_to_disk::WriteImageTypeName);
@@ -207,10 +208,11 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
             image_metric_manager::FileWriteFunction{
                 sharedHandle, iResolution, camera, volume, mainLight, m_cachedTerrainShapeInfo.getTerrainName(),
                 m_cachedTerrainShapeInfo.get(), m_cachedTerrainShapeInfo.getTerrainRenderingType(),
-                m_cachedVolumeNameInfo, imageCaptureFileName,
-                image_metric_manager::RayMaskFiles{.rayValidityName = rayValidityMaskPath.filename(),
-                                                   .rayDistanceName = maskPath.filename(),
-                                                   .rayNormalizedDistanceName = normalizedMaskPath.filename()}}});
+                m_cachedVolumeNameInfo, basePath.filename().string(),
+                image_metric_manager::RayMaskFiles{.rayValidityName = rayValidityMaskPath.filename().string(),
+                                                   .rayDistanceName = maskPath.filename().string(),
+                                                   .rayNormalizedDistanceName =
+                                                       normalizedMaskPath.filename().string()}}});
 
         star::command::file_io::WriteToFile jsonCmd(std::move(jsonPayload));
         m_cmdBus->submit(jsonCmd);
