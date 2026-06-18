@@ -206,28 +206,7 @@ sim_controller::UpdateStatus SimulationControllerService::updateSim(Volume &volu
     // check if the bounds are loaded
     if (!m_loadedSteps)
     {
-        try
-        {
-            auto data = m_loadedInfo.get();
-            m_loadedSteps = std::move(data.steps);
-            m_loadedController = std::move(data.cameraController);
-            m_fogEnabledStatus = std::move(data.fogStatus);
-
-            const auto &camPos = camera.getPosition();
-            // cam pos starts at ground level
-            camera.setPosition(
-                {camPos.x, camPos.y + static_cast<float>(data.initialCameraHeightAboveGround), camPos.z});
-
-            if (data.initialCameraHeightAboveGround <= 0)
-            {
-                STAR_THROW("Invalid initial camera height above ground provided. It must be greater than 0");
-            }
-        }
-        catch (...)
-        {
-            STAR_THROW("Attempted to call get on future that has already been consumed. This signifies that the json "
-                       "file is not valid");
-        }
+        loadControllerParams(camera);
     }
 
     if (!m_isPrimed)
@@ -319,4 +298,29 @@ Fog::Type SimulationControllerService::selectNextFogType() const
     }
 
     return selected;
+}
+
+void SimulationControllerService::loadControllerParams(star::StarCamera &cam)
+{
+    try
+    {
+        auto data = m_loadedInfo.get();
+        m_loadedSteps = std::move(data.steps);
+        m_loadedController = std::move(data.cameraController);
+        m_fogEnabledStatus = std::move(data.fogStatus);
+
+        const auto &camPos = cam.getPosition();
+        // cam pos starts at ground level
+        cam.setPosition({camPos.x, camPos.y + static_cast<float>(data.initialCameraHeightAboveGround), camPos.z});
+
+        if (data.initialCameraHeightAboveGround <= 0)
+        {
+            STAR_THROW("Invalid initial camera height above ground provided. It must be greater than 0");
+        }
+    }
+    catch (...)
+    {
+        STAR_THROW("Attempted to call get on future that has already been consumed. This signifies that the json "
+                   "file is not valid");
+    }
 }
