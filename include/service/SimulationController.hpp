@@ -70,4 +70,5 @@ class SimulationControllerService
     void initListeners(star::core::CommandBus &cmdBus);
     void cleanupListeners(star::core::CommandBus &cmdBus);
     Fog::Type selectNextFogType() const;
+    void loadControllerParams(star::StarCamera &cam);
 };
