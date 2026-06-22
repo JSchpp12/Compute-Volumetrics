@@ -12,8 +12,8 @@ void to_json(nlohmann::json &j, const LinearFogInfo &v)
 
 void from_json(const nlohmann::json &j, LinearFogInfo &v)
 {
-    v.nearDist = j.value("nearDist", v.nearDist);
-    v.farDist = j.value("farDist", v.farDist);
+    v.nearDist = j.at("nearDist").get<float>();
+    v.farDist = j.at("farDist").get<float>();
 }
 
 void to_json(nlohmann::json &j, const ExpFogInfo &v)
@@ -23,7 +23,7 @@ void to_json(nlohmann::json &j, const ExpFogInfo &v)
 
 void from_json(const nlohmann::json &j, ExpFogInfo &v)
 {
-    v.density = j.value("density", v.density);
+    v.density = j.at("density").get<float>();
 }
 
 void to_json(nlohmann::json &j, const MarchedFogInfo &v)
@@ -43,20 +43,18 @@ void to_json(nlohmann::json &j, const MarchedFogInfo &v)
 void from_json(const nlohmann::json &j, MarchedFogInfo &v)
 {
     // Public fields
-    v.defaultDensity = j.value("defaultDensity", v.defaultDensity);
-    v.stepSizeDist = j.value("stepSizeDist", v.stepSizeDist);
-    v.stepSizeDist_light = j.value("stepSizeDist_light", v.stepSizeDist_light);
+    v.defaultDensity = j.at("defaultDensity").get<float>();
+    v.stepSizeDist = j.at("stepSizeDist").get<float>();
+    v.stepSizeDist_light = j.at("stepSizeDist_light").get<float>();
 
     // Private fields via setters
-    const float sigmaAbs = j.value("sigmaAbsorption", v.getSigmaAbsorption());
-    const float sigmaSca = j.value("sigmaScattering", v.getSigmaScattering());
-    const float g = j.value("lightPropertyDirG", v.getLightPropertyDirG());
-    const float densityMulti = j.value("densityMultiplier", v.getDensityMultiplier());
-    const float colorTransparencyCutoff = j.value(
-        "colorTransparencyCutoff", j.value("cutoffValue", v.getColorTransparencyCutoff()));
-    const float distanceTransparencyCutoff = j.value(
-        "distanceTransparencyCutoff", colorTransparencyCutoff);
-    const float lightExtinctionScale = j.value("lightExtinctionScale", v.getLightExtinctionScale());
+    const float sigmaAbs = j.at("sigmaAbsorption").get<float>();
+    const float sigmaSca = j.at("sigmaScattering").get<float>();
+    const float g = j.at("lightPropertyDirG").get<float>();
+    const float densityMulti = j.at("densityMultiplier").get<float>();
+    const float colorTransparencyCutoff = j.at("colorTransparencyCutoff").get<float>();
+    const float distanceTransparencyCutoff = j.at("distanceTransparencyCutoff").get<float>();
+    const float lightExtinctionScale = j.at("lightExtinctionScale").get<float>();
 
     v.setSigmaAbsorption(sigmaAbs);
     v.setSigmaScattering(sigmaSca);
@@ -96,9 +94,12 @@ void to_json(nlohmann::json &j, const FogInfo &v)
 
 void from_json(const nlohmann::json &j, FogInfo &v)
 {
-    // Use existing defaults if sections are absent
-    from_json(j["linearInfo"], v.linearInfo);
-    from_json(j["expFogInfo"], v.expFogInfo);
-    from_json(j["marchedInfo"], v.marchedInfo);
-    from_json(j["homogenousInfo"], v.homogenousInfo);
+    if (j.contains("linearInfo"))
+        from_json(j["linearInfo"], v.linearInfo);
+    if (j.contains("expFogInfo"))
+        from_json(j["expFogInfo"], v.expFogInfo);
+    if (j.contains("marchedInfo"))
+        from_json(j["marchedInfo"], v.marchedInfo);
+    if (j.contains("homogenousInfo"))
+        from_json(j["homogenousInfo"], v.homogenousInfo);
 }

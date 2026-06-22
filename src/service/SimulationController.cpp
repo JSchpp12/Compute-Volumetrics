@@ -309,13 +309,21 @@ void SimulationControllerService::loadControllerParams(star::StarCamera &cam)
         m_loadedController = std::move(data.cameraController);
         m_fogEnabledStatus = std::move(data.fogStatus);
 
-        const auto &camPos = cam.getPosition();
-        // cam pos starts at ground level
-        cam.setPosition({camPos.x, camPos.y + static_cast<float>(data.initialCameraHeightAboveGround), camPos.z});
-
-        if (data.initialCameraHeightAboveGround <= 0)
+        if (data.startCameraPosition.has_value())
         {
-            STAR_THROW("Invalid initial camera height above ground provided. It must be greater than 0");
+            cam.setPosition(data.startCameraPosition.value());
+        }
+        else
+        {
+            const auto &camPos = cam.getPosition();
+            // cam pos starts at ground level
+            cam.setPosition(
+                {camPos.x, camPos.y + static_cast<float>(data.initialCameraHeightAboveGround), camPos.z});
+
+            if (data.initialCameraHeightAboveGround <= 0)
+            {
+                STAR_THROW("Invalid initial camera height above ground provided. It must be greater than 0");
+            }
         }
     }
     catch (...)
