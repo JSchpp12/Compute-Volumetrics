@@ -5,6 +5,7 @@
 #include "renderer/finalization/Windowed.hpp"
 
 #include <starlight/command/command_order/TriggerPass.hpp>
+#include <starlight/core/json/glm_json.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
 
 #include <star_common/helper/StringHelpers.hpp>
@@ -234,17 +235,10 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
     if (key == GLFW_KEY_T)
     {
-        std::cout << m_mainScene->getCamera()->getPosition().x << "," << m_mainScene->getCamera()->getPosition().y
-                  << "," << m_mainScene->getCamera()->getPosition().z << std::endl;
-
-        if (m_mainLight->at(0).getDirection().z == -1)
-        {
-            m_mainLight->at(0).setDirection(glm::vec3{0.0, -1.0, 0.0});
-        }
-        else
-        {
-            m_mainLight->at(0).setDirection(glm::vec3{0.0, 0.0, -1.0});
-        }
+        nlohmann::json d; 
+        d["position"] = m_mainScene->getCamera()->getPosition();
+        d["forward"] = m_mainScene->getCamera()->getForwardVector();
+        star::core::info(d); 
     }
 
     if (key == GLFW_KEY_RIGHT)
