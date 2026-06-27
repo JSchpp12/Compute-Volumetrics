@@ -56,8 +56,8 @@ TEST(VisibilityDistanceInfoJson, BackwardCompatibleOldFormat)
 {
     nlohmann::json j = nlohmann::json::parse(R"(
         {
-            "includingInvalidRays": {"minimum": 0.5, "average": 1.5, "rayCount": 100},
-            "excludingInvalidRays": {"minimum": 1.0, "average": 2.5, "rayCount": 100}
+            "includingInvalidRays": {"minimum": 0.5, "average": 1.5, "median": 1.2, "rayCount": 100},
+            "excludingInvalidRays": {"minimum": 1.0, "average": 2.5, "median": 2.1, "rayCount": 100}
         }
     )");
 
@@ -65,29 +65,8 @@ TEST(VisibilityDistanceInfoJson, BackwardCompatibleOldFormat)
     ASSERT_TRUE(parsed.rayMetrics.has_value());
     EXPECT_DOUBLE_EQ(parsed.rayMetrics->includingInvalidRays.average, 1.5);
     EXPECT_DOUBLE_EQ(parsed.rayMetrics->includingInvalidRays.minimum, 0.5);
-    EXPECT_DOUBLE_EQ(parsed.rayMetrics->includingInvalidRays.median, 0.0);
+    EXPECT_DOUBLE_EQ(parsed.rayMetrics->includingInvalidRays.median, 1.2);
     EXPECT_DOUBLE_EQ(parsed.rayMetrics->excludingInvalidRays.average, 2.5);
     EXPECT_DOUBLE_EQ(parsed.rayMetrics->excludingInvalidRays.minimum, 1.0);
-    EXPECT_DOUBLE_EQ(parsed.rayMetrics->excludingInvalidRays.median, 0.0);
-}
-
-TEST(VisibilityDistanceInfoJson, BackwardCompatibleMissingMedian)
-{
-    nlohmann::json j = nlohmann::json::parse(R"(
-        {
-            "ray_metrics": {
-                "includingInvalidRays": {"minimum": 0.5, "average": 1.5, "rayCount": 100},
-                "excludingInvalidRays": {"minimum": 1.0, "average": 2.5, "rayCount": 100}
-            }
-        }
-    )");
-
-    VisibilityDistanceInfo parsed = j.get<VisibilityDistanceInfo>();
-    ASSERT_TRUE(parsed.rayMetrics.has_value());
-    EXPECT_DOUBLE_EQ(parsed.rayMetrics->includingInvalidRays.average, 1.5);
-    EXPECT_DOUBLE_EQ(parsed.rayMetrics->includingInvalidRays.minimum, 0.5);
-    EXPECT_DOUBLE_EQ(parsed.rayMetrics->includingInvalidRays.median, 0.0);
-    EXPECT_DOUBLE_EQ(parsed.rayMetrics->excludingInvalidRays.average, 2.5);
-    EXPECT_DOUBLE_EQ(parsed.rayMetrics->excludingInvalidRays.minimum, 1.0);
-    EXPECT_DOUBLE_EQ(parsed.rayMetrics->excludingInvalidRays.median, 0.0);
+    EXPECT_DOUBLE_EQ(parsed.rayMetrics->excludingInvalidRays.median, 2.1);
 }

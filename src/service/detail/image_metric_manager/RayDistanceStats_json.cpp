@@ -12,7 +12,7 @@ void from_json(const nlohmann::json &j, RayDistanceStats &v)
 {
     j.at("average").get_to(v.average);
     j.at("minimum").get_to(v.minimum);
-    v.median = j.value("median", 0.0);
+    v.median = j.at("median").get<double>();
     j.at("rayCount").get_to(v.rayCount);
 }
 } // namespace service::image_metric_manager

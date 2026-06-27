@@ -70,6 +70,11 @@ std::optional<int> TryGetDeviceIndexOverride(int argc, char **argv)
     return std::stoi(value.value());
 }
 
+std::optional<std::string> TryGetAppConfigFilePath(int argc, char **argv)
+{
+    return util::CmdLine::TryGetArgValue(argc, argv, "--appConfig");
+}
+
 bool DoesContainOption(int argc, char **argv, const std::string &flag)
 {
     for (int i{0}; i < argc; i++)

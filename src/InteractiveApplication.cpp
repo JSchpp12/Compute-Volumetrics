@@ -62,7 +62,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     auto &d = context.getAllDevices().getData()[0];
     submitPasses(d);
 
-    const float moveAmount = 50.0f * dTime;
+    const float moveAmount = m_interactiveConfig.objectMovementSpeed * dTime;
     if (m_actDir[star::Type::Axis::x])
     {
         switch (m_mode)
@@ -484,8 +484,8 @@ std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star:
                       .setHorizontalFieldOfView(90.0f)
                       .setNearClippingPlaneDistance(0.5f)
                       .setFarClippingPlaneDistance(25000.0f)
-                      .setMovementSpeed(50.0f)
-                      .setSensitivity(0.1f)
+                       .setMovementSpeed(m_interactiveConfig.cameraMovementSpeed)
+                       .setSensitivity(m_interactiveConfig.cameraSensitivity)
                       .buildShared();
 
     camera->init(context.getEventBus());

@@ -10,7 +10,7 @@
 #include <star_windowing/policy/EngineMainLoopPolicy.hpp>
 #include <starlight/StarEngine.hpp>
 
-int InteractiveMode::run(std::unique_ptr<AppConfig> cfg)
+int InteractiveMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
 {
     using win_exit = star::windowing::EngineExitPolicy;
     using win_loop = star::windowing::EngineMainLoopPolicy;
@@ -27,9 +27,10 @@ int InteractiveMode::run(std::unique_ptr<AppConfig> cfg)
     InteractiveApplication application =
         cfg->enableDistanceMarkers
             ? InteractiveApplication(&loader::DebugSceneLoader, std::move(cfg->terrainDir), std::move(cfg->volumeName),
-                                     &winContext, {cfg->enableCutoffHighlighting})
+                                     &winContext, {cfg->enableCutoffHighlighting}, cfg->interactiveConfig)
             : InteractiveApplication(&loader::ReleaseSceneLoader, std::move(cfg->terrainDir),
-                                     std::move(cfg->volumeName), &winContext, {cfg->enableCutoffHighlighting});
+                                     std::move(cfg->volumeName), &winContext, {cfg->enableCutoffHighlighting},
+                                     cfg->interactiveConfig);
     auto engine = star::StarEngine<policy::WindowEngineInitPolicy, win_loop, win_exit>(
         std::move(windowInit), std::move(windowLoop), std::move(windowExit), application);
 

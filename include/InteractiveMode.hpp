@@ -1,6 +1,6 @@
 #pragma once
 
-#include "structs/AppConfig.hpp"
+#include "config/AppConfigInfo.hpp"
 
 #include <filesystem>
 
@@ -9,7 +9,7 @@
 class InteractiveMode
 {
   public:
-    int run(std::unique_ptr<AppConfig> cfg);
+    int run(std::unique_ptr<config::AppConfigInfo> cfg);
 };
 
 #endif

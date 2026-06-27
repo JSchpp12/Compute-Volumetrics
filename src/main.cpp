@@ -1,6 +1,10 @@
-#include "structs/AppConfig.hpp"
+#include "config/AppConfigLoader.hpp"
 #include "util/CmdLine.hpp"
 #include <starlight/common/ConfigFile.hpp>
+
+#include <cstdlib>
+#include <iostream>
+#include <string>
 
 #include <vulkan/vulkan.hpp>
 #define VMA_IMPLEMENTATION
@@ -11,7 +15,7 @@
 #ifdef STAR_ENABLE_PRESENTATION
 #include "InteractiveMode.hpp"
 
-static int runWindow(std::unique_ptr<AppConfig> cfg)
+static int runWindow(std::unique_ptr<config::AppConfigInfo> cfg)
 {
     try
     {
@@ -27,7 +31,7 @@ static int runWindow(std::unique_ptr<AppConfig> cfg)
 
 #else
 #include "HeadlessMode.hpp"
-static int runHeadless(std::unique_ptr<AppConfig> cfg)
+static int runHeadless(std::unique_ptr<config::AppConfigInfo> cfg)
 {
     try
     {
@@ -42,27 +46,42 @@ static int runHeadless(std::unique_ptr<AppConfig> cfg)
 }
 #endif
 
-int main(int argc, char **argv)
+std::unique_ptr<config::AppConfigInfo> LoadAppConfig(int argc, char **argv) noexcept
 {
-    openvdb::initialize();
+    std::optional<std::string> appConfigPath = util::CmdLine::TryGetAppConfigFilePath(argc, argv);
+    auto [cfg, status] = config::AppConfigLoader::LoadFromArgs(argc, argv);
+    switch (status)
+    {
+    case config::LoadStatus::Loaded:
+        config::AppConfigLoader::LogConfig(*cfg);
+        break;
+    case config::LoadStatus::CreatedDefault:
+    case config::LoadStatus::ValidationError:
+        std::exit(EXIT_FAILURE);
+    }
 
-    auto cfg = std::make_unique<AppConfig>(AppConfig{
-        .volumeName = util::CmdLine::GetVolumeDirPath(argc, argv),
-        .terrainDir = util::CmdLine::GetTerrainPath(argc, argv),
-        .engineConfigFile = util::CmdLine::GetConfigFilePath(argc, argv),
-        .simControllerPath = util::CmdLine::GetSimControllerFilePath(argc, argv),
-        .overrideRenderingDevice = util::CmdLine::TryGetDeviceIndexOverride(argc, argv),
-        .enableDistanceMarkers = util::CmdLine::DoesContainOption(argc, argv, "--enableDistanceMarkers"),
-        .enableCutoffHighlighting = util::CmdLine::DoesContainOption(argc, argv, "--enableCutoffHighlighting")});
+    return std::move(cfg);
+}
+
+void initEngine(int argc, char **argv)
+{
+    const std::string engineConfigPath = util::CmdLine::GetConfigFilePath(argc, argv);
     try
     {
-        star::ConfigFile::load(cfg->engineConfigFile);
+        star::ConfigFile::load(engineConfigPath);
     }
     catch (...)
     {
         std::cerr << "Failed to load config file for engine";
         std::exit(EXIT_FAILURE);
     }
+}
+
+int main(int argc, char **argv)
+{
+    openvdb::initialize();
+    initEngine(argc, argv);
+    auto cfg = LoadAppConfig(argc, argv);
 
 #ifdef STAR_ENABLE_PRESENTATION
     return runWindow(std::move(cfg));

@@ -17,5 +17,7 @@ std::string GetVolumeDirPath(int argc, char **argv);
 
 std::optional<int> TryGetDeviceIndexOverride(int argc, char **argv);
 
+std::optional<std::string> TryGetAppConfigFilePath(int argc, char **argv);
+
 bool DoesContainOption(int argc, char **argv, const std::string &flag);
 } // namespace util::CmdLine

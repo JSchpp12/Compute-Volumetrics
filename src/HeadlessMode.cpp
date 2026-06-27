@@ -24,7 +24,7 @@ static FunctionalEngineInitPolicy CreateInit(std::shared_ptr<bool> doneFlag, std
                                          : FunctionalEngineInitPolicy(fun);
 }
 
-int HeadlessMode::run(std::unique_ptr<AppConfig> cfg)
+int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
 {
     using loop = star::policy::DefaultEngineLoopPolicy;
     using exit = EngineExitOnFlag;

@@ -3,6 +3,7 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "Application.hpp"
+#include "config/InteractiveConfigInfo.hpp"
 
 #include <star_windowing/BasicCamera.hpp>
 #include <star_windowing/WindowingContext.hpp>
@@ -14,10 +15,12 @@ class InteractiveApplication : public Application,
 {
   public:
     InteractiveApplication(LoaderFn objectLoader, std::string terrainDir, std::string volumeName,
-                           star::windowing::WindowingContext *winContext, Application::VolumeRenderingOptions options)
+                           star::windowing::WindowingContext *winContext, Application::VolumeRenderingOptions options,
+                           config::InteractiveConfigInfo interactiveConfig = {})
         : Application(std::move(objectLoader), std::move(terrainDir), std::move(volumeName), std::move(options)),
           star::windowing::HandleKeyReleasePolicy<InteractiveApplication>(*this),
-          star::windowing::HandleKeyPressPolicy<InteractiveApplication>(*this), m_winContext(winContext)
+          star::windowing::HandleKeyPressPolicy<InteractiveApplication>(*this), m_winContext(winContext),
+          m_interactiveConfig(std::move(interactiveConfig))
     {
     }
 
@@ -39,6 +42,7 @@ class InteractiveApplication : public Application,
     friend class star::windowing::HandleKeyReleasePolicy<InteractiveApplication>;
     friend class star::windowing::HandleKeyPressPolicy<InteractiveApplication>;
     star::windowing::WindowingContext *m_winContext = nullptr;
+    config::InteractiveConfigInfo m_interactiveConfig{};
     ModifyMode m_mode{ModifyMode::movement};
     std::chrono::time_point<std::chrono::steady_clock> m_timeLastFrame;
 
