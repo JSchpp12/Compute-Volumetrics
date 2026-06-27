@@ -80,18 +80,12 @@ TEST(CmdLine_GetTerrainPath, ReturnsPathWhenPresent) {
     EXPECT_EQ(path, "/data/terrain");
 }
 
-TEST(CmdLine_GetTerrainPath, ExitsWithMessageWhenMissing) {
-#if GTEST_HAS_DEATH_TEST
+TEST(CmdLine_GetTerrainPath, ThrowsWhenMissing) {
     ArgvBuilder args = {"prog", "--controller", "cfg.json"};
-    // stderr contains the error; match a substring via regex.
-    EXPECT_EXIT(
+    EXPECT_THROW(
         util::CmdLine::GetTerrainPath(args.argc(), args.argv()),
-        ::testing::ExitedWithCode(EXIT_FAILURE),
-        "Terrain dir must be provided with arg '--terrain'"
+        std::exception
     );
-#else
-    GTEST_SKIP() << "Death tests not supported on this platform/config.";
-#endif
 }
 
 TEST(CmdLine_GetSimControllerFilePath, ReturnsPathWhenPresent) {
@@ -100,15 +94,10 @@ TEST(CmdLine_GetSimControllerFilePath, ReturnsPathWhenPresent) {
     EXPECT_EQ(path, "cfg.json");
 }
 
-TEST(CmdLine_GetSimControllerFilePath, ExitsWithMessageWhenMissing) {
-#if GTEST_HAS_DEATH_TEST
+TEST(CmdLine_GetSimControllerFilePath, ThrowsWhenMissing) {
     ArgvBuilder args = {"prog", "--terrain", "/data/terrain"};
-    EXPECT_EXIT(
+    EXPECT_THROW(
         util::CmdLine::GetSimControllerFilePath(args.argc(), args.argv()),
-        ::testing::ExitedWithCode(EXIT_FAILURE),
-        "Simulation controller path file must be provided with arg '--controller'"
+        std::exception
     );
-#else
-    GTEST_SKIP() << "Death tests not supported on this platform/config.";
-#endif
 }
