@@ -16,7 +16,7 @@ ImageMetrics::ImageMetrics(const star::Light &mainLight, const VolumeInfo &volum
                            const glm::vec3 &camPosition, const glm::vec3 &camLookDir,
                            const VisibilityDistanceInfo &distanceMetrics, std::string_view terrainName,
                            std::string_view volumeName, Fog::Type type, const star::terrain::CoverageInfo &terrainShapeInfo,
-                           TerrainRenderingType renderingType, const ImageFilesInfo &imageFilesInfo)
+                           star::terrain::TerrainRenderingType renderingType, const ImageFilesInfo &imageFilesInfo)
     : m_mainLight(mainLight), m_volumeInfo(volumeInfo), m_controlInfo(controlInfo), m_camPosition(camPosition),
       m_camLookDir(camLookDir), m_distanceMetrics(distanceMetrics),
       m_terrainName(terrainName), m_volumeName(volumeName), m_type(type), m_terrainShapeInfo(terrainShapeInfo),

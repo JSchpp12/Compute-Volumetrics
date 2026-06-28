@@ -4,7 +4,7 @@
 #include "TerrainGrid.hpp"
 
 #include <star_terrain/file_data/texture_data_info/Reader.hpp>
-#include "TerrainShapeInfoLoader.hpp"
+#include <star_terrain/io/TerrainShapeInfoLoader.hpp>
 
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/common/helpers/FileHelpers.hpp>
@@ -33,7 +33,7 @@ std::vector<star::StarMesh> Terrain::loadMeshes(star::core::device::DeviceContex
 
     const auto terrainPath = std::filesystem::path(m_terrainDefFile);
     const auto terrainShapeFile = getShapeFilePath();
-    auto loadingShapeInfo = TerrainShapeInfoLoader::SubmitForRead(getShapeFilePath(), context.getCmdBus());
+    auto loadingShapeInfo = star::terrain::TerrainShapeInfoLoader::SubmitForRead(getShapeFilePath(), context.getCmdBus());
 
     std::vector<TerrainChunk> chunks;
     // make sure gdal init is setup before multi-thread init

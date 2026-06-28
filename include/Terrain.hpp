@@ -1,6 +1,7 @@
 #pragma once
 
-#include "TerrainRenderingType.hpp"
+#include <star_terrain/rendering/TerrainRenderingType.hpp>
+
 #include "starlight/object/StarObject.hpp"
 
 #include <filesystem>
@@ -19,9 +20,9 @@ class Terrain : public star::StarObject
     {
         return std::filesystem::path(m_terrainDefFile) / "Shape.json";
     }
-    const TerrainRenderingType getTerrainRenderingType() const
+    const star::terrain::TerrainRenderingType getTerrainRenderingType() const
     {
-        return TerrainRenderingType::Real;
+        return star::terrain::TerrainRenderingType::Real;
     }
 
   protected:

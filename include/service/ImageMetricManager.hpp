@@ -1,6 +1,5 @@
 #pragma once
 
-#include "TerrainRenderingType.hpp"
 #include "Volume.hpp"
 
 #include "command/image_metrics/RegisterTerrainRecordInfo.hpp"
@@ -78,12 +77,12 @@ class ImageMetricManager
         std::optional<star::terrain::CoverageInfo> m_cachedTerrainShapeInfo{std::nullopt};
         std::future<star::terrain::CoverageInfo> m_inProgressLoadingShapeInfo;
         std::string m_terrainName;
-        TerrainRenderingType m_terrainRenderingType;
+        star::terrain::TerrainRenderingType m_terrainRenderingType;
 
       public:
         LoadingShapeInfo() = default;
         explicit LoadingShapeInfo(std::future<star::terrain::CoverageInfo> future, std::string terrainName,
-                                  TerrainRenderingType terrainRenderingType)
+                                   star::terrain::TerrainRenderingType terrainRenderingType)
             : m_cachedTerrainShapeInfo{std::nullopt}, m_inProgressLoadingShapeInfo(std::move(future)),
               m_terrainName(std::move(terrainName)), m_terrainRenderingType(terrainRenderingType)
         {
@@ -101,7 +100,7 @@ class ImageMetricManager
         {
             return m_terrainName;
         }
-        TerrainRenderingType getTerrainRenderingType() const noexcept
+        star::terrain::TerrainRenderingType getTerrainRenderingType() const noexcept
         {
             return m_terrainRenderingType;
         }
@@ -131,6 +130,6 @@ class ImageMetricManager
     void cleanupListeners(star::core::CommandBus &cmdBus);
 
     void submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath,
-                                           TerrainRenderingType renderingType);
+                                           star::terrain::TerrainRenderingType renderingType);
 };
 } // namespace service

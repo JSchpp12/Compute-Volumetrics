@@ -17,9 +17,9 @@ namespace service::image_metric_manager
 
 FileWriteFunction::FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferHandle, vk::Extent2D screenResolution,
                                      const star::StarCamera &camera, const Volume &volume, star::Light light,
-                                     std::string terrainName, star::terrain::CoverageInfo terrainShapeInfo,
-                                     TerrainRenderingType terrainRenderingType, std::string volumeName,
-                                     ImageFilesInfo imageFilesInfo)
+                                      std::string terrainName, star::terrain::CoverageInfo terrainShapeInfo,
+                                      star::terrain::TerrainRenderingType terrainRenderingType, std::string volumeName,
+                                      ImageFilesInfo imageFilesInfo)
     : m_data(std::make_unique<MetricWriteData>(
           std::move(bufferHandle), std::move(terrainName), std::move(volumeName), std::move(screenResolution),
           MetricWriteData::CameraInfo{camera.getPosition(), camera.getForwardVector()},

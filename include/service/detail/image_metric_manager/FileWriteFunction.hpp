@@ -1,7 +1,6 @@
 #pragma once
 
 #include "FogType.hpp"
-#include "TerrainRenderingType.hpp"
 #include "Volume.hpp"
 #include "service/detail/image_metric_manager/VisibilityDistanceInfo.hpp"
 #include "service/detail/image_metric_manager/ImageFilesInfo.hpp"
@@ -10,6 +9,7 @@
 #include "structs/FogInfo.hpp"
 
 #include <star_terrain/file_data/coverage_info/CoverageInfo.hpp>
+#include <star_terrain/rendering/TerrainRenderingType.hpp>
 
 #include <starlight/common/entities/Light.hpp>
 #include <starlight/virtual/StarCamera.hpp>
@@ -24,9 +24,9 @@ class FileWriteFunction
     FileWriteFunction() = default;
     FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferHandle, vk::Extent2D screenResolution,
                       const star::StarCamera &camera, const Volume &volume, star::Light light,
-                      std::string terrainName, star::terrain::CoverageInfo terrainShapeInfo,
-                      TerrainRenderingType terrainRenderingType, std::string volumeName,
-                      ImageFilesInfo imageFilesInfo);
+                       std::string terrainName, star::terrain::CoverageInfo terrainShapeInfo,
+                       star::terrain::TerrainRenderingType terrainRenderingType, std::string volumeName,
+                       ImageFilesInfo imageFilesInfo);
 
     void write(const std::filesystem::path &path) const;
 
@@ -51,7 +51,7 @@ class FileWriteFunction
         FogInfo controlInfo;
         Fog::Type type;
         star::terrain::CoverageInfo shapeInfo;
-        TerrainRenderingType terrainRenderingType;
+        star::terrain::TerrainRenderingType terrainRenderingType;
         ImageFilesInfo imageFilesInfo;
     };
     std::unique_ptr<MetricWriteData> m_data = nullptr;
