@@ -2,20 +2,17 @@
 
 #include "DeclareDependentPasses.hpp"
 #include "OffscreenRenderer.hpp"
-#include "Terrain.hpp"
-#include "command/image_metrics/RegisterTerrainRecordInfo.hpp"
 #include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
-#include "command/sim_controller/TriggerUpdate.hpp"
 #include "renderer/finalization/Headless.hpp"
+#include "util/Distance.hpp"
 
 #include <starlight/command/CreateLight.hpp>
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
 #include <starlight/command/detail/create_object/DirectObjCreation.hpp>
-#include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/command/headless_render_result_write/GetFileNameForFrame.hpp>
 #include <starlight/command/headless_render_result_write/GetSetOutputDir.hpp>
 #include <starlight/common/ConfigFile.hpp>
@@ -72,51 +69,58 @@ static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus
                       .setSignalValue(++currentNumTimesFrameProcessed));
 }
 
-OffscreenRenderer Application::CreateOffscreenRenderer(star::core::device::DeviceContext &context,
+OffscreenRenderer Application::createOffscreenRenderer(star::core::device::DeviceContext &context,
                                                        const uint8_t &numFramesInFlight,
                                                        std::shared_ptr<star::StarCamera> camera,
                                                        const std::string &terrainPath,
                                                        std::shared_ptr<std::vector<star::Light>> mainLight)
 {
+    assert(m_loaderFn);
+
     std::vector<std::shared_ptr<star::StarObject>> objects;
-    const auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
+    const std::filesystem::path mediaPath{star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)};
 
+    auto desc = m_loaderFn(context, mediaPath, terrainPath);
+    objects.reserve(desc.getCount());
+    for (uint32_t i{0}; i < desc.getCount(); i++)
     {
-        auto cmd = star::command::CreateObject::Builder()
-                       .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-                           std::make_shared<Terrain>(context, terrainPath)))
-                       .setUniqueName("terrain")
-                       .build();
-        context.begin().set(cmd).submit();
-        cmd.getReply().get()->init(context);
-
-        // register the terrain information with the image metric manager for cache
+        auto *sqComponent = desc.getSquareComponent(i);
+        auto obj = desc.getObject(i);
+        if (obj)
         {
-            const auto *terrain = static_cast<const Terrain *>(cmd.getReply().get().get());
-            context.getCmdBus().submit(image_metrics::RegisterTerrainRecordInfo{}
-                                           .setTerrainHeightFilePath(terrain->getShapeFilePath())
-                                           .setTerrainRenderingType(terrain->getTerrainRenderingType()));
+            objects.push_back(std::move(obj));
         }
+        else if (sqComponent != nullptr)
+        {
+            // make starlight object
+            auto &cubeInfos = sqComponent->cubeInfos;
+            // duplicate colors
+            const size_t currentSize{cubeInfos.size()};
+            cubeInfos.reserve(currentSize * 2);
+            for (size_t i{0}; i < currentSize; i++)
+            {
+                cubeInfos.push_back(cubeInfos[i]);
+            }
 
-        objects.emplace_back(cmd.getReply().get());
+            auto cube = star::debug::CreateCube(sqComponent->cubeInfos);
+            m_debugCubeInfo = std::make_optional(
+                DebugCubeInfo{.debugCube = cube, .numUniqueCubes = sqComponent->numberOfDebugSquares});
+
+            placeDebugCubes(camera->getForwardVector(), camera->getPosition());
+            objects.push_back(std::move(cube));
+        }
     }
 
-    //{
-    //    auto horsePath = mediaDirectoryPath + "models/horse/WildHorse.obj";
-    //    auto cmd = star::command::CreateObject::Builder()
-    //                   .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath))
-    //                   .setUniqueName("horse")
-    //                   .build();
-    //    context.begin().set(cmd).submit();
-    //    cmd.getReply().get()->init(context);
-    //    objects.emplace_back(cmd.getReply().get());
-    //}
+    m_loaderFn = nullptr;
 
     return {context, objects, std::move(mainLight), camera};
 }
 
-Application::Application(std::string terrainPath, std::string volumeName)
-    : m_terrainDir(std::move(terrainPath)), m_volumeName(std::move(volumeName))
+Application::Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName,
+                         VolumeRenderingOptions volumeOptions)
+    : m_loaderFn(std::move(objectLoader)), m_terrainDir(std::move(terrainPath)), m_volumeName(std::move(volumeName)),
+      m_screenshotRegistrations(), m_debugCubeInfo(), m_mainScene(nullptr), m_volume(), m_offRenderer(), m_mainLight(),
+      m_finalizationCmds(), m_volumeOptions(volumeOptions)
 {
     // const std::filesystem::path terrain(m_terrainDir);
     // if (!std::filesystem::exists(terrain))
@@ -154,10 +158,10 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         star::common::casts::SafeCast<int, uint8_t>(framesInFlight, numInFlight);
     }
 
-    star::StarObjectInstance *volumeInstance = nullptr;
+    star::StarEntity *volumeInstance = nullptr;
     {
         auto oRenderer =
-            star::common::Renderer(CreateOffscreenRenderer(context, numInFlight, camera, m_terrainDir, m_mainLight));
+            star::common::Renderer(createOffscreenRenderer(context, numInFlight, camera, m_terrainDir, m_mainLight));
         m_offRenderer = oRenderer.getRaw<OffscreenRenderer>();
 
         for (auto &object : m_offRenderer->getObjects())
@@ -176,10 +180,10 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
         {
             auto vdbPath = std::filesystem::path(mediaDirectoryPath) / "volumes" / m_volumeName;
-            m_volume =
-                std::make_shared<Volume>(context, vdbPath.string(), fNumFramesInFlight, camera, width, height,
-                                         m_offRenderer, m_offRenderer->getCameraInfoBuffers(),
-                                         m_offRenderer->getLightInfoBuffers(), m_offRenderer->getLightListBuffers());
+            m_volume = std::make_shared<Volume>(
+                context, vdbPath.string(), fNumFramesInFlight, camera, width, height, m_offRenderer,
+                m_offRenderer->getCameraInfoBuffers(), m_offRenderer->getLightInfoBuffers(),
+                m_offRenderer->getLightListBuffers(), m_volumeOptions.enableCutoffHighlighting);
             auto cmd = star::command::CreateObject::Builder()
                            .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
                            .setUniqueName(m_volumeName)
@@ -221,7 +225,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     //     .setConsumer()
     //     .setProducer()
 
-    m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0001f;
+    m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 150.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light = 300.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(0.001f);
@@ -231,8 +235,9 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     m_volume->getRenderer().getFogInfo().linearInfo.nearDist = 0.01f;
     m_volume->getRenderer().getFogInfo().linearInfo.farDist = 16000.0f;
     m_volume->getRenderer().getFogInfo().expFogInfo.density = 0.6f;
-    m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(1.0f);
-    m_volume->getRenderer().getFogInfo().marchedInfo.setCutoffValue(0.000001f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(0.1f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setColorTransparencyCutoff(0.000001f);
+    m_volume->getRenderer().getFogInfo().marchedInfo.setDistanceTransparencyCutoff(0.000001f);
     return m_mainScene;
 }
 
@@ -272,8 +277,41 @@ void Application::frameUpdate(star::core::SystemContext &context)
         auto cmd = star::headless_render_result_write::GetFileNameForFrame();
         d.begin().set(cmd).submit();
 
-        TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
+        const auto result = TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
+        if (m_debugCubeInfo.has_value() && result.cameraViewDirection)
+            placeDebugCubes(m_mainScene->getCamera()->getForwardVector(), m_mainScene->getCamera()->getPosition());
+
         triggerImageRecord(d, d.frameTracker(), cmd.getReply().get());
+    }
+}
+
+void Application::placeDebugCubes(const glm::vec3 &direction, const glm::vec3 &startPosition)
+{
+    assert(m_debugCubeInfo && "Debug cubes object was never registered");
+
+    constexpr float degPerStep = 3.0f;
+
+    // duplicate cubes in opposite directions
+    glm::vec3 scale{20.0f, 20000.0f, 20.0f};
+    for (uint8_t i{0}; i < 2; i++)
+    {
+        glm::vec3 offset{};
+        glm::vec3 rotAxis = i == 0 ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(0.0, -1.0, 0.0);
+        float rotDeg = degPerStep;
+
+        for (uint8_t j{0}; j < m_debugCubeInfo.value().numUniqueCubes; j++)
+        {
+            const glm::quat rotQuat = glm::angleAxis(glm::radians(rotDeg), rotAxis);
+            const glm::vec3 rotForward = rotQuat * direction;
+            const float distance = util::mileToMeters(j + 1);
+            offset = {rotForward.x * distance, rotForward.y * distance, rotForward.z * distance};
+
+            auto &instance = m_debugCubeInfo.value().debugCube->getInstance(i * m_debugCubeInfo.value().numUniqueCubes + j);
+            instance.setPosition(startPosition + offset);
+            instance.setScale(scale);
+
+            rotDeg += degPerStep;
+        }
     }
 }
 
@@ -364,10 +402,13 @@ void Application::triggerImageRecord(star::core::device::DeviceContext &context,
         image_metrics::TriggerCapture{outputFilePath, m_mainLight->front(), *m_volume, *m_mainScene->getCamera()});
 }
 
-void Application::TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume, star::StarCamera &camera)
+sim_controller::UpdateStatus Application::TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume,
+                                                           star::StarCamera &camera)
 {
     sim_controller::TriggerUpdate trigger(volume, camera);
     cmd.submit(trigger);
+
+    return trigger.getReply().get();
 }
 
 bool Application::CheckIfControllerIsDone(star::core::CommandBus &cmd)

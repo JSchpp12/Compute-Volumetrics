@@ -7,6 +7,7 @@
 #include "render_system/fog/PassInfo.hpp"
 
 #include <optional>
+#include <span>
 
 class VolumeRenderer;
 
@@ -46,5 +47,7 @@ class Pass
 
     void recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &passInfo,
                         vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
+
+    void setAdditionalClears(std::span<const Init::OptionalClearBuffer> clears); 
 };
 } // namespace renderer

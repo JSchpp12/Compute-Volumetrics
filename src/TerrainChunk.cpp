@@ -87,7 +87,7 @@ void TerrainChunk::load(GDALDataset *sharedDataset)
     loadGeomInfo(dataset, verts, inds, this->firstLine, this->lastLine);
 }
 
-std::unique_ptr<star::StarMesh> TerrainChunk::getMesh(star::core::device::DeviceContext &context,
+star::StarMesh TerrainChunk::getMesh(star::core::device::DeviceContext &context,
                                                       std::shared_ptr<star::StarMaterial> myMaterial)
 {
     const auto &graphicsIndex =
@@ -108,7 +108,7 @@ std::unique_ptr<star::StarMesh> TerrainChunk::getMesh(star::core::device::Device
     star::Handle indBuffer = context.getManagerRenderResource().addRequest(
         context.getDeviceID(), context.getSemaphoreManager().get(indSemaphore)->semaphore,
         std::make_unique<star::TransferRequest::IndicesInfo>(graphicsIndex, inds));
-    return std::make_unique<star::StarMesh>(vertBuffer, indBuffer, verts, inds, myMaterial, false);
+    return star::StarMesh{vertBuffer, indBuffer, verts, inds, myMaterial, false};
 }
 
 std::string &TerrainChunk::getTextureFile()

@@ -26,7 +26,7 @@ std::unordered_map<star::Shader_Stage, star::StarShader> Terrain::getShaders()
     return shaders;
 }
 
-std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::device::DeviceContext &context)
+std::vector<star::StarMesh> Terrain::loadMeshes(star::core::device::DeviceContext &context)
 {
     const auto infoPath = getHeightInfoFilePath();
     auto [readResult, fileInfo] = star::terrain::ReadTerrainTextureInfo(infoPath.string()); 
@@ -80,12 +80,14 @@ std::vector<std::unique_ptr<star::StarMesh>> Terrain::loadMeshes(star::core::dev
     tls.clear();
     star::core::logging::info("Done");
 
-    auto terrainMeshes = std::vector<std::unique_ptr<star::StarMesh>>(chunks.size());
+    std::vector<star::StarMesh> terrainMeshes;
+    terrainMeshes.reserve(chunks.size());
+
     assert(chunks.size() == m_meshMaterials.size() && "Every chunk should have its own material");
 
     for (size_t i = 0; i < chunks.size(); i++)
     {
-        terrainMeshes[i] = chunks[i].getMesh(context, m_meshMaterials[i]);
+        terrainMeshes.emplace_back(chunks[i].getMesh(context, m_meshMaterials[i]));
     }
 
     return terrainMeshes;

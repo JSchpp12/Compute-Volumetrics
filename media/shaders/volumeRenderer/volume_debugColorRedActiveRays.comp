@@ -2,8 +2,9 @@
 
 const float PI = 3.1415926535897932384626433832795;
 
-#include "struct_RayState.comp"
 #include "struct_DispatchIndirectCommand.comp"
+#include "struct_RayState.comp"
+
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
@@ -116,7 +117,7 @@ void main()
 {
     uint gid = gl_GlobalInvocationID.x;
     if (gid >= rss.activeCount)
-        return; 
+        return;
 
     const RayState state = rss.activeData[gid];
     vec3 resultingColor = vec3(0.0);
@@ -124,7 +125,9 @@ void main()
     if (state.status)
     {
         resultingColor = vec3(1.0, 0.0, 0.0);
-    }else{
+    }
+    else
+    {
         resultingColor = imageLoad(inputSceneColor, state.targetPixel).rgb;
     }
 

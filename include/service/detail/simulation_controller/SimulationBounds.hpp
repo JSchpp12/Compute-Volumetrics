@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FogInfo.hpp"
+#include "structs/FogInfo.hpp"
 
 namespace service::simulation_controller
 {

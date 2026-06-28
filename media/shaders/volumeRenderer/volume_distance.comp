@@ -75,7 +75,9 @@ layout(set = 1, binding = 5) uniform FogControllerInfo
     float marchedFog_stepSizeDist;
     float marchedFog_stepSizeDist_light;
     float marchedFog_densityMultiplier;
-    float marchedFog_cutoffValue;
+    float marchedFog_colorTransparencyCutoff;
+    float marchedFog_distanceTransparencyCutoff;
+    float marchedFog_lightExtinctionScale;
     uint marchedFog_uniform_maxNumSteps;
     uint gridType;
 }
@@ -97,37 +99,75 @@ layout(set = 2, binding = 1) buffer IsRayAtMaxDistance
 
 #include "volume_helpers.comp"
 
-#include "volume_functions.comp"
+const float PI = 3.1415926535897932384626433832795;
 
-void writeDistanceStencilInfo(const float d, const uint index)
+float applyHenyeyGreensteinPhase(const float cosTheta, const float g)
 {
-    if (d >= addCamInfo.farClipDist)
-    {
-        isAtMaxDistance[index] = 1;
-    }
-    else
-    {
-        isAtMaxDistance[index] = 0;
-    }
+    float denom = 1.0 + g * g - 2.0 * g * cosTheta;
+    return (1.0 / (4.0 * PI)) * (1.0 - g * g) / pow(denom, 1.5);
 }
 
-void writeMaxDistanceTraveled(const float d, const uint index)
+bool forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const Ray ray, const float t0, const float t1,
+                  const mat4 inverseModelMatrix, float sigmaAbsorption, float sigmaScattering, float lightPropertyDir_g,
+                  float mainStepSize, float lightStepSize, const float cutOffDistance, const vec4 randomValues,
+                  const float defaultDensity, const float densityMultiplier, const float cutoffValue, const uint frame,
+                  inout float rayDistanceTraveled)
 {
-    if (d >= addCamInfo.farClipDist)
+    Light_Type lChecker = createLightTypeStruct();
+
+    pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
+    pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
+    pnanovdb_readaccessor_t acc;
+    pnanovdb_readaccessor_init(acc, root);
+    pnanovdb_grid_type_t gType = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid);
+
+    const float marchStopDistance = min(t1, cutOffDistance);
+    const int fittedNumSteps = max(1, int(ceil((marchStopDistance - t0) / mainStepSize)));
+    const float sigmaT = sigmaAbsorption + sigmaScattering;
+
+    float transparency = 1.0;
+    vec3 resultingRadiance = vec3(0.0);
+    float stepStart = t0;
+    for (int i = 0; i < fittedNumSteps; i++)
     {
-        rayDistData[index] = 0;
+        const float stepEnd = min(stepStart + mainStepSize, marchStopDistance);
+        const float ds = stepEnd - stepStart;
+        if (ds <= 0)
+        {
+            return false;
+        }
+
+        const float t = stepStart + 0.5 * ds;
+        const vec3 marchPos = ray.origin.xyz + (t * ray.direction.xyz);
+        float pDensity = gridReadAt(grid, acc, gType, marchPos, true) * densityMultiplier;
+        if (pDensity == 0.0f)
+            pDensity = defaultDensity * densityMultiplier;
+
+        if (pDensity > 0.0f)
+        {
+            const float tau = ds * pDensity * sigmaT;
+            const float pTransmission = exp(-tau);
+            transparency *= pTransmission;
+
+            if (transparency <= cutoffValue)
+            {
+                rayDistanceTraveled += ds;
+                return true;
+            }
+        }
+
+        rayDistanceTraveled += ds;
+        stepStart = stepEnd;
     }
-    else
-    {
-        rayDistData[index] = d;
-    }
+
+    return false;
 }
 
-void writeDistanceInfo(const float d, const ivec2 tPix, const uvec2 cSize)
+void writeDistanceInfo(const float d, const bool isValid, const ivec2 tPix, const uvec2 cSize)
 {
     const uint index = tPix.x + (tPix.y * cSize.x);
-    writeMaxDistanceTraveled(d, index);
-    writeDistanceStencilInfo(d, index);
+    rayDistData[index] = d;
+    isAtMaxDistance[index] = isValid ? 1u : 0u;
 }
 
 void main()
@@ -138,36 +178,21 @@ void main()
 
     RayState rayState = rss.activeData[gid];
     pnanovdb_grid_handle_t grid = makeNanoGrid(0);
+    const float scale = extractUniformVolumeScale(instanceModelMatrix[0]);
+    const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]);
+    Ray localRay;
+    localRay.origin = vec4(rayState.origin.xyz, 1.0);
+    localRay.direction = vec4(rayState.direction.xyz, 0.0);
 
-    float t0 = 0;
-    float t1 = 0;
-    float localDepthDistance;
-    float rayDistanceTraveled = 0;
-    if (rayState.status)
-    {
-        vec3 resultingColor = vec3(0.0, 0.0, 0.0);
+    bool isValid = forwardMarch(grid, uvec2(rayState.targetPixel), localRay, rayState.t0, rayState.tEnd,
+                                inverseModelMatrix, fogInfo.marchedFog_sigmaAbsorption * scale,
+                                fogInfo.marchedFog_sigmaScattering * scale, fogInfo.marchedFog_lightPropertyDirG,
+                                fogInfo.marchedFog_stepSizeDist / scale, fogInfo.marchedFog_stepSizeDist_light / scale,
+                                rayState.localDepthDistance, imageLoad(randomTexture, rayState.targetPixel),
+                                fogInfo.marchedFog_defaultDensity, fogInfo.marchedFog_densityMultiplier,
+                                fogInfo.marchedFog_distanceTransparencyCutoff, 0u, rayState.rayDistanceTraveled);
 
-        const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]);
-        Ray localRay;
-        localRay.origin = vec4(rayState.origin.xyz, 1.0);
-        localRay.direction = vec4(rayState.direction.xyz, 0.0);
-        const float scale = extractUniformVolumeScale(instanceModelMatrix[0]);
-
-        forwardMarch(grid, uvec2(rayState.targetPixel), resultingColor, localRay, rayState.t0, rayState.tEnd, inverseModelMatrix,
-                     fogInfo.marchedFog_sigmaAbsorption * scale, fogInfo.marchedFog_sigmaScattering * scale,
-                     fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_stepSizeDist / scale,
-                     fogInfo.marchedFog_stepSizeDist_light / scale, addCamInfo.farClipDist / scale,
-                     imageLoad(randomTexture, rayState.targetPixel), fogInfo.marchedFog_defaultDensity,
-                     fogInfo.marchedFog_densityMultiplier, fogInfo.marchedFog_cutoffValue, 0u, resultingColor,
-                     rayDistanceTraveled);
-
-        // since march happens in local space, bring back to world
-        rayDistanceTraveled = rayDistanceTraveled * scale;
-    }
-    else
-    {
-        rayDistanceTraveled = addCamInfo.farClipDist;
-    }
-
-    writeDistanceInfo(rayDistanceTraveled, rayState.targetPixel, uvec2(addCamInfo.cameraDimensions));
+    const float worldDistance = rayState.rayDistanceTraveled * scale;
+    // const bool isAtCutoff = rayState.rayDistanceTraveled >= rayState.localDepthDistance;
+    writeDistanceInfo(worldDistance, isValid, rayState.targetPixel, uvec2(addCamInfo.cameraDimensions));
 }

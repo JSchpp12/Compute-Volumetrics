@@ -2,89 +2,36 @@
 
 #include "service/detail/image_metric_manager/ImageMetrics.hpp"
 
-#include <starlight/common/entities/Light_json.hpp>
 #include <starlight/core/helper/star_object/ObjectHelpers.hpp>
 
-#include <boost/filesystem/path.hpp>
-
+#include <algorithm>
+#include <cstdint>
 #include <execution>
+#include <limits>
 #include <numeric>
+#include <ranges>
 #include <span>
 
 namespace service::image_metric_manager
 {
-static double Mean(std::span<const float> &span)
-{
-    if (span.empty())
-    {
-        return std::numeric_limits<double>::quiet_NaN();
-    }
 
-    double sum = std::reduce(std::execution::unseq, span.begin(), span.end(), 0.0);
-    return sum / static_cast<double>(span.size());
-}
-
-FileWriteFunction::FileWriteFunction(const star::StarCamera &camera, const Volume &volume, star::Light light,
-                                     star::Handle buffer, vk::Device vkDevice, vk::Semaphore done,
-                                     uint64_t copyToHostBufferDoneValue, HostVisibleStorage *storage,
-                                     std::string terrainName, star::terrain::CoverageInfo terrainShapeInfo,
-                                     TerrainRenderingType terrainRenderingType, std::string volumeName)
-    : m_data(std::make_unique<ImageWriteData>(
-          std::move(terrainName), std::move(volumeName),
-          ImageWriteData::CameraInfo{camera.getPosition(), camera.getForwardVector()},
+FileWriteFunction::FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferHandle, vk::Extent2D screenResolution,
+                                     const star::StarCamera &camera, const Volume &volume, star::Light light,
+                                     std::string terrainName, TerrainShapeInfo terrainShapeInfo,
+                                     TerrainRenderingType terrainRenderingType, std::string volumeName,
+                                     ImageFilesInfo imageFilesInfo)
+    : m_data(std::make_unique<MetricWriteData>(
+          std::move(bufferHandle), std::move(terrainName), std::move(volumeName),
+          std::move(screenResolution), MetricWriteData::CameraInfo{camera.getPosition(), camera.getForwardVector()},
           VolumeInfo{.position = volume.getInstance().getPosition(),
                      .rotation =
                          star::core::helper::star_object::ExtractRotationDegrees(volume.getInstance().getRotationMat()),
                      .scale = volume.getInstance().getScale()},
           std::move(light), volume.getRenderer().getFogInfo(), volume.getRenderer().getFogType(),
-          std::move(terrainShapeInfo), terrainRenderingType, buffer, vkDevice, done, copyToHostBufferDoneValue,
-          storage))
+          std::move(terrainShapeInfo), terrainRenderingType, std::move(imageFilesInfo)))
 {
 }
 
-void FileWriteFunction::write(const std::filesystem::path &path) const
-{
-    const auto sourcePath = boost::filesystem::path(path);
-    const auto finalPath = boost::filesystem::path(path).replace_extension(".json");
-
-    waitForCopyToDstBufferDone();
-
-    double mean = calculateAverageRayDistance();
-    m_data->storage->returnBuffer(m_data->hostVisibleRayDistanceBuffer);
-
-    std::ofstream out(finalPath.string(), std::ofstream::binary);
-    const auto data =
-        ImageMetrics(m_data->light, m_data->volumeInfo, m_data->controlInfo, m_data->cameraInfo.position,
-                     m_data->cameraInfo.lookDir, sourcePath.filename().string(), mean, m_data->terrainName,
-                     m_data->volumeName, m_data->type, m_data->shapeInfo, m_data->terrainRenderingType)
-            .toJsonDump();
-    out << data;
-}
-
-void FileWriteFunction::waitForCopyToDstBufferDone() const
-{
-    assert(m_data->vkDevice != VK_NULL_HANDLE);
-
-    try
-    {
-        vk::Result waitResult = m_data->vkDevice.waitSemaphores(
-            vk::SemaphoreWaitInfo().setValues(m_data->copyToHostBufferDoneValue).setSemaphores(m_data->copyDone),
-            UINT64_MAX);
-
-        if (waitResult != vk::Result::eSuccess)
-        {
-            STAR_THROW("Failed to wait for semaphores");
-        }
-    }
-    catch (const vk::DeviceLostError &e)
-    {
-        std::ostringstream oss;
-        oss << "Vulkan error encountered while submitting queue. Terminating. " << e.what();
-        STAR_THROW(oss.str());
-    }
-}
-
-// cutoff factory is some amount (%) when it becomes "foggy" used as mixing value in shader
 static double CalcVisDistanceExponential(const FogInfo &info, const float &cutoffValue)
 {
     return -std::log(1.0 - cutoffValue) / (double)info.expFogInfo.density;
@@ -95,98 +42,148 @@ static double CalcVisDistanceLinear(const FogInfo &info)
     return info.linearInfo.farDist;
 }
 
-static uint32_t Sum(std::span<const uint32_t> &span)
+static double CalcMedian(std::vector<float> &elements)
 {
-    if (span.empty())
-    {
-        return 0;
-    }
+    auto middle = elements.begin() + elements.size() / 2;
+    std::ranges::nth_element(elements.begin(), middle, elements.end());
 
-    return std::reduce(std::execution::unseq, span.begin(), span.end(), 0.0);
+    if (elements.size() % 2 != 0)
+    {
+        return *middle;
+    }
+    else
+    {
+        // Even number of elements: mid is the upper-middle element.
+        // We find the lower-middle element, which is the largest element
+        // in the subrange before 'middle'.
+        auto leftMax = std::max_element(elements.begin(), middle);
+        return (*middle + *leftMax) / 2.0;
+    }
 }
 
-static float Sum(std::span<const float> &span)
+static double CalcMedian(const std::span<const float> &distanceSpan, const std::span<const uint32_t> &validMaskSpan)
 {
-    if (span.empty())
-    {
-        return 0;
-    }
+    auto filtered = std::views::zip(distanceSpan, validMaskSpan) |
+                    std::views::filter([](const auto &pair) -> bool { return std::get<1>(pair) == 1u; }) |
+                    std::views::transform([](const auto &pair) -> float { return std::get<0>(pair); });
+    if (filtered.empty())
+        return std::numeric_limits<double>::quiet_NaN();
 
-    return std::reduce(std::execution::unseq, span.begin(), span.end(), 0.0);
+    std::vector<float> filteredDistances(filtered.begin(), filtered.end());
+    return CalcMedian(filteredDistances);
 }
 
-static uint32_t GetNumRaysAtMaxDistance(const star::StarBuffers::Buffer &computeRayAtMaxBuffer)
+static RayVisibilityMetrics CalcVisDistanceFromMappedData(const float *distances, size_t distanceCount,
+                                                          const uint32_t *validMask, size_t maskCount)
 {
-    void *d = nullptr;
-    auto result = computeRayAtMaxBuffer.invalidate();
-    if (result != vk::Result::eSuccess)
+    if (distanceCount != maskCount)
     {
-        STAR_THROW("Failed to invalidate memory");
-    }
-    computeRayAtMaxBuffer.map(&d);
-
-    auto *data = static_cast<const uint32_t *>(d);
-    const size_t n = static_cast<size_t>(computeRayAtMaxBuffer.getBufferSize() / sizeof(uint32_t));
-    std::span<const uint32_t> span{data, n};
-    uint32_t nAtMax = std::reduce(std::execution::unseq, span.begin(), span.end(), 0u, std::plus<uint32_t>());
-    computeRayAtMaxBuffer.unmap();
-
-    return nAtMax;
-}
-
-static double CalcVisDistanceFromRayBuffers(const star::StarBuffers::Buffer &rayDistance,
-                                            const star::StarBuffers::Buffer &rayAtCutoff)
-{
-    uint32_t nAtMax = GetNumRaysAtMaxDistance(rayAtCutoff);
-    double mean = 0.0;
-    {
-        void *d = nullptr;
-        rayDistance.map(&d);
-
-        auto *data = static_cast<const float *>(d);
-        const size_t n = static_cast<size_t>(rayDistance.getBufferSize() / sizeof(float));
-        std::span<const float> span{data, n};
-
-        const size_t numRaysToConsider = n - static_cast<size_t>(nAtMax);
-        const float s = Sum(span);
-
-        rayDistance.unmap();
-        mean = (double)s / (double)numRaysToConsider;
+        STAR_THROW("Ray distance and valid ray mask buffers have different element counts");
     }
 
-    return mean;
+    std::span<const float> distanceSpan{distances, distanceCount};
+    std::span<const uint32_t> validMaskSpan{validMask, maskCount};
+
+    RayVisibilityMetrics result{{std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),
+                                 std::numeric_limits<double>::quiet_NaN(), 0},
+                                {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),
+                                 std::numeric_limits<double>::quiet_NaN(), 0}};
+
+    if (!distanceSpan.empty())
+    {
+        const int numValidRays = std::transform_reduce(validMaskSpan.begin(), validMaskSpan.end(), 0, std::plus<>(),
+                                                       [](uint32_t x) -> int { return static_cast<int>(x); });
+
+        result.excludingInvalidRays.rayCount = numValidRays;
+        result.includingInvalidRays.rayCount = static_cast<int>(distanceSpan.size());
+
+        const double includingInvalidSum =
+            std::transform_reduce(std::execution::unseq, distanceSpan.begin(), distanceSpan.end(), 0.0,
+                                  std::plus<double>(), [](float d) { return static_cast<double>(d); });
+
+        const double excludingInvalidSum = std::transform_reduce(
+            std::execution::unseq, distanceSpan.begin(), distanceSpan.end(), validMaskSpan.begin(), 0.0,
+            std::plus<double>(), [](const float distance, const uint32_t valid) {
+                return static_cast<double>(distance) * static_cast<double>(valid);
+            });
+
+        const double includingInvalidMin = std::transform_reduce(
+            std::execution::unseq, distanceSpan.begin(), distanceSpan.end(), validMaskSpan.begin(),
+            std::numeric_limits<double>::infinity(),
+            [](const double lhs, const double rhs) { return std::min(lhs, rhs); },
+            [](const float distance, const uint32_t) { return static_cast<double>(distance); });
+
+        const double excludingInvalidMin = std::transform_reduce(
+            std::execution::unseq, distanceSpan.begin(), distanceSpan.end(), validMaskSpan.begin(),
+            std::numeric_limits<double>::infinity(),
+            [](const double lhs, const double rhs) { return std::min(lhs, rhs); },
+            [](const float distance, const uint32_t valid) {
+                return valid > 0u ? static_cast<double>(distance) : std::numeric_limits<double>::infinity();
+            });
+
+        result.excludingInvalidRays.median = CalcMedian(distanceSpan, validMaskSpan);
+        {
+            std::vector<float> medianWorkingData(distanceSpan.begin(), distanceSpan.end());
+            result.includingInvalidRays.median = CalcMedian(medianWorkingData);
+        }
+
+        result.includingInvalidRays.average = includingInvalidSum / static_cast<double>(distanceSpan.size());
+        result.excludingInvalidRays.average = static_cast<double>(numValidRays) > 0.0
+                                                  ? excludingInvalidSum / static_cast<double>(numValidRays)
+                                                  : std::numeric_limits<double>::quiet_NaN();
+        result.includingInvalidRays.minimum = includingInvalidMin;
+        result.excludingInvalidRays.minimum =
+            static_cast<double>(numValidRays) > 0.0 ? excludingInvalidMin : std::numeric_limits<double>::quiet_NaN();
+    }
+
+    return result;
 }
 
-double FileWriteFunction::calculateAverageRayDistance() const
+VisibilityDistanceInfo FileWriteFunction::calculateDistanceMetrics() const
 {
-    assert(m_data->storage != nullptr);
+    assert(m_data != nullptr);
+    assert(m_data->bufferHandle != nullptr);
 
-    const star::StarBuffers::Buffer *rayDistance = nullptr;
-    const star::StarBuffers::Buffer *rayAtCutoff = nullptr;
-    m_data->storage->getRayDistanceBuffers(m_data->hostVisibleRayDistanceBuffer, &rayDistance, &rayAtCutoff);
-    assert(rayDistance != nullptr && rayAtCutoff != nullptr && "Failed to get buffers");
+    const auto &resources = m_data->bufferHandle->getResources();
 
-    double distance = 0.0;
     switch (m_data->type)
     {
-    case (Fog::Type::sExponential):
-        distance = CalcVisDistanceExponential(m_data->controlInfo, 0.98f);
-        break;
-    case (Fog::Type::sLinear):
-        distance = CalcVisDistanceLinear(m_data->controlInfo);
-        break;
-    default:
-        distance = CalcVisDistanceFromRayBuffers(*rayDistance, *rayAtCutoff);
-        break;
+    case (Fog::Type::sExponential): {
+        const double val = CalcVisDistanceExponential(m_data->controlInfo, 0.98f);
+        return VisibilityDistanceInfo{.simpleDistance = val};
     }
+    case (Fog::Type::sLinear): {
+        const double val = CalcVisDistanceLinear(m_data->controlInfo);
+        return VisibilityDistanceInfo{.simpleDistance = val};
+    }
+    default:
+        assert(resources.rayDistanceBuffer != nullptr && resources.rayAtCutoffDistBuffer != nullptr);
+        return VisibilityDistanceInfo{.rayMetrics = CalcVisDistanceFromMappedData(
+                                         m_data->bufferHandle->getMappedRayDistanceData(),
+                                         m_data->bufferHandle->getRayDistanceElementCount(),
+                                         m_data->bufferHandle->getMappedRayAtCutoffDistData(),
+                                         m_data->bufferHandle->getRayAtCutoffDistElementCount())};
+    }
+}
 
-    return distance;
+void FileWriteFunction::write(const std::filesystem::path &path) const
+{
+    m_data->bufferHandle->waitForCopyToDstBufferDone();
+    m_data->bufferHandle->ensureMapped();
+    const VisibilityDistanceInfo distanceMetrics = calculateDistanceMetrics();
+
+    std::ofstream out(path.string(), std::ofstream::binary);
+    const auto data = ImageMetrics(m_data->light, m_data->volumeInfo, m_data->controlInfo, m_data->cameraInfo.position,
+                                   m_data->cameraInfo.lookDir, distanceMetrics,
+                                   m_data->terrainName, m_data->volumeName, m_data->type, m_data->shapeInfo,
+                                   m_data->terrainRenderingType, m_data->imageFilesInfo)
+                          .toJsonDump();
+    out << data;
 }
 
 int FileWriteFunction::operator()(const std::filesystem::path &filePath)
 {
     write(filePath);
-
     return 0;
 }
 

@@ -6,11 +6,13 @@ enum class InitShaderFlags : uint16_t
 {
     None = 0,
     EnableAabbTest = 1u << 0,
-    EnableDepthtest = 1u << 1
+    EnableDepthtest = 1u << 1,
+    EnableColorOutput = 1u << 2
 };
 enum class MarchShaderFlags : uint16_t
 {
-    None = 0
+    None = 0,
+    EnableDebugHighlightCutoffValue = 1u << 0
 };
 
 constexpr uint32_t Pack(InitShaderFlags initFlags, MarchShaderFlags marchFlags) noexcept

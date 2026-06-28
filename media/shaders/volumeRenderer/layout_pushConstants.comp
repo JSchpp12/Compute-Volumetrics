@@ -2,3 +2,8 @@ layout(push_constant) uniform PushConstants{
     uint flags;
     uint numStepsPerDispatch;
 } dispatchOptions; 
+
+bool hasFlag(uint flags, uint mask)
+{
+    return (flags & mask) != 0u;
+}

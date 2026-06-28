@@ -17,20 +17,21 @@ class ChunkOrchestrator
     star::StarCommandBuffer m_cmdBuf{};
     std::vector<commands::Pass> m_cmdApproaches;
     std::optional<sync::SyncProvider> m_syncApproach{std::nullopt};
-    uint32_t m_shaderOptionFlags;
+    bool m_isDistance{false};
     const bool *m_isReady{nullptr};
 
   public:
     ChunkOrchestrator() = default;
-    ChunkOrchestrator(star::StarCommandBuffer cmdBuf, std::vector<commands::Pass> cmdApproaches, const bool *isReady)
+    ChunkOrchestrator(star::StarCommandBuffer cmdBuf, std::vector<commands::Pass> cmdApproaches, bool isDistance,
+                      const bool *isReady)
         : m_cmdBuf(std::move(cmdBuf)), m_cmdApproaches(std::move(cmdApproaches)), m_syncApproach(std::nullopt),
-          m_isReady(isReady)
+          m_isDistance(isDistance), m_isReady(isReady)
     {
     }
     ChunkOrchestrator(star::StarCommandBuffer cmdBuf, std::vector<commands::Pass> cmdApproaches,
                       sync::SyncProvider syncApproach, const bool *isReady)
         : m_cmdBuf(std::move(cmdBuf)), m_cmdApproaches(std::move(cmdApproaches)),
-          m_syncApproach(std::move(syncApproach)), m_isReady(isReady)
+          m_syncApproach(std::move(syncApproach)), m_isDistance(false), m_isReady(isReady)
     {
     }
 
@@ -41,7 +42,6 @@ class ChunkOrchestrator
 
     [[nodiscard]] std::optional<vk::SemaphoreSubmitInfo> getSignalInfo(
         const star::common::FrameTracker &ft) const noexcept;
-
     [[nodiscard]] std::optional<WaitInfo> getWaitInfo(const star::common::FrameTracker &ft) noexcept;
     [[nodiscard]] const star::StarCommandBuffer &getCmdBuffer() const noexcept
     {

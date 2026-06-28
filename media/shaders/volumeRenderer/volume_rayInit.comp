@@ -7,6 +7,7 @@
 
 const uint FLAG_ENABLE_AABB = 1u << 0;
 const uint FLAG_ENABLE_DEPTH = 1u << 1;
+const uint FLAG_ENABLE_COLOR_OUTPUT = 1u << 2;
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
@@ -75,7 +76,9 @@ layout(set = 1, binding = 5) uniform FogControllerInfo
     float marchedFog_stepSizeDist;
     float marchedFog_stepSizeDist_light;
     float marchedFog_densityMultiplier;
-    float marchedFog_cutoffValue;
+    float marchedFog_colorTransparencyCutoff;
+    float marchedFog_distanceTransparencyCutoff;
+    float marchedFog_lightExtinctionScale;
     uint marchedFog_uniform_maxNumSteps;
     uint gridType;
 }
@@ -104,11 +107,6 @@ void writeRayState(RayState state)
 #include "volume_helpers.comp"
 
 #include "func_reconstructDepthDistanceInObjectLocalSpace.comp"
-
-bool hasFlag(uint flags, uint mask)
-{
-    return (flags & mask) != 0u;
-}
 
 // calculate and init rays which hit the bounding box with manual depth testing
 void main()
@@ -140,13 +138,13 @@ void main()
 
     const bool hitAABB = rayBoxIntersect(grid, localRay, t0, t1);
     const bool passAABB = enableAABB ? hitAABB : true;
-
+    const float scale = extractUniformVolumeScale(instanceModelMatrix[0]);
     // If AABB is disabled and no box was hit / no bounds were found,
     // define a fallback ray interval.
     if (!enableAABB && !hitAABB)
     {
-        t0 = 0.0;
-        t1 = addCamInfo.farClipDist;
+        t0 = addCamInfo.nearClipDist / scale;
+        t1 = addCamInfo.farClipDist / scale;
     }
 
     bool passDepth = true;
@@ -185,7 +183,7 @@ void main()
 
         writeRayState(state);
     }
-    else
+    else if (hasFlag(dispatchOptions.flags, FLAG_ENABLE_COLOR_OUTPUT))
     {
         imageStore(outputImage, targetPixel, vec4(resultingColor, 1.0));
     }

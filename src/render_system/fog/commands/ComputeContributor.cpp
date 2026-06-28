@@ -22,3 +22,10 @@ void render_system::fog::commands::ComputeContributor::recordCommands(const rend
         std::get<IndirectDispatch>(m_approach).recordCommands(dInfo, pipeInfo, cmdBuf, ft);
     }
 }
+
+void render_system::fog::commands::ComputeContributor::setAdditionalClears(
+    std::span<const Init::OptionalClearBuffer> clears)
+{
+    if (std::holds_alternative<Init>(m_approach))
+        std::get<Init>(m_approach).setAdditionalClears(clears);
+}

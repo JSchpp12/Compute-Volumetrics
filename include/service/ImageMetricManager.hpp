@@ -8,12 +8,17 @@
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "service/detail/image_metric_manager/CopyDeviceToHostMemory.hpp"
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
+#include "service/detail/image_metric_manager/SharedBufferHandle.hpp"
 
 #include <star_terrain/file_data/coverage_info/CoverageInfo.hpp>
+#include <starlight/command/TaskScheduler/SubmitTask.hpp>
 #include <starlight/core/device/managers/GraphicsContainer.hpp>
+#include <starlight/job/tasks/Task.hpp>
 #include <starlight/policy/command/ListenFor.hpp>
+#include <starlight/service/TaskSchedulerService.hpp>
 
 #include <future>
+#include <memory>
 #include <optional>
 
 namespace service
@@ -34,11 +39,11 @@ using ListenForRegisterVolumeData =
     star::policy::command::ListenFor<T, image_metrics::RegisterVolumeRecordInfo,
                                      image_metrics::register_volume_record_info::GetUniqueName,
                                      &T::onRegisterVolumeRecord>;
-/// <summary>
+
+                                     /// <summary>
 /// Responsible for gathering all needed information from shaders and compute operations needed for
 /// image label processing
 /// </summary>
-///
 class ImageMetricManager
 {
   public:
@@ -113,6 +118,7 @@ class ImageMetricManager
     star::core::device::manager::Queue *m_qm = nullptr;
     star::core::device::manager::Semaphore *m_s = nullptr;
     const star::common::FrameTracker *m_frameTracker = nullptr;
+    star::service::TaskSchedulerService *m_taskScheduler = nullptr;
     bool m_isRegistered = false;
     ListenForTriggerCapture<ImageMetricManager> m_listenerCapture;
     ListenForRegisterTerrainData<ImageMetricManager> m_listenerTerrainInfo;

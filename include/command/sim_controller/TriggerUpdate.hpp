@@ -4,7 +4,7 @@
 
 #include <starlight/virtual/StarCamera.hpp>
 
-#include <star_common/IServiceCommand.hpp>
+#include <star_common/IServiceCommandWithReply.hpp>
 
 namespace sim_controller
 {
@@ -15,7 +15,16 @@ inline constexpr const char *GetTypeName()
     return "scTU";
 }
 } // namespace trigger_update
-struct TriggerUpdate : public star::common::IServiceCommand
+
+/// Contains what parameters controlled by the SimulationController were updated as result of the TriggerUpdate call
+struct UpdateStatus
+{
+    bool cameraViewDirection{false};
+    bool cameraLocation{false};
+    bool fogParameters{false};
+};
+
+struct TriggerUpdate : public star::common::IServiceCommandWithReply<UpdateStatus>
 {
     static inline constexpr std::string_view GetUniqueTypeName()
     {
@@ -23,12 +32,12 @@ struct TriggerUpdate : public star::common::IServiceCommand
     }
 
     TriggerUpdate(Volume &volume, star::StarCamera &camera)
-        : star::common::IServiceCommand(), volume(volume), camera(camera)
+        : star::common::IServiceCommandWithReply<UpdateStatus>(), volume(volume), camera(camera)
     {
     }
 
     TriggerUpdate(Volume &volume, star::StarCamera &camera, uint16_t type)
-        : star::common::IServiceCommand(std::move(type)), volume(volume), camera(camera)
+        : star::common::IServiceCommandWithReply<UpdateStatus>(std::move(type)), volume(volume), camera(camera)
     {
     }
 

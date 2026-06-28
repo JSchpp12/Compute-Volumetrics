@@ -5,6 +5,7 @@
 #include "renderer/finalization/Windowed.hpp"
 
 #include <starlight/command/command_order/TriggerPass.hpp>
+#include <starlight/core/json/glm_json.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
 
 #include <star_common/helper/StringHelpers.hpp>
@@ -61,7 +62,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     auto &d = context.getAllDevices().getData()[0];
     submitPasses(d);
 
-    const float moveAmount = 500.0f * dTime;
+    const float moveAmount = m_interactiveConfig.objectMovementSpeed * dTime;
     if (m_actDir[star::Type::Axis::x])
     {
         switch (m_mode)
@@ -174,12 +175,15 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     if (m_triggerScreenshot)
     {
         TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
-        triggerScreenshot(d);
+        //triggerScreenshot(d);
+        m_flipScreenshotState = false;
+        m_triggerScreenshot = false; 
+    }
 
-        if (CheckIfControllerIsDone(d.getCmdBus()))
-        {
-            m_triggerScreenshot = false;
-        }
+    if (m_updateDebugCubes)
+    {
+        placeDebugCubes(m_mainScene->getCamera()->getForwardVector(), m_mainScene->getCamera()->getPosition());
+        // m_updateDebugCubes = false;
     }
 }
 
@@ -231,17 +235,10 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
     if (key == GLFW_KEY_T)
     {
-        std::cout << m_mainScene->getCamera()->getPosition().x << "," << m_mainScene->getCamera()->getPosition().y
-                  << "," << m_mainScene->getCamera()->getPosition().z << std::endl;
-
-        if (m_mainLight->at(0).getDirection().z == -1)
-        {
-            m_mainLight->at(0).setDirection(glm::vec3{0.0, -1.0, 0.0});
-        }
-        else
-        {
-            m_mainLight->at(0).setDirection(glm::vec3{0.0, 0.0, -1.0});
-        }
+        nlohmann::json d; 
+        d["position"] = m_mainScene->getCamera()->getPosition();
+        d["forward"] = m_mainScene->getCamera()->getForwardVector();
+        star::core::info(d); 
     }
 
     if (key == GLFW_KEY_RIGHT)
@@ -389,15 +386,6 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         m_volume->setFogType(Fog::Type::sMarchedHomogenous);
     }
 
-    if (key == GLFW_KEY_V)
-    {
-        const auto camPos = this->m_mainScene->getCamera()->getPosition();
-        std::ostringstream oss;
-
-        star::core::logging::info("Cam position: " + std::to_string(camPos.x) + ',' + std::to_string(camPos.y) + ',' +
-                                  std::to_string(camPos.z));
-    }
-
     if (key == GLFW_KEY_O)
     {
         glm::vec3 newScale = static_cast<const star::StarObject *>(m_volume.get())->getInstance(0).getScale();
@@ -439,6 +427,11 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         m_actDir[1] = false;
         m_actDir[2] = false;
     }
+
+    if (key == GLFW_KEY_V)
+    {
+        m_updateDebugCubes = true;
+    }
 }
 
 void InteractiveApplication::onKeyPress(const int &key, const int &scancode, const int &mods)
@@ -471,13 +464,14 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
         "Test" + std::to_string(context.frameTracker().getCurrent().getGlobalFrameCounter()) + ".png";
     const auto path = (std::filesystem::path(m_imageOutputDir) / name).string();
 
-    size_t index = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());
+    const size_t index = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());
     auto *render = m_mainScene->getPrimaryRenderer().getRaw<star::windowing::SwapChainRenderer>();
 
     // submit screenshot processing
     context.getEventBus().emit(
         star::event::TriggerScreenshot(context.getImageManager().get(render->getRenderToColorImages()[index])->texture,
-                                       path, render->getCommandBuffer(), m_screenshotRegistrations[index]));
+                                       path, render->getCommandBuffer(), m_screenshotRegistrations[index],
+                                       &m_finalizationCmds->getTimelineSemaphore(index)));
 
     triggerImageRecord(context, frameTracker, name);
 }
@@ -490,8 +484,8 @@ std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star:
                       .setHorizontalFieldOfView(90.0f)
                       .setNearClippingPlaneDistance(0.5f)
                       .setFarClippingPlaneDistance(25000.0f)
-                      .setMovementSpeed(1000.0f)
-                      .setSensitivity(0.1f)
+                       .setMovementSpeed(m_interactiveConfig.cameraMovementSpeed)
+                       .setSensitivity(m_interactiveConfig.cameraSensitivity)
                       .buildShared();
 
     camera->init(context.getEventBus());

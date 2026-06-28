@@ -1,35 +1,44 @@
 #include "service/detail/simulation_controller/Reader.hpp"
 
+#include "FogInfo_json.hpp"
 #include "service/detail/simulation_controller/FogEnabler.hpp"
 #include "service/detail/simulation_controller/FogEnabler_json.hpp"
 #include "service/detail/simulation_controller/SimulationBounds.hpp"
 #include "service/detail/simulation_controller/camera_controller/Circle.hpp"
 #include "service/detail/simulation_controller/camera_controller/Circle_json.hpp"
 #include "util/Math.hpp"
-#include "FogInfo_json.hpp"
 
 #include <starlight/common/helpers/FileHelpers.hpp>
 #include <starlight/core/Exceptions.hpp>
+#include <starlight/core/json/glm_json.hpp>
 
 #include <nlohmann/json.hpp>
 
 #include <fstream>
+#include <string_view>
 
 using nlohmann::json;
 
 namespace service::simulation_controller
 {
-static FogInfo::LinearFogInfo CalcSteps(const FogInfo::LinearFogInfo &start, const FogInfo::LinearFogInfo &stop)
+
+static void require(const json &j, std::string_view key, const std::filesystem::path &path)
+{
+    if (!j.contains(key))
+        STAR_THROW(std::string{"Missing required field '"} + std::string{key} + "' in " + path.string());
+}
+
+static LinearFogInfo CalcSteps(const LinearFogInfo &start, const LinearFogInfo &stop)
 {
     return {util::CalcDiff(start.nearDist, stop.nearDist), util::CalcDiff(start.farDist, stop.farDist)};
 }
 
-static FogInfo::ExpFogInfo CalcSteps(const FogInfo::ExpFogInfo &start, const FogInfo::ExpFogInfo &stop)
+static ExpFogInfo CalcSteps(const ExpFogInfo &start, const ExpFogInfo &stop)
 {
     return {util::CalcDiff(start.density, stop.density)};
 }
 
-static FogInfo::MarchedFogInfo CalcSteps(const FogInfo::MarchedFogInfo &start, const FogInfo::MarchedFogInfo &stop)
+static MarchedFogInfo CalcSteps(const MarchedFogInfo &start, const MarchedFogInfo &stop)
 {
     return {util::CalcDiff(start.defaultDensity, stop.defaultDensity),
             util::CalcDiff(start.getSigmaAbsorption(), stop.getSigmaAbsorption()),
@@ -38,13 +47,14 @@ static FogInfo::MarchedFogInfo CalcSteps(const FogInfo::MarchedFogInfo &start, c
             util::CalcDiff(start.stepSizeDist, stop.stepSizeDist),
             util::CalcDiff(start.stepSizeDist_light, stop.stepSizeDist_light),
             util::CalcDiff(start.getDensityMultiplier(), stop.getDensityMultiplier()),
-            util::CalcDiff(start.getCutoffValue(), stop.getCutoffValue())};
+            util::CalcDiff(start.getColorTransparencyCutoff(), stop.getColorTransparencyCutoff()),
+            util::CalcDiff(start.getDistanceTransparencyCutoff(), stop.getDistanceTransparencyCutoff()),
+            util::CalcDiff(start.getLightExtinctionScale(), stop.getLightExtinctionScale())};
 }
 
-static FogInfo::HomogenousRendering CalcSteps(const FogInfo::HomogenousRendering &start,
-                                              const FogInfo::HomogenousRendering &stop)
+static HomogenousRendering CalcSteps(const HomogenousRendering &start, const HomogenousRendering &stop)
 {
-    return FogInfo::HomogenousRendering(util::CalcDiff(start.maxNumSteps, stop.maxNumSteps));
+    return HomogenousRendering(util::CalcDiff(start.maxNumSteps, stop.maxNumSteps));
 }
 
 SimulationSteps CalculateSimSteps(const SimulationBounds &bounds)
@@ -74,13 +84,16 @@ static SimulationData LoadBoundsInfoFromFile(const std::filesystem::path &path)
             is >> j;
 
             SimulationBounds bounds;
-            bounds.start = j["startData"]; 
+            require(j, "startData", path);
+            bounds.start = j["startData"];
+            require(j, "stopData", path);
             bounds.stop = j["stopData"];
 
+            require(j, "camera_controller_type", path);
             std::string type = j["camera_controller_type"].get<std::string>();
             if (type == "circle")
             {
-                // create a circle type
+                require(j, "circle_controller_settings", path);
                 camera_controller::Circle circle;
                 camera_controller::from_json(j["circle_controller_settings"], circle);
 
@@ -91,12 +104,30 @@ static SimulationData LoadBoundsInfoFromFile(const std::filesystem::path &path)
                 STAR_THROW("Invalid controller type: " + type);
             }
 
+            require(j, "numSteps", path);
             bounds.numSteps = j["numSteps"];
 
             data.steps = CalculateSimSteps(bounds);
+            require(j, "initial_camera_height_above_ground", path);
             data.initialCameraHeightAboveGround = j["initial_camera_height_above_ground"].get<int>();
+            if (j.contains("start_camera_position"))
+                data.startCameraPosition = j["start_camera_position"].get<glm::vec3>();
+
+            require(j, "enabled_fog_types", path);
             from_json(j["enabled_fog_types"], data.fogStatus);
         }
+    }
+    catch (const nlohmann::json::out_of_range &ex)
+    {
+        std::ostringstream oss;
+        oss << "Missing field in " << path << ": " << ex.what();
+        STAR_THROW(oss.str());
+    }
+    catch (const nlohmann::json::type_error &ex)
+    {
+        std::ostringstream oss;
+        oss << "Type error in " << path << ": " << ex.what();
+        STAR_THROW(oss.str());
     }
     catch (const std::exception &ex)
     {

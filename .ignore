@@ -1,0 +1,7 @@
+out/**
+media/**
+.devcontainer/**
+.github/**
+.vs/**
+.vscode/**
+assets/** 

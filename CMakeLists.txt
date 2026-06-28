@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.0.24
+	VERSION 1.0.37
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -39,7 +39,7 @@ cmake_policy(SET CMP0071 NEW)
 cmake_policy(SET CMP0076 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0079 NEW)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (APPLE)
@@ -107,7 +107,6 @@ set(${PROJECT_NAME}_SOURCES
 	"src/TerrainGrid.cpp"
 	"src/FogControlInfo.cpp"
 	"src/CopyDepthTextureToBuffer.cpp"
-	"src/FogInfo.cpp"
 	"src/util/Math.cpp"
 	"src/util/CmdLine.cpp"
 	"src/VolumeDataBase.cpp"
@@ -133,7 +132,10 @@ set(${PROJECT_NAME}_SOURCES
 	"src/service/detail/image_metric_manager/CopyCmds.cpp"
 	"src/service/detail/image_metric_manager/FileWriteFunction.cpp"
 	"src/service/detail/image_metric_manager/HostVisibleStorage.cpp"
+	"src/service/detail/image_metric_manager/SharedBufferHandle.cpp"
 	"src/service/detail/image_metric_manager/ImageMetrics.cpp"
+	"src/service/detail/image_metric_manager/SharedBufferWriteDistanceMaskPayload.cpp"
+	"src/service/detail/image_metric_manager/SharedBufferWriteValidityMaskPayload.cpp"
 	"src/render_system/fog/FogDispatcher.cpp"
 	"src/render_system/FogDispatcherBuilder.cpp"
 	"src/render_system/fog/sync/signal/CalcFromFt.cpp"
@@ -153,7 +155,19 @@ set(${PROJECT_NAME}_SOURCES
  	"src/render_system/fog/commands/distance/PreDifferentFamilies.cpp" 
 	"src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp" 
 	"src/service/detail/image_metric_manager/VolumeInfo_json.cpp" 
-	"src/FogInfo_json.cpp")
+	"src/service/detail/image_metric_manager/RayDistanceStats_json.cpp"
+	"src/service/detail/image_metric_manager/RayVisibilityMetrics_json.cpp"
+	"src/service/detail/image_metric_manager/VisibilityDistanceInfo_json.cpp"
+	"src/service/detail/image_metric_manager/ImageFilesInfo_json.cpp"
+	"src/service/detail/image_metric_manager/DistanceMaskImages_json.cpp"
+	"src/FogInfo_json.cpp" 
+ 	"src/config/InteractiveConfigInfo_json.cpp"
+ 	"src/config/AppConfigInfo_json.cpp"
+	"src/config/AppConfigValidator.cpp"
+	"src/config/AppConfigLoader.cpp"
+	"src/loader/SceneLoaders.cpp"  
+	"src/loader/SceneDescription.cpp" 
+	"src/util/Color.cpp")
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"
@@ -193,7 +207,6 @@ set(${PROJECT_NAME}_HEADERS
 	"include/TerrainGrid.hpp"
 	"include/FogControlInfo.hpp"
 	"include/CopyDepthTextureToBuffer.hpp"
-	"include/FogInfo.hpp"
 	"include/util/Math.hpp"
 	"include/util/CmdLine.hpp"
 	"include/VolumeDataBase.hpp"
@@ -204,6 +217,12 @@ set(${PROJECT_NAME}_HEADERS
 	"include/InteractiveMode.hpp"
 	"include/HeadlessMode.hpp"
 	"include/InteractiveApplication.hpp"
+ 	"include/config/InteractiveConfigInfo.hpp"
+	"include/config/InteractiveConfigInfo_json.hpp"
+ 	"include/config/AppConfigInfo.hpp"
+	"include/config/AppConfigInfo_json.hpp"
+	"include/config/AppConfigValidator.hpp"
+	"include/config/AppConfigLoader.hpp"
 	"include/VolumeDirectoryProcessor.hpp"
 	"include/VolumeFile.hpp"
 	"include/VDBFileInfo.hpp"
@@ -219,7 +238,20 @@ set(${PROJECT_NAME}_HEADERS
 	"include/service/detail/image_metric_manager/CopyCmds.hpp"
 	"include/service/detail/image_metric_manager/FileWriteFunction.hpp"
 	"include/service/detail/image_metric_manager/HostVisibleStorage.hpp"
+	"include/service/detail/image_metric_manager/SharedBufferHandle.hpp"
+	"include/service/detail/image_metric_manager/SharedBufferWriteDistanceMaskPayload.hpp"
+	"include/service/detail/image_metric_manager/SharedBufferWriteValidityMaskPayload.hpp"
 	"include/service/detail/image_metric_manager/ImageMetrics.hpp"
+	"include/service/detail/image_metric_manager/RayDistanceStats.hpp"
+	"include/service/detail/image_metric_manager/RayVisibilityMetrics.hpp"
+	"include/service/detail/image_metric_manager/VisibilityDistanceInfo.hpp"
+	"include/service/detail/image_metric_manager/RayDistanceStats_json.hpp"
+	"include/service/detail/image_metric_manager/RayVisibilityMetrics_json.hpp"
+	"include/service/detail/image_metric_manager/VisibilityDistanceInfo_json.hpp"
+	"include/service/detail/image_metric_manager/ImageFilesInfo.hpp"
+	"include/service/detail/image_metric_manager/ImageFilesInfo_json.hpp"
+	"include/service/detail/image_metric_manager/DistanceMaskImages.hpp"
+	"include/service/detail/image_metric_manager/DistanceMaskImages_json.hpp"
 )
 
 add_library(${PROJECT_NAME}_lib 

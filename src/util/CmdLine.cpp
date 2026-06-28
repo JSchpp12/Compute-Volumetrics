@@ -1,6 +1,8 @@
 #include "util/CmdLine.hpp"
 
 #include <logging/LoggingFactory.hpp>
+#include <starlight/core/Exceptions.hpp>
+
 #include <optional>
 
 namespace util::CmdLine
@@ -27,10 +29,7 @@ std::string GetTerrainPath(int argc, char **argv)
 {
     auto terrainPath = util::CmdLine::TryGetArgValue(argc, argv, "--terrain");
     if (!terrainPath.has_value())
-    {
-        std::cerr << "Terrain dir must be provided with arg '--terrain'" << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
+        STAR_THROW("Terrain dir must be provided with arg '--terrain'");
 
     return terrainPath.value();
 }
@@ -39,18 +38,16 @@ std::string GetSimControllerFilePath(int argc, char **argv)
 {
     auto controllerPath = util::CmdLine::TryGetArgValue(argc, argv, "--controller");
     if (!controllerPath.has_value())
-    {
-        std::cerr << "Simulation controller path file must be provided with arg '--controller'" << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
+        STAR_THROW("Simulation controller path file must be provided with arg '--controller'");
 
     return controllerPath.value();
 }
+
 std::string GetConfigFilePath(int argc, char **argv)
 {
     auto file = util::CmdLine::TryGetArgValue(argc, argv, "--config");
     if (!file.has_value())
-        throw std::runtime_error("Config file path was not provided as cmd argument");
+        STAR_THROW("Config file path was not provided as cmd argument");
 
     return file.value();
 }
@@ -59,10 +56,11 @@ std::string GetVolumeDirPath(int argc, char **argv)
 {
     auto dir = util::CmdLine::TryGetArgValue(argc, argv, "--volume");
     if (!dir.has_value())
-        throw std::runtime_error("Volume directory was not provided as cmd argument");
+        STAR_THROW("Volume directory was not provided as cmd argument");
 
     return dir.value();
 }
+
 std::optional<int> TryGetDeviceIndexOverride(int argc, char **argv)
 {
     auto value = util::CmdLine::TryGetArgValue(argc, argv, "--forceRenderingDeviceIndex");
@@ -70,5 +68,23 @@ std::optional<int> TryGetDeviceIndexOverride(int argc, char **argv)
         return std::nullopt;
 
     return std::stoi(value.value());
+}
+
+std::optional<std::string> TryGetAppConfigFilePath(int argc, char **argv)
+{
+    return util::CmdLine::TryGetArgValue(argc, argv, "--appConfig");
+}
+
+bool DoesContainOption(int argc, char **argv, const std::string &flag)
+{
+    for (int i{0}; i < argc; i++)
+    {
+        std::string arg = argv[i];
+        if (arg == flag)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 } // namespace util::CmdLine

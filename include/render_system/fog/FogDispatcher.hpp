@@ -13,6 +13,11 @@ class FogDispatcher
 {
   public:
     FogDispatcher() = default;
+    explicit FogDispatcher(bool enableColorDebugCutoff)
+        : m_passes(), m_cbSubmitInfo(), m_syncApproach(), m_cmdBus(nullptr), m_numCbRecorded(0),
+          m_enableColorDebugCutoff(enableColorDebugCutoff)
+    {
+    }
 
     void prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady);
 
@@ -31,10 +36,11 @@ class FogDispatcher
   private:
     friend class FogDispatcherBuilder;
     std::vector<ChunkOrchestrator> m_passes;
-    std::vector<vk::CommandBufferSubmitInfo> m_cbSubmitInfo; 
+    std::vector<vk::CommandBufferSubmitInfo> m_cbSubmitInfo;
     sync::SyncProvider m_syncApproach;
     star::core::CommandBus *m_cmdBus{nullptr};
     uint8_t m_numCbRecorded{0};
+    bool m_enableColorDebugCutoff{false};
 
     void createChunks(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady);
 };

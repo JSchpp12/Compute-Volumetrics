@@ -2,6 +2,7 @@
 
 #ifndef STAR_ENABLE_PRESENTATION
 #include "Application.hpp"
+#include "loader/SceneLoaders.hpp"
 #include "policy/EngineExitOnFlag.hpp"
 #include "policy/FunctionalEngineInitPolicy.hpp"
 #include "service/SimulationController.hpp"
@@ -23,13 +24,17 @@ static FunctionalEngineInitPolicy CreateInit(std::shared_ptr<bool> doneFlag, std
                                          : FunctionalEngineInitPolicy(fun);
 }
 
-int HeadlessMode::run(std::unique_ptr<AppConfig> cfg)
+int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
 {
     using loop = star::policy::DefaultEngineLoopPolicy;
     using exit = EngineExitOnFlag;
     std::shared_ptr<bool> controllerSequenceDone = std::make_shared<bool>(false);
 
-    Application application(std::move(cfg->terrainDir), std::move(cfg->volumeName));
+    Application application = cfg->enableDistanceMarkers
+                                  ? Application(&loader::DebugSceneLoader, std::move(cfg->terrainDir),
+                                                std::move(cfg->volumeName), {cfg->enableCutoffHighlighting})
+                                  : Application(&loader::ReleaseSceneLoader, std::move(cfg->terrainDir),
+                                                std::move(cfg->volumeName), {cfg->enableCutoffHighlighting});
 
     auto engine = star::StarEngine<FunctionalEngineInitPolicy, loop, exit>(
         CreateInit(controllerSequenceDone, std::move(cfg->simControllerPath), cfg->overrideRenderingDevice), loop{},

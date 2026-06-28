@@ -10,10 +10,11 @@ namespace service::simulation_controller::camera_controller
 class Circle
 {
   public:
-    Circle() = default; 
-    Circle(glm::vec3 startCameraDirection, int numCameraPositions);
+    Circle() = default;
+    Circle(glm::vec3 startCameraDirection, int numCameraPositions, float rotationDegreesPerTick = 1.0f);
 
     void tick(star::StarCamera &camera);
+    void setRotationDegreesPerTick(float degrees);
     bool isDone() const;
     void reset(star::StarCamera &camera);
     void setNumCameraPositions(int numPositions);
@@ -29,10 +30,15 @@ class Circle
     {
         return m_numCameraPositions;
     }
+    float getRotationDegreesPerTick() const
+    {
+        return m_rotationDegreesPerTick;
+    }
 
   private:
     glm::vec3 m_startCameraDirection{};
     int m_numCameraPositions{0};
+    float m_rotationDegreesPerTick{1.0f};
     int m_counter{0};
 };
 } // namespace service::simulation_controller::camera_controller
