@@ -38,6 +38,7 @@ void SharedBufferWriteValidityMaskPayload::operator()()
         STAR_THROW("Unsupported image format for validity mask write");
     }
 
+    bufferHandle->ensureUnmapped();
     star::core::logging::info("Finished file write - " + path); 
 }
 } // namespace service::image_metric_manager

@@ -12,6 +12,7 @@ static std::pair<float, float> GetMinMax(const float *floatData, const uint32_t 
     const auto [minIt, maxIt] = std::minmax_element(floatData, floatData + (width * height));
     return std::make_pair(*minIt, *maxIt);
 }
+
 static void WriteNormalized(const SharedBufferHandle &buff, const std::string &path,
                             star::job::tasks::actions::WriteTiffImageAction::Compression compression)
 {
@@ -65,19 +66,16 @@ void SharedBufferWriteDistanceMaskPayload::operator()()
                                             : star::job::tasks::actions::WriteTiffImageAction::Compression::none;
 
         if (normalizeFloatRanges)
-        {
             WriteNormalized(*bufferHandle, path, std::move(compression));
-        }
         else
-        {
             Write(*bufferHandle, path, std::move(compression));
-        }
     }
     else
     {
         STAR_THROW("Unsupported image format for shared buffer write");
     }
 
+    bufferHandle->ensureUnmapped();
     star::core::logging::info("Finished file write - " + path);
 }
 } // namespace service::image_metric_manager

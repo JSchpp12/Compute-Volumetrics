@@ -1,7 +1,5 @@
 #include "service/SimulationController.hpp"
 
-#include "MathHelpers.hpp"
-#include "TerrainChunk.hpp"
 #include "service/detail/simulation_controller/Reader.hpp"
 #include "service/detail/simulation_controller/Writer.hpp"
 
@@ -314,8 +312,7 @@ void SimulationControllerService::loadControllerParams(star::StarCamera &cam)
         {
             const auto &camPos = cam.getPosition();
             // cam pos starts at ground level
-            cam.setPosition(
-                {camPos.x, camPos.y + static_cast<float>(data.initialCameraHeightAboveGround), camPos.z});
+            cam.setPosition({camPos.x, camPos.y + static_cast<float>(data.initialCameraHeightAboveGround), camPos.z});
 
             if (data.initialCameraHeightAboveGround <= 0)
             {

@@ -9,18 +9,23 @@ namespace service::image_metric_manager
 SharedBufferHandle::SharedBufferHandle(HostVisibleStorage *pool, star::Handle handle, CopyDstResources resources,
                                        vk::Extent2D resolution, vk::Device device, vk::Semaphore copyDone,
                                        uint64_t copyDoneValue)
-    : m_pool(pool), m_handle(std::move(handle)), m_resources(std::move(resources)), m_resolution(std::move(resolution)),
-      m_device(std::move(device)), m_copyDone(std::move(copyDone)), m_copyDoneValue(std::move(copyDoneValue))
+    : m_resources(std::move(resources)), m_copyDoneValue(std::move(copyDoneValue)), m_resolution(std::move(resolution)),
+      m_handle(std::move(handle)), m_pool(pool), m_device(std::move(device)), m_copyDone(std::move(copyDone))
 {
 }
 
 SharedBufferHandle::~SharedBufferHandle()
 {
-    if (m_mapped)
     {
-        m_resources.rayDistanceBuffer->unmap();
-        m_resources.rayAtCutoffDistBuffer->unmap();
-        m_mapped = false;
+        std::lock_guard lock(m_mappingMutex);
+        if (m_mapRefCount > 0)
+        {
+            m_resources.rayDistanceBuffer->unmap();
+            m_resources.rayAtCutoffDistBuffer->unmap();
+            m_mappedRayDistanceData = nullptr;
+            m_mappedRayAtCutoffDistData = nullptr;
+            m_mapRefCount = 0;
+        }
     }
 
     if (m_pool != nullptr)
@@ -53,10 +58,11 @@ void SharedBufferHandle::waitForCopyToDstBufferDone() const
 
 void SharedBufferHandle::ensureMapped()
 {
-    if (m_mapped)
-    {
+    std::lock_guard lock(m_mappingMutex);
+
+    ++m_mapRefCount;
+    if (m_mapRefCount > 1)
         return;
-    }
 
     assert(m_resources.rayDistanceBuffer != nullptr);
     assert(m_resources.rayAtCutoffDistBuffer != nullptr);
@@ -84,19 +90,35 @@ void SharedBufferHandle::ensureMapped()
     {
         STAR_THROW("Failed to map ray at cutoff distance buffer");
     }
+}
 
-    m_mapped = true;
+void SharedBufferHandle::ensureUnmapped()
+{
+    std::lock_guard lock(m_mappingMutex);
+
+    if (m_mapRefCount == 0)
+        return;
+
+    --m_mapRefCount;
+    if (m_mapRefCount == 0)
+    {
+        m_resources.rayDistanceBuffer->unmap();
+        m_resources.rayAtCutoffDistBuffer->unmap();
+
+        m_mappedRayDistanceData = nullptr;
+        m_mappedRayAtCutoffDistData = nullptr;
+    }
 }
 
 const float *SharedBufferHandle::getMappedRayDistanceData() const
 {
-    assert(m_mapped);
+    assert(m_mappedRayDistanceData != nullptr);
     return static_cast<const float *>(m_mappedRayDistanceData);
 }
 
 const uint32_t *SharedBufferHandle::getMappedRayAtCutoffDistData() const
 {
-    assert(m_mapped);
+    assert(m_mappedRayAtCutoffDistData != nullptr);
     return static_cast<const uint32_t *>(m_mappedRayAtCutoffDistData);
 }
 
@@ -110,23 +132,6 @@ size_t SharedBufferHandle::getRayAtCutoffDistElementCount() const
 {
     assert(m_resources.rayAtCutoffDistBuffer != nullptr);
     return static_cast<size_t>(m_resources.rayAtCutoffDistBuffer->getBufferSize() / sizeof(uint32_t));
-}
-
-const CopyDstResources &SharedBufferHandle::getResources() const
-{
-    return m_resources;
-}
-
-const star::StarBuffers::Buffer &SharedBufferHandle::getRayDistanceBuffer() const
-{
-    assert(m_resources.rayDistanceBuffer != nullptr);
-    return *m_resources.rayDistanceBuffer;
-}
-
-const star::StarBuffers::Buffer &SharedBufferHandle::getRayAtCutoffDistBuffer() const
-{
-    assert(m_resources.rayAtCutoffDistBuffer != nullptr);
-    return *m_resources.rayAtCutoffDistBuffer;
 }
 
 const vk::Extent2D &SharedBufferHandle::getResolution() const

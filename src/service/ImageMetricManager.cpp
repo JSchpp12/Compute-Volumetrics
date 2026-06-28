@@ -221,7 +221,7 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
         auto jsonPayload = star::job::tasks::io::CreateWriteTask(star::job::tasks::io::WritePayload{
             jsonPath,
             image_metric_manager::FileWriteFunction{
-                sharedHandle, iResolution, camera, volume, mainLight, m_cachedTerrainShapeInfo.getTerrainName(),
+                sharedHandle, camera, volume, mainLight, m_cachedTerrainShapeInfo.getTerrainName(),
                 m_cachedTerrainShapeInfo.get(), m_cachedTerrainShapeInfo.getTerrainRenderingType(),
                 m_cachedVolumeNameInfo,
                 image_metric_manager::ImageFilesInfo{.sourceImageName = basePath.filename().string(),
@@ -247,7 +247,7 @@ void ImageMetricManager::cleanupListeners(star::core::CommandBus &cmdBus)
 }
 
 void ImageMetricManager::submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath,
-                                                           star::terrain::TerrainRenderingType renderingType)
+                                                           star::terrain::rendering::Type renderingType)
 {
     assert(m_cmdBus != nullptr);
     std::string terrainName = terrainShapeFilePath.parent_path().filename().string();

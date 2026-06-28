@@ -80,7 +80,6 @@ set(${PROJECT_NAME}_SOURCES
 	"src/AABBTransfer.cpp"
  	"src/Application.cpp"
 	"src/Volume.cpp"
- 	"src/Terrain.cpp"
  	"src/renderer/volume/ContainerRenderResourceData.cpp"
 	"src/renderer/volume/DescriptorBuilder.cpp"
 	"src/renderer/VolumeRenderer.cpp"
@@ -100,11 +99,8 @@ set(${PROJECT_NAME}_SOURCES
 	"src/ScreenMaterial.cpp"
 	"src/CameraInfo.cpp"
 	"src/Screen.cpp"
-	"src/VolumeSampler.cpp"
-	"src/TerrainChunk.cpp"
-	"src/MathHelpers.cpp"
-	"src/TerrainGrid.cpp"
-	"src/FogControlInfo.cpp"
+ 	"src/VolumeSampler.cpp"
+ 	"src/FogControlInfo.cpp"
 	"src/CopyDepthTextureToBuffer.cpp"
 	"src/util/Math.cpp"
 	"src/util/CmdLine.cpp"
@@ -166,7 +162,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/config/AppConfigLoader.cpp"
 	"src/loader/SceneLoaders.cpp"  
 	"src/loader/SceneDescription.cpp" 
-	"src/util/Color.cpp")
+	"src/util/Color.cpp" "src/service/detail/image_metric_manager/ImageMetrics_json.cpp")
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"
@@ -187,7 +183,6 @@ set(${PROJECT_NAME}_HEADERS
 	"include/VDBTransfer.hpp"
 	"include/AABBTransfer.hpp"
 	"include/Volume.hpp"
- 	"include/Terrain.hpp"
  	"include/renderer/volume/ContainerRenderResourceData.hpp"
 	"include/renderer/volume/DescriptorBuilder.hpp"
 	"include/renderer/VolumeRenderer.hpp"
@@ -200,9 +195,6 @@ set(${PROJECT_NAME}_HEADERS
 	"include/CameraInfo.hpp"
 	"include/Screen.hpp"
 	"include/VolumeSampler.hpp"
-	"include/TerrainChunk.hpp"
-	"include/MathHelpers.hpp"
-	"include/TerrainGrid.hpp"
 	"include/FogControlInfo.hpp"
 	"include/CopyDepthTextureToBuffer.hpp"
 	"include/util/Math.hpp"
@@ -269,7 +261,6 @@ if (WIN32)
 			Starlight::terrain
 			OpenVDB::openvdb
 			GDAL::GDAL
-			TBB::tbb
 			zstd::libzstd
 	)
 	else()
@@ -279,7 +270,6 @@ if (WIN32)
 			Starlight::terrain
 			OpenVDB::openvdb
 			GDAL::GDAL
-			TBB::tbb
 			zstd::libzstd
 		)
 	endif()
@@ -293,7 +283,6 @@ else()
 				Starlight::terrain
 				OpenVDB::openvdb
 				GDAL::GDAL
-				TBB::tbb
 				zstd::libzstd
 				atomic
 		)
@@ -304,7 +293,6 @@ else()
 				Starlight::terrain
 				OpenVDB::openvdb
 				GDAL::GDAL
-				TBB::tbb
 				zstd::libzstd
 				atomic
 		)
