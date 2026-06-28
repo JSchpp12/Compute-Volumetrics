@@ -17,12 +17,12 @@ namespace service::image_metric_manager
 
 FileWriteFunction::FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferHandle, vk::Extent2D screenResolution,
                                      const star::StarCamera &camera, const Volume &volume, star::Light light,
-                                     std::string terrainName, TerrainShapeInfo terrainShapeInfo,
+                                     std::string terrainName, star::terrain::CoverageInfo terrainShapeInfo,
                                      TerrainRenderingType terrainRenderingType, std::string volumeName,
                                      ImageFilesInfo imageFilesInfo)
     : m_data(std::make_unique<MetricWriteData>(
-          std::move(bufferHandle), std::move(terrainName), std::move(volumeName),
-          std::move(screenResolution), MetricWriteData::CameraInfo{camera.getPosition(), camera.getForwardVector()},
+          std::move(bufferHandle), std::move(terrainName), std::move(volumeName), std::move(screenResolution),
+          MetricWriteData::CameraInfo{camera.getPosition(), camera.getForwardVector()},
           VolumeInfo{.position = volume.getInstance().getPosition(),
                      .rotation =
                          star::core::helper::star_object::ExtractRotationDegrees(volume.getInstance().getRotationMat()),
@@ -158,11 +158,11 @@ VisibilityDistanceInfo FileWriteFunction::calculateDistanceMetrics() const
     }
     default:
         assert(resources.rayDistanceBuffer != nullptr && resources.rayAtCutoffDistBuffer != nullptr);
-        return VisibilityDistanceInfo{.rayMetrics = CalcVisDistanceFromMappedData(
-                                         m_data->bufferHandle->getMappedRayDistanceData(),
-                                         m_data->bufferHandle->getRayDistanceElementCount(),
-                                         m_data->bufferHandle->getMappedRayAtCutoffDistData(),
-                                         m_data->bufferHandle->getRayAtCutoffDistElementCount())};
+        return VisibilityDistanceInfo{
+            .rayMetrics = CalcVisDistanceFromMappedData(m_data->bufferHandle->getMappedRayDistanceData(),
+                                                        m_data->bufferHandle->getRayDistanceElementCount(),
+                                                        m_data->bufferHandle->getMappedRayAtCutoffDistData(),
+                                                        m_data->bufferHandle->getRayAtCutoffDistElementCount())};
     }
 }
 
@@ -173,11 +173,11 @@ void FileWriteFunction::write(const std::filesystem::path &path) const
     const VisibilityDistanceInfo distanceMetrics = calculateDistanceMetrics();
 
     std::ofstream out(path.string(), std::ofstream::binary);
-    const auto data = ImageMetrics(m_data->light, m_data->volumeInfo, m_data->controlInfo, m_data->cameraInfo.position,
-                                   m_data->cameraInfo.lookDir, distanceMetrics,
-                                   m_data->terrainName, m_data->volumeName, m_data->type, m_data->shapeInfo,
-                                   m_data->terrainRenderingType, m_data->imageFilesInfo)
-                          .toJsonDump();
+    const auto data =
+        ImageMetrics(m_data->light, m_data->volumeInfo, m_data->controlInfo, m_data->cameraInfo.position,
+                     m_data->cameraInfo.lookDir, distanceMetrics, m_data->terrainName, m_data->volumeName, m_data->type,
+                     m_data->shapeInfo, m_data->terrainRenderingType, m_data->imageFilesInfo)
+            .toJsonDump();
     out << data;
 }
 

@@ -3,10 +3,9 @@
 #include "FogControlInfo.hpp"
 #include "FogType.hpp"
 #include "TerrainRenderingType.hpp"
-#include "TerrainShapeInfo.hpp"
 #include "Volume.hpp"
-#include "service/detail/image_metric_manager/VisibilityDistanceInfo.hpp"
 #include "service/detail/image_metric_manager/ImageFilesInfo.hpp"
+#include "service/detail/image_metric_manager/VisibilityDistanceInfo.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
 
 #include <star_terrain/file_data/coverage_info/CoverageInfo.hpp>
@@ -22,9 +21,9 @@ class ImageMetrics
   public:
     ImageMetrics(const star::Light &mainLight, const VolumeInfo &volumeInfo, const FogInfo &controlInfo,
                  const glm::vec3 &camPosition, const glm::vec3 &camLookDir,
-                 const VisibilityDistanceInfo &distanceMetrics, std::string_view terrainName, std::string_view volumeName,
-                 Fog::Type type, const TerrainShapeInfo &terrainShapeInfo, TerrainRenderingType renderingType,
-                 const ImageFilesInfo &imageFilesInfo);
+                 const VisibilityDistanceInfo &distanceMetrics, std::string_view terrainName,
+                 std::string_view volumeName, Fog::Type type, const star::terrain::CoverageInfo &terrainShapeInfo,
+                 TerrainRenderingType renderingType, const ImageFilesInfo &imageFilesInfo);
 
     std::string toJsonDump() const;
 

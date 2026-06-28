@@ -2,13 +2,14 @@
 
 #include "FogType.hpp"
 #include "TerrainRenderingType.hpp"
-#include <star_terrain/file_data/coverage_info/CoverageInfo.hpp>
 #include "Volume.hpp"
 #include "service/detail/image_metric_manager/VisibilityDistanceInfo.hpp"
 #include "service/detail/image_metric_manager/ImageFilesInfo.hpp"
 #include "service/detail/image_metric_manager/SharedBufferHandle.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
 #include "structs/FogInfo.hpp"
+
+#include <star_terrain/file_data/coverage_info/CoverageInfo.hpp>
 
 #include <starlight/common/entities/Light.hpp>
 #include <starlight/virtual/StarCamera.hpp>
@@ -23,7 +24,7 @@ class FileWriteFunction
     FileWriteFunction() = default;
     FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferHandle, vk::Extent2D screenResolution,
                       const star::StarCamera &camera, const Volume &volume, star::Light light,
-                      std::string terrainName, TerrainShapeInfo terrainShapeInfo,
+                      std::string terrainName, star::terrain::CoverageInfo terrainShapeInfo,
                       TerrainRenderingType terrainRenderingType, std::string volumeName,
                       ImageFilesInfo imageFilesInfo);
 
