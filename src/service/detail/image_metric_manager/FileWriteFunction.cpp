@@ -1,6 +1,7 @@
 #include "service/detail/image_metric_manager/FileWriteFunction.hpp"
 
 #include "service/detail/image_metric_manager/ImageMetrics.hpp"
+#include "service/detail/image_metric_manager/ImageMetrics_json.hpp"
 
 #include <starlight/core/helper/star_object/ObjectHelpers.hpp>
 
@@ -15,20 +16,28 @@
 namespace service::image_metric_manager
 {
 
-FileWriteFunction::FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferHandle, vk::Extent2D screenResolution,
-                                     const star::StarCamera &camera, const Volume &volume, star::Light light,
-                                     std::string terrainName, TerrainShapeInfo terrainShapeInfo,
-                                     TerrainRenderingType terrainRenderingType, std::string volumeName,
-                                     ImageFilesInfo imageFilesInfo)
-    : m_data(std::make_unique<MetricWriteData>(
-          std::move(bufferHandle), std::move(terrainName), std::move(volumeName),
-          std::move(screenResolution), MetricWriteData::CameraInfo{camera.getPosition(), camera.getForwardVector()},
-          VolumeInfo{.position = volume.getInstance().getPosition(),
-                     .rotation =
-                         star::core::helper::star_object::ExtractRotationDegrees(volume.getInstance().getRotationMat()),
-                     .scale = volume.getInstance().getScale()},
-          std::move(light), volume.getRenderer().getFogInfo(), volume.getRenderer().getFogType(),
-          std::move(terrainShapeInfo), terrainRenderingType, std::move(imageFilesInfo)))
+FileWriteFunction::FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferHandle, const star::StarCamera &camera,
+                                      const Volume &volume, star::Light light, std::string terrainName,
+                                      star::terrain::CoverageInfo terrainShapeInfo,
+                                      star::terrain::rendering::Type terrainRenderingType, std::string volumeName,
+                                      ImageFilesInfo imageFilesInfo)
+    : m_data(std::make_unique<MetricWriteData>(MetricWriteData{
+          std::move(bufferHandle),
+          ImageMetrics{.mainLight = std::move(light),
+                        .volumeInfo = VolumeInfo{.position = volume.getInstance().getPosition(),
+                                                  .rotation = star::core::helper::star_object::ExtractRotationDegrees(
+                                                      volume.getInstance().getRotationMat()),
+                                                  .scale = volume.getInstance().getScale()},
+                        .controlInfo = volume.getRenderer().getFogInfo(),
+                        .camPosition = camera.getPosition(),
+                        .camLookDir = camera.getForwardVector(),
+                        .distanceMetrics = {},
+                        .terrainName = std::move(terrainName),
+                        .volumeName = std::move(volumeName),
+                        .type = volume.getRenderer().getFogType(),
+                        .terrainShapeInfo = std::move(terrainShapeInfo),
+                        .terrainRenderingType = terrainRenderingType,
+                        .imageFilesInfo = std::move(imageFilesInfo)}}))
 {
 }
 
@@ -144,41 +153,38 @@ VisibilityDistanceInfo FileWriteFunction::calculateDistanceMetrics() const
     assert(m_data != nullptr);
     assert(m_data->bufferHandle != nullptr);
 
-    const auto &resources = m_data->bufferHandle->getResources();
-
-    switch (m_data->type)
+    switch (m_data->capturedMetricInfo.type)
     {
     case (Fog::Type::sExponential): {
-        const double val = CalcVisDistanceExponential(m_data->controlInfo, 0.98f);
+        const double val = CalcVisDistanceExponential(m_data->capturedMetricInfo.controlInfo, 0.98f);
         return VisibilityDistanceInfo{.simpleDistance = val};
     }
     case (Fog::Type::sLinear): {
-        const double val = CalcVisDistanceLinear(m_data->controlInfo);
+        const double val = CalcVisDistanceLinear(m_data->capturedMetricInfo.controlInfo);
         return VisibilityDistanceInfo{.simpleDistance = val};
     }
     default:
-        assert(resources.rayDistanceBuffer != nullptr && resources.rayAtCutoffDistBuffer != nullptr);
-        return VisibilityDistanceInfo{.rayMetrics = CalcVisDistanceFromMappedData(
-                                         m_data->bufferHandle->getMappedRayDistanceData(),
-                                         m_data->bufferHandle->getRayDistanceElementCount(),
-                                         m_data->bufferHandle->getMappedRayAtCutoffDistData(),
-                                         m_data->bufferHandle->getRayAtCutoffDistElementCount())};
+        return VisibilityDistanceInfo{
+            .rayMetrics = CalcVisDistanceFromMappedData(m_data->bufferHandle->getMappedRayDistanceData(),
+                                                        m_data->bufferHandle->getRayDistanceElementCount(),
+                                                        m_data->bufferHandle->getMappedRayAtCutoffDistData(),
+                                                        m_data->bufferHandle->getRayAtCutoffDistElementCount())};
     }
 }
 
-void FileWriteFunction::write(const std::filesystem::path &path) const
+void FileWriteFunction::write(const std::filesystem::path &path)
 {
     m_data->bufferHandle->waitForCopyToDstBufferDone();
     m_data->bufferHandle->ensureMapped();
-    const VisibilityDistanceInfo distanceMetrics = calculateDistanceMetrics();
+    m_data->capturedMetricInfo.distanceMetrics = calculateDistanceMetrics();
 
-    std::ofstream out(path.string(), std::ofstream::binary);
-    const auto data = ImageMetrics(m_data->light, m_data->volumeInfo, m_data->controlInfo, m_data->cameraInfo.position,
-                                   m_data->cameraInfo.lookDir, distanceMetrics,
-                                   m_data->terrainName, m_data->volumeName, m_data->type, m_data->shapeInfo,
-                                   m_data->terrainRenderingType, m_data->imageFilesInfo)
-                          .toJsonDump();
-    out << data;
+    {
+        std::ofstream out(path.string(), std::ofstream::binary);
+        nlohmann::json jsonFile = m_data->capturedMetricInfo;
+        out << std::setw(4) << jsonFile;
+    }
+
+    m_data->bufferHandle->ensureUnmapped();
 }
 
 int FileWriteFunction::operator()(const std::filesystem::path &filePath)

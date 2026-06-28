@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.0.37
+	VERSION 1.0.38
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -55,6 +55,7 @@ find_package(TBB CONFIG REQUIRED)
 set(starlight_common_DIR "${CMAKE_BINARY_DIR}/extern/Starlight-Common" CACHE PATH "")
 add_subdirectory("extern/Starlight-Common")
 add_subdirectory("extern/starlight")
+add_subdirectory("extern/Starlight-Terrain")
 
 if (NOT HEADLESS)
 	add_subdirectory("extern/Starlight-Windowing")
@@ -79,10 +80,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/AABBTransfer.cpp"
  	"src/Application.cpp"
 	"src/Volume.cpp"
-	"src/Terrain.cpp"
-	"src/TerrainShapeInfo.cpp"
-	"src/TerrainShapeInfoLoader.cpp"
-	"src/renderer/volume/ContainerRenderResourceData.cpp"
+ 	"src/renderer/volume/ContainerRenderResourceData.cpp"
 	"src/renderer/volume/DescriptorBuilder.cpp"
 	"src/renderer/VolumeRenderer.cpp"
 	"src/render_system/fog/sync/SyncProvider.cpp"
@@ -101,13 +99,8 @@ set(${PROJECT_NAME}_SOURCES
 	"src/ScreenMaterial.cpp"
 	"src/CameraInfo.cpp"
 	"src/Screen.cpp"
-	"src/VolumeSampler.cpp"
-	"src/TerrainInfoFile.cpp"
-	"src/TerrainChunk.cpp"
-	"src/MathHelpers.cpp"
-	"src/TerrainChunkInfo.cpp"
-	"src/TerrainGrid.cpp"
-	"src/FogControlInfo.cpp"
+ 	"src/VolumeSampler.cpp"
+ 	"src/FogControlInfo.cpp"
 	"src/CopyDepthTextureToBuffer.cpp"
 	"src/util/Math.cpp"
 	"src/util/CmdLine.cpp"
@@ -156,7 +149,6 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/commands/color/PreMemoryBarrierRecorder.cpp"
  	"src/render_system/fog/commands/distance/PreDifferentFamilies.cpp" 
 	"src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp" 
-	"src/TerrainShapeInfo_json.cpp"
 	"src/service/detail/image_metric_manager/VolumeInfo_json.cpp" 
 	"src/service/detail/image_metric_manager/RayDistanceStats_json.cpp"
 	"src/service/detail/image_metric_manager/RayVisibilityMetrics_json.cpp"
@@ -170,7 +162,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/config/AppConfigLoader.cpp"
 	"src/loader/SceneLoaders.cpp"  
 	"src/loader/SceneDescription.cpp" 
-	"src/util/Color.cpp")
+	"src/util/Color.cpp" "src/service/detail/image_metric_manager/ImageMetrics_json.cpp")
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"
@@ -191,10 +183,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/VDBTransfer.hpp"
 	"include/AABBTransfer.hpp"
 	"include/Volume.hpp"
-	"include/Terrain.hpp"
-	"include/TerrainShapeInfo.hpp"
-	"include/TerrainShapeInfoLoader.hpp"
-	"include/renderer/volume/ContainerRenderResourceData.hpp"
+ 	"include/renderer/volume/ContainerRenderResourceData.hpp"
 	"include/renderer/volume/DescriptorBuilder.hpp"
 	"include/renderer/VolumeRenderer.hpp"
 	"include/renderer/distance/CreatePipelines.hpp"
@@ -206,11 +195,6 @@ set(${PROJECT_NAME}_HEADERS
 	"include/CameraInfo.hpp"
 	"include/Screen.hpp"
 	"include/VolumeSampler.hpp"
-	"include/TerrainInfoFile.hpp"
-	"include/TerrainChunk.hpp"
-	"include/MathHelpers.hpp"
-	"include/TerrainChunkInfo.hpp"
-	"include/TerrainGrid.hpp"
 	"include/FogControlInfo.hpp"
 	"include/CopyDepthTextureToBuffer.hpp"
 	"include/util/Math.hpp"
@@ -274,18 +258,18 @@ if (WIN32)
 		target_link_libraries(${PROJECT_NAME}_lib
 		PUBLIC 
 			Starlight::starlight
+			Starlight::terrain
 			OpenVDB::openvdb
 			GDAL::GDAL
-			TBB::tbb
 			zstd::libzstd
 	)
 	else()
 		target_link_libraries(${PROJECT_NAME}_lib
 		PUBLIC
 			Starlight::windowing
+			Starlight::terrain
 			OpenVDB::openvdb
 			GDAL::GDAL
-			TBB::tbb
 			zstd::libzstd
 		)
 	endif()
@@ -296,9 +280,9 @@ else()
 		target_link_libraries(${PROJECT_NAME}_lib
 			PUBLIC 
 				Starlight::starlight
+				Starlight::terrain
 				OpenVDB::openvdb
 				GDAL::GDAL
-				TBB::tbb
 				zstd::libzstd
 				atomic
 		)
@@ -306,9 +290,9 @@ else()
 		target_link_libraries(${PROJECT_NAME}_lib
 			PUBLIC 
 				starlight_windowing
+				Starlight::terrain
 				OpenVDB::openvdb
 				GDAL::GDAL
-				TBB::tbb
 				zstd::libzstd
 				atomic
 		)

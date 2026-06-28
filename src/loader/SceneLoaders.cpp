@@ -1,11 +1,12 @@
 #include "loader/SceneLoaders.hpp"
 
-#include "Terrain.hpp"
 #include "command/image_metrics/RegisterTerrainRecordInfo.hpp"
 #include "util/Color.hpp"
 
+#include <star_terrain/rendering/FromTerrainDirLoader.hpp>
+#include <star_terrain/rendering/TerrainObject.hpp>
+
 #include <starlight/command/CreateObject.hpp>
-#include <starlight/command/detail/create_object/DirectObjCreation.hpp>
 #include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/debug/DebugPrimitives.hpp>
 #include <starlight/primitive/SquareObject.hpp>
@@ -13,22 +14,28 @@
 namespace loader
 {
 static std::shared_ptr<star::StarObject> LoadTerrain(star::core::device::DeviceContext &ctx,
+                                                     const std::filesystem::path &mediaDirPath,
                                                      const std::filesystem::path &terrainPath)
 {
+    star::terrain::TerrainObjectDefinition def{
+        .terrainDir = terrainPath,
+        .vertShaderPath = mediaDirPath / "shaders" / "default.vert",
+        .fragShaderPath = mediaDirPath / "shaders" / "default.frag",
+        .renderType = star::terrain::rendering::Type::Real,
+    };
+
     auto cmd = star::command::CreateObject::Builder()
-                   .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(
-                       std::make_shared<Terrain>(ctx, terrainPath.string())))
+                   .setLoader(std::make_unique<star::terrain::FromTerrainDirLoader>(ctx, std::move(def)))
                    .setUniqueName("terrain")
                    .build();
     ctx.begin().set(cmd).submit();
     cmd.getReply().get()->init(ctx);
 
     // register the terrain information with the image metric manager for cache
-
-    const auto *terrain = static_cast<const Terrain *>(cmd.getReply().get().get());
+    const auto *terrain = static_cast<const star::terrain::TerrainObject *>(cmd.getReply().get().get());
     ctx.getCmdBus().submit(image_metrics::RegisterTerrainRecordInfo{}
                                .setTerrainHeightFilePath(terrain->getShapeFilePath())
-                               .setTerrainRenderingType(terrain->getTerrainRenderingType()));
+                               .setTerrainRenderingType(terrain->getRenderingType()));
     return cmd.getReply().get();
 }
 
@@ -64,7 +71,8 @@ static DebugCubeComponent LoadCube(star::core::device::DeviceContext &ctx, size_
         cubeDesc.push_back({.color = color});
     }
 
-    return DebugCubeComponent{.cubeInfos = std::move(cubeDesc), .numberOfDebugSquares = static_cast<uint8_t>(colors.size())};
+    return DebugCubeComponent{.cubeInfos = std::move(cubeDesc),
+                              .numberOfDebugSquares = static_cast<uint8_t>(colors.size())};
 }
 
 static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceContext &ctx,
@@ -87,7 +95,7 @@ SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const 
     constexpr uint8_t numCubes{15};
 
     SceneDescription desc;
-    desc.addObject(LoadTerrain(ctx, terrainPath));
+    desc.addObject(LoadTerrain(ctx, mediaDirPath, terrainPath));
     // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addDebugCube(LoadCube(ctx, numCubes));
     return desc;
@@ -97,7 +105,7 @@ SceneDescription ReleaseSceneLoader(star::core::device::DeviceContext &ctx, cons
                                     const std::filesystem::path &terrainPath)
 {
     SceneDescription desc;
-    desc.addObject(LoadTerrain(ctx, terrainPath));
+    desc.addObject(LoadTerrain(ctx, mediaDirPath, terrainPath));
     return desc;
 }
 } // namespace loader

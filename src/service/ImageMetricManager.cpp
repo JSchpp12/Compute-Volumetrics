@@ -1,11 +1,12 @@
 #include "service/ImageMetricManager.hpp"
 
 #include "FogType.hpp"
-#include "TerrainShapeInfoLoader.hpp"
 #include "service/detail/image_metric_manager/FileWriteFunction.hpp"
 #include "service/detail/image_metric_manager/ImageFilesInfo.hpp"
 #include "service/detail/image_metric_manager/SharedBufferWriteDistanceMaskPayload.hpp"
 #include "service/detail/image_metric_manager/SharedBufferWriteValidityMaskPayload.hpp"
+
+#include <star_terrain/io/TerrainShapeInfoLoader.hpp>
 
 #include <starlight/command/FileIO/WriteToFile.hpp>
 #include <starlight/command/GetScreenCaptureSyncInfo.hpp>
@@ -220,7 +221,7 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
         auto jsonPayload = star::job::tasks::io::CreateWriteTask(star::job::tasks::io::WritePayload{
             jsonPath,
             image_metric_manager::FileWriteFunction{
-                sharedHandle, iResolution, camera, volume, mainLight, m_cachedTerrainShapeInfo.getTerrainName(),
+                sharedHandle, camera, volume, mainLight, m_cachedTerrainShapeInfo.getTerrainName(),
                 m_cachedTerrainShapeInfo.get(), m_cachedTerrainShapeInfo.getTerrainRenderingType(),
                 m_cachedVolumeNameInfo,
                 image_metric_manager::ImageFilesInfo{.sourceImageName = basePath.filename().string(),
@@ -246,13 +247,13 @@ void ImageMetricManager::cleanupListeners(star::core::CommandBus &cmdBus)
 }
 
 void ImageMetricManager::submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath,
-                                                           TerrainRenderingType renderingType)
+                                                           star::terrain::rendering::Type renderingType)
 {
     assert(m_cmdBus != nullptr);
     std::string terrainName = terrainShapeFilePath.parent_path().filename().string();
 
     m_cachedTerrainShapeInfo =
-        LoadingShapeInfo(TerrainShapeInfoLoader::SubmitForRead(std::move(terrainShapeFilePath), *m_cmdBus),
+        LoadingShapeInfo(star::terrain::TerrainShapeInfoLoader::SubmitForRead(std::move(terrainShapeFilePath), *m_cmdBus),
                          std::move(terrainName), renderingType);
 }
 } // namespace service

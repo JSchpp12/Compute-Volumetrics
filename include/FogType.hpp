@@ -19,4 +19,6 @@ enum Type
 
 std::string TypeToString(const Type &type);
 
+Type TypeFromString(const std::string &str);
+
 } // namespace Fog

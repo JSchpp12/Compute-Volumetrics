@@ -22,4 +22,21 @@ std::string TypeToString(const Type &type)
         return "";
     }
 }
+
+Type TypeFromString(const std::string &str)
+{
+    if (str == "linear")
+        return Type::sLinear;
+    if (str == "exponential")
+        return Type::sExponential;
+    if (str == "marched")
+        return Type::sMarched;
+    if (str == "marched_homogenous")
+        return Type::sMarchedHomogenous;
+    if (str == "nano_boundingBox")
+        return Type::sNanoBoundingBox;
+    if (str == "nano_surface")
+        return Type::sNanoSurface;
+    return Type::sNone;
+}
 } // namespace Fog
