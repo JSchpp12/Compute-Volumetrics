@@ -9,7 +9,9 @@
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/debug/DebugPrimitives.hpp>
+#include <starlight/object/BasicObject.hpp>
 #include <starlight/primitive/SquareObject.hpp>
+#include <starlight/ShaderResolver.hpp>
 
 namespace loader
 {
@@ -24,8 +26,14 @@ static std::shared_ptr<star::StarObject> LoadTerrain(star::core::device::DeviceC
         .renderType = star::terrain::rendering::Type::Real,
     };
 
+    star::ShaderResolver terrainResolver = star::ShaderResolver::Builder{ctx.getCmdBus()}
+        .setShader(star::Shader_Stage::vertex, def.vertShaderPath.string())
+        .setShader(star::Shader_Stage::fragment, def.fragShaderPath.string())
+        .build();
+
     auto cmd = star::command::CreateObject::Builder()
                    .setLoader(std::make_unique<star::terrain::FromTerrainDirLoader>(ctx, std::move(def)))
+                   .setShaderResolver(std::move(terrainResolver))
                    .setUniqueName("terrain")
                    .build();
     ctx.begin().set(cmd).submit();
@@ -76,12 +84,14 @@ static DebugCubeComponent LoadCube(star::core::device::DeviceContext &ctx, size_
 }
 
 static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceContext &ctx,
-                                                   const std::filesystem::path &mediaPath)
+                                                    const std::filesystem::path &mediaPath)
 {
 
     auto horsePath = mediaPath / "models" / "horse" / "WildHorse.obj";
+    star::ShaderResolver horseResolver = star::BasicObject::PrepareResolver(horsePath.string(), ctx.getCmdBus());
     auto cmd = star::command::CreateObject::Builder()
                    .setLoader(std::make_unique<star::command::create_object::FromObjFileLoader>(horsePath.string()))
+                   .setShaderResolver(std::move(horseResolver))
                    .setUniqueName("horse")
                    .build();
     ctx.begin().set(cmd).submit();

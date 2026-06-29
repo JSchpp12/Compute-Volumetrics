@@ -12,13 +12,14 @@
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
-#include <starlight/command/detail/create_object/DirectObjCreation.hpp>
+#include <starlight/command/detail/create_object/DeferredObjCreation.hpp>
 #include <starlight/command/headless_render_result_write/GetFileNameForFrame.hpp>
 #include <starlight/command/headless_render_result_write/GetSetOutputDir.hpp>
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/event/RegisterMainGraphicsRenderer.hpp>
 #include <starlight/virtual/StarCamera.hpp>
+#include <starlight/ShaderResolver.hpp>
 
 #include <star_common/helper/StringHelpers.hpp>
 
@@ -102,7 +103,12 @@ OffscreenRenderer Application::createOffscreenRenderer(star::core::device::Devic
                 cubeInfos.push_back(cubeInfos[i]);
             }
 
-            auto cube = star::debug::CreateCube(sqComponent->cubeInfos);
+            const std::filesystem::path cubeShaderDir = mediaPath / "shaders" / "debugCube";
+            star::ShaderResolver cubeResolver = star::ShaderResolver::Builder{context.getCmdBus()}
+                .setShader(star::Shader_Stage::vertex, (cubeShaderDir / "debugCube.vert").string())
+                .setShader(star::Shader_Stage::fragment, (cubeShaderDir / "debugCube.frag").string())
+                .build();
+            auto cube = star::debug::CreateCube(sqComponent->cubeInfos, cubeResolver);
             m_debugCubeInfo = std::make_optional(
                 DebugCubeInfo{.debugCube = cube, .numUniqueCubes = sqComponent->numberOfDebugSquares});
 
@@ -180,16 +186,30 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
         {
             auto vdbPath = std::filesystem::path(mediaDirectoryPath) / "volumes" / m_volumeName;
-            m_volume = std::make_shared<Volume>(
-                context, vdbPath.string(), fNumFramesInFlight, camera, width, height, m_offRenderer,
-                m_offRenderer->getCameraInfoBuffers(), m_offRenderer->getLightInfoBuffers(),
-                m_offRenderer->getLightListBuffers(), m_volumeOptions.enableCutoffHighlighting);
+            std::string vdbPathString = vdbPath.string();
+
+            star::ShaderResolver volumeResolver = star::ShaderResolver::Builder{context.getCmdBus()}
+                .setShader(star::Shader_Stage::vertex,
+                           (std::filesystem::path(mediaDirectoryPath) / "shaders" / "screenWithTexture" / "screenWithTexture.vert").string())
+                .setShader(star::Shader_Stage::fragment,
+                           (std::filesystem::path(mediaDirectoryPath) / "shaders" / "screenWithTexture" / "screenWithTexture.frag").string())
+                .build();
+
             auto cmd = star::command::CreateObject::Builder()
-                           .setLoader(std::make_unique<star::command::create_object::DirectObjCreation>(m_volume))
+                           .setLoader(std::make_unique<star::command::create_object::DeferredObjCreation>(
+                               [&, vdbPathString, fNumFramesInFlight, camera, width, height](star::ShaderResolver &resolver) {
+                                   return std::make_shared<Volume>(
+                                       context, vdbPathString, fNumFramesInFlight, camera, width, height, m_offRenderer,
+                                       m_offRenderer->getCameraInfoBuffers(), m_offRenderer->getLightInfoBuffers(),
+                                       m_offRenderer->getLightListBuffers(), m_volumeOptions.enableCutoffHighlighting,
+                                       resolver);
+                               }))
+                           .setShaderResolver(std::move(volumeResolver))
                            .setUniqueName(m_volumeName)
                            .build();
 
             context.begin().set(cmd).submit();
+            m_volume = std::dynamic_pointer_cast<Volume>(cmd.getReply().get());
             allObjects.emplace_back(cmd.getReply().get());
 
             context.getCmdBus().submit(image_metrics::RegisterVolumeRecordInfo().setVolumeName(m_volumeName));

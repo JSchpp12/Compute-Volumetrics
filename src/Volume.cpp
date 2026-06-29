@@ -17,30 +17,16 @@ Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePa
                OffscreenRenderer *offscreenRenderer,
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList,
-               bool enableCutoffHighlighting)
+               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList, bool enableCutoffHighlighting,
+               star::ShaderResolver &shaderResolver)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
       camera(camera), screenDimensions(screenWidth, screenHeight), m_offscreenRenderer(offscreenRenderer)
 {
+    m_vertexShaderHandle = shaderResolver.resolve(star::Shader_Stage::vertex);
+    m_fragmentShaderHandle = shaderResolver.resolve(star::Shader_Stage::fragment);
+
     initVolume(context, std::move(vdbFilePath), std::move(sceneCameraInfos), std::move(lightInfos),
                std::move(lightList), enableCutoffHighlighting);
-}
-
-std::unordered_map<star::Shader_Stage, star::StarShader> Volume::getShaders()
-{
-    std::unordered_map<star::Shader_Stage, star::StarShader> shaders;
-
-    std::string mediaPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-
-    const std::string vertPath = mediaPath + "shaders/screenWithTexture/screenWithTexture.vert";
-    const std::string fragPath = mediaPath + "shaders/screenWithTexture/screenWithTexture.frag";
-
-    shaders.insert(std::pair<star::Shader_Stage, star::StarShader>(
-        star::Shader_Stage::vertex, star::StarShader(vertPath, star::Shader_Stage::vertex)));
-    shaders.insert(std::pair<star::Shader_Stage, star::StarShader>(
-        star::Shader_Stage::fragment, star::StarShader(fragPath, star::Shader_Stage::fragment)));
-
-    return shaders;
 }
 
 void Volume::loadModel(star::core::device::DeviceContext &context, const std::string &filePath)

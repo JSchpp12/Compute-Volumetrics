@@ -14,6 +14,7 @@
 #include "Vertex.hpp"
 #include "VolumeDirectoryProcessor.hpp"
 #include "renderer/VolumeRenderer.hpp"
+#include "starlight/ShaderResolver.hpp"
 #include "starlight/object/StarObject.hpp"
 
 #include <openvdb/Grid.h>
@@ -85,7 +86,8 @@ class Volume : public star::StarObject
            OffscreenRenderer *offscreenRenderer,
            std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
            std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList, bool enableCutoffHighlighting);
+           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList, bool enableCutoffHighlighting,
+           star::ShaderResolver &shaderResolver);
 
     /// <summary>
     /// Expensive, only call when necessary.
@@ -138,8 +140,6 @@ class Volume : public star::StarObject
 
     uint32_t computeQueueFamily = 0;
     uint32_t graphicsQueueFamily = 0;
-
-    std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
 
     void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
                     std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,

@@ -20,8 +20,8 @@ class SharedBufferHandle
                        vk::Extent2D resolution, vk::Device device, vk::Semaphore copyDone, uint64_t copyDoneValue);
     SharedBufferHandle(const SharedBufferHandle &) = delete;
     SharedBufferHandle &operator=(const SharedBufferHandle &) = delete;
-    SharedBufferHandle(SharedBufferHandle &&) = default;
-    SharedBufferHandle &operator=(SharedBufferHandle &&) = default;
+    SharedBufferHandle(SharedBufferHandle &&) = delete;
+    SharedBufferHandle &operator=(SharedBufferHandle &&) = delete;
     ~SharedBufferHandle();
 
     void waitForCopyToDstBufferDone() const;
