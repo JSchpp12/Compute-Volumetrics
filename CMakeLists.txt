@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.1.1
+	VERSION 1.1.2
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -162,7 +162,9 @@ set(${PROJECT_NAME}_SOURCES
 	"src/config/AppConfigLoader.cpp"
 	"src/loader/SceneLoaders.cpp"  
 	"src/loader/SceneDescription.cpp" 
-	"src/util/Color.cpp" "src/service/detail/image_metric_manager/ImageMetrics_json.cpp")
+	"src/util/Color.cpp" 
+	"src/service/detail/image_metric_manager/ImageMetrics_json.cpp"
+)
 
 set(${PROJECT_NAME}_HEADERS 
 	"include/FogType.hpp"
