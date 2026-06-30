@@ -197,6 +197,7 @@ std::tuple<vk::Semaphore, uint64_t, uint64_t> GetVolumeRendererSemaphoreFromNeig
 void OffscreenRenderer::updateDependentData(star::core::device::DeviceContext &context)
 {
     const size_t fi = static_cast<size_t>(context.frameTracker().getCurrent().getFrameInFlightIndex());
+    const uint8_t fu = static_cast<uint8_t>(context.frameTracker().getCurrent().getFrameInFlightIndex()); 
 
     star::core::graphics::GPUWorkSyncInfo transferSyncWithComputeInfo{};
     {
@@ -213,29 +214,29 @@ void OffscreenRenderer::updateDependentData(star::core::device::DeviceContext &c
     if (ownsRenderResourceControllers)
     {
         if (m_infoManagerCamera &&
-            m_infoManagerCamera->submitUpdateIfNeeded(context, fi, dataSemaphore, transferSyncWithComputeInfo))
+            m_infoManagerCamera->submitUpdateIfNeeded(context, fu, dataSemaphore, transferSyncWithComputeInfo))
         {
-            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerCamera->getHandle(fi), std::move(dataSemaphore),
+            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerCamera->getHandle(fu), std::move(dataSemaphore),
                                                    vk::PipelineStageFlagBits::eVertexShader |
                                                        vk::PipelineStageFlagBits::eFragmentShader);
 
-            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerCamera->getHandle(fi));
+            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerCamera->getHandle(fu));
         }
 
-        if (m_infoManagerLightData->submitUpdateIfNeeded(context, fi, dataSemaphore, transferSyncWithComputeInfo))
+        if (m_infoManagerLightData->submitUpdateIfNeeded(context, fu, dataSemaphore, transferSyncWithComputeInfo))
         {
-            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightData->getHandle(fi), std::move(dataSemaphore),
+            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightData->getHandle(fu), std::move(dataSemaphore),
                                                    vk::PipelineStageFlagBits::eFragmentShader);
 
-            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightData->getHandle(fi));
+            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightData->getHandle(fu));
         }
 
-        if (m_infoManagerLightList->submitUpdateIfNeeded(context, fi, dataSemaphore, transferSyncWithComputeInfo))
+        if (m_infoManagerLightList->submitUpdateIfNeeded(context, fu, dataSemaphore, transferSyncWithComputeInfo))
         {
-            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightList->getHandle(fi), std::move(dataSemaphore),
+            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightList->getHandle(fu), std::move(dataSemaphore),
                                                    vk::PipelineStageFlagBits::eFragmentShader);
 
-            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightList->getHandle(fi));
+            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightList->getHandle(fu));
         }
     }
 }

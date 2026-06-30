@@ -8,6 +8,7 @@
 #include "renderer/finalization/Headless.hpp"
 #include "util/Distance.hpp"
 
+#include <starlight/ShaderResolver.hpp>
 #include <starlight/command/CreateLight.hpp>
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/SaveSceneState.hpp>
@@ -19,18 +20,12 @@
 #include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/event/RegisterMainGraphicsRenderer.hpp>
 #include <starlight/virtual/StarCamera.hpp>
-#include <starlight/ShaderResolver.hpp>
 
 #include <star_common/helper/StringHelpers.hpp>
 
 #include <string>
 
 using namespace star;
-
-static void CreateWaiterForDefineDependencies(star::common::EventBus &eventBus, const star::core::CommandBus &cmdBus,
-                                              const Volume &volume, const OffscreenRenderer &offscreenRenderer) noexcept
-{
-}
 
 static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerCommandBuffer &mgrCmdBuff,
                                            const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
@@ -104,10 +99,11 @@ OffscreenRenderer Application::createOffscreenRenderer(star::core::device::Devic
             }
 
             const std::filesystem::path cubeShaderDir = mediaPath / "shaders" / "debugCube";
-            star::ShaderResolver cubeResolver = star::ShaderResolver::Builder{context.getCmdBus()}
-                .setShader(star::Shader_Stage::vertex, (cubeShaderDir / "debugCube.vert").string())
-                .setShader(star::Shader_Stage::fragment, (cubeShaderDir / "debugCube.frag").string())
-                .build();
+            star::ShaderResolver cubeResolver =
+                star::ShaderResolver::Builder{context.getCmdBus()}
+                    .setShader(star::Shader_Stage::vertex, (cubeShaderDir / "debugCube.vert").string())
+                    .setShader(star::Shader_Stage::fragment, (cubeShaderDir / "debugCube.frag").string())
+                    .build();
             auto cube = star::debug::CreateCube(sqComponent->cubeInfos, cubeResolver);
             m_debugCubeInfo = std::make_optional(
                 DebugCubeInfo{.debugCube = cube, .numUniqueCubes = sqComponent->numberOfDebugSquares});
@@ -188,25 +184,29 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
             auto vdbPath = std::filesystem::path(mediaDirectoryPath) / "volumes" / m_volumeName;
             std::string vdbPathString = vdbPath.string();
 
-            star::ShaderResolver volumeResolver = star::ShaderResolver::Builder{context.getCmdBus()}
-                .setShader(star::Shader_Stage::vertex,
-                           (std::filesystem::path(mediaDirectoryPath) / "shaders" / "screenWithTexture" / "screenWithTexture.vert").string())
-                .setShader(star::Shader_Stage::fragment,
-                           (std::filesystem::path(mediaDirectoryPath) / "shaders" / "screenWithTexture" / "screenWithTexture.frag").string())
-                .build();
+            star::ShaderResolver volumeResolver =
+                star::ShaderResolver::Builder{context.getCmdBus()}
+                    .setShader(star::Shader_Stage::vertex, (std::filesystem::path(mediaDirectoryPath) / "shaders" /
+                                                            "screenWithTexture" / "screenWithTexture.vert")
+                                                               .string())
+                    .setShader(star::Shader_Stage::fragment, (std::filesystem::path(mediaDirectoryPath) / "shaders" /
+                                                              "screenWithTexture" / "screenWithTexture.frag")
+                                                                 .string())
+                    .build();
 
-            auto cmd = star::command::CreateObject::Builder()
-                           .setLoader(std::make_unique<star::command::create_object::DeferredObjCreation>(
-                               [&, vdbPathString, fNumFramesInFlight, camera, width, height](star::ShaderResolver &resolver) {
-                                   return std::make_shared<Volume>(
-                                       context, vdbPathString, fNumFramesInFlight, camera, width, height, m_offRenderer,
-                                       m_offRenderer->getCameraInfoBuffers(), m_offRenderer->getLightInfoBuffers(),
-                                       m_offRenderer->getLightListBuffers(), m_volumeOptions.enableCutoffHighlighting,
-                                       resolver);
-                               }))
-                           .setShaderResolver(std::move(volumeResolver))
-                           .setUniqueName(m_volumeName)
-                           .build();
+            auto cmd =
+                star::command::CreateObject::Builder()
+                    .setLoader(std::make_unique<star::command::create_object::DeferredObjCreation>(
+                        [&, vdbPathString, fNumFramesInFlight, camera, width, height](star::ShaderResolver &resolver) {
+                            return std::make_shared<Volume>(
+                                context, vdbPathString, fNumFramesInFlight, camera, width, height, m_offRenderer,
+                                m_offRenderer->getCameraInfoBuffers(), m_offRenderer->getLightInfoBuffers(),
+                                m_offRenderer->getLightListBuffers(), m_volumeOptions.enableCutoffHighlighting,
+                                resolver);
+                        }))
+                    .setShaderResolver(std::move(volumeResolver))
+                    .setUniqueName(m_volumeName)
+                    .build();
 
             context.begin().set(cmd).submit();
             m_volume = std::dynamic_pointer_cast<Volume>(cmd.getReply().get());
@@ -326,7 +326,8 @@ void Application::placeDebugCubes(const glm::vec3 &direction, const glm::vec3 &s
             const float distance = util::mileToMeters(j + 1);
             offset = {rotForward.x * distance, rotForward.y * distance, rotForward.z * distance};
 
-            auto &instance = m_debugCubeInfo.value().debugCube->getInstance(i * m_debugCubeInfo.value().numUniqueCubes + j);
+            auto &instance =
+                m_debugCubeInfo.value().debugCube->getInstance(i * m_debugCubeInfo.value().numUniqueCubes + j);
             instance.setPosition(startPosition + offset);
             instance.setScale(scale);
 

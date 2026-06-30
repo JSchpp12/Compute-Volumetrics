@@ -36,7 +36,7 @@ std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createFinal(vk::Device 
                 .build(),
             vk::BufferCreateInfo()
                 .setSharingMode(vk::SharingMode::eConcurrent)
-                .setQueueFamilyIndexCount(indices.size())
+                .setQueueFamilyIndexCount(static_cast<uint32_t>(indices.size()))
                 .setPQueueFamilyIndices(indices.data())
                 .setSize(2 * sizeof(glm::mat4))
                 .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer),
