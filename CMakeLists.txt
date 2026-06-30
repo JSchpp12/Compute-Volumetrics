@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.1.5
+	VERSION 1.1.6
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -118,6 +118,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/PrepareDistanceBufferInfo.cpp"
 	"src/service/ImageMetricManager.cpp"
 	"src/command/image_metrics/TriggerCapture.cpp"
+	"src/command/image_metrics/GetTransferCopyPass.cpp"
 	"src/command/sim_controller/TriggerUpdate.cpp"
 	"src/command/sim_controller/CheckIfDone.cpp"
 	"src/policy/FunctionalEngineInitPolicy.cpp"
@@ -224,6 +225,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/policy/FunctionalEngineInitPolicy.hpp"
 	"include/policy/EngineExitOnFlag.hpp"
 	"include/command/image_metrics/TriggerCapture.hpp"
+	"include/command/image_metrics/GetTransferCopyPass.hpp"
 	"include/command/sim_controller/TriggerUpdate.hpp"
 	"include/command/sim_controller/CheckIfDone.hpp"
 	"include/service/detail/image_metric_manager/CopyDeviceToHostMemory.hpp"

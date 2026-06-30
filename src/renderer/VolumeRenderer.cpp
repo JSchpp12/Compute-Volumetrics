@@ -114,8 +114,12 @@ static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus
 }
 
 static std::optional<star::command_order::get_pass_info::GatheredPassInfo> GetTransferNeighborInfo(
-    const star::core::CommandBus &cmdBus, const star::Handle &commandBuffer, uint8_t transferFamilyIndex)
+    const star::core::CommandBus &cmdBus, const star::Handle &commandBuffer,
+    const std::optional<star::Handle> &transferNeighborHandle)
 {
+    if (!transferNeighborHandle.has_value())
+        return std::nullopt;
+
     std::optional<star::command_order::get_pass_info::GatheredPassInfo> transferNeighborInfo{std::nullopt};
 
     auto getCmd = star::command_order::GetPassInfo(commandBuffer);
@@ -128,18 +132,14 @@ static std::optional<star::command_order::get_pass_info::GatheredPassInfo> GetTr
     {
         for (const auto &edge : *ele.edges)
         {
-            if (edge.producer == commandBuffer)
+            if (edge.producer == commandBuffer && edge.consumer == *transferNeighborHandle)
             {
                 auto nGetCmd = star::command_order::GetPassInfo(edge.consumer);
                 cmdBus.submit(nGetCmd);
 
-                auto r = nGetCmd.getReply().get();
-                if (*r.queueFamilyIndex == transferFamilyIndex)
-                {
-                    transferNeighborInfo = nGetCmd.getReply().get();
+                transferNeighborInfo = nGetCmd.getReply().get();
 
-                    break;
-                }
+                break;
             }
         }
     }
@@ -298,7 +298,7 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
 {
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
 
-    auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer, this->transferQueueFamilyIndex);
+    auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer, m_transferNeighborHandle);
 
     render_system::fog::PassInfo tInfo{
         .globalCameraBuffer = m_infoManagerGlobalCamera->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
@@ -418,7 +418,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
         std::make_unique<CameraInfo>(
             this->camera, computeQueueFamilyIndex,
             context.getDevice().getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment),
-        nullptr, true);
+        nullptr, true, &this->transferQueueFamilyIndex);
 
     const auto vdbSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));

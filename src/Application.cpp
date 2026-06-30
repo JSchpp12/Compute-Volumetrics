@@ -2,6 +2,7 @@
 
 #include "DeclareDependentPasses.hpp"
 #include "OffscreenRenderer.hpp"
+#include "command/image_metrics/GetTransferCopyPass.hpp"
 #include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
@@ -244,6 +245,12 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     // context.getCmdBus())
     //     .setConsumer()
     //     .setProducer()
+
+    {
+        image_metrics::GetTransferCopyPass getTransferCopyPassCmd;
+        context.getCmdBus().submit(getTransferCopyPassCmd);
+        m_volume->getRenderer().setTransferNeighborHandle(getTransferCopyPassCmd.getReply().get().commandBuffer);
+    }
 
     m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = 0.0f;
     m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = 150.0f;

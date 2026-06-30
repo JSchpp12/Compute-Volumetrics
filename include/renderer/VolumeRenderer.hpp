@@ -21,6 +21,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 class VolumeRenderer
@@ -92,6 +93,11 @@ class VolumeRenderer
         transferTriggeredThisFrame = value;
     }
 
+    void setTransferNeighborHandle(star::Handle handle)
+    {
+        m_transferNeighborHandle = std::move(handle);
+    }
+
     const star::Handle &getCommandBuffer() const
     {
         return m_commandBuffer;
@@ -143,6 +149,7 @@ class VolumeRenderer
     render_system::fog::FogDispatcher m_chunkHandler;
     std::vector<star::StarBuffers::Buffer> m_activeRayStorage;
     uint32_t transferQueueFamilyIndex{0};
+    std::optional<star::Handle> m_transferNeighborHandle{std::nullopt};
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
     Fog::Type currentFogType = Fog::Type::sMarched;
     bool isReady = false;

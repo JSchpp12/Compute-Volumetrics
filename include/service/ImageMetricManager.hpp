@@ -2,6 +2,7 @@
 
 #include "Volume.hpp"
 
+#include "command/image_metrics/GetTransferCopyPass.hpp"
 #include "command/image_metrics/RegisterTerrainRecordInfo.hpp"
 #include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
@@ -39,6 +40,12 @@ using ListenForRegisterVolumeData =
                                      image_metrics::register_volume_record_info::GetUniqueName,
                                      &T::onRegisterVolumeRecord>;
 
+template <typename T>
+using ListenForGetTransferCopyPass =
+    star::policy::command::ListenFor<T, image_metrics::GetTransferCopyPass,
+                                     image_metrics::get_transfer_copy_pass::GetTransferCopyPassCommandTypeName,
+                                     &T::onGetTransferCopyPass>;
+
 /// <summary>
 /// Responsible for gathering all needed information from shaders and compute operations needed for
 /// image label processing
@@ -66,6 +73,8 @@ class ImageMetricManager
                          const star::StarCamera &camera);
 
     void onCapture(image_metrics::TriggerCapture &cmd);
+
+    void onGetTransferCopyPass(image_metrics::GetTransferCopyPass &cmd);
 
     void onRegisterTerrainRecord(image_metrics::RegisterTerrainRecordInfo &cmd);
 
@@ -122,13 +131,10 @@ class ImageMetricManager
     ListenForTriggerCapture<ImageMetricManager> m_listenerCapture;
     ListenForRegisterTerrainData<ImageMetricManager> m_listenerTerrainInfo;
     ListenForRegisterVolumeData<ImageMetricManager> m_listenerVolumeInfo;
-
-    void initCopier(star::core::device::DeviceContext &context);
+    ListenForGetTransferCopyPass<ImageMetricManager> m_listenerGetTransferCopyPass;
 
     void initListeners(star::core::CommandBus &cmdBus);
-
     void cleanupListeners(star::core::CommandBus &cmdBus);
-
     void submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath,
                                            star::terrain::rendering::Type renderingType);
 };

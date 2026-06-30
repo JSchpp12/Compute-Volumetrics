@@ -22,7 +22,7 @@ ImageMetricManager::ImageMetricManager()
     : m_storage(), m_cachedTerrainShapeInfo(), m_cachedVolumeNameInfo(), m_copier(), m_cmdBus(nullptr),
       m_device(nullptr), m_eb(nullptr), m_cb(nullptr), m_qm(nullptr), m_s(nullptr), m_frameTracker(nullptr),
       m_taskScheduler(nullptr), m_isRegistered(false), m_listenerCapture(*this), m_listenerTerrainInfo(*this),
-      m_listenerVolumeInfo(*this)
+      m_listenerVolumeInfo(*this), m_listenerGetTransferCopyPass(*this)
 {
 }
 
@@ -31,7 +31,7 @@ ImageMetricManager::ImageMetricManager(ImageMetricManager &&other)
       m_cachedVolumeNameInfo(std::move(other.m_cachedVolumeNameInfo)), m_copier(), m_cmdBus(other.m_cmdBus),
       m_device(other.m_device), m_eb(other.m_eb), m_cb(other.m_cb), m_qm(other.m_qm), m_s(other.m_s),
       m_frameTracker(other.m_frameTracker), m_taskScheduler(other.m_taskScheduler), m_listenerCapture(*this),
-      m_listenerTerrainInfo(*this), m_listenerVolumeInfo(*this)
+      m_listenerTerrainInfo(*this), m_listenerVolumeInfo(*this), m_listenerGetTransferCopyPass(*this)
 {
     if (m_cmdBus != nullptr)
     {
@@ -101,6 +101,11 @@ void ImageMetricManager::init()
 void ImageMetricManager::onCapture(image_metrics::TriggerCapture &cmd)
 {
     recordThisFrame(cmd.mainLight, cmd.volumeObject, cmd.srcImagePath, cmd.camera);
+}
+
+void ImageMetricManager::onGetTransferCopyPass(image_metrics::GetTransferCopyPass &cmd)
+{
+    cmd.getReply().set(image_metrics::get_transfer_copy_pass::Reply{m_copier.getCommandBuffer()});
 }
 
 void ImageMetricManager::onRegisterTerrainRecord(image_metrics::RegisterTerrainRecordInfo &cmd)
@@ -237,6 +242,7 @@ void ImageMetricManager::initListeners(star::core::CommandBus &cmdBus)
     m_listenerCapture.init(cmdBus);
     m_listenerTerrainInfo.init(cmdBus);
     m_listenerVolumeInfo.init(cmdBus);
+    m_listenerGetTransferCopyPass.init(cmdBus);
 }
 
 void ImageMetricManager::cleanupListeners(star::core::CommandBus &cmdBus)
@@ -244,6 +250,7 @@ void ImageMetricManager::cleanupListeners(star::core::CommandBus &cmdBus)
     m_listenerCapture.cleanup(cmdBus);
     m_listenerTerrainInfo.cleanup(cmdBus);
     m_listenerVolumeInfo.cleanup(cmdBus);
+    m_listenerGetTransferCopyPass.cleanup(cmdBus);
 }
 
 void ImageMetricManager::submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath,

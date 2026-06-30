@@ -70,9 +70,9 @@ void initEngine(int argc, char **argv)
     {
         star::ConfigFile::load(engineConfigPath);
     }
-    catch (...)
+    catch (const std::exception &ex)
     {
-        std::cerr << "Failed to load config file for engine";
+        std::cerr << "Failed to load config file for engine: " << ex.what();
         std::exit(EXIT_FAILURE);
     }
 }
