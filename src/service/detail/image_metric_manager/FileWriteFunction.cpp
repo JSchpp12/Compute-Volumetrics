@@ -17,27 +17,27 @@ namespace service::image_metric_manager
 {
 
 FileWriteFunction::FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferHandle, const star::StarCamera &camera,
-                                      const Volume &volume, star::Light light, std::string terrainName,
-                                      star::terrain::CoverageInfo terrainShapeInfo,
-                                      star::terrain::rendering::Type terrainRenderingType, std::string volumeName,
-                                      ImageFilesInfo imageFilesInfo)
+                                     const Volume &volume, star::Light light, std::string terrainName,
+                                     star::terrain::CoverageInfo terrainShapeInfo,
+                                     star::terrain::rendering::Type terrainRenderingType, std::string volumeName,
+                                     ImageFilesInfo imageFilesInfo)
     : m_data(std::make_unique<MetricWriteData>(MetricWriteData{
           std::move(bufferHandle),
           ImageMetrics{.mainLight = std::move(light),
-                        .volumeInfo = VolumeInfo{.position = volume.getInstance().getPosition(),
-                                                  .rotation = star::core::helper::star_object::ExtractRotationDegrees(
-                                                      volume.getInstance().getRotationMat()),
-                                                  .scale = volume.getInstance().getScale()},
-                        .controlInfo = volume.getRenderer().getFogInfo(),
-                        .camPosition = camera.getPosition(),
-                        .camLookDir = camera.getForwardVector(),
-                        .distanceMetrics = {},
-                        .terrainName = std::move(terrainName),
-                        .volumeName = std::move(volumeName),
-                        .type = volume.getRenderer().getFogType(),
-                        .terrainShapeInfo = std::move(terrainShapeInfo),
-                        .terrainRenderingType = terrainRenderingType,
-                        .imageFilesInfo = std::move(imageFilesInfo)}}))
+                       .volumeInfo = VolumeInfo{.position = volume.getInstance().getPosition(),
+                                                .rotation = star::core::helper::star_object::ExtractRotationDegrees(
+                                                    volume.getInstance().getRotationMat()),
+                                                .scale = volume.getInstance().getScale()},
+                       .controlInfo = volume.getRenderer().getFogInfo(),
+                       .camPosition = camera.getPosition(),
+                       .camLookDir = camera.getForwardVector(),
+                       .distanceMetrics = {},
+                       .terrainName = std::move(terrainName),
+                       .volumeName = std::move(volumeName),
+                       .type = volume.getRenderer().getFogType(),
+                       .terrainShapeInfo = std::move(terrainShapeInfo),
+                       .terrainRenderingType = terrainRenderingType,
+                       .imageFilesInfo = std::move(imageFilesInfo)}}))
 {
 }
 
