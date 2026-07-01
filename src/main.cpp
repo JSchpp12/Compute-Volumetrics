@@ -50,12 +50,8 @@ std::unique_ptr<config::AppConfigInfo> LoadAppConfig(int argc, char **argv) noex
 {
     std::optional<std::string> appConfigPath = util::CmdLine::TryGetAppConfigFilePath(argc, argv);
     auto [cfg, status] = config::AppConfigLoader::LoadFromArgs(argc, argv);
-    switch (status)
-    {
-    case config::LoadStatus::CreatedDefault:
-    case config::LoadStatus::ValidationError:
+    if (status != config::LoadStatus::Loaded)
         std::exit(EXIT_FAILURE);
-    }
 
     return std::move(cfg);
 }
