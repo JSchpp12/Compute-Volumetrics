@@ -57,11 +57,10 @@ std::unique_ptr<config::AppConfigInfo> LoadAppConfig(int argc, char **argv) noex
 int main(int argc, char **argv)
 {
     openvdb::initialize();
-    auto cfg = LoadAppConfig(argc, argv);
 
 #ifdef STAR_ENABLE_PRESENTATION
-    return runWindow(std::move(cfg));
+    return runWindow(LoadAppConfig(argc, argv));
 #else
-    return runHeadless(std::move(cfg));
+    return runHeadless(LoadAppConfig(argc, argv));
 #endif
 }

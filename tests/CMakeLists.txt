@@ -6,6 +6,7 @@ add_executable(unit_tests
     test_cmdLine.cpp
     test_distance_metrics_json.cpp
     test_AppConfigLoader.cpp
+    test_coverage_info_json.cpp
 )
 
 # Mirror useful compile defs/macros you rely on in pure code paths
