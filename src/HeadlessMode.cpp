@@ -6,6 +6,7 @@
 #include "policy/EngineExitOnFlag.hpp"
 #include "policy/FunctionalEngineInitPolicy.hpp"
 #include "service/SimulationController.hpp"
+#include "config/AppConfigLoader.hpp"
 
 #include <starlight/StarEngine.hpp>
 #include <starlight/policy/DefaultEngineLoopPolicy.hpp>
@@ -39,6 +40,8 @@ int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
     auto engine = star::StarEngine<FunctionalEngineInitPolicy, loop, exit>(
         CreateInit(controllerSequenceDone, std::move(cfg->simControllerPath), cfg->overrideRenderingDevice), loop{},
         exit{controllerSequenceDone}, application);
+
+    config::AppConfigLoader::LogConfig(*cfg);
     engine.run();
 
     return 0;

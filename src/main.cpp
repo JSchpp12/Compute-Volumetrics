@@ -52,9 +52,6 @@ std::unique_ptr<config::AppConfigInfo> LoadAppConfig(int argc, char **argv) noex
     auto [cfg, status] = config::AppConfigLoader::LoadFromArgs(argc, argv);
     switch (status)
     {
-    case config::LoadStatus::Loaded:
-        config::AppConfigLoader::LogConfig(*cfg);
-        break;
     case config::LoadStatus::CreatedDefault:
     case config::LoadStatus::ValidationError:
         std::exit(EXIT_FAILURE);

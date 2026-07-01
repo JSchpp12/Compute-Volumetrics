@@ -428,7 +428,7 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     const auto tmpDir = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::tmp_directory));
     VolumeDirectoryProcessor processor(m_vdbFilePath, tmpDir);
     processor.init();
-
+     
     const auto &frontPath = processor.getProcessedFiles().front().getDataFilePath();
     // fog sim is fog
     const auto vdbFogSemaphore =

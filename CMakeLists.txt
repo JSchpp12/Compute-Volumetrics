@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.1.8
+	VERSION 1.1.9
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -425,7 +425,6 @@ set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")             # runtime: relative to the ex
 
 install(TARGETS ${PROJECT_NAME}
     RUNTIME_DEPENDENCIES
-	
        PRE_EXCLUDE_REGEXES
             # Exclude glibc core + loader
             ".*libc\\.so\\..*" ".*libm\\.so\\..*" ".*libpthread\\.so\\..*"

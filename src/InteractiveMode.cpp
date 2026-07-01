@@ -5,6 +5,7 @@
 #include "InteractiveApplication.hpp"
 #include "loader/SceneLoaders.hpp"
 #include "policy/WindowedEngineInitPolicy.hpp"
+#include "config/AppConfigLoader.hpp"
 
 #include <star_windowing/policy/EngineExitPolicy.hpp>
 #include <star_windowing/policy/EngineMainLoopPolicy.hpp>
@@ -34,6 +35,7 @@ int InteractiveMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
     auto engine = star::StarEngine<policy::WindowEngineInitPolicy, win_loop, win_exit>(
         std::move(windowInit), std::move(windowLoop), std::move(windowExit), application);
 
+    config::AppConfigLoader::LogConfig(*cfg);
     engine.run();
 
     return 0;
