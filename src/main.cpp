@@ -1,6 +1,5 @@
 #include "config/AppConfigLoader.hpp"
 #include "util/CmdLine.hpp"
-#include <starlight/common/ConfigFile.hpp>
 
 #include <cstdlib>
 #include <iostream>
@@ -48,7 +47,6 @@ static int runHeadless(std::unique_ptr<config::AppConfigInfo> cfg)
 
 std::unique_ptr<config::AppConfigInfo> LoadAppConfig(int argc, char **argv) noexcept
 {
-    std::optional<std::string> appConfigPath = util::CmdLine::TryGetAppConfigFilePath(argc, argv);
     auto [cfg, status] = config::AppConfigLoader::LoadFromArgs(argc, argv);
     if (status != config::LoadStatus::Loaded)
         std::exit(EXIT_FAILURE);
@@ -56,24 +54,9 @@ std::unique_ptr<config::AppConfigInfo> LoadAppConfig(int argc, char **argv) noex
     return std::move(cfg);
 }
 
-void initEngine(int argc, char **argv)
-{
-    const std::string engineConfigPath = util::CmdLine::GetConfigFilePath(argc, argv);
-    try
-    {
-        star::ConfigFile::load(engineConfigPath);
-    }
-    catch (const std::exception &ex)
-    {
-        std::cerr << "Failed to load config file for engine: " << ex.what();
-        std::exit(EXIT_FAILURE);
-    }
-}
-
 int main(int argc, char **argv)
 {
     openvdb::initialize();
-    initEngine(argc, argv);
     auto cfg = LoadAppConfig(argc, argv);
 
 #ifdef STAR_ENABLE_PRESENTATION

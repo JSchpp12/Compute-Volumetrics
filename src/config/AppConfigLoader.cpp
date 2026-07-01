@@ -3,6 +3,7 @@
 #include "config/AppConfigInfo_json.hpp"
 #include "util/CmdLine.hpp"
 
+#include <starlight/common/ConfigFile.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 
@@ -59,6 +60,18 @@ std::pair<std::unique_ptr<AppConfigInfo>, LoadStatus> AppConfigLoader::LoadFromA
 
     cfg = ApplyCliOverrides(argc, argv, std::move(cfg));
 
+    try
+    {
+        if (cfg->engineConfigPath.empty())
+            STAR_THROW("Engine config file path must be provided via --config or in the appConfig file");
+        star::ConfigFile::load(cfg->engineConfigPath);
+    }
+    catch (const std::exception &ex)
+    {
+        star::core::logging::error(std::string{"Failed to load config file for engine: "} + ex.what());
+        return {std::move(cfg), LoadStatus::ValidationError};
+    }
+
     if (auto err = validateAppConfig(*cfg))
     {
         star::core::logging::error(*err);
@@ -75,6 +88,7 @@ void AppConfigLoader::LogConfig(const AppConfigInfo &cfg)
         << "  volumeName:              " << cfg.volumeName << "\n"
         << "  terrainDir:              " << cfg.terrainDir << "\n"
         << "  simControllerPath:       " << cfg.simControllerPath << "\n"
+        << "  engineConfigPath:        " << cfg.engineConfigPath << "\n"
         << "  overrideRenderingDevice: "
         << (cfg.overrideRenderingDevice.has_value() ? std::to_string(*cfg.overrideRenderingDevice)
                                                     : std::string("<none>"))
@@ -97,6 +111,8 @@ std::unique_ptr<AppConfigInfo> AppConfigLoader::ApplyCliOverrides(int argc, char
         cfg->terrainDir = std::move(*v);
     if (auto v = util::CmdLine::TryGetArgValue(argc, argv, "--controller"))
         cfg->simControllerPath = std::move(*v);
+    if (auto v = util::CmdLine::TryGetArgValue(argc, argv, "--config"))
+        cfg->engineConfigPath = std::move(*v);
     if (auto v = util::CmdLine::TryGetDeviceIndexOverride(argc, argv))
         cfg->overrideRenderingDevice = *v;
     if (util::CmdLine::DoesContainOption(argc, argv, "--enableDistanceMarkers"))
