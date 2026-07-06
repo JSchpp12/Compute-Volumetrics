@@ -58,10 +58,7 @@ std::unique_ptr<star::StarShaderInfo> DescriptorBuilder::buildStaticShaderInfo()
             .add(star::StarShaderInfo::BufferInfo{m_data.inputs.globalLightInfo->getHandle(i)})
             .add(star::StarShaderInfo::BufferInfo{m_data.inputs.instanceManagerInfo->getHandle(i)})
             .add(star::StarShaderInfo::BufferInfo{m_data.inputs.instanceNormalInfo->getHandle(i)})
-            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.fogController->getHandle(i)},
-                 &m_resourceManager
-                      ->get<star::StarBuffers::Buffer>(*m_deviceID, m_data.inputs.fogController->getHandle(i))
-                      ->resourceSemaphore);
+            .add(star::StarShaderInfo::BufferInfo{m_data.inputs.fogController->getHandle(i)});
     }
 
     return shaderBuilder.build();

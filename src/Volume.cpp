@@ -17,8 +17,8 @@ Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePa
                OffscreenRenderer *offscreenRenderer,
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
                std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList, bool enableCutoffHighlighting,
-               star::ShaderResolver &shaderResolver)
+               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList,
+               bool enableCutoffHighlighting, star::ShaderResolver &shaderResolver)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
       camera(camera), screenDimensions(screenWidth, screenHeight), m_offscreenRenderer(offscreenRenderer)
 {
@@ -123,7 +123,7 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
 
 void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
                          const star::Handle &targetCommandBuffer,
-                         const star::core::graphics::GPUWorkSyncInfo &transferRequestSync)
+                         const star::core::graphics::SemaphoreInfo &transferRequestSync)
 {
     star::StarObject::frameUpdate(context, frameInFlightIndex, targetCommandBuffer, transferRequestSync);
 
@@ -224,18 +224,11 @@ std::vector<star::StarMesh> Volume::loadMeshes(star::core::device::DeviceContext
 
     std::vector<uint32_t> inds{0, 3, 2, 0, 2, 1};
 
-    const auto vertSemaphore =
-        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
     star::Handle vertBuffer = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), context.getSemaphoreManager().get(vertSemaphore)->semaphore,
-        std::make_unique<star::TransferRequest::VertInfo>(this->graphicsQueueFamily, verts));
-
-    const auto indSemaphore =
-        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
+        context.getDeviceID(), std::make_unique<star::TransferRequest::VertInfo>(this->graphicsQueueFamily, verts));
 
     star::Handle indBuffer = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), context.getSemaphoreManager().get(indSemaphore)->semaphore,
-        std::make_unique<star::TransferRequest::IndicesInfo>(this->graphicsQueueFamily, inds));
+        context.getDeviceID(), std::make_unique<star::TransferRequest::IndicesInfo>(this->graphicsQueueFamily, inds));
 
     return {star::StarMesh{vertBuffer, indBuffer, verts, inds, m_meshMaterials.at(0), this->aabbBounds[0],
                            this->aabbBounds[1], false}};

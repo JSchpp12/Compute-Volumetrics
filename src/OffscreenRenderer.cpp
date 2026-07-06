@@ -197,46 +197,60 @@ std::tuple<vk::Semaphore, uint64_t, uint64_t> GetVolumeRendererSemaphoreFromNeig
 void OffscreenRenderer::updateDependentData(star::core::device::DeviceContext &context)
 {
     const size_t fi = static_cast<size_t>(context.frameTracker().getCurrent().getFrameInFlightIndex());
-    const uint8_t fu = static_cast<uint8_t>(context.frameTracker().getCurrent().getFrameInFlightIndex()); 
+    const uint8_t fu = static_cast<uint8_t>(context.frameTracker().getCurrent().getFrameInFlightIndex());
 
-    star::core::graphics::GPUWorkSyncInfo transferSyncWithComputeInfo{};
+    star::core::graphics::SemaphoreInfo transferSyncWithComputeInfo{};
     {
         auto [semaphore, toSignalValue, currentSignalValue] =
             GetVolumeRendererSemaphoreFromNeighbor(context.getCmdBus(), m_commandBuffer);
 
-        transferSyncWithComputeInfo.workWaitOn.semaphore = std::move(semaphore);
-        transferSyncWithComputeInfo.workWaitOn.signalValue = std::move(currentSignalValue);
+        transferSyncWithComputeInfo.semaphore = std::move(semaphore);
+        transferSyncWithComputeInfo.signalValue = std::move(currentSignalValue);
     }
 
-    vk::Semaphore dataSemaphore{VK_NULL_HANDLE};
     auto &record = context.getManagerCommandBuffer().m_manager.get(m_commandBuffer);
 
     if (ownsRenderResourceControllers)
     {
-        if (m_infoManagerCamera &&
-            m_infoManagerCamera->submitUpdateIfNeeded(context, fu, dataSemaphore, transferSyncWithComputeInfo))
+        if (m_infoManagerCamera)
         {
-            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerCamera->getHandle(fu), std::move(dataSemaphore),
-                                                   vk::PipelineStageFlagBits::eVertexShader |
-                                                       vk::PipelineStageFlagBits::eFragmentShader);
+            const auto [submitted, semaphore] =
+                m_infoManagerCamera->submitUpdateIfNeeded(context, fu, transferSyncWithComputeInfo);
+            if (submitted)
+            {
+                record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerCamera->getHandle(fu), semaphore->vkSemaphore,
+                                                       vk::PipelineStageFlagBits::eVertexShader |
+                                                           vk::PipelineStageFlagBits::eFragmentShader,
+                                                       semaphore->signalValue);
 
-            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerCamera->getHandle(fu));
+                m_renderingContext.addBufferToRenderingContext(context, m_infoManagerCamera->getHandle(fu));
+            }
         }
 
-        if (m_infoManagerLightData->submitUpdateIfNeeded(context, fu, dataSemaphore, transferSyncWithComputeInfo))
         {
-            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightData->getHandle(fu), std::move(dataSemaphore),
-                                                   vk::PipelineStageFlagBits::eFragmentShader);
+            const auto [submitted, semaphore] =
+                m_infoManagerLightData->submitUpdateIfNeeded(context, fu, transferSyncWithComputeInfo);
+            if (submitted)
+            {
+                record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightData->getHandle(fu), semaphore->vkSemaphore,
+                                                       vk::PipelineStageFlagBits::eFragmentShader,
+                                                       semaphore->signalValue);
 
-            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightData->getHandle(fu));
+                m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightData->getHandle(fu));
+            }
         }
 
-        if (m_infoManagerLightList->submitUpdateIfNeeded(context, fu, dataSemaphore, transferSyncWithComputeInfo))
         {
-            record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightList->getHandle(fu), std::move(dataSemaphore),
-                                                   vk::PipelineStageFlagBits::eFragmentShader);
+            const auto [submitted, semaphore] =
+                m_infoManagerLightList->submitUpdateIfNeeded(context, fu, transferSyncWithComputeInfo);
+            if (submitted)
+            {
+                record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightList->getHandle(fu), semaphore->vkSemaphore,
+                                                       vk::PipelineStageFlagBits::eFragmentShader,
+                                                       semaphore->signalValue);
 
-            m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightList->getHandle(fu));
+                m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightList->getHandle(fu));
+            }
         }
     }
 }

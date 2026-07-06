@@ -410,42 +410,30 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
 
     m_timelineSemaphores = CreateSemaphores(context.getEventBus(), context.frameTracker());
 
-    const auto camSemaphore =
-        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
-
     this->cameraShaderInfo = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), context.getSemaphoreManager().get(camSemaphore)->semaphore,
+        context.getDeviceID(),
         std::make_unique<CameraInfo>(
             this->camera, computeQueueFamilyIndex,
             context.getDevice().getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment),
         nullptr, true, &this->transferQueueFamilyIndex);
-
-    const auto vdbSemaphore =
-        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     // need to find a way to tell what type the volume is...
     // dragon is level set
     const auto tmpDir = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::tmp_directory));
     VolumeDirectoryProcessor processor(m_vdbFilePath, tmpDir);
     processor.init();
-     
+
     const auto &frontPath = processor.getProcessedFiles().front().getDataFilePath();
-    // fog sim is fog
-    const auto vdbFogSemaphore =
-        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     this->vdbInfoFog = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), context.getSemaphoreManager().get(vdbFogSemaphore)->semaphore,
+        context.getDeviceID(),
         std::make_unique<VDBTransfer>(
             computeQueueFamilyIndex,
             std::make_unique<FogData>(frontPath.string(), openvdb::GridClass::GRID_FOG_VOLUME)),
         nullptr, true);
 
-    const auto randomSemaphore =
-        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
-
     this->randomValueTexture = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), context.getSemaphoreManager().get(randomSemaphore)->semaphore,
+        context.getDeviceID(),
         std::make_unique<RandomValueTexture>(screensize.width, screensize.height, computeQueueFamilyIndex,
                                              context.getDevice().getPhysicalDevice().getProperties()));
 
@@ -470,15 +458,9 @@ void VolumeRenderer::prepRender(star::core::device::DeviceContext &context, cons
     m_activeRayStorage.resize(context.frameTracker().getSetup().getNumFramesInFlight());
     for (uint8_t i = 0; i < context.frameTracker().getSetup().getNumFramesInFlight(); i++)
     {
-        const auto aabbSemaphore =
-            context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
         this->aabbInfoBuffers.emplace_back(star::ManagerRenderResource::addRequest(
-            context.getDeviceID(), context.getSemaphoreManager().get(aabbSemaphore)->semaphore,
-            std::make_unique<AABBTransfer>(graphicsQueueFamilyIndex, aabbBounds)));
-
-        const auto fogShaderInfoSemaphore =
-            context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
+            context.getDeviceID(), std::make_unique<AABBTransfer>(graphicsQueueFamilyIndex, aabbBounds)));
 
         const std::string cstr = std::to_string(i);
         m_activeRayStorage[i] =
@@ -567,20 +549,21 @@ void VolumeRenderer::updateDependentData(star::core::device::DeviceContext &cont
 {
     const size_t fi = static_cast<size_t>(context.frameTracker().getCurrent().getFrameInFlightIndex());
 
-    vk::Semaphore dataSemaphore = VK_NULL_HANDLE;
     {
-        star::core::graphics::GPUWorkSyncInfo transferWaitOnLastCompute;
+        star::core::graphics::SemaphoreInfo transferWaitOnLastCompute;
         auto cmd = star::command_order::GetPassInfo{m_commandBuffer};
         context.getCmdBus().submit(cmd);
-        transferWaitOnLastCompute.workWaitOn.signalValue = cmd.getReply().get().currentSignalValue;
-        transferWaitOnLastCompute.workWaitOn.semaphore = cmd.getReply().get().signaledSemaphore;
+        transferWaitOnLastCompute.signalValue = cmd.getReply().get().currentSignalValue;
+        transferWaitOnLastCompute.semaphore = cmd.getReply().get().signaledSemaphore;
 
-        if (m_fogController.submitUpdateIfNeeded(context, frameInFlightIndex, dataSemaphore, transferWaitOnLastCompute))
+        const auto [submitted, semaphore] =
+            m_fogController.submitUpdateIfNeeded(context, frameInFlightIndex, transferWaitOnLastCompute);
+        if (submitted)
         {
             context.getManagerCommandBuffer()
                 .m_manager.get(m_commandBuffer)
-                .oneTimeWaitSemaphoreInfo.insert(m_fogController.getHandle(frameInFlightIndex),
-                                                 std::move(dataSemaphore), vk::PipelineStageFlagBits::eComputeShader);
+                .oneTimeWaitSemaphoreInfo.insert(m_fogController.getHandle(frameInFlightIndex), semaphore->vkSemaphore,
+                                                 vk::PipelineStageFlagBits::eComputeShader, semaphore->signalValue);
             m_renderingContext.addBufferToRenderingContext(context, m_fogController.getHandle(frameInFlightIndex));
         }
     }
