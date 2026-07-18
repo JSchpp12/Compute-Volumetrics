@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.1.12
+	VERSION 1.1.13
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -334,30 +334,55 @@ target_link_libraries(${PROJECT_NAME}
 	PRIVATE ${PROJECT_NAME}_lib
 )
 
-set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/extern/StarlightAppBuilder/")
 set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
 
+# StarlightAppBuilder was previously a git submodule at extern/StarlightAppBuilder.
+# It is cloned from GitHub into a throwaway directory, pip-installed into the
+# interpreter's site-packages (the wheel carries everything it needs), then the
+# clone is removed. Re-runs only when the stamp is missing.
+find_package(Git REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+set(STARLIGHT_APP_BUILDER_SRC "${CMAKE_BINARY_DIR}/extern/StarlightAppBuilder-src")
+set(STARLIGHT_APP_BUILDER_STAMP "${CMAKE_BINARY_DIR}/starlight_app_builder.stamp")
+
+add_custom_command(
+	OUTPUT ${STARLIGHT_APP_BUILDER_STAMP}
+	COMMAND ${CMAKE_COMMAND} -E rm -rf "${STARLIGHT_APP_BUILDER_SRC}"
+	COMMAND ${GIT_EXECUTABLE} clone --depth 1
+			"https://github.com/JSchpp12/StarlightAppBuilder.git"
+			"${STARLIGHT_APP_BUILDER_SRC}"
+	COMMAND ${Python3_EXECUTABLE} -m pip install --upgrade "${STARLIGHT_APP_BUILDER_SRC}"
+	COMMAND ${CMAKE_COMMAND} -E rm -rf "${STARLIGHT_APP_BUILDER_SRC}"
+	COMMAND ${CMAKE_COMMAND} -E touch "${STARLIGHT_APP_BUILDER_STAMP}"
+	WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+	COMMENT "Fetching and installing StarlightAppBuilder"
+	VERBATIM
+)
+
+add_custom_target(starlight_app_builder DEPENDS ${STARLIGHT_APP_BUILDER_STAMP})
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	add_custom_target(prepare_media ALL
-		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsDir=${STARLIGHT_APP_BUILDER_DIR}/deps --fastest
+		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media --fastest
 		COMMENT "Running media prep"
 		VERBATIM
 	)
 else()
 	add_custom_target(prepare_media ALL
-		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media --depsDir=${STARLIGHT_APP_BUILDER_DIR}/deps 
+		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media
 		COMMENT "Running media prep"
 		VERBATIM
 	)
 endif()
+add_dependencies(prepare_media starlight_app_builder)
 
 add_custom_target(create_config ALL
 	COMMAND ${Python3_EXECUTABLE} -m star_app_builder create-config --outDir=${FINAL_APPLICATION_DIR}
 	COMMENT "Running config prep"
 	VERBATIM
 )
+add_dependencies(create_config starlight_app_builder)
 
 # The following are for handling code cleanup/extras
 find_program(CPPCHECK_EXECUTABLE cppcheck)
