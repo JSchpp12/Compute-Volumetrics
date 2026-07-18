@@ -418,7 +418,7 @@ star::common::Renderer Application::createMainRenderer(star::core::device::Devic
 std::shared_ptr<star::StarCamera> Application::createMainCamera(star::core::device::DeviceContext &context)
 {
     return std::make_shared<star::StarCamera>(context.getEngineResolution().width, context.getEngineResolution().height,
-                                              90.0f, 1.0f, 20000.0f);
+                                              90.0f, 1.0f, 25000.0f);
 }
 
 void Application::triggerImageRecord(star::core::device::DeviceContext &context,
