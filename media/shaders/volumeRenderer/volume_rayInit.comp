@@ -138,16 +138,20 @@ void main()
     float t0 = 0;
     float t1 = 0;
     float localDepthDistance = 0;
-
-    const bool hitAABB = rayBoxIntersect(grid, localRay, t0, t1);
-    const bool passAABB = enableAABB ? hitAABB : true;
-    // If AABB is disabled and no box was hit / no bounds were found,
-    // define a fallback ray interval.
-    if (inBounds && !enableAABB && !hitAABB)
+    bool passAABB = false; 
+    if (inBounds)
     {
-        const float scale = extractUniformVolumeScale(instanceModelMatrix[0]);
-        t0 = addCamInfo.nearClipDist / scale;
-        t1 = addCamInfo.farClipDist / scale;
+        const bool hitAABB = rayBoxIntersect(grid, localRay, t0, t1);
+        passAABB = enableAABB ? hitAABB : true;
+        
+        // If AABB is disabled and no box was hit / no bounds were found,
+        // define a fallback ray interval.
+        if (!enableAABB && !hitAABB)
+        {
+            const float scale = extractUniformVolumeScale(instanceModelMatrix[0]);
+            t0 = addCamInfo.nearClipDist / scale;
+            t1 = addCamInfo.farClipDist / scale;
+        }
     }
 
     bool passDepth = true;
