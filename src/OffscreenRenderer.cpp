@@ -35,6 +35,9 @@ OffscreenRenderer::OffscreenRenderer(star::core::device::DeviceContext &context,
                                      std::shared_ptr<star::StarCamera> camera)
     : star::core::renderer::DefaultRenderer(context, std::move(lights), camera, objects)
 {
+    m_config.order = star::Command_Buffer_Order::before_render_pass;
+    m_config.waitStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
+    m_renderTargetProvider = &star::core::renderer::RenderTargets::forOffscreen;
 }
 
 void OffscreenRenderer::recordPreRenderPassCommands(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft)
@@ -196,8 +199,8 @@ std::tuple<vk::Semaphore, uint64_t, uint64_t> GetVolumeRendererSemaphoreFromNeig
 
 void OffscreenRenderer::updateDependentData(star::core::device::DeviceContext &context)
 {
-    const size_t fi = static_cast<size_t>(context.frameTracker().getCurrent().getFrameInFlightIndex());
-    const uint8_t fu = static_cast<uint8_t>(context.frameTracker().getCurrent().getFrameInFlightIndex());
+    if (!ownsRenderResourceControllers)
+        return;
 
     star::core::graphics::SemaphoreInfo transferSyncWithComputeInfo{};
     {
@@ -208,50 +211,12 @@ void OffscreenRenderer::updateDependentData(star::core::device::DeviceContext &c
         transferSyncWithComputeInfo.signalValue = std::move(currentSignalValue);
     }
 
+    auto result = m_frameData->frameUpdate(context, transferSyncWithComputeInfo);
     auto &record = context.getManagerCommandBuffer().m_manager.get(m_commandBuffer);
-
-    if (ownsRenderResourceControllers)
+    for (const auto &w : result.waits)
     {
-        if (m_infoManagerCamera)
-        {
-            const auto [submitted, semaphore] =
-                m_infoManagerCamera->submitUpdateIfNeeded(context, fu, transferSyncWithComputeInfo);
-            if (submitted)
-            {
-                record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerCamera->getHandle(fu), semaphore->vkSemaphore,
-                                                       vk::PipelineStageFlagBits::eVertexShader |
-                                                           vk::PipelineStageFlagBits::eFragmentShader,
-                                                       semaphore->signalValue);
-
-                m_renderingContext.addBufferToRenderingContext(context, m_infoManagerCamera->getHandle(fu));
-            }
-        }
-
-        {
-            const auto [submitted, semaphore] =
-                m_infoManagerLightData->submitUpdateIfNeeded(context, fu, transferSyncWithComputeInfo);
-            if (submitted)
-            {
-                record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightData->getHandle(fu), semaphore->vkSemaphore,
-                                                       vk::PipelineStageFlagBits::eFragmentShader,
-                                                       semaphore->signalValue);
-
-                m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightData->getHandle(fu));
-            }
-        }
-
-        {
-            const auto [submitted, semaphore] =
-                m_infoManagerLightList->submitUpdateIfNeeded(context, fu, transferSyncWithComputeInfo);
-            if (submitted)
-            {
-                record.oneTimeWaitSemaphoreInfo.insert(m_infoManagerLightList->getHandle(fu), semaphore->vkSemaphore,
-                                                       vk::PipelineStageFlagBits::eFragmentShader,
-                                                       semaphore->signalValue);
-
-                m_renderingContext.addBufferToRenderingContext(context, m_infoManagerLightList->getHandle(fu));
-            }
-        }
+        record.oneTimeWaitSemaphoreInfo.insert(w.handle, w.semaphore, w.waitStage, w.signalValue);
+        m_renderingContext.addBufferToRenderingContext(context, w.handle);
     }
 }
 
@@ -438,11 +403,12 @@ star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::ge
     return star::core::device::manager::ManagerCommandBuffer::Request{
         .recordBufferCallback = std::bind(&OffscreenRenderer::recordCommandBuffer, this, std::placeholders::_1,
                                           std::placeholders::_2, std::placeholders::_3),
-        .order = star::Command_Buffer_Order::before_render_pass,
-        .orderIndex = star::Command_Buffer_Order_Index::first,
-        .waitStage = vk::PipelineStageFlagBits::eEarlyFragmentTests,
-        .willBeSubmittedEachFrame = true,
-        .recordOnce = false,
+        .order = m_config.order,
+        .orderIndex = m_config.orderIndex,
+        .type = m_config.queueType,
+        .waitStage = m_config.waitStage,
+        .willBeSubmittedEachFrame = m_config.willBeSubmittedEachFrame,
+        .recordOnce = m_config.recordOnce,
         .overrideBufferSubmissionCallback = std::bind(
             &OffscreenRenderer::submitBuffer, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
             std::placeholders::_4, std::placeholders::_5, std::placeholders::_6, std::placeholders::_7)};

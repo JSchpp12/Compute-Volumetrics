@@ -21,9 +21,7 @@ class Windowed : public star::windowing::SwapChainRenderer, public IFinalization
 
     Windowed(star::windowing::WindowingContext *winContext, vk::SwapchainKHR swapchain,
              star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
-             std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightData,
-             std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightListData,
-             std::shared_ptr<star::ManagerController::RenderResource::Buffer> cameraData);
+             std::shared_ptr<star::core::renderer::FrameData> frameData);
 
     virtual const star::Handle &getTimelineSemaphore(size_t index) const override
     {

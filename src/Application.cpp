@@ -201,8 +201,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
                         [&, vdbPathString, fNumFramesInFlight, camera, width, height](star::ShaderResolver &resolver) {
                             return std::make_shared<Volume>(
                                 context, vdbPathString, fNumFramesInFlight, camera, width, height, m_offRenderer,
-                                m_offRenderer->getCameraInfoBuffers(), m_offRenderer->getLightInfoBuffers(),
-                                m_offRenderer->getLightListBuffers(), m_volumeOptions.enableCutoffHighlighting,
+                                m_offRenderer->getFrameData(), m_volumeOptions.enableCutoffHighlighting,
                                 resolver);
                         }))
                     .setShaderResolver(std::move(volumeResolver))
@@ -404,7 +403,7 @@ star::common::Renderer Application::createMainRenderer(star::core::device::Devic
                                                        std::vector<std::shared_ptr<star::StarObject>> objects,
                                                        std::shared_ptr<star::StarCamera> camera)
 {
-    star::common::Renderer sc{renderer::finalization::Headless{context, objects, m_mainLight, camera,
+    star::common::Renderer sc{renderer::finalization::Headless{context, objects, m_offRenderer->getFrameData(),
                                                                vk::PipelineStageFlagBits::eAllCommands}};
 
     auto *renderer = sc.getRaw<renderer::finalization::Headless>();

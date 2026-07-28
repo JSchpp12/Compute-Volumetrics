@@ -32,9 +32,7 @@ class VolumeRenderer
     VolumeRenderer(star::core::device::DeviceContext &context,
                    star::ManagerController::RenderResource::Buffer *instanceManagerInfo,
                    star::ManagerController::RenderResource::Buffer *instanceNormalInfo,
-                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers,
-                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalLightList,
-                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
+                   std::shared_ptr<star::core::renderer::FrameData> frameData,
                    OffscreenRenderer *offscreenRenderer, std::string vdbFilePath,
                    const std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds,
                    bool enableCutoffHighlighting);
@@ -125,8 +123,7 @@ class VolumeRenderer
     star::Handle m_initPipe;
     star::ManagerController::RenderResource::Buffer *m_infoManagerInstanceModel{nullptr},
         *m_infoManagerInstanceNormal{nullptr};
-    std::shared_ptr<star::ManagerController::RenderResource::Buffer> m_infoManagerGlobalCamera,
-        m_infoManagerSceneLightInfo, m_infoManagerSceneLightList;
+    std::shared_ptr<star::core::renderer::FrameData> m_frameData;
     OffscreenRenderer *m_offscreenRenderer = nullptr;
     std::string m_vdbFilePath;
     star::core::renderer::RenderingContext m_renderingContext = star::core::renderer::RenderingContext();

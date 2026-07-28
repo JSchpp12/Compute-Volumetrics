@@ -15,9 +15,7 @@
 Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
                std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
                OffscreenRenderer *offscreenRenderer,
-               std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
-               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList,
+               std::shared_ptr<star::core::renderer::FrameData> frameData,
                bool enableCutoffHighlighting, star::ShaderResolver &shaderResolver)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
       camera(camera), screenDimensions(screenWidth, screenHeight), m_offscreenRenderer(offscreenRenderer)
@@ -25,8 +23,7 @@ Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePa
     m_vertexShaderHandle = shaderResolver.resolve(star::Shader_Stage::vertex);
     m_fragmentShaderHandle = shaderResolver.resolve(star::Shader_Stage::fragment);
 
-    initVolume(context, std::move(vdbFilePath), std::move(sceneCameraInfos), std::move(lightInfos),
-               std::move(lightList), enableCutoffHighlighting);
+    initVolume(context, std::move(vdbFilePath), std::move(frameData), enableCutoffHighlighting);
 }
 
 void Volume::loadModel(star::core::device::DeviceContext &context, const std::string &filePath)
@@ -161,16 +158,14 @@ bool Volume::isRenderReady(star::core::device::DeviceContext &context)
 }
 
 void Volume::initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
-                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList,
+                        std::shared_ptr<star::core::renderer::FrameData> frameData,
                         bool enableCutoffHighlighting)
 {
     loadModel(context, vdbFilePath);
 
     this->volumeRenderer = std::make_unique<VolumeRenderer>(
         context, &m_instanceInfo.getControllerModel(), &m_instanceInfo.getControllerNormal(),
-        std::move(sceneCameraInfos), std::move(lightList), std::move(lightInfos), m_offscreenRenderer, vdbFilePath,
+        std::move(frameData), m_offscreenRenderer, vdbFilePath,
         this->camera, this->aabbBounds, enableCutoffHighlighting);
 }
 

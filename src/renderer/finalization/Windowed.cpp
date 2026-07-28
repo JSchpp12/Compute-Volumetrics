@@ -40,11 +40,8 @@ Windowed::Windowed(star::windowing::WindowingContext *winContext, vk::SwapchainK
 
 Windowed::Windowed(star::windowing::WindowingContext *winContext, vk::SwapchainKHR swapchain,
                    star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
-                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightData,
-                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightListData,
-                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> cameraData)
-    : star::windowing::SwapChainRenderer(winContext, swapchain, context, std::move(objects), std::move(lightData),
-                                         std::move(lightListData), std::move(cameraData))
+                   std::shared_ptr<star::core::renderer::FrameData> frameData)
+    : star::windowing::SwapChainRenderer(winContext, swapchain, context, std::move(objects), std::move(frameData))
 {
 }
 

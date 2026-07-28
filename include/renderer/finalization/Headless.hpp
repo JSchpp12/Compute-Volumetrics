@@ -28,18 +28,14 @@ class Headless : public star::core::renderer::HeadlessRenderer, public IFinaliza
     {
     }
     Headless(star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
-             std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightData,
-             std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightListData,
-             std::shared_ptr<star::ManagerController::RenderResource::Buffer> cameraData)
-        : star::core::renderer::HeadlessRenderer(context, objects, lightData, lightListData, cameraData)
+             std::shared_ptr<star::core::renderer::FrameData> frameData)
+        : star::core::renderer::HeadlessRenderer(context, objects, std::move(frameData))
     {
     }
     Headless(star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
-             std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightData,
-             std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightListData,
-             std::shared_ptr<star::ManagerController::RenderResource::Buffer> cameraData,
+             std::shared_ptr<star::core::renderer::FrameData> frameData,
              vk::PipelineStageFlags waitPoint)
-        : star::core::renderer::HeadlessRenderer(context, objects, lightData, lightListData, cameraData)
+        : star::core::renderer::HeadlessRenderer(context, objects, std::move(frameData), waitPoint)
     {
     }
 

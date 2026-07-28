@@ -84,9 +84,7 @@ class Volume : public star::StarObject
     Volume(star::core::device::DeviceContext &context, std::string vdbPath, const size_t &numFramesInFlight,
            std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
            OffscreenRenderer *offscreenRenderer,
-           std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
-           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList, bool enableCutoffHighlighting,
+           std::shared_ptr<star::core::renderer::FrameData> frameData, bool enableCutoffHighlighting,
            star::ShaderResolver &shaderResolver);
 
     /// <summary>
@@ -142,9 +140,7 @@ class Volume : public star::StarObject
     uint32_t graphicsQueueFamily = 0;
 
     void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
-                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList,
+                    std::shared_ptr<star::core::renderer::FrameData> frameData,
                     bool enableCutoffHighlighting);
 
     void loadModel(star::core::device::DeviceContext &context, const std::string &filePath);

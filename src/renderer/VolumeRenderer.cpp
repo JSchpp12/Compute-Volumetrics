@@ -173,15 +173,12 @@ static vk::SemaphoreSubmitInfo GetSignalSemaphoreInfo(const star::core::CommandB
 VolumeRenderer::VolumeRenderer(star::core::device::DeviceContext &context,
                                star::ManagerController::RenderResource::Buffer *instanceManagerInfo,
                                star::ManagerController::RenderResource::Buffer *instanceNormalInfo,
-                               std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers,
-                               std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
-                               std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightList,
+                               std::shared_ptr<star::core::renderer::FrameData> frameData,
                                OffscreenRenderer *offscreenRenderer, std::string vdbFilePath,
                                const std::shared_ptr<star::StarCamera> camera,
                                const std::array<glm::vec4, 2> &aabbBounds, bool enableCutoffHighlighting)
     : m_infoManagerInstanceModel(instanceManagerInfo), m_infoManagerInstanceNormal(instanceNormalInfo),
-      m_infoManagerGlobalCamera(globalInfoBuffers), m_infoManagerSceneLightInfo(sceneLightInfoBuffers),
-      m_infoManagerSceneLightList(sceneLightList), m_offscreenRenderer(offscreenRenderer),
+      m_frameData(std::move(frameData)), m_offscreenRenderer(offscreenRenderer),
       m_vdbFilePath(std::move(vdbFilePath)), aabbBounds(aabbBounds), camera(camera), volumeTexture(),
       m_distanceComputer(), m_chunkHandler(enableCutoffHighlighting)
 {
@@ -213,9 +210,9 @@ void VolumeRenderer::init(star::core::device::DeviceContext &context)
                 .offscreenRenderToDepths = &m_offscreenRenderer->getRenderToDepthImages(),
                 .instanceManagerInfo = m_infoManagerInstanceModel,
                 .instanceNormalInfo = m_infoManagerInstanceNormal,
-                .globalInfoBuffers = m_infoManagerGlobalCamera.get(),
-                .globalLightList = m_infoManagerSceneLightList.get(),
-                .globalLightInfo = m_infoManagerSceneLightInfo.get(),
+                .globalInfoBuffers = m_frameData->controllerAt(0).get(),
+                .globalLightList = m_frameData->controllerAt(1).get(),
+                .globalLightInfo = m_frameData->controllerAt(2).get(),
                 .cameraShaderInfo = &cameraShaderInfo,
                 .vdbInfoFog = &vdbInfoFog,
                 .randomValueTexture = &randomValueTexture,
@@ -301,10 +298,10 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
     auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer, m_transferNeighborHandle);
 
     render_system::fog::PassInfo tInfo{
-        .globalCameraBuffer = m_infoManagerGlobalCamera->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
+        .globalCameraBuffer = m_frameData->controllerAt(0)->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
                                                                                 ft.getCurrent().getFrameInFlightIndex())
                                   ? std::make_optional(m_renderingContext.bufferTransferRecords.get(
-                                        m_infoManagerGlobalCamera->getHandle(ft.getCurrent().getFrameInFlightIndex())))
+                                        m_frameData->controllerAt(0)->getHandle(ft.getCurrent().getFrameInFlightIndex())))
                                   : std::nullopt,
         .fogControllerBuffer = m_fogController.willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
                                                                       ft.getCurrent().getFrameInFlightIndex())
@@ -359,9 +356,7 @@ void VolumeRenderer::recordCommands(vk::CommandBuffer &commandBuffer, const star
         }
         catch (const std::runtime_error &e)
         {
-            std::ostringstream oss;
-            oss << "Failed to wait for seamphores with error: " << e.what();
-            STAR_THROW(oss.str());
+            STAR_THROW_CAUSE("Failed to wait for seamphores", e);
         }
     }
 
@@ -568,11 +563,11 @@ void VolumeRenderer::updateDependentData(star::core::device::DeviceContext &cont
         }
     }
 
-    if (m_infoManagerGlobalCamera->willBeUpdatedThisFrame(context.frameTracker().getCurrent().getGlobalFrameCounter(),
+    if (m_frameData->controllerAt(0)->willBeUpdatedThisFrame(context.frameTracker().getCurrent().getGlobalFrameCounter(),
                                                           context.frameTracker().getCurrent().getFrameInFlightIndex()))
     {
         m_renderingContext.addBufferToRenderingContext(context,
-                                                       m_infoManagerGlobalCamera->getHandle(frameInFlightIndex));
+                                                       m_frameData->controllerAt(0)->getHandle(frameInFlightIndex));
     }
 }
 
