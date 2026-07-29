@@ -398,20 +398,13 @@ std::vector<star::StarTextures::Texture> OffscreenRenderer::createRenderToDepthI
     return newRenderToImages;
 }
 
-star::core::device::manager::ManagerCommandBuffer::Request OffscreenRenderer::getCommandBufferRequest()
+std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride> OffscreenRenderer::
+    getSubmissionOverride()
 {
-    return star::core::device::manager::ManagerCommandBuffer::Request{
-        .recordBufferCallback = std::bind(&OffscreenRenderer::recordCommandBuffer, this, std::placeholders::_1,
-                                          std::placeholders::_2, std::placeholders::_3),
-        .order = m_config.order,
-        .orderIndex = m_config.orderIndex,
-        .type = m_config.queueType,
-        .waitStage = m_config.waitStage,
-        .willBeSubmittedEachFrame = m_config.willBeSubmittedEachFrame,
-        .recordOnce = m_config.recordOnce,
-        .overrideBufferSubmissionCallback = std::bind(
-            &OffscreenRenderer::submitBuffer, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
-            std::placeholders::_4, std::placeholders::_5, std::placeholders::_6, std::placeholders::_7)};
+    star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride overrideFn = std::bind(
+        &OffscreenRenderer::submitBuffer, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
+        std::placeholders::_4, std::placeholders::_5, std::placeholders::_6, std::placeholders::_7);
+    return overrideFn;
 }
 
 void OffscreenRenderer::prepRender(star::common::IDeviceContext &c)

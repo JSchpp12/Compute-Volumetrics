@@ -75,7 +75,7 @@ void renderer::finalization::Headless::addMemoryBarriersPre(vk::CommandBuffer cm
                 .setDstStageMask(vk::PipelineStageFlagBits2::eAllGraphics)
                 .setDstAccessMask(vk::AccessFlagBits2::eColorAttachmentWrite |
                                   vk::AccessFlagBits2::eColorAttachmentRead)
-                .setOldLayout(vk::ImageLayout::eTransferSrcOptimal)
+                .setOldLayout(vk::ImageLayout::eUndefined)
                 .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal),
             vk::ImageMemoryBarrier2()
                 .setImage(dImage->getVulkanImage())

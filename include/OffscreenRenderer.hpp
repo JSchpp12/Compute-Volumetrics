@@ -57,7 +57,8 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
     std::vector<star::StarTextures::Texture> createRenderToDepthImages(star::core::device::DeviceContext &device,
                                                                        const uint8_t &numFramesInFlight) override;
 
-    star::core::device::manager::ManagerCommandBuffer::Request getCommandBufferRequest() override;
+    std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride> getSubmissionOverride()
+        override;
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
         const star::common::FrameTracker &frameTracker) override;
