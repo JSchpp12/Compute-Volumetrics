@@ -12,7 +12,6 @@
 #include <star_common/helper/StringHelpers.hpp>
 
 #include <star_windowing/InteractivityBus.hpp>
-#include <star_windowing/SwapChainRenderer.hpp>
 #include <star_windowing/event/RequestSwapChainFromService.hpp>
 
 static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerCommandBuffer &mgrCmdBuff,
