@@ -9,11 +9,6 @@ FogDispatcherBuilder &render_system::FogDispatcherBuilder::setOffscreenRenderer(
     return *this;
 }
 
-FogDispatcherBuilder &render_system::FogDispatcherBuilder::setVolumeRenderer(VolumeRenderer *volumeRenderer)
-{
-    m_volumeRenderer = volumeRenderer;
-    return *this;
-}
 
 FogDispatcherBuilder &render_system::FogDispatcherBuilder::setTargetScreenResolution(uint32_t height, uint32_t width)
 {

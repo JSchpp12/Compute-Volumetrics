@@ -1,6 +1,5 @@
 #include "render_system/fog/commands/Color.hpp"
 
-#include "renderer/VolumeRenderer.hpp"
 
 namespace render_system::fog::commands
 {

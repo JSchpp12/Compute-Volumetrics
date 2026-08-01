@@ -9,8 +9,6 @@
 #include <optional>
 #include <span>
 
-class VolumeRenderer;
-
 namespace render_system::fog::commands
 {
 

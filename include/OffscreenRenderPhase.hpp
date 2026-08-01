@@ -1,25 +1,29 @@
 #pragma once
 
-#include <starlight/core/renderer/DefaultRenderer.hpp>
+#include <starlight/core/renderer/DefaultRenderPhase.hpp>
 
-class OffscreenRenderer : public star::core::renderer::DefaultRenderer
+class OffscreenRenderPhaseProvider;
+
+/// Runtime half of the offscreen renderer (extends DefaultRenderPhase). Adds
+/// the compute<->graphics queue-ownership image transitions in
+/// recordPreRenderPassCommands, the store-op depth attachment, the offscreen
+/// submit override (timeline semaphores + neighbor edges), and the per-frame
+/// wait. Setup (queue-family lookup, DeclarePass, timeline-semaphore creation)
+/// lives on OffscreenRenderPhaseProvider.
+class OffscreenRenderPhase : public star::core::renderer::DefaultRenderPhase
 {
   public:
-    OffscreenRenderer(star::core::device::DeviceContext &context,
-                      std::vector<std::shared_ptr<star::StarObject>> objects,
-                      std::shared_ptr<std::vector<star::Light>> lights, std::shared_ptr<star::StarCamera> camera);
+    OffscreenRenderPhase() = default;
+    virtual ~OffscreenRenderPhase() = default;
 
-    OffscreenRenderer(OffscreenRenderer &&other) = default;
-    OffscreenRenderer(const OffscreenRenderer &) = delete;
-    OffscreenRenderer &operator=(OffscreenRenderer &&other) = default;
-    OffscreenRenderer &operator=(const OffscreenRenderer &) = delete;
-    virtual ~OffscreenRenderer() = default;
+    OffscreenRenderPhase(const OffscreenRenderPhase &) = delete;
+    OffscreenRenderPhase &operator=(const OffscreenRenderPhase &) = delete;
+    OffscreenRenderPhase(OffscreenRenderPhase &&) = delete;
+    OffscreenRenderPhase &operator=(OffscreenRenderPhase &&) = delete;
 
     virtual void recordPreRenderPassCommands(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft) override;
 
     virtual void recordPostRenderingCalls(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft) override;
-
-    void prepRender(star::common::IDeviceContext &context) override;
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoColorAttachment(
         const star::common::FrameTracker &frameTracker) override;
@@ -37,11 +41,12 @@ class OffscreenRenderer : public star::core::renderer::DefaultRenderer
     virtual void updateDependentData(star::core::device::DeviceContext &context) override;
 
   private:
+    friend class OffscreenRenderPhaseProvider;
+
     uint32_t graphicsQueueFamilyIndex = 0;
     uint32_t computeQueueFamilyIndex = 0;
     uint32_t firstFramePassCounter = 0;
     bool isFirstPass = true;
-    std::vector<std::shared_ptr<star::StarBuffers::Buffer>> depthInfoStorageBuffers;
     std::vector<star::Handle> m_timelineSemaphores;
 
     vk::Device m_device{VK_NULL_HANDLE};

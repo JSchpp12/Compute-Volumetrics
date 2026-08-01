@@ -2,8 +2,9 @@
 
 #ifdef STAR_ENABLE_PRESENTATION
 
-#include "renderer/finalization/Windowed.hpp"
+#include "OffscreenRenderPhase.hpp"
 
+#include <star_windowing/SwapChainRenderPhaseProvider.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
 #include <starlight/core/json/glm_json.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
@@ -16,7 +17,7 @@
 
 static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerCommandBuffer &mgrCmdBuff,
                                            const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
-                                           const OffscreenRenderer &offscreenRenderer) noexcept
+                                           const OffscreenRenderPhase &offscreenRenderer) noexcept
 {
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
     const auto &c = offscreenRenderer.getCommandBuffer();
@@ -42,15 +43,6 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
                       .setSignalValue(std::move(value)));
 }
 
-static void TriggerSubmissionOfFinalization(const star::core::CommandBus &cmdBus,
-                                            const renderer::finalization::IFinalizationRenderer &finalizationRenderer,
-                                            size_t currentNumTimesFrameProcessed, size_t currentFrameInFlight)
-{
-    cmdBus.submit(star::command_order::TriggerPass()
-                      .setPass(finalizationRenderer.getCommandBuffer())
-                      .setTimelineSemaphore(finalizationRenderer.getTimelineSemaphore(currentFrameInFlight))
-                      .setSignalValue(++currentNumTimesFrameProcessed));
-}
 
 void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
@@ -175,9 +167,9 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     if (m_triggerScreenshot)
     {
         TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
-        //triggerScreenshot(d);
+        // triggerScreenshot(d);
         m_flipScreenshotState = false;
-        m_triggerScreenshot = false; 
+        m_triggerScreenshot = false;
     }
 
     if (m_updateDebugCubes)
@@ -235,10 +227,10 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
     if (key == GLFW_KEY_T)
     {
-        nlohmann::json d; 
+        nlohmann::json d;
         d["position"] = m_mainScene->getCamera()->getPosition();
         d["forward"] = m_mainScene->getCamera()->getForwardVector();
-        star::core::info(d); 
+        star::core::info(d);
     }
 
     if (key == GLFW_KEY_RIGHT)
@@ -465,13 +457,12 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
     const auto path = (std::filesystem::path(m_imageOutputDir) / name).string();
 
     const size_t index = static_cast<size_t>(frameTracker.getCurrent().getFinalTargetImageIndex());
-    auto *render = m_mainScene->getPrimaryRenderer().getRaw<star::windowing::SwapChainRenderer>();
+    auto *render = m_mainScene->getPhase(m_finalizationPhaseHandle);
 
     // submit screenshot processing
     context.getEventBus().emit(
         star::event::TriggerScreenshot(context.getImageManager().get(render->getRenderToColorImages()[index])->texture,
-                                       path, render->getCommandBuffer(), m_screenshotRegistrations[index],
-                                       &m_finalizationCmds->getTimelineSemaphore(index)));
+                                       path, render->getCommandBuffer(), m_screenshotRegistrations[index]));
 
     triggerImageRecord(context, frameTracker, name);
 }
@@ -484,26 +475,28 @@ std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star:
                       .setHorizontalFieldOfView(90.0f)
                       .setNearClippingPlaneDistance(0.5f)
                       .setFarClippingPlaneDistance(25000.0f)
-                       .setMovementSpeed(m_interactiveConfig.cameraMovementSpeed)
-                       .setSensitivity(m_interactiveConfig.cameraSensitivity)
+                      .setMovementSpeed(m_interactiveConfig.cameraMovementSpeed)
+                      .setSensitivity(m_interactiveConfig.cameraSensitivity)
                       .buildShared();
 
     camera->init(context.getEventBus());
     return camera;
 }
 
-star::common::Renderer InteractiveApplication::createMainRenderer(
+std::unique_ptr<star::core::renderer::IRenderPhaseProvider> InteractiveApplication::createMainRenderer(
     star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
     std::shared_ptr<star::StarCamera> camera)
 {
     vk::SwapchainKHR swapchain{VK_NULL_HANDLE};
     context.getEventBus().emit(star::windowing::event::RequestSwapChainFromService{swapchain});
 
-    auto sc = star::common::Renderer{
-        renderer::finalization::Windowed{m_winContext, std::move(swapchain), context, objects, m_mainLight, camera}};
+    return std::make_unique<star::windowing::SwapChainRenderPhaseProvider>(m_winContext, std::move(swapchain), context,
+                                                                           objects, m_mainLight, camera);
+}
 
-    m_finalizationCmds = sc.getRaw<renderer::finalization::Windowed>();
-    return sc;
+star::Handle InteractiveApplication::getFinalizationCommandBuffer()
+{
+    return m_mainScene->getPhase(m_finalizationPhaseHandle)->getCommandBuffer();
 }
 
 #endif

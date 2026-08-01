@@ -62,9 +62,11 @@ class InteractiveApplication : public Application,
 
     virtual std::shared_ptr<star::StarCamera> createMainCamera(star::core::device::DeviceContext &context) override;
 
-    virtual star::common::Renderer createMainRenderer(star::core::device::DeviceContext &context,
+    virtual std::unique_ptr<star::core::renderer::IRenderPhaseProvider> createMainRenderer(star::core::device::DeviceContext &context,
                                                       std::vector<std::shared_ptr<star::StarObject>> objects,
                                                       std::shared_ptr<star::StarCamera> camera) override;
+
+    star::Handle getFinalizationCommandBuffer() override;
 };
 
 #endif
