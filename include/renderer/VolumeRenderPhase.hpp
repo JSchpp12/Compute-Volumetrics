@@ -2,58 +2,61 @@
 
 #include "FogControlInfo.hpp"
 #include "FogType.hpp"
-#include "ManagerController_RenderResource_Buffer.hpp"
-#include "OffscreenRenderer.hpp"
 #include "StarBuffers/Buffer.hpp"
-#include "StarCamera.hpp"
 #include "StarShaderInfo.hpp"
+#include "StarTextures/Texture.hpp"
 #include "VisibilityDistanceCompute.hpp"
-#include "VolumeDirectoryProcessor.hpp"
+#include "core/renderer/FrameData.hpp"
 #include "core/renderer/RenderingContext.hpp"
 #include "render_system/fog/FogDispatcher.hpp"
+#include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/commands/Color.hpp"
 #include "structs/FogInfo.hpp"
 
+#include <starlight/core/renderer/RenderPhase.hpp>
+
+#include <star_common/FrameTracker.hpp>
 #include <star_common/Handle.hpp>
+#include <star_common/IDeviceContext.hpp>
 
 #include <vma/vk_mem_alloc.h>
-
 #include <vulkan/vulkan.hpp>
 
 #include <memory>
 #include <optional>
 #include <vector>
 
-class VolumeRenderer
+class VolumeRenderPhaseProvider;
+
+/// Runtime half of the volume (compute) renderer. Extends RenderPhase but
+/// records a compute pass (no render targets/groups): it holds the fog
+/// pipelines, the fog controller, the compute write-images it produces, the
+/// timeline semaphores, and the offscreen render-to images it samples. All
+/// one-shot setup -- queue-family lookup, DeclarePass, descriptor builder,
+/// compute write images/buffers, command-buffer request -- lives on
+/// VolumeRenderPhaseProvider::build. Per-frame recording, frameUpdate,
+/// cleanup, and the submission override (FogDispatcher submit) live here.
+class VolumeRenderPhase : public star::core::renderer::RenderPhase
 {
   public:
+    friend class VolumeRenderPhaseProvider;
     friend class render_system::fog::commands::Color;
 
-    VolumeRenderer(star::core::device::DeviceContext &context,
-                   star::ManagerController::RenderResource::Buffer *instanceManagerInfo,
-                   star::ManagerController::RenderResource::Buffer *instanceNormalInfo,
-                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalInfoBuffers,
-                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> globalLightList,
-                   std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneLightInfoBuffers,
-                   OffscreenRenderer *offscreenRenderer, std::string vdbFilePath,
-                   const std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds,
-                   bool enableCutoffHighlighting);
+    explicit VolumeRenderPhase(bool enableCutoffHighlighting);
+    virtual ~VolumeRenderPhase() = default;
 
-    void init(star::core::device::DeviceContext &context);
+    VolumeRenderPhase(const VolumeRenderPhase &) = delete;
+    VolumeRenderPhase &operator=(const VolumeRenderPhase &) = delete;
+    VolumeRenderPhase(VolumeRenderPhase &&) = delete;
+    VolumeRenderPhase &operator=(VolumeRenderPhase &&) = delete;
 
-    bool isRenderReady(const star::core::device::DeviceContext &context);
+    virtual void frameUpdate(star::common::IDeviceContext &context) override;
+    virtual void cleanupRender(star::common::IDeviceContext &context) override;
+    virtual void recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
+                                     const star::common::FrameTracker &frameTracker,
+                                     const uint64_t &frameIndex) override;
 
-    void frameUpdate(star::core::device::DeviceContext &context, uint8_t frameInFlightIndex);
-
-    void prepRender(star::core::device::DeviceContext &device, const vk::Extent2D &screensize);
-
-    void cleanupRender(star::core::device::DeviceContext &device);
-
-    void recordCommandBuffer(star::StarCommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
-                             const uint64_t &frameIndex);
-
-    void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
-                        const uint64_t &frameIndex);
+    bool isRenderReady(star::core::device::DeviceContext &context);
 
     uint64_t getTimelineSignalValue(const star::common::FrameTracker &frameTracker) const;
 
@@ -98,10 +101,6 @@ class VolumeRenderer
         m_transferNeighborHandle = std::move(handle);
     }
 
-    const star::Handle &getCommandBuffer() const
-    {
-        return m_commandBuffer;
-    }
     FogInfo &getFogInfo()
     {
         return m_fogController.getFogInfo();
@@ -119,21 +118,18 @@ class VolumeRenderer
         return m_timelineSemaphores;
     }
 
+  protected:
+    virtual std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride>
+    getSubmissionOverride() override;
+
   private:
     render_system::fog::PassPipelineInfo m_pipeInfo;
     star::Handle m_indirectDispatchPipe;
     star::Handle m_initPipe;
-    star::ManagerController::RenderResource::Buffer *m_infoManagerInstanceModel{nullptr},
-        *m_infoManagerInstanceNormal{nullptr};
-    std::shared_ptr<star::ManagerController::RenderResource::Buffer> m_infoManagerGlobalCamera,
-        m_infoManagerSceneLightInfo, m_infoManagerSceneLightList;
-    OffscreenRenderer *m_offscreenRenderer = nullptr;
-    std::string m_vdbFilePath;
+    std::shared_ptr<star::core::renderer::FrameData> m_frameData;
+    star::core::renderer::RenderPhase *m_offscreenPhase = nullptr;
     star::core::renderer::RenderingContext m_renderingContext = star::core::renderer::RenderingContext();
-    const star::Handle volumeTexture;
-    const std::array<glm::vec4, 2> &aabbBounds;
-    const std::shared_ptr<star::StarCamera> camera = nullptr;
-    star::Handle cameraShaderInfo, m_commandBuffer, vdbInfoSDF, vdbInfoFog, randomValueTexture;
+    star::Handle cameraShaderInfo, vdbInfoFog, randomValueTexture;
     FogInfoController m_fogController;
     std::unique_ptr<star::StarShaderInfo> m_staticShaderInfo{nullptr}, m_dynamicShaderInfo{nullptr};
     std::vector<star::Handle> aabbInfoBuffers;
@@ -142,8 +138,6 @@ class VolumeRenderer
     std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers, computeRayAtCutoffDistanceBuffers;
     star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline,
         marchedHomogenousPipeline;
-    std::vector<std::unique_ptr<star::StarBuffers::Buffer>> renderToDepthBuffers =
-        std::vector<std::unique_ptr<star::StarBuffers::Buffer>>();
     std::vector<star::Handle> m_timelineSemaphores;
     VisibilityDistanceCompute m_distanceComputer;
     render_system::fog::FogDispatcher m_chunkHandler;
@@ -156,7 +150,6 @@ class VolumeRenderer
     bool isFirstPass = true;
     bool transferTriggeredThisFrame = false;
     star::core::CommandBus *m_cmdBus{nullptr};
-    star::core::device::manager::Semaphore *m_mgrSemaphore{nullptr};
     vk::Device m_device{VK_NULL_HANDLE};
 
     vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
@@ -165,7 +158,16 @@ class VolumeRenderer
                                std::vector<vk::PipelineStageFlags> &dataWaitPoints,
                                std::vector<std::optional<uint64_t>> &previousSignaledValues, star::StarQueue &queue);
 
-    std::vector<std::pair<vk::DescriptorType, const uint32_t>> getDescriptorRequests(const int &numFramesInFlight);
+    void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
+                        const uint64_t &frameIndex);
+
+    static std::vector<std::pair<vk::DescriptorType, const uint32_t>> getDescriptorRequests(const int &numFramesInFlight);
+
+    static std::vector<star::StarBuffers::Buffer> createComputeWriteToBuffers(star::core::device::DeviceContext &context,
+                                                                               const vk::Extent2D &screenSize,
+                                                                               const size_t &dataTypeSize,
+                                                                               const std::string &debugName,
+                                                                               const size_t &numToCreate);
 
     void recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer, const uint8_t &frameinFlightIndex,
                                              const uint64_t &frameIndex);
@@ -176,10 +178,4 @@ class VolumeRenderer
     void updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
 
     void updateRenderingContext(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
-
-    std::vector<star::StarBuffers::Buffer> createComputeWriteToBuffers(star::core::device::DeviceContext &context,
-                                                                       const vk::Extent2D &screenSize,
-                                                                       const size_t &dataTypeSize,
-                                                                       const std::string &debugName,
-                                                                       const size_t &numToCreate) const;
 };

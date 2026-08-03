@@ -5,7 +5,6 @@
 #include "FileHelpers.hpp"
 #include "GeometryHelpers.hpp"
 #include "Light.hpp"
-#include "OffscreenRenderer.hpp"
 #include "Ray.hpp"
 #include "ScreenMaterial.hpp"
 #include "StarCamera.hpp"
@@ -13,7 +12,13 @@
 #include "VertColorMaterial.hpp"
 #include "Vertex.hpp"
 #include "VolumeDirectoryProcessor.hpp"
-#include "renderer/VolumeRenderer.hpp"
+#include "renderer/VolumeRenderPhase.hpp"
+#include "VolumeRenderPhaseProvider.hpp"
+
+namespace star
+{
+class StarScene;
+}
 #include "starlight/ShaderResolver.hpp"
 #include "starlight/object/StarObject.hpp"
 
@@ -83,10 +88,7 @@ class Volume : public star::StarObject
     virtual ~Volume() = default;
     Volume(star::core::device::DeviceContext &context, std::string vdbPath, const size_t &numFramesInFlight,
            std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
-           OffscreenRenderer *offscreenRenderer,
-           std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
-           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-           std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList, bool enableCutoffHighlighting,
+           std::shared_ptr<star::core::renderer::FrameData> frameData, bool enableCutoffHighlighting,
            star::ShaderResolver &shaderResolver);
 
     /// <summary>
@@ -116,25 +118,44 @@ class Volume : public star::StarObject
     }
     void setFogType(const Fog::Type &fogType)
     {
-        this->volumeRenderer->setFogType(fogType);
+        this->getVolumePhase()->setFogType(fogType);
     }
 
-    VolumeRenderer &getRenderer()
+    VolumeRenderPhase &getRenderer()
     {
-        assert(volumeRenderer != nullptr && "prepRender has not yet happened");
-        return *volumeRenderer;
+        return *this->getVolumePhase();
     }
-    const VolumeRenderer &getRenderer() const
+    const VolumeRenderPhase &getRenderer() const
     {
-        assert(volumeRenderer != nullptr && "getRenderer has not yet happened");
-        return *volumeRenderer;
+        return *this->getVolumePhase();
+    }
+
+    /// Hand the volume's setup provider to the scene (addProvider). Only valid
+    /// before the phase has been built; the provider is moved out.
+    std::unique_ptr<VolumeRenderPhaseProvider> takePhaseProvider()
+    {
+        return std::move(m_phaseProvider);
+    }
+    VolumeRenderPhaseProvider &getProvider()
+    {
+        assert(m_phaseProvider != nullptr && "phase provider has already been taken");
+        return *m_phaseProvider;
+    }
+    void setVolumePhase(star::StarScene *scene, star::Handle handle)
+    {
+        m_scene = scene;
+        m_volumePhaseHandle = std::move(handle);
     }
 
   protected:
     std::shared_ptr<star::StarCamera> camera = nullptr;
-    std::unique_ptr<VolumeRenderer> volumeRenderer = nullptr;
+    std::unique_ptr<VolumeRenderPhaseProvider> m_phaseProvider = nullptr;
+    star::StarScene *m_scene = nullptr;
+    star::Handle m_volumePhaseHandle;
+
+    VolumeRenderPhase *getVolumePhase();
+    const VolumeRenderPhase *getVolumePhase() const;
     std::array<glm::vec4, 2> aabbBounds;
-    OffscreenRenderer *m_offscreenRenderer = nullptr;
     glm::vec2 screenDimensions{};
     openvdb::FloatGrid::Ptr grid{};
 
@@ -142,9 +163,7 @@ class Volume : public star::StarObject
     uint32_t graphicsQueueFamily = 0;
 
     void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
-                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-                    std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList,
+                    std::shared_ptr<star::core::renderer::FrameData> frameData,
                     bool enableCutoffHighlighting);
 
     void loadModel(star::core::device::DeviceContext &context, const std::string &filePath);

@@ -8,25 +8,24 @@
 #include "TransferRequest_VertInfo.hpp"
 #include "VolumeFile.hpp"
 
+#include <cassert>
+
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
+#include <starlight/virtual/StarScene.hpp>
 
 Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
                std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
-               OffscreenRenderer *offscreenRenderer,
-               std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
-               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-               std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList,
+               std::shared_ptr<star::core::renderer::FrameData> frameData,
                bool enableCutoffHighlighting, star::ShaderResolver &shaderResolver)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
-      camera(camera), screenDimensions(screenWidth, screenHeight), m_offscreenRenderer(offscreenRenderer)
+      camera(camera), screenDimensions(screenWidth, screenHeight)
 {
     m_vertexShaderHandle = shaderResolver.resolve(star::Shader_Stage::vertex);
     m_fragmentShaderHandle = shaderResolver.resolve(star::Shader_Stage::fragment);
 
-    initVolume(context, std::move(vdbFilePath), std::move(sceneCameraInfos), std::move(lightInfos),
-               std::move(lightList), enableCutoffHighlighting);
+    initVolume(context, std::move(vdbFilePath), std::move(frameData), enableCutoffHighlighting);
 }
 
 void Volume::loadModel(star::core::device::DeviceContext &context, const std::string &filePath)
@@ -75,7 +74,7 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
 void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
                                          const uint64_t &frameIndex)
 {
-    vk::Image cImage = this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
+    vk::Image cImage = this->getVolumePhase()->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
     vk::ImageMemoryBarrier2 imgBarriers[1]{vk::ImageMemoryBarrier2()
                                                .setImage(std::move(cImage))
                                                .setOldLayout(vk::ImageLayout::eGeneral)
@@ -99,7 +98,7 @@ void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const
 
 void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
 {
-    vk::Image cImage = this->volumeRenderer->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
+    vk::Image cImage = this->getVolumePhase()->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
     vk::ImageMemoryBarrier2 imgBarrier[1]{vk::ImageMemoryBarrier2()
                                               .setImage(cImage)
                                               .setSubresourceRange(vk::ImageSubresourceRange()
@@ -127,20 +126,21 @@ void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8
 {
     star::StarObject::frameUpdate(context, frameInFlightIndex, targetCommandBuffer, transferRequestSync);
 
-    if (isReady)
-    {
-        this->volumeRenderer->frameUpdate(context, frameInFlightIndex);
-    }
+    // the volume render phase is driven by the scene (m_phases); the StarObject
+    // half (instance updates) is driven here via the finalization render group.
 }
 
 void Volume::prepRender(star::core::device::DeviceContext &context)
 {
-    volumeRenderer->prepRender(context, context.getEngineResolution());
+    // the volume render phase is already built by the scene before this runs
+    // (the volume provider is added before the finalization provider), so bind
+    // the phase's compute write images onto the screen-space quad's material.
+    VolumeRenderPhase *phase = this->getVolumePhase();
+    assert(phase != nullptr && "volume render phase was not built before Volume::prepRender");
 
-    for (size_t i = 0; i < this->volumeRenderer->getRenderToImages().size(); i++)
+    for (size_t i = 0; i < phase->getRenderToImages().size(); i++)
     {
-        static_cast<ScreenMaterial *>(m_meshMaterials[0].get())
-            ->addComputeWriteToImage(this->volumeRenderer->getRenderToImages()[i]);
+        static_cast<ScreenMaterial *>(m_meshMaterials[0].get())->addComputeWriteToImage(phase->getRenderToImages()[i]);
     }
 
     RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
@@ -150,28 +150,33 @@ void Volume::prepRender(star::core::device::DeviceContext &context)
 
 void Volume::cleanupRender(star::core::device::DeviceContext &context)
 {
-    volumeRenderer->cleanupRender(context);
-
+    // the volume render phase is torn down by the scene (m_phases).
     star::StarObject::cleanupRender(context);
 }
 
 bool Volume::isRenderReady(star::core::device::DeviceContext &context)
 {
-    return star::StarObject::isRenderReady(context) && this->volumeRenderer->isRenderReady(context);
+    return star::StarObject::isRenderReady(context) && this->getVolumePhase()->isRenderReady(context);
+}
+
+VolumeRenderPhase *Volume::getVolumePhase()
+{
+    return static_cast<VolumeRenderPhase *>(m_scene->getPhase(m_volumePhaseHandle));
+}
+const VolumeRenderPhase *Volume::getVolumePhase() const
+{
+    return static_cast<const VolumeRenderPhase *>(m_scene->getPhase(m_volumePhaseHandle));
 }
 
 void Volume::initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> sceneCameraInfos,
-                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightInfos,
-                        std::shared_ptr<star::ManagerController::RenderResource::Buffer> lightList,
+                        std::shared_ptr<star::core::renderer::FrameData> frameData,
                         bool enableCutoffHighlighting)
 {
     loadModel(context, vdbFilePath);
 
-    this->volumeRenderer = std::make_unique<VolumeRenderer>(
-        context, &m_instanceInfo.getControllerModel(), &m_instanceInfo.getControllerNormal(),
-        std::move(sceneCameraInfos), std::move(lightList), std::move(lightInfos), m_offscreenRenderer, vdbFilePath,
-        this->camera, this->aabbBounds, enableCutoffHighlighting);
+    this->m_phaseProvider = std::make_unique<VolumeRenderPhaseProvider>(
+        &m_instanceInfo.getControllerModel(), &m_instanceInfo.getControllerNormal(), std::move(frameData),
+        star::Handle{}, std::move(vdbFilePath), this->camera, this->aabbBounds, enableCutoffHighlighting);
 }
 
 void Volume::updateGridTransforms()

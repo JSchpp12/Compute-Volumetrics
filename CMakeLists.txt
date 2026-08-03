@@ -82,7 +82,8 @@ set(${PROJECT_NAME}_SOURCES
 	"src/Volume.cpp"
  	"src/renderer/volume/ContainerRenderResourceData.cpp"
 	"src/renderer/volume/DescriptorBuilder.cpp"
-	"src/renderer/VolumeRenderer.cpp"
+	"src/renderer/VolumeRenderPhase.cpp"
+	"src/VolumeRenderPhaseProvider.cpp"
 	"src/render_system/fog/sync/SyncProvider.cpp"
 	"src/render_system/fog/sync/wait/GatherFromCO.cpp"
 	"src/render_system/fog/commands/Color.cpp"
@@ -90,12 +91,11 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/commands/PostMemoryBarrierContributor.cpp"
 	"src/render_system/fog/commands/Pass.cpp"
 	"src/renderer/distance/CreatePipelines.cpp"
-	"src/renderer/finalization/Windowed.cpp"
-	"src/renderer/finalization/Headless.cpp"
 	"src/render_system/fog/commands/Distance.cpp"
 	"src/render_system/fog/commands/ComputeContributor.cpp"
 	"src/VisibilityDistanceCompute.cpp"
-	"src/OffscreenRenderer.cpp"
+	"src/OffscreenRenderPhase.cpp"
+	"src/OffscreenRenderPhaseProvider.cpp"
 	"src/ScreenMaterial.cpp"
 	"src/CameraInfo.cpp"
 	"src/Screen.cpp"
@@ -133,7 +133,6 @@ set(${PROJECT_NAME}_SOURCES
 	"src/service/detail/image_metric_manager/SharedBufferWriteDistanceMaskPayload.cpp"
 	"src/service/detail/image_metric_manager/SharedBufferWriteValidityMaskPayload.cpp"
 	"src/render_system/fog/FogDispatcher.cpp"
-	"src/render_system/FogDispatcherBuilder.cpp"
 	"src/render_system/fog/sync/signal/CalcFromFt.cpp"
 	"src/render_system/fog/ChunkOrchestrator.cpp"
 	"src/render_system/fog/sync/wait/WaitForPreviousChunk.cpp"
@@ -165,6 +164,8 @@ set(${PROJECT_NAME}_SOURCES
 	"src/loader/SceneDescription.cpp" 
 	"src/util/Color.cpp" 
 	"src/service/detail/image_metric_manager/ImageMetrics_json.cpp"
+	"src/renderer/finalization/HeadlessPhase.cpp"
+	"src/renderer/finalization/HeadlessPhaseProvider.cpp"
 )
 
 set(${PROJECT_NAME}_HEADERS 
@@ -188,12 +189,10 @@ set(${PROJECT_NAME}_HEADERS
 	"include/Volume.hpp"
  	"include/renderer/volume/ContainerRenderResourceData.hpp"
 	"include/renderer/volume/DescriptorBuilder.hpp"
-	"include/renderer/VolumeRenderer.hpp"
+	"include/renderer/VolumeRenderPhase.hpp"
+	"include/VolumeRenderPhaseProvider.hpp"
 	"include/renderer/distance/CreatePipelines.hpp"
-	"include/renderer/finalization/Headless.hpp"
-	"include/renderer/finalization/Windowed.hpp"
 	"include/VisibilityDistanceCompute.hpp"
-	"include/OffscreenRenderer.hpp"
 	"include/ScreenMaterial.hpp"
 	"include/CameraInfo.hpp"
 	"include/Screen.hpp"
@@ -246,6 +245,8 @@ set(${PROJECT_NAME}_HEADERS
 	"include/service/detail/image_metric_manager/ImageFilesInfo_json.hpp"
 	"include/service/detail/image_metric_manager/DistanceMaskImages.hpp"
 	"include/service/detail/image_metric_manager/DistanceMaskImages_json.hpp"
+	"include/renderer/finalization/HeadlessPhase.hpp"
+	"include/renderer/finalization/HeadlessPhaseProvider.hpp"
 )
 
 add_library(${PROJECT_NAME}_lib 
@@ -455,7 +456,7 @@ install(TARGETS ${PROJECT_NAME}
             ".*libc\\.so\\..*" ".*libm\\.so\\..*" ".*libpthread\\.so\\..*"
             ".*librt\\.so\\..*" ".*libdl\\.so\\..*" ".*libresolv\\.so\\..*"
             ".*ld-linux-.*\\.so\\..*" ".*libnss_.*\\.so\\..*"
-            # (Optional) exclude libgcc_s if you’ll link it statically below
+            # (Optional) exclude libgcc_s if youÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ll link it statically below
             ".*libgcc_s\\.so\\..*"
         POST_EXCLUDE_REGEXES
             # Same as above to be safe
