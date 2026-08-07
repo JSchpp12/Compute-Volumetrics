@@ -100,11 +100,11 @@ static star::Handle BuildPipeline(const std::filesystem::path &shaderDir, const 
 {
     const auto fPath = shaderDir / shaderFile;
     auto handle = graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{
-        star::StarPipeline(star::StarPipeline::ComputePipelineConfigSettings(), computePipelineLayout,
-                           std::vector<star::Handle>{
-                               graphicsManagers->shaderManager->submit(star::core::device::manager::ShaderRequest{
-                                   star::StarShader(fPath.string(), star::Shader_Stage::compute),
-                                   star::Compiler("PNANOVDB_GLSL")})})});
+        star::PipelineProvider(
+            graphicsManagers->shaderManager->submit(star::core::device::manager::ShaderRequest{
+                star::StarShader(fPath.string(), star::Shader_Stage::compute),
+                star::Compiler("PNANOVDB_GLSL")}),
+            computePipelineLayout)});
 
     return handle;
 }

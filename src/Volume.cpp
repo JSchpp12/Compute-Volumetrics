@@ -230,7 +230,7 @@ std::vector<star::StarMesh> Volume::loadMeshes(star::core::device::DeviceContext
     std::vector<uint32_t> inds{0, 3, 2, 0, 2, 1};
 
     star::Handle vertBuffer = star::ManagerRenderResource::addRequest(
-        context.getDeviceID(), std::make_unique<star::TransferRequest::VertInfo>(this->graphicsQueueFamily, verts));
+        context.getDeviceID(), std::make_unique<star::TransferRequest::VertInfo<>>(this->graphicsQueueFamily, verts));
 
     star::Handle indBuffer = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), std::make_unique<star::TransferRequest::IndicesInfo>(this->graphicsQueueFamily, inds));

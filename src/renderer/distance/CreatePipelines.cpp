@@ -71,8 +71,8 @@ static star::Handle BuildPipeline(vk::PipelineLayout computePipelineLayout,
     auto shaderRequest = graphicsManagers.shaderManager->submit(star::core::device::manager::ShaderRequest{
         star::StarShader(shaderPath.string(), star::Shader_Stage::compute), star::Compiler("PNANOVDB_GLSL")});
 
-    return graphicsManagers.pipelineManager->submit(star::core::device::manager::PipelineRequest{star::StarPipeline{
-        star::StarPipeline::ComputePipelineConfigSettings(), computePipelineLayout, {std::move(shaderRequest)}}});
+    return graphicsManagers.pipelineManager->submit(star::core::device::manager::PipelineRequest{
+        star::PipelineProvider{std::move(shaderRequest), computePipelineLayout}});
 }
 
 static vk::PipelineLayout BuildPipelineLayout(std::array<vk::DescriptorSetLayout, 2> sharedStaticSet,

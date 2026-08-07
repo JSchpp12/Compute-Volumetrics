@@ -48,7 +48,7 @@ bool VisibilityDistanceCompute::isReady(const star::core::device::DeviceContext 
 void VisibilityDistanceCompute::updateRenderingContext(const star::core::device::DeviceContext &context)
 {
     const auto *record = context.getPipelineManager().get(m_marchedPipeline.handle);
-    m_marchedPipeline.vkPipeline = record->request.pipeline.getVulkanPipeline();
+    m_marchedPipeline.vkPipeline = record->builtPipeline.getVulkanPipeline();
 }
 
 void VisibilityDistanceCompute::recordCommandBuffer(vk::CommandBuffer commandBuffer,

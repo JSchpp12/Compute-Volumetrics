@@ -16,18 +16,16 @@
 
 static int runWindow(std::unique_ptr<config::AppConfigInfo> cfg)
 {
-    InteractiveMode interactiveInstance{};
-    return interactiveInstance.run(std::move(cfg));
-
-    //try
-    //{
-
-    //}
-    //catch (const std::exception &ex)
-    //{
-    //    std::cerr << "Fatal exception encountered: " << ex.what() << std::endl;
-    //    std::exit(EXIT_FAILURE);
-    //}
+    try
+    {
+        InteractiveMode interactiveInstance{};
+        return interactiveInstance.run(std::move(cfg));
+    }
+    catch (const std::exception &ex)
+    {
+        std::cerr << "Fatal exception encountered: " << ex.what() << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 #else

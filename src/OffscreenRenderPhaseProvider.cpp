@@ -43,8 +43,8 @@ OffscreenRenderPhaseProvider::OffscreenRenderPhaseProvider(star::core::device::D
     m_config.waitStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
 }
 
-std::unique_ptr<star::core::renderer::RenderPhase>
-OffscreenRenderPhaseProvider::build(star::core::device::DeviceContext &device, star::core::renderer::RenderPhaseRegistry &phases)
+std::unique_ptr<star::core::renderer::RenderPhase> OffscreenRenderPhaseProvider::build(
+    star::core::device::DeviceContext &device, star::core::renderer::RenderPhaseRegistry &phases)
 {
     auto &c = device;
     auto phase = std::make_unique<OffscreenRenderPhase>();

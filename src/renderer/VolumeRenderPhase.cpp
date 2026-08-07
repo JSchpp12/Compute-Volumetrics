@@ -291,25 +291,22 @@ void VolumeRenderPhase::updateRenderingContext(star::core::device::DeviceContext
     switch (this->currentFogType)
     {
     case (Fog::Type::sMarched):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->marchedPipeline)->request.pipeline;
+        m_renderingContext.pipeline = &context.getPipelineManager().get(this->marchedPipeline)->builtPipeline;
         break;
     case (Fog::Type::sLinear):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->linearPipeline)->request.pipeline;
+        m_renderingContext.pipeline = &context.getPipelineManager().get(this->linearPipeline)->builtPipeline;
         break;
     case (Fog::Type::sExponential):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->expPipeline)->request.pipeline;
+        m_renderingContext.pipeline = &context.getPipelineManager().get(this->expPipeline)->builtPipeline;
         break;
     case (Fog::Type::sMarchedHomogenous):
-        m_renderingContext.pipeline =
-            &context.getPipelineManager().get(this->marchedHomogenousPipeline)->request.pipeline;
+        m_renderingContext.pipeline = &context.getPipelineManager().get(this->marchedHomogenousPipeline)->builtPipeline;
         break;
     case (Fog::Type::sNanoBoundingBox):
-        m_renderingContext.pipeline =
-            &context.getPipelineManager().get(this->nanoVDBPipeline_hitBoundingBox)->request.pipeline;
+        m_renderingContext.pipeline = &context.getPipelineManager().get(this->nanoVDBPipeline_hitBoundingBox)->builtPipeline;
         break;
     case (Fog::Type::sNanoSurface):
-        m_renderingContext.pipeline =
-            &context.getPipelineManager().get(this->nanoVDBPipeline_surface)->request.pipeline;
+        m_renderingContext.pipeline = &context.getPipelineManager().get(this->nanoVDBPipeline_surface)->builtPipeline;
         break;
     default:
         throw std::runtime_error("Unsupported type");
