@@ -53,9 +53,9 @@ layout(binding = 2, set = 0) readonly buffer globalLightBuffer
 layout(binding = 0, set = 2) uniform sampler2D textureSampler;
 
 // Constant terrain material.
-const vec3 MAT_AMBIENT = vec3(1.0);
-const vec3 MAT_DIFFUSE = vec3(1.0);
-const vec3 MAT_SPECULAR = vec3(1.0);
+const vec3 MAT_AMBIENT = vec3(2.0);
+const vec3 MAT_DIFFUSE = vec3(2.0);
+const vec3 MAT_SPECULAR = vec3(2.0);
 const float MAT_SHININESS = 32.0;
 
 Light_Type createLightTypeStruct()
