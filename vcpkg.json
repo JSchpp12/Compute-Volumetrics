@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "compute-volumetrics",
   "version-string": "1.0.0",
   "dependencies": [
@@ -6,8 +6,7 @@
     {
       "name": "openvdb",
       "features": [
-        "nanovdb",
-        "nanovdb-tools"
+        "nanovdb"
       ]
     },
     "abseil",
@@ -32,12 +31,7 @@
     },
     {
       "name": "gdal",
-      "default-features": false,
-      "features": [
-        "recommended-features",
-        "curl",
-        "geos"
-      ]
+      "default-features": false
     },
     {
       "name": "tiff",
