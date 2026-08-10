@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.1.18
+	VERSION 1.1.19
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -337,10 +337,6 @@ target_link_libraries(${PROJECT_NAME}
 
 set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
 
-# StarlightAppBuilder was previously a git submodule at extern/StarlightAppBuilder.
-# It is cloned from GitHub into a throwaway directory, pip-installed into the
-# interpreter's site-packages (the wheel carries everything it needs), then the
-# clone is removed. Re-runs only when the stamp is missing.
 find_package(Git REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
@@ -354,7 +350,6 @@ add_custom_command(
 			"https://github.com/JSchpp12/StarlightAppBuilder.git"
 			"${STARLIGHT_APP_BUILDER_SRC}"
 	COMMAND ${Python3_EXECUTABLE} -m pip install --upgrade "${STARLIGHT_APP_BUILDER_SRC}"
-	COMMAND ${CMAKE_COMMAND} -E rm -rf "${STARLIGHT_APP_BUILDER_SRC}"
 	COMMAND ${CMAKE_COMMAND} -E touch "${STARLIGHT_APP_BUILDER_STAMP}"
 	WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 	COMMENT "Fetching and installing StarlightAppBuilder"
@@ -456,7 +451,7 @@ install(TARGETS ${PROJECT_NAME}
             ".*libc\\.so\\..*" ".*libm\\.so\\..*" ".*libpthread\\.so\\..*"
             ".*librt\\.so\\..*" ".*libdl\\.so\\..*" ".*libresolv\\.so\\..*"
             ".*ld-linux-.*\\.so\\..*" ".*libnss_.*\\.so\\..*"
-            # (Optional) exclude libgcc_s if youÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ll link it statically below
+            # (Optional) exclude libgcc_s
             ".*libgcc_s\\.so\\..*"
         POST_EXCLUDE_REGEXES
             # Same as above to be safe
