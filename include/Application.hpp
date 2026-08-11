@@ -53,6 +53,7 @@ class Application : public star::StarApplication
     std::shared_ptr<std::vector<star::Light>> m_mainLight;
     star::Handle m_finalizationPhaseHandle;
     star::Handle m_volumePhaseHandle;
+    star::Handle m_volumeShadowPhaseHandle;
     VolumeRenderingOptions m_volumeOptions;
 
     bool m_flipScreenshotState = false;

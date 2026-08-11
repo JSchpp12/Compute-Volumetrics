@@ -3,6 +3,7 @@
 #include "DeclareDependentPasses.hpp"
 #include "OffscreenRenderPhase.hpp"
 #include "OffscreenRenderPhaseProvider.hpp"
+#include "VolumeShadowRenderPhaseProvider.hpp"
 #include "command/image_metrics/GetTransferCopyPass.hpp"
 #include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
@@ -55,7 +56,6 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
                       .setTimelineSemaphore(volume.getRenderer().getTimelineSemaphores()[ii])
                       .setSignalValue(value));
 }
-
 
 std::vector<std::shared_ptr<star::StarObject>> Application::createOffscreenObjects(
     star::core::device::DeviceContext &context, std::shared_ptr<star::StarCamera> camera,
@@ -236,6 +236,12 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         // build), then the finalization phase.
         m_offscreenPhaseHandle = m_mainScene->addProvider(std::move(offscreenProvider));
         m_volume->getProvider().setOffscreenPhaseHandle(m_offscreenPhaseHandle);
+
+        auto volumeShadowProvider = std::make_unique<VolumeShadowRenderPhaseProvider>(
+            m_offscreenFrameData, m_offscreenPhaseHandle, m_mainScene->getCamera().get(),
+            /*enableShadowCasting=*/false);
+        m_volumeShadowPhaseHandle = m_mainScene->addProvider(std::move(volumeShadowProvider));
+
         m_volumePhaseHandle = m_mainScene->addProvider(m_volume->takePhaseProvider());
         m_volume->setVolumePhase(m_mainScene.get(), m_volumePhaseHandle);
         m_finalizationPhaseHandle = m_mainScene->addProvider(std::move(mainRendererProvider));
@@ -249,7 +255,8 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         .build();
 
     DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
-        .setConsumer([this]() -> star::Handle { return getFinalizationCommandBuffer(); }) // final square screen renderer thing
+        .setConsumer(
+            [this]() -> star::Handle { return getFinalizationCommandBuffer(); }) // final square screen renderer thing
         .setProducer([this]() -> star::Handle { return m_volume->getRenderer().getCommandBuffer(); }) // volume
         .build();
 
@@ -267,10 +274,9 @@ void Application::submitPasses(star::core::device::DeviceContext &context)
     auto &cmdBus = context.getCmdBus();
     TriggerSubmissionOfCompute(cmdBus, context.getSemaphoreManager(), context.getEventBus(), *m_volume,
                                context.frameTracker());
-    TriggerSubmissionOfTerrainDraw(context.getManagerCommandBuffer().m_manager, context.getCmdBus(),
-                                   context.frameTracker(),
-                                   static_cast<const OffscreenRenderPhase &>(
-                                       *m_mainScene->getPhase(m_offscreenPhaseHandle)));
+    TriggerSubmissionOfTerrainDraw(
+        context.getManagerCommandBuffer().m_manager, context.getCmdBus(), context.frameTracker(),
+        static_cast<const OffscreenRenderPhase &>(*m_mainScene->getPhase(m_offscreenPhaseHandle)));
 }
 
 void Application::initImageOutputDir(star::core::CommandBus &bus)
@@ -390,9 +396,8 @@ std::unique_ptr<star::core::renderer::IRenderPhaseProvider> Application::createM
     star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
     std::shared_ptr<star::StarCamera> camera)
 {
-    return std::make_unique<renderer::finalization::HeadlessPhaseProvider>(context, std::move(objects),
-                                                                            m_offscreenFrameData,
-                                                                            vk::PipelineStageFlagBits::eAllCommands);
+    return std::make_unique<renderer::finalization::HeadlessPhaseProvider>(
+        context, std::move(objects), m_offscreenFrameData, vk::PipelineStageFlagBits::eAllCommands);
 }
 
 star::Handle Application::getFinalizationCommandBuffer()

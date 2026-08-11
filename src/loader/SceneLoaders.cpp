@@ -6,30 +6,34 @@
 #include <star_terrain/rendering/FromTerrainDirLoader.hpp>
 #include <star_terrain/rendering/TerrainObject.hpp>
 
+#include <starlight/ShaderResolver.hpp>
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/debug/DebugPrimitives.hpp>
 #include <starlight/object/BasicObject.hpp>
 #include <starlight/primitive/SquareObject.hpp>
-#include <starlight/ShaderResolver.hpp>
 
 namespace loader
 {
-static std::shared_ptr<star::StarObject> LoadTerrain(star::core::device::DeviceContext &ctx,
-                                                     const std::filesystem::path &mediaDirPath,
-                                                     const std::filesystem::path &terrainPath)
+static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarObject>> LoadTerrain(
+    star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
+    const std::filesystem::path &terrainPath)
 {
+    // create terrain geometry definition
+    const std::filesystem::path terrainDir = mediaDirPath / "shaders" / "terrain";
+
+    // share between them
     star::terrain::TerrainObjectDefinition def{
         .terrainDir = terrainPath,
-        .vertShaderPath = mediaDirPath / "shaders" / "terrain" / "color.vert",
-        .fragShaderPath = mediaDirPath / "shaders" / "terrain" / "color.frag",
+        .vertShaderPath = terrainDir / "color.vert",
+        .fragShaderPath = terrainDir / "color.frag",
         .renderType = star::terrain::rendering::Type::Real,
     };
 
     star::ShaderResolver terrainResolver = star::ShaderResolver::Builder{ctx.getCmdBus()}
-        .setShader(star::Shader_Stage::vertex, def.vertShaderPath.string())
-        .setShader(star::Shader_Stage::fragment, def.fragShaderPath.string())
-        .build();
+                                               .setShader(star::Shader_Stage::vertex, def.vertShaderPath.string())
+                                               .setShader(star::Shader_Stage::fragment, def.fragShaderPath.string())
+                                               .build();
 
     auto cmd = star::command::CreateObject::Builder()
                    .setLoader(std::make_unique<star::terrain::FromTerrainDirLoader>(ctx, std::move(def)))
@@ -44,7 +48,9 @@ static std::shared_ptr<star::StarObject> LoadTerrain(star::core::device::DeviceC
     ctx.getCmdBus().submit(image_metrics::RegisterTerrainRecordInfo{}
                                .setTerrainHeightFilePath(terrain->getShapeFilePath())
                                .setTerrainRenderingType(terrain->getRenderingType()));
-    return cmd.getReply().get();
+    auto colorTerrain = cmd.getReply().get();
+
+    return std::make_pair(std::move(colorTerrain), nullptr);
 }
 
 static std::vector<star::Color> CreateNeonColors(std::size_t count)
@@ -84,7 +90,7 @@ static DebugCubeComponent LoadCube(star::core::device::DeviceContext &ctx, size_
 }
 
 static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceContext &ctx,
-                                                    const std::filesystem::path &mediaPath)
+                                                   const std::filesystem::path &mediaPath)
 {
 
     auto horsePath = mediaPath / "models" / "horse" / "WildHorse.obj";

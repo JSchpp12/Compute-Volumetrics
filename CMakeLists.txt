@@ -24,12 +24,11 @@ if (STAR_ENABLE_WARNINGS)
 			-Wextra
 			-Wpedantic
 			-Wconversion
-			-g
 		)
 	endif()
 
 	if (MSVC)
-		add_compile_options(/W4 /Zi)
+		add_compile_options(/W4)
 	endif()
 endif()
 
@@ -83,7 +82,9 @@ set(${PROJECT_NAME}_SOURCES
  	"src/renderer/volume/ContainerRenderResourceData.cpp"
 	"src/renderer/volume/DescriptorBuilder.cpp"
 	"src/renderer/VolumeRenderPhase.cpp"
+	"src/renderer/VolumeShadowRenderPhase.cpp"
 	"src/VolumeRenderPhaseProvider.cpp"
+	"src/VolumeShadowRenderPhaseProvider.cpp"
 	"src/render_system/fog/sync/SyncProvider.cpp"
 	"src/render_system/fog/sync/wait/GatherFromCO.cpp"
 	"src/render_system/fog/commands/Color.cpp"
@@ -190,7 +191,9 @@ set(${PROJECT_NAME}_HEADERS
  	"include/renderer/volume/ContainerRenderResourceData.hpp"
 	"include/renderer/volume/DescriptorBuilder.hpp"
 	"include/renderer/VolumeRenderPhase.hpp"
+	"include/renderer/VolumeShadowRenderPhase.hpp"
 	"include/VolumeRenderPhaseProvider.hpp"
+	"include/VolumeShadowRenderPhaseProvider.hpp"
 	"include/renderer/distance/CreatePipelines.hpp"
 	"include/VisibilityDistanceCompute.hpp"
 	"include/ScreenMaterial.hpp"
@@ -256,6 +259,9 @@ add_library(${PROJECT_NAME}_lib
 target_include_directories(${PROJECT_NAME}_lib 
 	PUBLIC include
 )
+if(TARGET starlight)
+    target_precompile_headers(${PROJECT_NAME}_lib REUSE_FROM starlight)
+endif()
 if (WIN32)
 	cmake_policy(SET CMP0091 NEW)
 
