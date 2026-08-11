@@ -259,8 +259,8 @@ add_library(${PROJECT_NAME}_lib
 target_include_directories(${PROJECT_NAME}_lib 
 	PUBLIC include
 )
-if(TARGET starlight)
-    target_precompile_headers(${PROJECT_NAME}_lib REUSE_FROM starlight)
+if(COMMAND star_add_pch)
+    star_add_pch(${PROJECT_NAME}_lib)
 endif()
 if (WIN32)
 	cmake_policy(SET CMP0091 NEW)

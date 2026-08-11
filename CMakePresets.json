@@ -1,0 +1,198 @@
+{
+    "version": 6,
+    "configurePresets": [
+        {
+            "name": "vcpkg",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/extern/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "VCPKG_ROOT": "${sourceDir}/extern/vcpkg"
+            }
+        },
+        {
+            "name": "msvc-base",
+            "hidden": true,
+            "inherits": "vcpkg",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl.exe",
+                "CMAKE_CXX_COMPILER": "cl.exe"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "ninja-base",
+            "hidden": true,
+            "inherits": "msvc-base",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "environment": {
+                "VCPKG_VISUAL_STUDIO_PATH": "C:/Program Files/Microsoft Visual Studio/18/Community",
+                "VCPKG_DEFAULT_TRIPLET": "x64-windows"
+            }
+        },
+        {
+            "name": "x64-vs2026",
+            "hidden": true,
+            "generator": "Visual Studio 18 2026",
+            "toolset": "host=x64",
+            "architecture": "x64",
+            "inherits": "vcpkg",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "environment": {
+                "VCPKG_VISUAL_STUDIO_PATH": "C:/Program Files/Microsoft Visual Studio/18/Community",
+                "VCPKG_DEFAULT_TRIPLET": "x64-windows"
+            }
+        },
+        {
+            "name": "x64-26-Debug",
+            "displayName": "VS 26 - Debug",
+            "inherits": "x64-vs2026",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "HEADLESS": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "windowed",
+                "BUILD_UNIT_TESTS": "ON"
+            }
+        },
+        {
+            "name": "x64-26-Debug-H",
+            "displayName": "VS 26 - Debug Headless",
+            "inherits": "x64-vs2026",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "HEADLESS": "ON",
+                "BUILD_UNIT_TESTS": "ON"
+            }
+        },
+        {
+            "name": "x64-26-Release",
+            "displayName": "VS 26 - Release",
+            "inherits": "x64-vs2026",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "HEADLESS": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "windowed"
+            }
+        },
+        {
+            "name": "x64-26-RelWithDebInfo",
+            "displayName": "VS 26 - RelWithDebInfo",
+            "inherits": "x64-vs2026",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "HEADLESS": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "windowed"
+            }
+        },
+        {
+            "name": "x64-26-Release-H",
+            "displayName": "VS 26 - Release Headless",
+            "inherits": "x64-vs2026",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "HEADLESS": "ON"
+            }
+        },
+        {
+            "name": "x64-26-Debug-Ninja",
+            "displayName": "Ninja - Debug",
+            "inherits": "ninja-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "HEADLESS": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "windowed",
+                "BUILD_UNIT_TESTS": "ON"
+            }
+        },
+        {
+            "name": "x64-26-Debug-H-Ninja",
+            "displayName": "Ninja - Debug Headless",
+            "inherits": "ninja-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "HEADLESS": "ON",
+                "BUILD_UNIT_TESTS": "ON"
+            }
+        },
+        {
+            "name": "x64-26-Release-Ninja",
+            "displayName": "Ninja - Release",
+            "inherits": "ninja-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "HEADLESS": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "windowed"
+            }
+        },
+        {
+            "name": "x64-26-RelWithDebInfo-Ninja",
+            "displayName": "Ninja - RelWithDebInfo",
+            "inherits": "ninja-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "HEADLESS": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "windowed"
+            }
+        },
+        {
+            "name": "x64-26-Release-H-Ninja",
+            "displayName": "Ninja - Release Headless",
+            "inherits": "ninja-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "HEADLESS": "ON"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "x64-26-debug",
+            "configurePreset": "x64-26-Debug",
+            "configuration": "Debug"
+        },
+        {
+            "name": "x64-26-debug-h",
+            "configurePreset": "x64-26-Debug-H",
+            "configuration": "Debug"
+        },
+        {
+            "name": "x64-26-release",
+            "configurePreset": "x64-26-Release",
+            "configuration": "Release"
+        },
+        {
+            "name": "x64-26-RelWithDebInfo",
+            "configurePreset": "x64-26-RelWithDebInfo",
+            "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "x64-26-release-h",
+            "configurePreset": "x64-26-Release-H",
+            "configuration": "Release"
+        },
+        {
+            "name": "x64-26-debug-ninja",
+            "configurePreset": "x64-26-Debug-Ninja"
+        },
+        {
+            "name": "x64-26-debug-h-ninja",
+            "configurePreset": "x64-26-Debug-H-Ninja"
+        },
+        {
+            "name": "x64-26-release-ninja",
+            "configurePreset": "x64-26-Release-Ninja"
+        },
+        {
+            "name": "x64-26-RelWithDebInfo-ninja",
+            "configurePreset": "x64-26-RelWithDebInfo-Ninja"
+        },
+        {
+            "name": "x64-26-release-h-ninja",
+            "configurePreset": "x64-26-Release-H-Ninja"
+        }
+    ]
+}
