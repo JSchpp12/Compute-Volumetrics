@@ -21,8 +21,8 @@ static std::shared_ptr<star::StarObject> LoadTerrain(star::core::device::DeviceC
 {
     star::terrain::TerrainObjectDefinition def{
         .terrainDir = terrainPath,
-        .vertShaderPath = mediaDirPath / "shaders" / "terrain" / "terrain.vert",
-        .fragShaderPath = mediaDirPath / "shaders" / "terrain" / "terrain.frag",
+        .vertShaderPath = mediaDirPath / "shaders" / "terrain" / "color.vert",
+        .fragShaderPath = mediaDirPath / "shaders" / "terrain" / "color.frag",
         .renderType = star::terrain::rendering::Type::Real,
     };
 
