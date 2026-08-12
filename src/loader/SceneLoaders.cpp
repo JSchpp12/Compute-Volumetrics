@@ -15,20 +15,15 @@
 
 namespace loader
 {
-static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarObject>> LoadTerrain(
-    star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
-    const std::filesystem::path &terrainPath)
-{
-    // create terrain geometry definition
-    const std::filesystem::path terrainDir = mediaDirPath / "shaders" / "terrain";
 
-    // share between them
-    star::terrain::TerrainObjectDefinition def{
-        .terrainDir = terrainPath,
-        .vertShaderPath = terrainDir / "color.vert",
-        .fragShaderPath = terrainDir / "color.frag",
-        .renderType = star::terrain::rendering::Type::Real,
-    };
+static std::shared_ptr<star::StarObject> SubmitInitTerrain(star::core::device::DeviceContext &ctx,
+                                                           star::terrain::TerrainGeometryDefinition geomDef,
+                                                           std::filesystem::path vertShader,
+                                                           std::filesystem::path fragShader, std::string name)
+{
+    star::terrain::TerrainObjectDefinition def{.geometry = std::move(geomDef),
+                                               .vertShaderPath = std::move(vertShader),
+                                               .fragShaderPath = std::move(fragShader)};
 
     star::ShaderResolver terrainResolver = star::ShaderResolver::Builder{ctx.getCmdBus()}
                                                .setShader(star::Shader_Stage::vertex, def.vertShaderPath.string())
@@ -38,19 +33,37 @@ static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarOb
     auto cmd = star::command::CreateObject::Builder()
                    .setLoader(std::make_unique<star::terrain::FromTerrainDirLoader>(ctx, std::move(def)))
                    .setShaderResolver(std::move(terrainResolver))
-                   .setUniqueName("terrain")
+                   .setUniqueName(std::move(name))
                    .build();
     ctx.begin().set(cmd).submit();
     cmd.getReply().get()->init(ctx);
+    return cmd.getReply().get();
+}
+
+static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarObject>> LoadTerrain(
+    star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
+    const std::filesystem::path &terrainPath)
+{
+    // create terrain geometry definition
+    auto geometry = star::terrain::TerrainGeometryDefinition::Builder(ctx)
+                        .setTerrainDir(terrainPath)
+                        .setRenderType(star::terrain::rendering::Type::Real)
+                        .build();
+
+    const std::filesystem::path terrainShaderDir = mediaDirPath / "shaders" / "terrain";
+    // share between them
+    auto colorTerrain = SubmitInitTerrain(ctx, geometry, terrainShaderDir / "color.vert",
+                                          terrainShaderDir / "color.frag", "terrain_color");
+    auto shadowTerrain = SubmitInitTerrain(ctx, geometry, terrainShaderDir / "shadow_cast.vert",
+                                           terrainShaderDir / "shadow_cast.frag", "terrain_depth");
 
     // register the terrain information with the image metric manager for cache
-    const auto *terrain = static_cast<const star::terrain::TerrainObject *>(cmd.getReply().get().get());
+    const auto *terrain = static_cast<const star::terrain::TerrainObject *>(colorTerrain.get());
     ctx.getCmdBus().submit(image_metrics::RegisterTerrainRecordInfo{}
                                .setTerrainHeightFilePath(terrain->getShapeFilePath())
                                .setTerrainRenderingType(terrain->getRenderingType()));
-    auto colorTerrain = cmd.getReply().get();
 
-    return std::make_pair(std::move(colorTerrain), nullptr);
+    return std::make_pair(std::move(colorTerrain), std::move(shadowTerrain));
 }
 
 static std::vector<star::Color> CreateNeonColors(std::size_t count)
@@ -111,8 +124,8 @@ SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const 
     constexpr uint8_t numCubes{15};
 
     SceneDescription desc;
-    desc.addObject(LoadTerrain(ctx, mediaDirPath, terrainPath));
-    // desc.addObject(LoadHorse(ctx, mediaDirPath));
+    auto [colorTerrain, shadowMapTerrain] = LoadTerrain(ctx, mediaDirPath, terrainPath);
+    desc.addObject(std::move(colorTerrain));
     desc.addDebugCube(LoadCube(ctx, numCubes));
     return desc;
 }
@@ -121,7 +134,8 @@ SceneDescription ReleaseSceneLoader(star::core::device::DeviceContext &ctx, cons
                                     const std::filesystem::path &terrainPath)
 {
     SceneDescription desc;
-    desc.addObject(LoadTerrain(ctx, mediaDirPath, terrainPath));
+    auto [colorTerrain, shadowMapTerrain] = LoadTerrain(ctx, mediaDirPath, terrainPath);
+    desc.addObject(std::move(colorTerrain));
     return desc;
 }
 } // namespace loader
