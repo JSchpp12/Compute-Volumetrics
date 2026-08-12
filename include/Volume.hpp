@@ -12,8 +12,9 @@
 #include "VertColorMaterial.hpp"
 #include "Vertex.hpp"
 #include "VolumeDirectoryProcessor.hpp"
-#include "renderer/VolumeRenderPhase.hpp"
 #include "VolumeRenderPhaseProvider.hpp"
+#include "renderer/VolumeRenderPhase.hpp"
+
 
 namespace star
 {
@@ -163,8 +164,7 @@ class Volume : public star::StarObject
     uint32_t graphicsQueueFamily = 0;
 
     void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-                    std::shared_ptr<star::core::renderer::FrameData> frameData,
-                    bool enableCutoffHighlighting);
+                    std::shared_ptr<star::core::renderer::FrameData> frameData, bool enableCutoffHighlighting);
 
     void loadModel(star::core::device::DeviceContext &context, const std::string &filePath);
 

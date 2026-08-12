@@ -51,6 +51,7 @@ class Application : public star::StarApplication
     star::Handle m_offscreenPhaseHandle;
     std::shared_ptr<star::core::renderer::FrameData> m_offscreenFrameData;
     std::shared_ptr<std::vector<star::Light>> m_mainLight;
+    std::shared_ptr<star::StarObject> m_shadowTerrain;
     star::Handle m_finalizationPhaseHandle;
     star::Handle m_volumePhaseHandle;
     star::Handle m_volumeShadowPhaseHandle;
@@ -95,9 +96,9 @@ class Application : public star::StarApplication
 
     static int ProcessIntInput();
 
-    std::vector<std::shared_ptr<star::StarObject>> createOffscreenObjects(star::core::device::DeviceContext &context,
-                                                                          std::shared_ptr<star::StarCamera> camera,
-                                                                          const std::string &terrainPath);
+    std::vector<std::shared_ptr<star::StarObject>> parseSceneObjects(star::core::device::DeviceContext &context,
+                                                                     std::shared_ptr<star::StarCamera> camera,
+                                                                     const std::string &terrainPath);
 
     static star::Light CreateMainLight(glm::vec3 position);
 

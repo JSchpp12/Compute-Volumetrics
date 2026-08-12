@@ -128,6 +128,7 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     star::Handle m_initPipe;
     std::shared_ptr<star::core::renderer::FrameData> m_frameData;
     star::core::renderer::RenderPhase *m_offscreenPhase = nullptr;
+    star::core::renderer::RenderPhase *m_terrainShadowPhase = nullptr;
     star::core::renderer::RenderingContext m_renderingContext = star::core::renderer::RenderingContext();
     star::Handle cameraShaderInfo, vdbInfoFog, randomValueTexture;
     FogInfoController m_fogController;
@@ -161,13 +162,12 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                         const uint64_t &frameIndex);
 
-    static std::vector<std::pair<vk::DescriptorType, const uint32_t>> getDescriptorRequests(const int &numFramesInFlight);
+    static std::vector<std::pair<vk::DescriptorType, const uint32_t>> getDescriptorRequests(
+        const int &numFramesInFlight);
 
-    static std::vector<star::StarBuffers::Buffer> createComputeWriteToBuffers(star::core::device::DeviceContext &context,
-                                                                               const vk::Extent2D &screenSize,
-                                                                               const size_t &dataTypeSize,
-                                                                               const std::string &debugName,
-                                                                               const size_t &numToCreate);
+    static std::vector<star::StarBuffers::Buffer> createComputeWriteToBuffers(
+        star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &dataTypeSize,
+        const std::string &debugName, const size_t &numToCreate);
 
     void recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer, const uint8_t &frameinFlightIndex,
                                              const uint64_t &frameIndex);

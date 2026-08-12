@@ -11,6 +11,7 @@
 #include "renderer/finalization/HeadlessPhaseProvider.hpp"
 #include "util/Distance.hpp"
 
+#include <star_terrain/rendering/TerrainShadowRenderPhaseProvider.hpp>
 #include <starlight/ShaderResolver.hpp>
 #include <starlight/command/CreateLight.hpp>
 #include <starlight/command/CreateObject.hpp>
@@ -57,7 +58,7 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
                       .setSignalValue(value));
 }
 
-std::vector<std::shared_ptr<star::StarObject>> Application::createOffscreenObjects(
+std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
     star::core::device::DeviceContext &context, std::shared_ptr<star::StarCamera> camera,
     const std::string &terrainPath)
 {
@@ -67,6 +68,12 @@ std::vector<std::shared_ptr<star::StarObject>> Application::createOffscreenObjec
     const std::filesystem::path mediaPath{star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)};
 
     auto desc = m_loaderFn(context, mediaPath, terrainPath);
+
+    // The shadow-cast terrain is kept separate from the color object list so it
+    // can be routed to the terrain shadow render phase instead of the offscreen
+    // color phase.
+    m_shadowTerrain = desc.getShadowObject();
+
     objects.reserve(desc.getCount());
     for (uint32_t i{0}; i < desc.getCount(); i++)
     {
@@ -151,10 +158,14 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     }
 
     {
-        auto terrainObjects = createOffscreenObjects(context, camera, m_terrainDir);
+        auto terrainObjects = parseSceneObjects(context, camera, m_terrainDir);
         for (auto &object : terrainObjects)
         {
             allObjects.emplace_back(object);
+        }
+        if (m_shadowTerrain)
+        {
+            allObjects.emplace_back(m_shadowTerrain);
         }
 
         auto offscreenProvider =
@@ -230,17 +241,37 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
         auto mainRendererProvider = createMainRenderer(context, objects, camera);
         m_mainScene = std::make_shared<star::StarScene>(
-            star::star_scene::makeWaitForAllObjectsReadyPolicy(std::move(allObjects)), std::move(camera));
+            star::star_scene::makeWaitForAllObjectsReadyPolicy(std::move(allObjects)), camera);
+
+        auto terrainShadowProvider = std::make_unique<star::terrain::TerrainShadowRenderPhaseProvider>(
+            context, m_mainLight, camera, std::vector<std::shared_ptr<star::StarObject>>{m_shadowTerrain}, true,
+            star::Command_Buffer_Order_Index::second);
+        auto shadowHandle = m_mainScene->addProvider(std::move(terrainShadowProvider));
+        DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
+            .setConsumer(
+                [this]() -> star::Handle { return this->m_volume->getRenderer().getCommandBuffer(); }) // volume
+            .setProducer([this, shadowHandle]() -> star::Handle {
+                return m_mainScene->getPhase(shadowHandle)->getCommandBuffer();
+            }) // terrain
+            .build();
+
         // volume phase first (its compute images are bound onto the volume
         // StarObject's screen-quad material during the finalization phase
         // build), then the finalization phase.
         m_offscreenPhaseHandle = m_mainScene->addProvider(std::move(offscreenProvider));
         m_volume->getProvider().setOffscreenPhaseHandle(m_offscreenPhaseHandle);
+        m_volume->getProvider().setShadowTerrainPhaseHandle(shadowHandle);
 
-        auto volumeShadowProvider = std::make_unique<VolumeShadowRenderPhaseProvider>(
-            m_offscreenFrameData, m_offscreenPhaseHandle, m_mainScene->getCamera().get(),
-            /*enableShadowCasting=*/false);
-        m_volumeShadowPhaseHandle = m_mainScene->addProvider(std::move(volumeShadowProvider));
+        // auto volumeShadowProvider = std::make_unique<VolumeShadowRenderPhaseProvider>(
+        //     m_offscreenFrameData, m_offscreenPhaseHandle, m_mainScene->getCamera().get(),
+        // /*enableShadowCasting=*/false);
+        // auto shadowPhaseReg = m_mainScene->addProvider(std::move(volumeShadowProvider));
+        // DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
+        //     .setConsumer([this]() -> star::Handle { return this->m_volume->getRenderer().getCommandBuffer(); })
+        //     .setProducer([this, shadowPhaseReg]() -> star::Handle {
+        //         return this->m_mainScene->getPhase(shadowPhaseReg)->getCommandBuffer();
+        //     })
+        //     .build();
 
         m_volumePhaseHandle = m_mainScene->addProvider(m_volume->takePhaseProvider());
         m_volume->setVolumePhase(m_mainScene.get(), m_volumePhaseHandle);

@@ -34,8 +34,8 @@ class VolumeRenderPhaseProvider : public star::core::renderer::IRenderPhaseProvi
                               star::ManagerController::RenderResource::Buffer *instanceNormalInfo,
                               std::shared_ptr<star::core::renderer::FrameData> frameData,
                               star::Handle offscreenPhaseHandle, std::string vdbFilePath,
-                              std::shared_ptr<star::StarCamera> camera,
-                              const std::array<glm::vec4, 2> &aabbBounds, bool enableCutoffHighlighting);
+                              std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds,
+                              bool enableCutoffHighlighting);
 
     virtual ~VolumeRenderPhaseProvider() = default;
 
@@ -63,6 +63,10 @@ class VolumeRenderPhaseProvider : public star::core::renderer::IRenderPhaseProvi
     {
         m_offscreenPhaseHandle = std::move(handle);
     }
+    void setShadowTerrainPhaseHandle(star::Handle handle)
+    {
+        m_shadowTerrainPhaseHandle = std::move(handle);
+    }
 
     virtual std::unique_ptr<star::core::renderer::RenderPhase> build(
         star::core::device::DeviceContext &context, star::core::renderer::RenderPhaseRegistry &phases) override;
@@ -72,6 +76,7 @@ class VolumeRenderPhaseProvider : public star::core::renderer::IRenderPhaseProvi
     star::ManagerController::RenderResource::Buffer *m_infoManagerInstanceNormal{nullptr};
     std::shared_ptr<star::core::renderer::FrameData> m_frameData;
     star::Handle m_offscreenPhaseHandle{};
+    star::Handle m_shadowTerrainPhaseHandle{};
     std::string m_vdbFilePath;
     std::shared_ptr<star::StarCamera> m_camera;
     std::array<glm::vec4, 2> m_aabbBounds;

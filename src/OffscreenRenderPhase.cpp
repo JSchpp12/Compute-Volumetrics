@@ -3,6 +3,7 @@
 #include "Allocator.hpp"
 
 #include <starlight/command/command_order/DeclarePass.hpp>
+#include <starlight/core/renderer/EdgeSubmission.hpp>
 #include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
@@ -261,63 +262,10 @@ vk::Semaphore OffscreenRenderPhase::submitBuffer(star::StarCommandBuffer &buffer
                                                  std::vector<std::optional<uint64_t>> previousSignaledValues,
                                                  star::StarQueue &queue)
 {
-    const size_t ii = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
     assert(m_cmdBus != nullptr);
 
-    std::vector<vk::Semaphore> nSemaphore;
-    std::vector<uint64_t> nSemaphoreValues;
-    vk::Semaphore mySemaphore{VK_NULL_HANDLE};
-    uint64_t mySemaphoreSignalValue{0};
-    {
-        auto cmd = star::command_order::GetPassInfo{m_commandBuffer};
-        m_cmdBus->submit(cmd);
-        mySemaphore = cmd.getReply().get().signaledSemaphore;
-        mySemaphoreSignalValue = cmd.getReply().get().toSignalValue;
-
-        for (const auto &edge : *cmd.getReply().get().edges)
-        {
-            if (edge.producer == m_commandBuffer)
-            {
-                auto nCmd = star::command_order::GetPassInfo{edge.consumer};
-                m_cmdBus->submit(nCmd);
-
-                nSemaphore.emplace_back(nCmd.getReply().get().signaledSemaphore);
-                nSemaphoreValues.emplace_back(nCmd.getReply().get().currentSignalValue);
-            }
-        }
-    }
-
-    const auto cbInfo = vk::CommandBufferSubmitInfo().setCommandBuffer(
-        buffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()));
-
-    std::vector<vk::SemaphoreSubmitInfo> waitInfo;
-    for (size_t i{0}; i < nSemaphore.size(); i++)
-    {
-        waitInfo.push_back(vk::SemaphoreSubmitInfo()
-                               .setSemaphore(nSemaphore[i])
-                               .setValue(nSemaphoreValues[i])
-                               .setStageMask(vk::PipelineStageFlagBits2::eAllCommands));
-    }
-
-    assert(dataSemaphores.size() == dataWaitPoints.size());
-    for (size_t i{0}; i < dataWaitPoints.size(); i++)
-    {
-        waitInfo.emplace_back(vk::SemaphoreSubmitInfo()
-                                  .setSemaphore(dataSemaphores[i])
-                                  .setStageMask(vk::PipelineStageFlagBits2::eAllCommands));
-    }
-
-    vk::Semaphore binarySemaphore{buffer.getCompleteSemaphores()[ii]};
-    const vk::SemaphoreSubmitInfo signalInfo[1]{vk::SemaphoreSubmitInfo()
-                                                    .setSemaphore(mySemaphore)
-                                                    .setValue(mySemaphoreSignalValue)
-                                                    .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)};
-
-    const auto submitInfo =
-        vk::SubmitInfo2().setWaitSemaphoreInfos(waitInfo).setCommandBufferInfos(cbInfo).setSignalSemaphoreInfos(
-            signalInfo);
-
-    queue.getVulkanQueue().submit2(submitInfo);
-
-    return vk::Semaphore();
+    return star::core::renderer::submitEdgeAwarePass(*m_cmdBus, m_commandBuffer, buffer, frameTracker,
+                                                      previousCommandBufferSemaphores, dataSemaphores, dataWaitPoints,
+                                                      previousSignaledValues, queue,
+                                                      /*signalBinaryCompletion=*/false);
 }

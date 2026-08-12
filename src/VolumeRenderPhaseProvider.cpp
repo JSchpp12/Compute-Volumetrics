@@ -136,8 +136,9 @@ VolumeRenderPhaseProvider::VolumeRenderPhaseProvider(
     std::string vdbFilePath, std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds,
     bool enableCutoffHighlighting)
     : m_infoManagerInstanceModel(instanceManagerInfo), m_infoManagerInstanceNormal(instanceNormalInfo),
-      m_frameData(std::move(frameData)), m_offscreenPhaseHandle(std::move(offscreenPhaseHandle)), m_vdbFilePath(std::move(vdbFilePath)),
-      m_camera(std::move(camera)), m_aabbBounds(aabbBounds), m_enableCutoffHighlighting(enableCutoffHighlighting)
+      m_frameData(std::move(frameData)), m_offscreenPhaseHandle(std::move(offscreenPhaseHandle)),
+      m_vdbFilePath(std::move(vdbFilePath)), m_camera(std::move(camera)), m_aabbBounds(aabbBounds),
+      m_enableCutoffHighlighting(enableCutoffHighlighting)
 {
 }
 
@@ -150,15 +151,19 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     const size_t n = static_cast<size_t>(numFramesInFlight);
 
     auto phase = std::make_unique<VolumeRenderPhase>(m_enableCutoffHighlighting);
-
-    // --- init() equivalent ---
     phase->m_device = c.getDevice().getVulkanDevice();
     phase->m_cmdBus = &c.getCmdBus();
     phase->m_frameData = m_frameData;
+
     auto *offscreenPhase = phases.getPhase(m_offscreenPhaseHandle);
-    assert(offscreenPhase != nullptr &&
-           "offscreen render phase must be built before the volume render phase");
+    assert(offscreenPhase != nullptr && "offscreen render phase must be built before the volume render phase");
     phase->m_offscreenPhase = offscreenPhase;
+
+    {
+        auto *shadowPhase = phases.getPhase(m_shadowTerrainPhaseHandle);
+        assert(shadowPhase != nullptr && "shadow render phase must be built before the volume render phase");
+        phase->m_terrainShadowPhase = shadowPhase;
+    }
 
     phase->m_timelineSemaphores = CreateSemaphores(c.getEventBus(), c.frameTracker());
 
@@ -293,7 +298,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
             .recordBufferCallback = std::bind(&VolumeRenderPhase::recordCommandBuffer, phase.get(),
                                               std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
             .order = star::Command_Buffer_Order::before_render_pass,
-            .orderIndex = star::Command_Buffer_Order_Index::second,
+            .orderIndex = star::Command_Buffer_Order_Index::third,
             .type = star::Queue_Type::Tcompute,
             .waitStage = vk::PipelineStageFlagBits::eAllCommands,
             .willBeSubmittedEachFrame = true,
