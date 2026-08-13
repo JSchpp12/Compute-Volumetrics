@@ -179,8 +179,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     renderer::volume::ContainerRenderResourceData pipelineData{
         .inputs{.fogController = &phase->m_fogController,
                 .aabbInfoBuffers = &phase->aabbInfoBuffers,
-                .offscreenRenderToColors = &offscreenPhase->getRenderToColorImages(),
-                .offscreenRenderToDepths = &offscreenPhase->getRenderToDepthImages(),
+                .offscreenRenderToColors = &offscreenPhase->getRenderTargets().colorHandles(),
+                .offscreenRenderToDepths = &offscreenPhase->getRenderTargets().depthHandles(),
                 .instanceManagerInfo = m_infoManagerInstanceModel,
                 .instanceNormalInfo = m_infoManagerInstanceNormal,
                 .globalInfoBuffers = phase->m_frameData->controllerAt(0).get(),
@@ -311,9 +311,9 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
 
     for (size_t i = 0; i < n; i++)
     {
-        auto &ch = offscreenPhase->getRenderToColorImages()[i];
+        auto &ch = offscreenPhase->getRenderTargets().colorHandles()[i];
         phase->m_renderingContext.recordDependentImage.manualInsert(ch, &c.getImageManager().get(ch)->texture);
-        auto &dh = offscreenPhase->getRenderToDepthImages()[i];
+        auto &dh = offscreenPhase->getRenderTargets().depthHandles()[i];
         phase->m_renderingContext.recordDependentImage.manualInsert(dh, &c.getImageManager().get(dh)->texture);
     }
 

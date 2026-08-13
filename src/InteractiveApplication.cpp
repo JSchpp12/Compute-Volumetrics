@@ -460,7 +460,7 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
 
     // submit screenshot processing
     context.getEventBus().emit(
-        star::event::TriggerScreenshot(context.getImageManager().get(render->getRenderToColorImages()[index])->texture,
+        star::event::TriggerScreenshot(context.getImageManager().get(render->getRenderTargets().colorHandles()[index])->texture,
                                        path, render->getCommandBuffer(), m_screenshotRegistrations[index]));
 
     triggerImageRecord(context, frameTracker, name);

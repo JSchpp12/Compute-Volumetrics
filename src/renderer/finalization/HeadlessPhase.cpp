@@ -25,7 +25,7 @@ void HeadlessPhase::addMemoryBarriersPre(vk::CommandBuffer cmdBuffer, const star
 {
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
 
-    auto *cImage = m_renderingContext.recordDependentImage.get(m_renderToImages[ft.getCurrent().getFrameInFlightIndex()]);
+    auto *cImage = m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[ft.getCurrent().getFrameInFlightIndex()]);
 
     // assuming the volume renderer will always run
     if (ft.getCurrent().getNumTimesFrameProcessed() != 0)
@@ -52,7 +52,7 @@ void HeadlessPhase::addMemoryBarriersPre(vk::CommandBuffer cmdBuffer, const star
     else
     {
         auto *dImage =
-            m_renderingContext.recordDependentImage.get(m_renderToDepthImages[ft.getCurrent().getFrameInFlightIndex()]);
+            m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[ft.getCurrent().getFrameInFlightIndex()]);
         assert(dImage != nullptr && cImage != nullptr);
         vk::ImageMemoryBarrier2 imgBarriers[2]{
             vk::ImageMemoryBarrier2()

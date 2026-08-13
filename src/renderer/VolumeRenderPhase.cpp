@@ -117,11 +117,11 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
         .terrainPassInfo =
             {.renderToColor =
                  m_renderingContext.recordDependentImage
-                     .get(m_offscreenPhase->getRenderToColorImages()[ft.getCurrent().getFrameInFlightIndex()])
+                     .get(m_offscreenPhase->getRenderTargets().colorHandles()[ft.getCurrent().getFrameInFlightIndex()])
                      ->getVulkanImage(),
              .renderToDepth =
                  m_renderingContext.recordDependentImage
-                     .get(m_offscreenPhase->getRenderToDepthImages()[ft.getCurrent().getFrameInFlightIndex()])
+                     .get(m_offscreenPhase->getRenderTargets().depthHandles()[ft.getCurrent().getFrameInFlightIndex()])
                      ->getVulkanImage()},
         .computeWriteToImage = computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage(),
         .computeRayAtCutoffDistance =

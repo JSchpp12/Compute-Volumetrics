@@ -19,11 +19,14 @@ namespace loader
 static std::shared_ptr<star::StarObject> SubmitInitTerrain(star::core::device::DeviceContext &ctx,
                                                            star::terrain::TerrainGeometryDefinition geomDef,
                                                            std::filesystem::path vertShader,
-                                                           std::filesystem::path fragShader, std::string name)
+                                                           std::filesystem::path fragShader, std::string name,
+                                                           bool useGreyscale)
 {
     star::terrain::TerrainObjectDefinition def{.geometry = std::move(geomDef),
                                                .vertShaderPath = std::move(vertShader),
-                                               .fragShaderPath = std::move(fragShader)};
+                                               .fragShaderPath = std::move(fragShader),
+                                               .colorMode = useGreyscale ? star::terrain::ColoringMode::greyscale
+                                                                         : star::terrain::ColoringMode::color};
 
     star::ShaderResolver terrainResolver = star::ShaderResolver::Builder{ctx.getCmdBus()}
                                                .setShader(star::Shader_Stage::vertex, def.vertShaderPath.string())
@@ -53,9 +56,9 @@ static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarOb
     const std::filesystem::path terrainShaderDir = mediaDirPath / "shaders" / "terrain";
     // share between them
     auto colorTerrain = SubmitInitTerrain(ctx, geometry, terrainShaderDir / "color.vert",
-                                          terrainShaderDir / "color.frag", "terrain_color");
+                                          terrainShaderDir / "color.frag", "terrain_color", false);
     auto shadowTerrain = SubmitInitTerrain(ctx, geometry, terrainShaderDir / "shadow_cast.vert",
-                                           terrainShaderDir / "shadow_cast.frag", "terrain_depth");
+                                           terrainShaderDir / "shadow_cast.frag", "terrain_depth", true);
 
     // register the terrain information with the image metric manager for cache
     const auto *terrain = static_cast<const star::terrain::TerrainObject *>(colorTerrain.get());

@@ -10,8 +10,8 @@
 void OffscreenRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft)
 {
     const size_t index = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
-    star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderToImages[index]);
-    star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(m_renderToDepthImages[index]);
+    star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index]);
+    star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[index]);
 
     // need to transition the image from general to color attachment
     // also get ownership back
@@ -81,8 +81,8 @@ void OffscreenRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer &buffer
 void OffscreenRenderPhase::recordPostRenderingCalls(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft)
 {
     size_t index = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
-    star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderToImages[index]);
-    star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(m_renderToDepthImages[index]);
+    star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index]);
+    star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[index]);
 
     {
         std::array<const vk::ImageMemoryBarrier2, 2> toCompute{
@@ -226,7 +226,7 @@ vk::RenderingAttachmentInfo OffscreenRenderPhase::prepareDynamicRenderingInfoCol
     const size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
 
     return vk::RenderingAttachmentInfo()
-        .setImageView(m_renderingContext.recordDependentImage.get(m_renderToImages[index])->getImageView())
+        .setImageView(m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index])->getImageView())
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore)
@@ -247,7 +247,7 @@ vk::RenderingAttachmentInfo OffscreenRenderPhase::prepareDynamicRenderingInfoDep
 {
     const size_t i = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
     return vk::RenderingAttachmentInfoKHR()
-        .setImageView(m_renderingContext.recordDependentImage.get(m_renderToDepthImages[i])->getImageView())
+        .setImageView(m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[i])->getImageView())
         .setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore)
