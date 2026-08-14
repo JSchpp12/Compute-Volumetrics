@@ -3,15 +3,17 @@
 #include "Allocator.hpp"
 
 #include <starlight/command/command_order/DeclarePass.hpp>
-#include <starlight/core/renderer/EdgeSubmission.hpp>
 #include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
+#include <starlight/core/renderer/EdgeSubmission.hpp>
 
 void OffscreenRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft)
 {
     const size_t index = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
-    star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index]);
-    star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[index]);
+    star::StarTextures::Texture *colorTex =
+        m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index]);
+    star::StarTextures::Texture *depthTex =
+        m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[index]);
 
     // need to transition the image from general to color attachment
     // also get ownership back
@@ -76,13 +78,22 @@ void OffscreenRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer &buffer
     }
 
     buffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(prepImages));
+
+    if (firstFramePassCounter > 0)
+    {
+        firstFramePassCounter--;
+        if (firstFramePassCounter == 0)
+            isFirstPass = false;
+    }
 }
 
 void OffscreenRenderPhase::recordPostRenderingCalls(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft)
 {
     size_t index = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
-    star::StarTextures::Texture *colorTex = m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index]);
-    star::StarTextures::Texture *depthTex = m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[index]);
+    star::StarTextures::Texture *colorTex =
+        m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index]);
+    star::StarTextures::Texture *depthTex =
+        m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[index]);
 
     {
         std::array<const vk::ImageMemoryBarrier2, 2> toCompute{
@@ -226,7 +237,8 @@ vk::RenderingAttachmentInfo OffscreenRenderPhase::prepareDynamicRenderingInfoCol
     const size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
 
     return vk::RenderingAttachmentInfo()
-        .setImageView(m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index])->getImageView())
+        .setImageView(
+            m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index])->getImageView())
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore)
@@ -265,7 +277,7 @@ vk::Semaphore OffscreenRenderPhase::submitBuffer(star::StarCommandBuffer &buffer
     assert(m_cmdBus != nullptr);
 
     return star::core::renderer::submitEdgeAwarePass(*m_cmdBus, m_commandBuffer, buffer, frameTracker,
-                                                      previousCommandBufferSemaphores, dataSemaphores, dataWaitPoints,
-                                                      previousSignaledValues, queue,
-                                                      /*signalBinaryCompletion=*/false);
+                                                     previousCommandBufferSemaphores, dataSemaphores, dataWaitPoints,
+                                                     previousSignaledValues, queue,
+                                                     /*signalBinaryCompletion=*/false);
 }
