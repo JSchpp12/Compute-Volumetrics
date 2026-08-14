@@ -57,27 +57,9 @@ void OffscreenRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer &buffer
             .setSrcAccessMask(vk::AccessFlagBits2::eNone)
             .setSrcQueueFamilyIndex(this->computeQueueFamilyIndex)
             .setDstQueueFamilyIndex(this->graphicsQueueFamilyIndex);
-    }
-    else
-    {
-        prepImages[0]
-            .setOldLayout(vk::ImageLayout::eUndefined)
-            .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored);
 
-        prepImages[1]
-            .setOldLayout(vk::ImageLayout::eUndefined)
-            .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-            .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-            .setDstQueueFamilyIndex(vk::QueueFamilyIgnored);
+        buffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(prepImages));
     }
-
-    buffer.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(prepImages));
 
     if (firstFramePassCounter > 0)
     {
