@@ -103,15 +103,15 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
 
     FogInfo &getFogInfo()
     {
-        return m_fogController.getFogInfo();
+        return m_fogController->getFogInfo();
     }
     const FogInfo &getFogInfo() const
     {
-        return m_fogController.getFogInfo();
+        return m_fogController->getFogInfo();
     }
     void setFogInfo(FogInfo newInfo)
     {
-        m_fogController.setFogInfo(std::move(newInfo));
+        m_fogController->setFogInfo(std::move(newInfo));
     }
     const std::vector<star::Handle> &getTimelineSemaphores() const
     {
@@ -127,11 +127,15 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     star::Handle m_indirectDispatchPipe;
     star::Handle m_initPipe;
     std::shared_ptr<star::core::renderer::FrameData> m_frameData;
+    std::shared_ptr<star::core::renderer::FrameData> m_volumeFrameData;
+    /// Cached role handle for the shared camera controller (looked up from the
+    /// offscreen phase's FrameData). Avoids a per-frame registry lookup.
+    star::Handle m_cameraRole{};
     star::core::renderer::RenderPhase *m_offscreenPhase = nullptr;
     star::core::renderer::RenderPhase *m_terrainShadowPhase = nullptr;
     star::core::renderer::RenderingContext m_renderingContext = star::core::renderer::RenderingContext();
     star::Handle cameraShaderInfo, vdbInfoFog, randomValueTexture;
-    FogInfoController m_fogController;
+    std::shared_ptr<FogInfoController> m_fogController;
     std::unique_ptr<star::StarShaderInfo> m_staticShaderInfo{nullptr}, m_dynamicShaderInfo{nullptr};
     std::vector<star::Handle> aabbInfoBuffers;
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
@@ -142,7 +146,7 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     std::vector<star::Handle> m_timelineSemaphores;
     VisibilityDistanceCompute m_distanceComputer;
     render_system::fog::FogDispatcher m_chunkHandler;
-    std::vector<star::StarBuffers::Buffer> m_activeRayStorage;
+    std::vector<std::shared_ptr<star::StarBuffers::Buffer>> m_activeRayStorage;
     uint32_t transferQueueFamilyIndex{0};
     std::optional<star::Handle> m_transferNeighborHandle{std::nullopt};
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();

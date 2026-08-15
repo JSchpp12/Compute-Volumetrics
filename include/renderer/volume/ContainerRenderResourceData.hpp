@@ -19,12 +19,11 @@ struct ContainerRenderResourceData
         star::ManagerController::RenderResource::Buffer *instanceManagerInfo;
         star::ManagerController::RenderResource::Buffer *instanceNormalInfo;
         star::ManagerController::RenderResource::Buffer *globalInfoBuffers;
-        star::ManagerController::RenderResource::Buffer *globalLightList;
         star::ManagerController::RenderResource::Buffer *globalLightInfo;
+        star::ManagerController::RenderResource::Buffer *globalLightList;
         star::Handle *cameraShaderInfo;
         star::Handle *vdbInfoFog;
         star::Handle *randomValueTexture;
-        std::vector<star::StarBuffers::Buffer> *activeRayStorageBuffers{nullptr};
     };
 
     struct Outputs

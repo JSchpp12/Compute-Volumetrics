@@ -1,8 +1,9 @@
 #pragma once
 
-#include "structs/FogInfo.hpp"
 #include "ManagerController_RenderResource_Buffer.hpp"
 #include "TransferRequest_Buffer.hpp"
+#include "structs/FogInfo.hpp"
+
 
 class FogControlInfoTransfer : public star::TransferRequest::Buffer
 {
@@ -39,6 +40,11 @@ class FogInfoController : public star::ManagerController::RenderResource::Buffer
     }
 
     void prepRender(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight) override;
+
+    vk::PipelineStageFlags waitStage() const override
+    {
+        return vk::PipelineStageFlagBits::eComputeShader;
+    }
 
     std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::core::device::DeviceContext &context,
                                                                          const uint8_t &frameInFlightIndex) override;

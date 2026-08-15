@@ -77,7 +77,7 @@ void VisibilityDistanceCompute::createBuildPipelineWaiter(
                        .infoManagerInstanceNormal = data.inputs.instanceNormalInfo,
                        .infoManagerGlobalCamera = data.inputs.globalInfoBuffers,
                        .infoManagerSceneLightInfo = data.inputs.globalLightInfo,
-                       .infoManagerSceneLightList = data.inputs.globalLightInfo,
+                       .infoManagerSceneLightList = data.inputs.globalLightList,
                        .randomValueTexture = data.inputs.randomValueTexture,
                        .fogController = data.inputs.fogController,
                        .computeRayDistBuffers = data.outputs.computeRayDistBuffers,

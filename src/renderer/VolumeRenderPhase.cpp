@@ -104,15 +104,15 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
     auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer, m_transferNeighborHandle);
 
     render_system::fog::PassInfo tInfo{
-        .globalCameraBuffer = m_frameData->controllerAt(0)->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
+        .globalCameraBuffer = m_frameData->controller(m_cameraRole)->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
                                                                                 ft.getCurrent().getFrameInFlightIndex())
                                   ? std::make_optional(m_renderingContext.bufferTransferRecords.get(
-                                        m_frameData->controllerAt(0)->getHandle(ft.getCurrent().getFrameInFlightIndex())))
+                                        m_frameData->controller(m_cameraRole)->getHandle(ft.getCurrent().getFrameInFlightIndex())))
                                   : std::nullopt,
-        .fogControllerBuffer = m_fogController.willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
+        .fogControllerBuffer = m_fogController->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
                                                                       ft.getCurrent().getFrameInFlightIndex())
                                    ? std::make_optional(m_renderingContext.bufferTransferRecords.get(
-                                         m_fogController.getHandle(ft.getCurrent().getFrameInFlightIndex())))
+                                         m_fogController->getHandle(ft.getCurrent().getFrameInFlightIndex())))
                                    : std::nullopt,
         .terrainPassInfo =
             {.renderToColor =
@@ -136,7 +136,7 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
     m_pipeInfo.staticShaderInfo = m_staticShaderInfo.get();
     m_pipeInfo.colorOnlyShaderInfo = m_dynamicShaderInfo.get();
     m_pipeInfo.distanceOnlyShaderInfo = m_distanceComputer.getDynamicShaderInfo();
-    m_pipeInfo.indirectDispatchBuffer = m_activeRayStorage[ii].getVulkanBuffer();
+    m_pipeInfo.indirectDispatchBuffer = m_activeRayStorage[ii]->getVulkanBuffer();
     m_pipeInfo.colorPipe.layout = *this->computePipelineLayout;
     m_pipeInfo.colorPipe.pipeline = this->m_renderingContext.pipeline->getVulkanPipeline();
     m_pipeInfo.fogType = this->currentFogType;
@@ -166,7 +166,7 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
         }
     }
 
-    render_system::fog::DispatchInfo dInfo{m_activeRayStorage[ii].getVulkanBuffer()};
+    render_system::fog::DispatchInfo dInfo{m_activeRayStorage[ii]->getVulkanBuffer()};
 
     m_chunkHandler.recordCommands(dInfo, ft, tInfo, m_pipeInfo);
 }
@@ -209,13 +209,13 @@ void VolumeRenderPhase::cleanupRender(star::common::IDeviceContext &context)
     m_staticShaderInfo->cleanupRender(c.getDevice());
     m_dynamicShaderInfo->cleanupRender(c.getDevice());
 
-    for (auto &buf : m_activeRayStorage)
-    {
-        buf.cleanupRender(c.getDevice().getVulkanDevice());
-    }
     for (auto &image : computeWriteToImages)
     {
         image->cleanupRender(c.getDevice().getVulkanDevice());
+    }
+    for (auto &buffer : m_activeRayStorage)
+    {
+        buffer->cleanupRender(c.getDevice().getVulkanDevice());
     }
     for (auto &buffer : computeRayDistanceBuffers)
     {
@@ -265,23 +265,20 @@ void VolumeRenderPhase::updateDependentData(star::core::device::DeviceContext &c
             }
         }
 
-        const auto [submitted, semaphore] =
-            m_fogController.submitUpdateIfNeeded(context, frameInFlightIndex, transferWaitOnLastCompute);
-        if (submitted)
+        auto fogResult = m_volumeFrameData->frameUpdate(context, transferWaitOnLastCompute);
+        auto &record = context.getManagerCommandBuffer().m_manager.get(m_commandBuffer);
+        for (const auto &w : fogResult.waits)
         {
-            context.getManagerCommandBuffer()
-                .m_manager.get(m_commandBuffer)
-                .oneTimeWaitSemaphoreInfo.insert(m_fogController.getHandle(frameInFlightIndex), semaphore->vkSemaphore,
-                                                 vk::PipelineStageFlagBits::eComputeShader, semaphore->signalValue);
-            m_renderingContext.addBufferToRenderingContext(context, m_fogController.getHandle(frameInFlightIndex));
+            record.oneTimeWaitSemaphoreInfo.insert(w.handle, w.semaphore, w.waitStage, w.signalValue);
+            m_renderingContext.addBufferToRenderingContext(context, w.handle);
         }
     }
 
-    if (m_frameData->controllerAt(0)->willBeUpdatedThisFrame(context.frameTracker().getCurrent().getGlobalFrameCounter(),
+    if (m_frameData->controller(m_cameraRole)->willBeUpdatedThisFrame(context.frameTracker().getCurrent().getGlobalFrameCounter(),
                                                           context.frameTracker().getCurrent().getFrameInFlightIndex()))
     {
         m_renderingContext.addBufferToRenderingContext(context,
-                                                       m_frameData->controllerAt(0)->getHandle(frameInFlightIndex));
+                                                       m_frameData->controller(m_cameraRole)->getHandle(frameInFlightIndex));
     }
 }
 
