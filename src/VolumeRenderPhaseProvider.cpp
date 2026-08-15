@@ -15,34 +15,29 @@
 #include "VolumeDirectoryProcessor.hpp"
 #include "core/device/managers/DescriptorPool.hpp"
 #include "core/device/managers/Image.hpp"
-#include "event/EnginePhaseComplete.hpp"
-#include "render_system/fog/util/CreateBuffers.hpp"
 #include "core/renderer/DescriptorRecipe.hpp"
+#include "render_system/fog/util/CreateBuffers.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "renderer/volume/VolumeFrameRoles.hpp"
 #include "renderer/volume/VolumePipelineBuilder.hpp"
-#include "starlight/core/waiter/one_shot/CreateDescriptorsOnEventPolicy.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
-
-#include <starlight/core/Exceptions.hpp>
-#include <starlight/core/device/managers/Semaphore.hpp>
-#include <starlight/core/device/system/event/ManagerRequest.hpp>
-
-#include <starlight/command/command_order/DeclarePass.hpp>
-#include <starlight/core/helper/queue/QueueHelpers.hpp>
-
-#include <star_common/FrameTracker.hpp>
-#include <star_common/HandleTypeRegistry.hpp>
-
-#include <vma/vk_mem_alloc.h>
-#include <vulkan/vulkan.hpp>
 
 #include <cassert>
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <star_common/FrameTracker.hpp>
+#include <star_common/HandleTypeRegistry.hpp>
+#include <starlight/command/command_order/DeclarePass.hpp>
+#include <starlight/core/Exceptions.hpp>
+#include <starlight/core/device/managers/Semaphore.hpp>
+#include <starlight/core/device/system/event/ManagerRequest.hpp>
+#include <starlight/core/helper/queue/QueueHelpers.hpp>
+#include <starlight/event/DescriptorPoolReady.hpp>
 #include <string>
 #include <vector>
+#include <vma/vk_mem_alloc.h>
+#include <vulkan/vulkan.hpp>
 
 static std::vector<std::shared_ptr<star::StarTextures::Texture>> CreateComputeWriteToImages(
     star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate,
@@ -148,7 +143,6 @@ VolumeRenderPhaseProvider::VolumeRenderPhaseProvider(
 std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::build(
     star::core::device::DeviceContext &c, star::core::renderer::RenderPhaseRegistry &phases)
 {
-    using registry = star::common::HandleTypeRegistry;
     const vk::Extent2D screensize = c.getEngineResolution();
     const uint8_t numFramesInFlight = c.frameTracker().getSetup().getNumFramesInFlight();
     const size_t n = static_cast<size_t>(numFramesInFlight);
@@ -174,11 +168,6 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     auto submitter = std::make_shared<star::wrappers::graphics::policies::SubmitDescriptorRequestsPolicy>(
         VolumeRenderPhase::getDescriptorRequests(numFramesInFlight));
     submitter->init(c.getEventBus());
-
-    if (!registry::instance().contains(star::event::EnginePhaseComplete::GetUniqueTypeName()))
-    {
-        registry::instance().registerType(star::event::EnginePhaseComplete::GetUniqueTypeName());
-    }
 
     phase->m_fogController = std::make_shared<FogInfoController>();
     phase->m_volumeFrameData = std::make_shared<star::core::renderer::FrameData>();
@@ -255,9 +244,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
             c.getDeviceID(), std::make_unique<AABBTransfer>(graphicsQueueFamilyIndex, m_aabbBounds)));
 
         const std::string cstr = std::to_string(i);
-        phase->m_activeRayStorage[i] =
-            std::make_shared<star::StarBuffers::Buffer>(
-                render_system::fog::CreateActiveRayStorageBuffer(c, "RMEM_" + cstr, c.getEngineResolution()));
+        phase->m_activeRayStorage[i] = std::make_shared<star::StarBuffers::Buffer>(
+            render_system::fog::CreateActiveRayStorageBuffer(c, "RMEM_" + cstr, c.getEngineResolution()));
     }
 
     // --- volume role handles ---
@@ -271,22 +259,20 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
 
     // --- populate m_volumeFrameData with the recipe's role-keyed resources ---
     phase->m_volumeFrameData->add(
-        star::core::renderer::FrameData::TextureHandle{
-            .textureHandle = phase->randomValueTexture,
-            .layout = vk::ImageLayout::eGeneral,
-            .format = vk::Format::eR32G32B32A32Sfloat},
+        star::core::renderer::FrameData::TextureHandle{.textureHandle = phase->randomValueTexture,
+                                                       .layout = vk::ImageLayout::eGeneral,
+                                                       .format = vk::Format::eR32G32B32A32Sfloat},
         randomTexRole);
     phase->m_volumeFrameData->add(star::core::renderer::FrameData::FixedBufferHandle{.handle = phase->vdbInfoFog},
                                   vdbRole);
-    phase->m_volumeFrameData->add(
-        star::core::renderer::FrameData::FixedBufferHandle{.handle = phase->cameraShaderInfo}, cameraExtraRole);
-    phase->m_volumeFrameData->add(
-        star::core::renderer::FrameData::OwnedBuffer{.buffers = phase->m_activeRayStorage}, activeRayRole);
-    phase->m_volumeFrameData->add(
-        star::core::renderer::FrameData::OwnedTexture{.textures = phase->computeWriteToImages,
-                                                       .layout = vk::ImageLayout::eGeneral,
-                                                       .format = vk::Format::eR8G8B8A8Unorm},
-        outputRole);
+    phase->m_volumeFrameData->add(star::core::renderer::FrameData::FixedBufferHandle{.handle = phase->cameraShaderInfo},
+                                  cameraExtraRole);
+    phase->m_volumeFrameData->add(star::core::renderer::FrameData::OwnedBuffer{.buffers = phase->m_activeRayStorage},
+                                  activeRayRole);
+    phase->m_volumeFrameData->add(star::core::renderer::FrameData::OwnedTexture{.textures = phase->computeWriteToImages,
+                                                                                .layout = vk::ImageLayout::eGeneral,
+                                                                                .format = vk::Format::eR8G8B8A8Unorm},
+                                  outputRole);
 
     {
         std::vector<const star::StarTextures::Texture *> depthTextures;
@@ -297,8 +283,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                 &c.getImageManager().get(offscreenPhase->getRenderTargets().depthHandles()[i])->texture);
         }
         phase->m_volumeFrameData->add(
-            star::core::renderer::FrameData::BorrowedTexture{
-                .textures = std::move(depthTextures), .layout = vk::ImageLayout::eShaderReadOnlyOptimal},
+            star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(depthTextures),
+                                                             .layout = vk::ImageLayout::eShaderReadOnlyOptimal},
             depthRole);
     }
     {
@@ -310,9 +296,9 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                 &c.getImageManager().get(offscreenPhase->getRenderTargets().colorHandles()[i])->texture);
         }
         phase->m_volumeFrameData->add(
-            star::core::renderer::FrameData::BorrowedTexture{
-                .textures = std::move(colorTextures), .layout = vk::ImageLayout::eGeneral,
-                .format = vk::Format::eR8G8B8A8Unorm},
+            star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(colorTextures),
+                                                             .layout = vk::ImageLayout::eGeneral,
+                                                             .format = vk::Format::eR8G8B8A8Unorm},
             colorRole);
     }
 
@@ -322,7 +308,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     const auto staticInfo = star::core::renderer::shaderInfoHandle("Static");
     const auto dynamicInfo = star::core::renderer::shaderInfoHandle("Dynamic");
     star::core::renderer::DescriptorRecipe::Builder(c.getEventBus(), c,
-                                                    star::event::EnginePhaseComplete::GetUniqueTypeName())
+                                                    star::event::DescriptorPoolReady::GetUniqueTypeName())
         .setShaderInfoOut(staticInfo, &phase->m_staticShaderInfo)
         .setShaderInfoOut(dynamicInfo, &phase->m_dynamicShaderInfo)
         .addBinding(staticInfo, 0, phase->m_volumeFrameData, randomTexRole, 0, vk::DescriptorType::eStorageImage,
@@ -359,19 +345,20 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(dynamicInfo, 0, phase->m_volumeFrameData, outputRole, 2, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
+        // --- Part E: build the compute pipeline layout + fog pipelines inside
+        // the recipe (same one-shot pattern as DefaultRenderPhaseProvider's
+        // setRenderGroups) so descriptor + pipeline assembly are one atomic
+        // unit on DescriptorPoolReady, avoiding a separate waiter. ---
+        .setOnShaderInfoReady(
+            [pipelineBuilder =
+                 VolumePipelineBuilder{&c, &phase->m_staticShaderInfo, &phase->m_dynamicShaderInfo,
+                                       &phase->computePipelineLayout, &phase->marchedHomogenousPipeline,
+                                       &phase->nanoVDBPipeline_hitBoundingBox, &phase->nanoVDBPipeline_surface,
+                                       &phase->marchedPipeline, &phase->linearPipeline, &phase->expPipeline,
+                                       &phase->m_initPipe, &phase->m_pipeInfo.initPipeline,
+                                       &phase->m_indirectDispatchPipe, &phase->m_pipeInfo.indirectDispatchPipeline}](
+                star::core::device::DeviceContext &) mutable { pipelineBuilder(); })
         .build();
-
-    // --- Part E: build the compute pipeline layout + fog pipelines after the recipe ---
-    star::core::waiter::one_shot::CreateDescriptorsOnEventPolicy<VolumePipelineBuilder>::Builder(c.getEventBus())
-        .setEventType(
-            registry::instance().getTypeGuaranteedExist(star::event::EnginePhaseComplete::GetUniqueTypeName()))
-        .setPolicy(VolumePipelineBuilder{&c, &phase->m_staticShaderInfo, &phase->m_dynamicShaderInfo,
-                                          &phase->computePipelineLayout, &phase->marchedHomogenousPipeline,
-                                          &phase->nanoVDBPipeline_hitBoundingBox, &phase->nanoVDBPipeline_surface,
-                                          &phase->marchedPipeline, &phase->linearPipeline, &phase->expPipeline,
-                                          &phase->m_initPipe, &phase->m_pipeInfo.initPipeline,
-                                          &phase->m_indirectDispatchPipe, &phase->m_pipeInfo.indirectDispatchPipeline})
-        .buildShared();
 
     // --- distance compute (left as-is; still consumes ContainerRenderResourceData) ---
     renderer::volume::ContainerRenderResourceData pipelineData{
