@@ -73,9 +73,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> OffscreenRenderPhaseProvider:
     star::core::renderer::DefaultRenderPhase::Builder(c)
         .setObjects(std::move(m_objects))
         .setFrameData(m_frameData)
-        .setDataRoles(star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera),
-                      star::core::renderer::roleHandle(star::core::renderer::frame_roles::LightInfo),
-                      star::core::renderer::roleHandle(star::core::renderer::frame_roles::LightList), m_createdFrameData)
+        .setOwnsFrameData(m_createdFrameData)
         .setConfig(m_config)
         .buildInto(*phase);
 
