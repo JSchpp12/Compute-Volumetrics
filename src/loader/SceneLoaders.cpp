@@ -129,7 +129,7 @@ SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const 
     SceneDescription desc;
     auto [colorTerrain, shadowMapTerrain] = LoadTerrain(ctx, mediaDirPath, terrainPath);
     desc.addObject(std::move(colorTerrain));
-    desc.addObject(LoadHorse(ctx, mediaDirPath));
+    // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));
     desc.addDebugCube(LoadCube(ctx, numCubes));
     return desc;
@@ -141,7 +141,7 @@ SceneDescription ReleaseSceneLoader(star::core::device::DeviceContext &ctx, cons
     SceneDescription desc;
     auto [colorTerrain, shadowMapTerrain] = LoadTerrain(ctx, mediaDirPath, terrainPath);
     desc.addObject(std::move(colorTerrain));
-    desc.addObject(LoadHorse(ctx, mediaDirPath));
+    // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));
     return desc;
 }

@@ -19,8 +19,15 @@ HeadlessPhaseProvider::build(star::core::device::DeviceContext &context, star::c
 {
     auto phase = std::make_unique<HeadlessPhase>();
 
-    // shared base prep (transfer state, groups, command buffer, targets, descriptor waiter)
-    buildCore(phase.get(), context);
+    // shared base build, in place into phase's DefaultRenderPhase base subobject
+    star::core::renderer::DefaultRenderPhase::Builder(context)
+        .setObjects(std::move(m_objects))
+        .setFrameData(m_frameData)
+        .setDataRoles(star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera),
+                      star::core::renderer::roleHandle(star::core::renderer::frame_roles::LightInfo),
+                      star::core::renderer::roleHandle(star::core::renderer::frame_roles::LightList), m_createdFrameData)
+        .setConfig(m_config)
+        .buildInto(*phase);
 
     // headless tail-setup (timeline semaphores, scheme sizing, cmd-bus/device/image-manager lookup)
     prepareHeadlessPhase(phase.get(), context);

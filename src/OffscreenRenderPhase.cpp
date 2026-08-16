@@ -159,9 +159,6 @@ static std::tuple<vk::Semaphore, uint64_t, uint64_t> GetVolumeRendererSemaphoreF
 
 void OffscreenRenderPhase::updateDependentData(star::core::device::DeviceContext &context)
 {
-    if (!ownsRenderResourceControllers)
-        return;
-
     star::core::graphics::SemaphoreInfo transferSyncWithComputeInfo{};
     {
         auto [semaphore, toSignalValue, currentSignalValue] =

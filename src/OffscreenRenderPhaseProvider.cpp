@@ -69,8 +69,15 @@ std::unique_ptr<star::core::renderer::RenderPhase> OffscreenRenderPhaseProvider:
 
     phase->m_timelineSemaphores = CreateSemaphores(c.getEventBus(), c.frameTracker());
 
-    // shared base prep (transfer state, groups, command buffer, targets, descriptor waiter)
-    buildCore(phase.get(), c);
+    // shared base build, in place into phase's DefaultRenderPhase base subobject
+    star::core::renderer::DefaultRenderPhase::Builder(c)
+        .setObjects(std::move(m_objects))
+        .setFrameData(m_frameData)
+        .setDataRoles(star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera),
+                      star::core::renderer::roleHandle(star::core::renderer::frame_roles::LightInfo),
+                      star::core::renderer::roleHandle(star::core::renderer::frame_roles::LightList), m_createdFrameData)
+        .setConfig(m_config)
+        .buildInto(*phase);
 
     return phase;
 }
