@@ -360,21 +360,20 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                 star::core::device::DeviceContext &) mutable { pipelineBuilder(); })
         .build();
 
-    // --- distance compute (left as-is; still consumes ContainerRenderResourceData) ---
     renderer::volume::ContainerRenderResourceData pipelineData{
         .inputs{.fogController = phase->m_fogController.get(),
                 .aabbInfoBuffers = &phase->aabbInfoBuffers,
                 .offscreenRenderToColors = &offscreenPhase->getRenderTargets().colorHandles(),
                 .offscreenRenderToDepths = &offscreenPhase->getRenderTargets().depthHandles(),
-                .instanceManagerInfo = phase->m_volumeFrameData->controller(
+                .instanceManagerInfo = phase->m_volumeFrameData->getController(
                     star::core::renderer::roleHandle(renderer::volume::frame_roles::InstanceModel)),
-                .instanceNormalInfo = phase->m_volumeFrameData->controller(
+                .instanceNormalInfo = phase->m_volumeFrameData->getController(
                     star::core::renderer::roleHandle(renderer::volume::frame_roles::InstanceNormal)),
-                .globalInfoBuffers = phase->m_frameData->controller(
+                .globalInfoBuffers = phase->m_frameData->getController(
                     star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera)),
-                .globalLightInfo = phase->m_frameData->controller(
+                .globalLightInfo = phase->m_frameData->getController(
                     star::core::renderer::roleHandle(star::core::renderer::frame_roles::LightInfo)),
-                .globalLightList = phase->m_frameData->controller(
+                .globalLightList = phase->m_frameData->getController(
                     star::core::renderer::roleHandle(star::core::renderer::frame_roles::LightList)),
                 .cameraShaderInfo = &phase->cameraShaderInfo,
                 .vdbInfoFog = &phase->vdbInfoFog,

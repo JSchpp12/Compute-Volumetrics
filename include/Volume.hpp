@@ -15,7 +15,6 @@
 #include "VolumeRenderPhaseProvider.hpp"
 #include "renderer/VolumeRenderPhase.hpp"
 
-
 namespace star
 {
 class StarScene;
@@ -103,7 +102,8 @@ class Volume : public star::StarObject
 
     virtual bool isRenderReady(star::core::device::DeviceContext &context) override;
 
-    virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
+    virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer,
+                                             const star::common::FrameTracker &frameTracker,
                                              const uint64_t &frameIndex) override;
 
     virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;

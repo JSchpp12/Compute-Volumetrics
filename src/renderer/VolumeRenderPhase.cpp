@@ -104,13 +104,13 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
     auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer, m_transferNeighborHandle);
 
     render_system::fog::PassInfo tInfo{
-        .globalCameraBuffer = m_frameData->controller(m_cameraRole)->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
-                                                                                ft.getCurrent().getFrameInFlightIndex())
-                                  ? std::make_optional(m_renderingContext.bufferTransferRecords.get(
-                                        m_frameData->controller(m_cameraRole)->getHandle(ft.getCurrent().getFrameInFlightIndex())))
-                                  : std::nullopt,
-        .fogControllerBuffer = m_fogController->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
-                                                                      ft.getCurrent().getFrameInFlightIndex())
+        .globalCameraBuffer =
+            m_frameData->getController(m_cameraRole)
+                    ->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(), ft)
+                ? std::make_optional(m_renderingContext.bufferTransferRecords.get(
+                      m_frameData->getController(m_cameraRole)->getHandle(ft.getCurrent().getFrameInFlightIndex())))
+                : std::nullopt,
+        .fogControllerBuffer = m_fogController->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(), ft)
                                    ? std::make_optional(m_renderingContext.bufferTransferRecords.get(
                                          m_fogController->getHandle(ft.getCurrent().getFrameInFlightIndex())))
                                    : std::nullopt,
@@ -176,8 +176,8 @@ uint64_t VolumeRenderPhase::getTimelineSignalValue(const star::common::FrameTrac
     return m_chunkHandler.getTimelineDoneSignalValue(ft);
 }
 
-std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride>
-VolumeRenderPhase::getSubmissionOverride()
+std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride> VolumeRenderPhase::
+    getSubmissionOverride()
 {
     star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride overrideFn = std::bind(
         &VolumeRenderPhase::submitBuffer, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
@@ -240,7 +240,8 @@ std::vector<std::pair<vk::DescriptorType, const uint32_t>> VolumeRenderPhase::ge
 }
 
 void VolumeRenderPhase::recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer,
-                                                            const uint8_t &frameinFlightIndex, const uint64_t &frameIndex)
+                                                            const uint8_t &frameinFlightIndex,
+                                                            const uint64_t &frameIndex)
 {
 }
 
@@ -260,8 +261,8 @@ void VolumeRenderPhase::updateDependentData(star::core::device::DeviceContext &c
             const auto &reply = cmd.getReply().get();
             if (reply.signaledSemaphore)
             {
-                transferWaitOnLastCompute = star::core::graphics::SemaphoreInfo{
-                    .signalValue = reply.currentSignalValue, .semaphore = reply.signaledSemaphore};
+                transferWaitOnLastCompute = star::core::graphics::SemaphoreInfo{.signalValue = reply.currentSignalValue,
+                                                                                .semaphore = reply.signaledSemaphore};
             }
         }
 
@@ -274,11 +275,12 @@ void VolumeRenderPhase::updateDependentData(star::core::device::DeviceContext &c
         }
     }
 
-    if (m_frameData->controller(m_cameraRole)->willBeUpdatedThisFrame(context.frameTracker().getCurrent().getGlobalFrameCounter(),
-                                                          context.frameTracker().getCurrent().getFrameInFlightIndex()))
+    if (m_frameData->getController(m_cameraRole)
+            ->willBeUpdatedThisFrame(context.frameTracker().getCurrent().getGlobalFrameCounter(),
+                                     context.frameTracker()))
     {
-        m_renderingContext.addBufferToRenderingContext(context,
-                                                       m_frameData->controller(m_cameraRole)->getHandle(frameInFlightIndex));
+        m_renderingContext.addBufferToRenderingContext(
+            context, m_frameData->getController(m_cameraRole)->getHandle(frameInFlightIndex));
     }
 }
 
@@ -300,7 +302,8 @@ void VolumeRenderPhase::updateRenderingContext(star::core::device::DeviceContext
         m_renderingContext.pipeline = &context.getPipelineManager().get(this->marchedHomogenousPipeline)->builtPipeline;
         break;
     case (Fog::Type::sNanoBoundingBox):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->nanoVDBPipeline_hitBoundingBox)->builtPipeline;
+        m_renderingContext.pipeline =
+            &context.getPipelineManager().get(this->nanoVDBPipeline_hitBoundingBox)->builtPipeline;
         break;
     case (Fog::Type::sNanoSurface):
         m_renderingContext.pipeline = &context.getPipelineManager().get(this->nanoVDBPipeline_surface)->builtPipeline;

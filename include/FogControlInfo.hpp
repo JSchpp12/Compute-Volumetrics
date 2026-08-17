@@ -4,6 +4,8 @@
 #include "TransferRequest_Buffer.hpp"
 #include "structs/FogInfo.hpp"
 
+#include <star_common/FrameTracker.hpp>
+
 class FogControlInfoTransfer : public star::TransferRequest::Buffer
 {
   public:
@@ -61,7 +63,7 @@ class FogInfoController : public star::ManagerController::RenderResource::Buffer
     }
 
   protected:
-    bool doesFrameInFlightDataNeedUpdated(uint8_t currentFrameInFlightIndex) const override;
+    bool doesFrameInFlightDataNeedUpdated(const star::common::FrameTracker &frameTracker) const override;
 
   private:
     FogInfo m_currentFogInfo;

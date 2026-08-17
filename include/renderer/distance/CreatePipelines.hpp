@@ -23,11 +23,11 @@ struct CreatePipelines
 {
     struct Inputs
     {
-        star::ManagerController::RenderResource::Buffer *infoManagerInstanceModel{nullptr};
-        star::ManagerController::RenderResource::Buffer *infoManagerInstanceNormal{nullptr};
-        star::ManagerController::RenderResource::Buffer *infoManagerGlobalCamera{nullptr};
-        star::ManagerController::RenderResource::Buffer *infoManagerSceneLightInfo{nullptr};
-        star::ManagerController::RenderResource::Buffer *infoManagerSceneLightList{nullptr};
+        const star::ManagerController::RenderResource::Buffer *infoManagerInstanceModel{nullptr};
+        const star::ManagerController::RenderResource::Buffer *infoManagerInstanceNormal{nullptr};
+        const star::ManagerController::RenderResource::Buffer *infoManagerGlobalCamera{nullptr};
+        const star::ManagerController::RenderResource::Buffer *infoManagerSceneLightInfo{nullptr};
+        const star::ManagerController::RenderResource::Buffer *infoManagerSceneLightList{nullptr};
         star::Handle *randomValueTexture{nullptr};
         FogInfoController *fogController{nullptr};
         std::vector<star::StarBuffers::Buffer> *computeRayDistBuffers{nullptr};

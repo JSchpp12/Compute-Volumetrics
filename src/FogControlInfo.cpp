@@ -84,7 +84,8 @@ std::unique_ptr<star::TransferRequest::Buffer> FogInfoController::createTransfer
     return std::make_unique<FogControlInfoTransfer>(m_currentFogInfo.getInfo(), defaultQueueFamilyIndex);
 }
 
-bool FogInfoController::doesFrameInFlightDataNeedUpdated(uint8_t currentFrameInFlightIndex) const
+bool FogInfoController::doesFrameInFlightDataNeedUpdated(const star::common::FrameTracker &frameTracker) const
 {
-    return m_currentFogInfo != m_lastFogInfo[currentFrameInFlightIndex];
+    const size_t frameInFlightIndex = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
+    return m_currentFogInfo != m_lastFogInfo[frameInFlightIndex];
 }

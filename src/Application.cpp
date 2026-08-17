@@ -243,9 +243,11 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         m_mainScene = std::make_shared<star::StarScene>(
             star::star_scene::makeWaitForAllObjectsReadyPolicy(std::move(allObjects)), camera);
 
+        m_offscreenPhaseHandle = m_mainScene->addProvider(std::move(offscreenProvider));
+
         auto terrainShadowProvider = std::make_unique<star::terrain::TerrainShadowRenderPhaseProvider>(
-            context, m_mainLight, std::vector<std::shared_ptr<star::StarObject>>{m_shadowTerrain}, true,
-            star::Command_Buffer_Order_Index::second);
+            context, m_mainLight, std::vector<std::shared_ptr<star::StarObject>>{m_shadowTerrain},
+            m_offscreenPhaseHandle, true, star::Command_Buffer_Order_Index::second);
         auto shadowHandle = m_mainScene->addProvider(std::move(terrainShadowProvider));
         DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
             .setConsumer(
@@ -258,7 +260,6 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         // volume phase first (its compute images are bound onto the volume
         // StarObject's screen-quad material during the finalization phase
         // build), then the finalization phase.
-        m_offscreenPhaseHandle = m_mainScene->addProvider(std::move(offscreenProvider));
         m_volume->getProvider().setOffscreenPhaseHandle(m_offscreenPhaseHandle);
         m_volume->getProvider().setShadowTerrainPhaseHandle(shadowHandle);
 

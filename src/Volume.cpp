@@ -17,8 +17,8 @@
 
 Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
                std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
-               std::shared_ptr<star::core::renderer::FrameData> frameData,
-               bool enableCutoffHighlighting, star::ShaderResolver &shaderResolver)
+               std::shared_ptr<star::core::renderer::FrameData> frameData, bool enableCutoffHighlighting,
+               star::ShaderResolver &shaderResolver)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
       camera(camera), screenDimensions(screenWidth, screenHeight)
 {
@@ -71,9 +71,10 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
     grid->setGridClass(openvdb::GridClass::GRID_FOG_VOLUME);
 }
 
-void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
-                                         const uint64_t &frameIndex)
+void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer,
+                                         const star::common::FrameTracker &frameTracker, const uint64_t &frameIndex)
 {
+    const uint8_t frameInFlightIndex = frameTracker.getCurrent().getFrameInFlightIndex();
     vk::Image cImage = this->getVolumePhase()->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
     vk::ImageMemoryBarrier2 imgBarriers[1]{vk::ImageMemoryBarrier2()
                                                .setImage(std::move(cImage))
@@ -169,8 +170,7 @@ const VolumeRenderPhase *Volume::getVolumePhase() const
 }
 
 void Volume::initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-                        std::shared_ptr<star::core::renderer::FrameData> frameData,
-                        bool enableCutoffHighlighting)
+                        std::shared_ptr<star::core::renderer::FrameData> frameData, bool enableCutoffHighlighting)
 {
     loadModel(context, vdbFilePath);
 
