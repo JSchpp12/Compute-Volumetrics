@@ -72,7 +72,7 @@ void FogInfoController::prepRender(star::core::device::DeviceContext &context, c
 }
 
 std::unique_ptr<star::TransferRequest::Buffer> FogInfoController::createTransferRequest(
-    star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex)
+    star::core::device::DeviceContext &context, uint8_t frameInFlightIndex)
 {
     m_lastFogInfo[frameInFlightIndex] = m_currentFogInfo;
 
@@ -84,7 +84,7 @@ std::unique_ptr<star::TransferRequest::Buffer> FogInfoController::createTransfer
     return std::make_unique<FogControlInfoTransfer>(m_currentFogInfo.getInfo(), defaultQueueFamilyIndex);
 }
 
-bool FogInfoController::doesFrameInFlightDataNeedUpdated(const uint8_t &currentFrameInFlightIndex) const
+bool FogInfoController::doesFrameInFlightDataNeedUpdated(uint8_t currentFrameInFlightIndex) const
 {
     return m_currentFogInfo != m_lastFogInfo[currentFrameInFlightIndex];
 }

@@ -4,7 +4,6 @@
 #include "TransferRequest_Buffer.hpp"
 #include "structs/FogInfo.hpp"
 
-
 class FogControlInfoTransfer : public star::TransferRequest::Buffer
 {
   public:
@@ -47,7 +46,7 @@ class FogInfoController : public star::ManagerController::RenderResource::Buffer
     }
 
     std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::core::device::DeviceContext &context,
-                                                                         const uint8_t &frameInFlightIndex) override;
+                                                                         uint8_t frameInFlightIndex) override;
     FogInfo &getFogInfo()
     {
         return m_currentFogInfo;
@@ -62,7 +61,7 @@ class FogInfoController : public star::ManagerController::RenderResource::Buffer
     }
 
   protected:
-    bool doesFrameInFlightDataNeedUpdated(const uint8_t &currentFrameInFlightIndex) const override;
+    bool doesFrameInFlightDataNeedUpdated(uint8_t currentFrameInFlightIndex) const override;
 
   private:
     FogInfo m_currentFogInfo;

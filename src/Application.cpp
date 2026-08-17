@@ -244,7 +244,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
             star::star_scene::makeWaitForAllObjectsReadyPolicy(std::move(allObjects)), camera);
 
         auto terrainShadowProvider = std::make_unique<star::terrain::TerrainShadowRenderPhaseProvider>(
-            context, m_mainLight, camera, std::vector<std::shared_ptr<star::StarObject>>{m_shadowTerrain}, true,
+            context, m_mainLight, std::vector<std::shared_ptr<star::StarObject>>{m_shadowTerrain}, true,
             star::Command_Buffer_Order_Index::second);
         auto shadowHandle = m_mainScene->addProvider(std::move(terrainShadowProvider));
         DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
