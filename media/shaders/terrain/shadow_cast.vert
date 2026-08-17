@@ -11,9 +11,10 @@ globalUbo;
 layout(binding = 0, set = 1) uniform instanceModelMatrix
 {
     mat4 modelMatrix[1024];
-};
+}
+instanceInfo;
 
 void main()
 {
-    gl_Position = globalUbo.viewProj * modelMatrix[gl_InstanceIndex] * vec4(inPosition, 1.0);
+    gl_Position = globalUbo.viewProj * instanceInfo.modelMatrix[gl_InstanceIndex] * vec4(inPosition, 1.0);
 }
