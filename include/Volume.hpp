@@ -172,9 +172,6 @@ class Volume : public star::StarObject
 
     std::vector<star::StarMesh> loadMeshes(star::core::device::DeviceContext &context) override;
 
-    // virtual void recordRenderPassCommands(vk::CommandBuffer &commandBuffer, vk::PipelineLayout &pipelineLayout,
-    //                                       int swapChainIndexNum) override;
-
   private:
     struct RayCamera
     {

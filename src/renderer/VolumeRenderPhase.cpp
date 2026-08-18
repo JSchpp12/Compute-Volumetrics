@@ -10,8 +10,6 @@
 #include <tuple>
 #include <vector>
 
-namespace
-{
 static std::optional<star::command_order::get_pass_info::GatheredPassInfo> GetTransferNeighborInfo(
     const star::core::CommandBus &cmdBus, const star::Handle &commandBuffer,
     const std::optional<star::Handle> &transferNeighborHandle)
@@ -45,7 +43,6 @@ static std::optional<star::command_order::get_pass_info::GatheredPassInfo> GetTr
 
     return transferNeighborInfo;
 }
-} // namespace
 
 VolumeRenderPhase::VolumeRenderPhase(bool enableCutoffHighlighting)
     : m_distanceComputer(), m_chunkHandler(enableCutoffHighlighting)
@@ -193,7 +190,6 @@ vk::Semaphore VolumeRenderPhase::submitBuffer(star::StarCommandBuffer &buffer,
                                               std::vector<std::optional<uint64_t>> &previousSignaledValues,
                                               star::StarQueue &queue)
 {
-
     m_chunkHandler.submit(frameTracker, std::move(dataSemaphores), std::move(dataWaitPoints),
                           std::move(previousSignaledValues), queue, m_commandBuffer);
 

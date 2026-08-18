@@ -248,20 +248,17 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         auto terrainShadowProvider = std::make_unique<star::terrain::TerrainShadowRenderPhaseProvider>(
             context, m_mainLight, std::vector<std::shared_ptr<star::StarObject>>{m_shadowTerrain},
             m_offscreenPhaseHandle, true, star::Command_Buffer_Order_Index::second);
-        auto shadowHandle = m_mainScene->addProvider(std::move(terrainShadowProvider));
+        m_terrainShadowPhaseHandle = m_mainScene->addProvider(std::move(terrainShadowProvider));
         DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
             .setConsumer(
                 [this]() -> star::Handle { return this->m_volume->getRenderer().getCommandBuffer(); }) // volume
-            .setProducer([this, shadowHandle]() -> star::Handle {
-                return m_mainScene->getPhase(shadowHandle)->getCommandBuffer();
+            .setProducer([this]() -> star::Handle {
+                return m_mainScene->getPhase(this->m_terrainShadowPhaseHandle)->getCommandBuffer();
             }) // terrain
             .build();
 
-        // volume phase first (its compute images are bound onto the volume
-        // StarObject's screen-quad material during the finalization phase
-        // build), then the finalization phase.
         m_volume->getProvider().setOffscreenPhaseHandle(m_offscreenPhaseHandle);
-        m_volume->getProvider().setShadowTerrainPhaseHandle(shadowHandle);
+        m_volume->getProvider().setShadowTerrainPhaseHandle(m_terrainShadowPhaseHandle);
 
         // auto volumeShadowProvider = std::make_unique<VolumeShadowRenderPhaseProvider>(
         //     m_offscreenFrameData, m_offscreenPhaseHandle, m_mainScene->getCamera().get(),
@@ -288,7 +285,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
     DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
         .setConsumer(
-            [this]() -> star::Handle { return getFinalizationCommandBuffer(); }) // final square screen renderer thing
+            [this]() -> star::Handle { return getFinalizationCommandBuffer(); }) // final square screen renderer
         .setProducer([this]() -> star::Handle { return m_volume->getRenderer().getCommandBuffer(); }) // volume
         .build();
 

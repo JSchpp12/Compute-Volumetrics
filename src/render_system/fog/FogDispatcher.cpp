@@ -97,6 +97,12 @@ static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx,
         std::move(pass), true, &isReady};
 }
 
+FogDispatcher::FogDispatcher(bool enableColorDebugCutoff)
+    : m_passes(), m_cbSubmitInfo(), m_syncApproach(), m_cmdBus(nullptr), m_numCbRecorded(0), m_cbSubmitWait(6),
+      m_enableColorDebugCutoff(enableColorDebugCutoff)
+{
+}
+
 void FogDispatcher::prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
 {
     m_cmdBus = &ctx.getCmdBus();
@@ -139,21 +145,20 @@ void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk:
     assert(dataSemaphores.size() == dataWaitPoints.size());
 
     uint32_t waitInfoCount{0};
-    vk::SemaphoreSubmitInfo waitInfo[5];
     {
         auto wait = m_syncApproach.getWaitInfo();
         for (uint8_t i{0}; i < wait.count; i++)
         {
-            waitInfo[waitInfoCount] = wait.info[i];
+            m_cbSubmitWait[waitInfoCount] = wait.info[i];
             waitInfoCount++;
         }
     }
 
     for (size_t i{0}; i < dataWaitPoints.size(); i++)
     {
-        waitInfo[waitInfoCount] = vk::SemaphoreSubmitInfo()
-                                      .setSemaphore(dataSemaphores[i])
-                                      .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
+        m_cbSubmitWait[waitInfoCount] = vk::SemaphoreSubmitInfo()
+                                            .setSemaphore(dataSemaphores[i])
+                                            .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
         waitInfoCount++;
     }
 
@@ -168,7 +173,7 @@ void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk:
                                          .setSignalSemaphoreInfoCount(1)
                                          .setPCommandBufferInfos(m_cbSubmitInfo.data())
                                          .setCommandBufferInfoCount(m_numCbRecorded)
-                                         .setPWaitSemaphoreInfos(waitInfo)
+                                         .setPWaitSemaphoreInfos(m_cbSubmitWait.data())
                                          .setWaitSemaphoreInfoCount(waitInfoCount);
 
         queue.getVulkanQueue().submit2(submitInfo);
@@ -180,10 +185,6 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
 {
     assert(m_passes.size() > 0);
     m_numCbRecorded = 0;
-
-    // know the index 1 is the distance dispatch so hardcode for now
-
-    // m_passes[1].
 
     // TODO: move the wait for semaphore value from the volume renderer to here
     for (size_t i{0}; i < m_passes.size(); i++)

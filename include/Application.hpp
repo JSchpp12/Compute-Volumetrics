@@ -55,6 +55,7 @@ class Application : public star::StarApplication
     star::Handle m_finalizationPhaseHandle;
     star::Handle m_volumePhaseHandle;
     star::Handle m_volumeShadowPhaseHandle;
+    star::Handle m_terrainShadowPhaseHandle;
     VolumeRenderingOptions m_volumeOptions;
 
     bool m_flipScreenshotState = false;

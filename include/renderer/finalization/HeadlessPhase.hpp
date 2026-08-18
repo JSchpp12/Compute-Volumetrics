@@ -11,7 +11,6 @@ class HeadlessPhase : public star::core::renderer::HeadlessRenderPhase
   public:
     HeadlessPhase(const star::core::CommandBus &cmdBus, vk::Device device);
     virtual ~HeadlessPhase() = default;
-
     HeadlessPhase(const HeadlessPhase &) = delete;
     HeadlessPhase &operator=(const HeadlessPhase &) = delete;
     HeadlessPhase(HeadlessPhase &&) = delete;
