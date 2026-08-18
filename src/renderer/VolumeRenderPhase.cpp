@@ -44,11 +44,6 @@ static std::optional<star::command_order::get_pass_info::GatheredPassInfo> GetTr
     return transferNeighborInfo;
 }
 
-VolumeRenderPhase::VolumeRenderPhase(bool enableCutoffHighlighting)
-    : m_distanceComputer(), m_chunkHandler(enableCutoffHighlighting)
-{
-}
-
 void VolumeRenderPhase::frameUpdate(star::common::IDeviceContext &context)
 {
     auto &c = static_cast<star::core::device::DeviceContext &>(context);
@@ -163,9 +158,49 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
         }
     }
 
-    render_system::fog::DispatchInfo dInfo{m_activeRayStorage[ii]->getVulkanBuffer()};
+    render_system::fog::MarchShaderFlags marchFlags =
+        m_enableColorDebugCutoff ? render_system::fog::MarchShaderFlags::EnableDebugHighlightCutoffValue
+                                 : render_system::fog::MarchShaderFlags::None;
+    if (m_enableShadowMapDebug)
+        marchFlags |= render_system::fog::MarchShaderFlags::EnableDebugHighlightShadows;
+
+    render_system::fog::DispatchInfo dInfo{
+        .indirectBuffer = m_activeRayStorage[ii]->getVulkanBuffer(),
+        .shaderOptionFlags = render_system::fog::Pack(render_system::fog::InitShaderFlags::None, marchFlags)};
 
     m_chunkHandler.recordCommands(dInfo, ft, tInfo, m_pipeInfo);
+}
+
+void VolumeRenderPhase::setShaderFlag(render_system::fog::MarchShaderFlags flag, bool state) noexcept
+{
+    switch (flag)
+    {
+    case (render_system::fog::MarchShaderFlags::EnableDebugHighlightShadows):
+        m_enableShadowMapDebug = state;
+        break;
+    case (render_system::fog::MarchShaderFlags::EnableDebugHighlightCutoffValue):
+        m_enableColorDebugCutoff = state;
+        break;
+    default:
+        star::core::logging::warning("Attempted to set an unsupported dynamic march shader flag -- ignoring");
+        break;
+    }
+}
+
+bool VolumeRenderPhase::toggleShaderFlag(render_system::fog::MarchShaderFlags flag) noexcept
+{
+    switch (flag)
+    {
+    case (render_system::fog::MarchShaderFlags::EnableDebugHighlightShadows):
+        m_enableShadowMapDebug = !m_enableShadowMapDebug;
+        return m_enableShadowMapDebug;
+    case (render_system::fog::MarchShaderFlags::EnableDebugHighlightCutoffValue):
+        m_enableColorDebugCutoff = !m_enableColorDebugCutoff;
+        return m_enableColorDebugCutoff;
+    default:
+        star::core::logging::warning("Attempted to toggle an unsupported dynamic march shader flag -- ignoring");
+        return false;
+    }
 }
 
 uint64_t VolumeRenderPhase::getTimelineSignalValue(const star::common::FrameTracker &ft) const

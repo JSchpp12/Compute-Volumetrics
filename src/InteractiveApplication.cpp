@@ -42,7 +42,6 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
                       .setSignalValue(std::move(value)));
 }
 
-
 void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
     const auto timeNow = std::chrono::steady_clock::now();
@@ -377,6 +376,13 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         m_volume->setFogType(Fog::Type::sMarchedHomogenous);
     }
 
+    if (key == GLFW_KEY_LEFT_ALT)
+    {
+        const bool enabled =
+            m_volume->toggleShaderDebug(render_system::fog::MarchShaderFlags::EnableDebugHighlightShadows);
+        std::cout << "Shadow map debug highlight: " << (enabled ? "ON" : "OFF") << std::endl;
+    }
+
     if (key == GLFW_KEY_O)
     {
         glm::vec3 newScale = static_cast<const star::StarObject *>(m_volume.get())->getInstance(0).getScale();
@@ -459,9 +465,9 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
     auto *render = m_mainScene->getPhase(m_finalizationPhaseHandle);
 
     // submit screenshot processing
-    context.getEventBus().emit(
-        star::event::TriggerScreenshot(context.getImageManager().get(render->getRenderTargets().colorHandles()[index])->texture,
-                                       path, render->getCommandBuffer(), m_screenshotRegistrations[index]));
+    context.getEventBus().emit(star::event::TriggerScreenshot(
+        context.getImageManager().get(render->getRenderTargets().colorHandles()[index])->texture, path,
+        render->getCommandBuffer(), m_screenshotRegistrations[index]));
 
     triggerImageRecord(context, frameTracker, name);
 }

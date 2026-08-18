@@ -88,8 +88,7 @@ class Volume : public star::StarObject
     virtual ~Volume() = default;
     Volume(star::core::device::DeviceContext &context, std::string vdbPath, const size_t &numFramesInFlight,
            std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
-           std::shared_ptr<star::core::renderer::FrameData> frameData, bool enableCutoffHighlighting,
-           star::ShaderResolver &shaderResolver);
+           std::shared_ptr<star::core::renderer::FrameData> frameData, star::ShaderResolver &shaderResolver);
 
     /// <summary>
     /// Expensive, only call when necessary.
@@ -120,6 +119,14 @@ class Volume : public star::StarObject
     void setFogType(const Fog::Type &fogType)
     {
         this->getVolumePhase()->setFogType(fogType);
+    }
+    void setShaderDebug(render_system::fog::MarchShaderFlags flag, bool state)
+    {
+        this->getVolumePhase()->setShaderFlag(flag, state);
+    }
+    bool toggleShaderDebug(render_system::fog::MarchShaderFlags flag)
+    {
+        return this->getVolumePhase()->toggleShaderFlag(flag);
     }
 
     VolumeRenderPhase &getRenderer()
@@ -159,12 +166,11 @@ class Volume : public star::StarObject
     std::array<glm::vec4, 2> aabbBounds;
     glm::vec2 screenDimensions{};
     openvdb::FloatGrid::Ptr grid{};
-
     uint32_t computeQueueFamily = 0;
     uint32_t graphicsQueueFamily = 0;
 
     void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-                    std::shared_ptr<star::core::renderer::FrameData> frameData, bool enableCutoffHighlighting);
+                    std::shared_ptr<star::core::renderer::FrameData> frameData);
 
     void loadModel(star::core::device::DeviceContext &context, const std::string &filePath);
 

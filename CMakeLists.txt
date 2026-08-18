@@ -170,6 +170,7 @@ set(${PROJECT_NAME}_SOURCES
 )
 
 set(${PROJECT_NAME}_HEADERS 
+	"include/DataRoles.hpp"
 	"include/FogType.hpp"
 	"include/service/detail/simulation_controller/CameraController.hpp"
 	"include/service/detail/simulation_controller/SimulationData.hpp"

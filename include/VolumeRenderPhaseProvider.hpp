@@ -18,15 +18,6 @@ namespace star::ManagerController::RenderResource
 {
 class Buffer;
 }
-
-/// Builds a VolumeRenderPhase. Holds the volume setup recipe -- vdb path,
-/// camera, aabb, the shared offscreen FrameData, the offscreen render phase
-/// whose render-to images the volume samples, and the instance info controllers
-/// -- plus the initial fog config the application threads in before the phase
-/// is built. build() runs the cold-path setup (the old VolumeRenderer init() +
-/// prepRender) on the phase and returns it. The offscreen is reached by its
-/// scene phase handle; build() looks it up via the RenderPhaseRegistry to read
-/// the offscreen phase's render-to images.
 class VolumeRenderPhaseProvider : public star::core::renderer::IRenderPhaseProvider
 {
   public:
@@ -34,11 +25,8 @@ class VolumeRenderPhaseProvider : public star::core::renderer::IRenderPhaseProvi
                               star::ManagerController::RenderResource::Buffer *instanceNormalInfo,
                               std::shared_ptr<star::core::renderer::FrameData> frameData,
                               star::Handle offscreenPhaseHandle, std::string vdbFilePath,
-                              std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds,
-                              bool enableCutoffHighlighting);
-
+                              std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds);
     virtual ~VolumeRenderPhaseProvider() = default;
-
     VolumeRenderPhaseProvider(const VolumeRenderPhaseProvider &) = delete;
     VolumeRenderPhaseProvider &operator=(const VolumeRenderPhaseProvider &) = delete;
     VolumeRenderPhaseProvider(VolumeRenderPhaseProvider &&) = default;
@@ -80,7 +68,6 @@ class VolumeRenderPhaseProvider : public star::core::renderer::IRenderPhaseProvi
     std::string m_vdbFilePath;
     std::shared_ptr<star::StarCamera> m_camera;
     std::array<glm::vec4, 2> m_aabbBounds;
-    bool m_enableCutoffHighlighting = false;
 
     FogInfo m_fogInfo;
     Fog::Type m_fogType = Fog::Type::sMarched;

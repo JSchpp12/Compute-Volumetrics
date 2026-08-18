@@ -2,12 +2,11 @@
 
 #include "renderer/VolumeRenderPhase.hpp"
 
-#include <starlight/core/renderer/RenderPhase.hpp>
-
 #include "AABBTransfer.hpp"
 #include "Allocator.hpp"
 #include "CameraInfo.hpp"
 #include "ConfigFile.hpp"
+#include "DataRoles.hpp"
 #include "FogData.hpp"
 #include "ManagerRenderResource.hpp"
 #include "RandomValueTexture.hpp"
@@ -22,18 +21,21 @@
 #include "renderer/volume/VolumePipelineBuilder.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
 
-#include <cassert>
-#include <filesystem>
-#include <functional>
-#include <memory>
 #include <star_common/FrameTracker.hpp>
 #include <star_common/HandleTypeRegistry.hpp>
+
 #include <starlight/command/command_order/DeclarePass.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/managers/Semaphore.hpp>
 #include <starlight/core/device/system/event/ManagerRequest.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
+#include <starlight/core/renderer/RenderPhase.hpp>
 #include <starlight/event/DescriptorPoolReady.hpp>
+
+#include <cassert>
+#include <filesystem>
+#include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 #include <vma/vk_mem_alloc.h>
@@ -131,12 +133,10 @@ VolumeRenderPhaseProvider::VolumeRenderPhaseProvider(
     star::ManagerController::RenderResource::Buffer *instanceManagerInfo,
     star::ManagerController::RenderResource::Buffer *instanceNormalInfo,
     std::shared_ptr<star::core::renderer::FrameData> frameData, star::Handle offscreenPhaseHandle,
-    std::string vdbFilePath, std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds,
-    bool enableCutoffHighlighting)
+    std::string vdbFilePath, std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds)
     : m_infoManagerInstanceModel(instanceManagerInfo), m_infoManagerInstanceNormal(instanceNormalInfo),
       m_frameData(std::move(frameData)), m_offscreenPhaseHandle(std::move(offscreenPhaseHandle)),
-      m_vdbFilePath(std::move(vdbFilePath)), m_camera(std::move(camera)), m_aabbBounds(aabbBounds),
-      m_enableCutoffHighlighting(enableCutoffHighlighting)
+      m_vdbFilePath(std::move(vdbFilePath)), m_camera(std::move(camera)), m_aabbBounds(aabbBounds)
 {
 }
 
@@ -147,7 +147,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     const uint8_t numFramesInFlight = c.frameTracker().getSetup().getNumFramesInFlight();
     const size_t n = static_cast<size_t>(numFramesInFlight);
 
-    auto phase = std::make_unique<VolumeRenderPhase>(m_enableCutoffHighlighting);
+    auto phase = std::make_unique<VolumeRenderPhase>();
     phase->m_device = c.getDevice().getVulkanDevice();
     phase->m_cmdBus = &c.getCmdBus();
     phase->m_frameData = m_frameData;
@@ -178,7 +178,6 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     phase->m_volumeFrameData->add(star::core::renderer::FrameData::BorrowedBuffer{m_infoManagerInstanceNormal},
                                   star::core::renderer::roleHandle(renderer::volume::frame_roles::InstanceNormal));
 
-    // --- queue family lookup (needed for the static buffers / compute images) ---
     const uint32_t computeQueueFamilyIndex =
         star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
                                                   star::Queue_Type::Tcompute)
@@ -248,7 +247,6 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
             render_system::fog::CreateActiveRayStorageBuffer(c, "RMEM_" + cstr, c.getEngineResolution()));
     }
 
-    // --- volume role handles ---
     const auto randomTexRole = star::core::renderer::roleHandle("RandomTex");
     const auto vdbRole = star::core::renderer::roleHandle("Vdb");
     const auto cameraExtraRole = star::core::renderer::roleHandle("CameraExtra");
@@ -256,8 +254,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     const auto depthRole = star::core::renderer::roleHandle("Depth");
     const auto colorRole = star::core::renderer::roleHandle("Color");
     const auto outputRole = star::core::renderer::roleHandle("Output");
+    const auto shadowMapRole = star::core::renderer::roleHandle(data_roles::TerrainShadowMap);
 
-    // --- populate m_volumeFrameData with the recipe's role-keyed resources ---
     phase->m_volumeFrameData->add(
         star::core::renderer::FrameData::TextureHandle{.textureHandle = phase->randomValueTexture,
                                                        .layout = vk::ImageLayout::eGeneral,
@@ -273,6 +271,22 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                                                                                 .layout = vk::ImageLayout::eGeneral,
                                                                                 .format = vk::Format::eR8G8B8A8Unorm},
                                   outputRole);
+    {
+        assert(m_shadowTerrainPhaseHandle.isInitialized() && "Shadow registration was never provided");
+
+        const auto *shadowPhase = phases.getPhase(m_shadowTerrainPhaseHandle);
+        assert(shadowPhase != nullptr && "Terrain shadow phase must be defined before volume");
+        std::vector<const star::StarTextures::Texture *> shadowMaps(n);
+        for (size_t i = 0; i < n; i++)
+        {
+            shadowMaps[i] = &c.getImageManager().get(shadowPhase->getRenderTargets().depthHandles()[i])->texture;
+        }
+
+        phase->m_volumeFrameData->add(
+            star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(shadowMaps),
+                                                             .layout = vk::ImageLayout::eShaderReadOnlyOptimal},
+            shadowMapRole);
+    }
 
     {
         std::vector<const star::StarTextures::Texture *> depthTextures;
@@ -304,7 +318,6 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
 
     phase->m_volumeFrameData->prepRender(c, numFramesInFlight);
 
-    // --- Part D: build the static + dynamic shader infos via the recipe ---
     const auto staticInfo = star::core::renderer::shaderInfoHandle("Static");
     const auto dynamicInfo = star::core::renderer::shaderInfoHandle("Dynamic");
     star::core::renderer::DescriptorRecipe::Builder(c.getEventBus(), c,
@@ -319,7 +332,6 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(staticInfo, 0, phase->m_volumeFrameData, activeRayRole, 3, vk::DescriptorType::eStorageBuffer,
                     vk::ShaderStageFlagBits::eCompute)
-        // set 1 (static): globals from the offscreen FD + locals from the volume FD
         .addBinding(staticInfo, 1, phase->m_frameData,
                     star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera), 0,
                     vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
@@ -338,6 +350,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
         .addBinding(staticInfo, 1, phase->m_volumeFrameData,
                     star::core::renderer::roleHandle(renderer::volume::frame_roles::Fog), 5,
                     vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+        .addBinding(staticInfo, 1, phase->m_volumeFrameData, shadowMapRole, 6,
+                    vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
         // set 0 (dynamic): depth / color / output -- from the volume FD
         .addBinding(dynamicInfo, 0, phase->m_volumeFrameData, depthRole, 0, vk::DescriptorType::eCombinedImageSampler,
                     vk::ShaderStageFlagBits::eCompute)
@@ -345,10 +359,6 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(dynamicInfo, 0, phase->m_volumeFrameData, outputRole, 2, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
-        // --- Part E: build the compute pipeline layout + fog pipelines inside
-        // the recipe (same one-shot pattern as DefaultRenderPhaseProvider's
-        // setRenderGroups) so descriptor + pipeline assembly are one atomic
-        // unit on DescriptorPoolReady, avoiding a separate waiter. ---
         .setOnShaderInfoReady(
             [pipelineBuilder =
                  VolumePipelineBuilder{&c, &phase->m_staticShaderInfo, &phase->m_dynamicShaderInfo,

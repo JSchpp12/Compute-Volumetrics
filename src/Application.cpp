@@ -177,9 +177,8 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         std::vector<star::Handle> globalInfos(numInFlight);
         std::vector<star::Handle> lightInfos(numInFlight);
 
-        size_t fNumFramesInFlight = 0;
-        star::common::casts::SafeCast<uint8_t, size_t>(context.frameTracker().getSetup().getNumFramesInFlight(),
-                                                       fNumFramesInFlight);
+        const size_t &fNumFramesInFlight =
+            static_cast<const size_t &>(context.frameTracker().getSetup().getNumFramesInFlight());
 
         {
             auto vdbPath = std::filesystem::path(mediaDirectoryPath) / "volumes" / m_volumeName;
@@ -200,8 +199,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
                     .setLoader(std::make_unique<star::command::create_object::DeferredObjCreation>(
                         [&, vdbPathString, fNumFramesInFlight, camera, width, height](star::ShaderResolver &resolver) {
                             return std::make_shared<Volume>(context, vdbPathString, fNumFramesInFlight, camera, width,
-                                                            height, m_offscreenFrameData,
-                                                            m_volumeOptions.enableCutoffHighlighting, resolver);
+                                                            height, m_offscreenFrameData, resolver);
                         }))
                     .setShaderResolver(std::move(volumeResolver))
                     .setUniqueName(m_volumeName)

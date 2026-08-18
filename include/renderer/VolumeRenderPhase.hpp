@@ -11,6 +11,7 @@
 #include "render_system/fog/FogDispatcher.hpp"
 #include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/commands/Color.hpp"
+#include "render_system/fog/struct/ShaderFlags.hpp"
 #include "structs/FogInfo.hpp"
 
 #include <starlight/core/renderer/RenderPhase.hpp>
@@ -42,9 +43,8 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     friend class VolumeRenderPhaseProvider;
     friend class render_system::fog::commands::Color;
 
-    explicit VolumeRenderPhase(bool enableCutoffHighlighting);
+    VolumeRenderPhase() = default;
     virtual ~VolumeRenderPhase() = default;
-
     VolumeRenderPhase(const VolumeRenderPhase &) = delete;
     VolumeRenderPhase &operator=(const VolumeRenderPhase &) = delete;
     VolumeRenderPhase(VolumeRenderPhase &&) = delete;
@@ -118,6 +118,10 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
         return m_timelineSemaphores;
     }
 
+    void setShaderFlag(render_system::fog::InitShaderFlags flag, bool state) noexcept;
+    void setShaderFlag(render_system::fog::MarchShaderFlags flag, bool state) noexcept;
+    bool toggleShaderFlag(render_system::fog::MarchShaderFlags flag) noexcept;
+
   protected:
     virtual std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride>
     getSubmissionOverride() override;
@@ -151,6 +155,8 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     std::optional<star::Handle> m_transferNeighborHandle{std::nullopt};
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
     Fog::Type currentFogType = Fog::Type::sMarched;
+    bool m_enableColorDebugCutoff{false};
+    bool m_enableShadowMapDebug{false};
     bool isReady = false;
     bool isFirstPass = true;
     bool transferTriggeredThisFrame = false;

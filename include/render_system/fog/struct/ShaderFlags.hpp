@@ -12,7 +12,8 @@ enum class InitShaderFlags : uint16_t
 enum class MarchShaderFlags : uint16_t
 {
     None = 0,
-    EnableDebugHighlightCutoffValue = 1u << 0
+    EnableDebugHighlightCutoffValue = 1u << 0,
+    EnableDebugHighlightShadows = 1u << 1
 };
 
 constexpr uint32_t Pack(InitShaderFlags initFlags, MarchShaderFlags marchFlags) noexcept

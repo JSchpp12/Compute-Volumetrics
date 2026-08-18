@@ -97,12 +97,6 @@ static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx,
         std::move(pass), true, &isReady};
 }
 
-FogDispatcher::FogDispatcher(bool enableColorDebugCutoff)
-    : m_passes(), m_cbSubmitInfo(), m_syncApproach(), m_cmdBus(nullptr), m_numCbRecorded(0), m_cbSubmitWait(6),
-      m_enableColorDebugCutoff(enableColorDebugCutoff)
-{
-}
-
 void FogDispatcher::prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
 {
     m_cmdBus = &ctx.getCmdBus();
@@ -195,22 +189,19 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
             {
             case (Fog::Type::sExponential):
             case (Fog::Type::sLinear):
-                dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableColorOutput, MarchShaderFlags::None);
+                dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableColorOutput, MarchShaderFlags::None);
                 break;
             default:
-                dInfo.shaderOptionFlags =
-                    Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest |
-                             InitShaderFlags::EnableColorOutput,
-                         m_enableColorDebugCutoff ? MarchShaderFlags::EnableDebugHighlightCutoffValue
-                                                  : MarchShaderFlags::None);
+
+                dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest |
+                                                    InitShaderFlags::EnableColorOutput,
+                                                MarchShaderFlags::None);
             }
         }
         else if (pipeInfo.fogType == Fog::Type::sMarched)
         {
             // distance passes always have AAbb test but no depth test
-            dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableAabbTest,
-                                           m_enableColorDebugCutoff ? MarchShaderFlags::EnableDebugHighlightCutoffValue
-                                                                    : MarchShaderFlags::None);
+            dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
         }
 
         // only dispatch the distance compute for the marched option. All others have analytical solutions.

@@ -4,6 +4,7 @@
 #include "struct_RayState.comp"
 
 const uint FLAG_ENABLE_DEBUG_CUTOFF = 1u << 16u;
+const uint FLAG_ENABLE_DEBUG_SHADOW_HIGHLIGHT = 1u << 17u;
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
@@ -110,6 +111,8 @@ layout(set = 1, binding = 5) uniform FogControllerInfo
     uint gridType;
 }
 fogInfo;
+layout(set = 1, binding = 6, r32f) uniform readonly image2D terrainShadowMap;
+
 // per-draw
 layout(set = 2, binding = 0) uniform sampler2D inputSceneDepth;
 layout(set = 2, binding = 1, rgba8) uniform readonly image2D inputSceneColor;
@@ -323,6 +326,13 @@ void main()
     if (hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_CUTOFF) && hitTransparencyCutoff)
     {
         resultingColor = vec3(1.0, 0.0, 0.0);
+    }
+    else if (hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_SHADOW_HIGHLIGHT))
+    {
+        const float shadowMapValue = imageLoad(terrainShadowMap, rayState.targetPixel).r;
+        resultingColor = vec3(shadowMapValue, 0, 0);
+        // imageStore(outputImage, rayState.targetPixel, vec4(shadowMapColor, 0, 0, 1));
+        // resultingColor = vec3(1.0, 0.0, 0.0);
     }
     else
     {

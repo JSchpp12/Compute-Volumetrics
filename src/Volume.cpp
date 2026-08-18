@@ -17,15 +17,14 @@
 
 Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
                std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
-               std::shared_ptr<star::core::renderer::FrameData> frameData, bool enableCutoffHighlighting,
-               star::ShaderResolver &shaderResolver)
+               std::shared_ptr<star::core::renderer::FrameData> frameData, star::ShaderResolver &shaderResolver)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
       camera(camera), screenDimensions(screenWidth, screenHeight)
 {
     m_vertexShaderHandle = shaderResolver.resolve(star::Shader_Stage::vertex);
     m_fragmentShaderHandle = shaderResolver.resolve(star::Shader_Stage::fragment);
 
-    initVolume(context, std::move(vdbFilePath), std::move(frameData), enableCutoffHighlighting);
+    initVolume(context, std::move(vdbFilePath), std::move(frameData));
 }
 
 void Volume::loadModel(star::core::device::DeviceContext &context, const std::string &filePath)
@@ -170,13 +169,13 @@ const VolumeRenderPhase *Volume::getVolumePhase() const
 }
 
 void Volume::initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-                        std::shared_ptr<star::core::renderer::FrameData> frameData, bool enableCutoffHighlighting)
+                        std::shared_ptr<star::core::renderer::FrameData> frameData)
 {
     loadModel(context, vdbFilePath);
 
     this->m_phaseProvider = std::make_unique<VolumeRenderPhaseProvider>(
         &m_instanceInfo.getControllerModel(), &m_instanceInfo.getControllerNormal(), std::move(frameData),
-        star::Handle{}, std::move(vdbFilePath), this->camera, this->aabbBounds, enableCutoffHighlighting);
+        star::Handle{}, std::move(vdbFilePath), this->camera, this->aabbBounds);
 }
 
 void Volume::updateGridTransforms()
