@@ -7,31 +7,9 @@
 #include <starlight/core/device/managers/Semaphore.hpp>
 #include <starlight/core/device/system/event/ManagerRequest.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
+#include <starlight/core/renderer/RenderPhaseHelpers.hpp>
 
 #include <star_common/HandleTypeRegistry.hpp>
-
-static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus,
-                                                  const star::common::FrameTracker &ft) noexcept
-{
-    const size_t num = static_cast<size_t>(ft.getSetup().getNumFramesInFlight());
-
-    auto handles = std::vector<star::Handle>(num);
-    for (size_t i{0}; i < handles.size(); i++)
-    {
-        void *r = nullptr;
-        evtBus.emit(star::core::device::system::event::ManagerRequest(
-            star::common::HandleTypeRegistry::instance().getTypeGuaranteedExist(
-                star::core::device::manager::GetSemaphoreEventTypeName),
-            star::core::device::manager::SemaphoreRequest{true}, handles[i], &r));
-
-        if (r == nullptr)
-        {
-            STAR_THROW("Unable to create new semaphore");
-        }
-    }
-
-    return handles;
-}
 
 OffscreenRenderPhaseProvider::OffscreenRenderPhaseProvider(star::core::device::DeviceContext &context,
                                                            std::vector<std::shared_ptr<star::StarObject>> objects,
@@ -47,12 +25,9 @@ std::unique_ptr<star::core::renderer::RenderPhase> OffscreenRenderPhaseProvider:
     star::core::device::DeviceContext &device, star::core::renderer::RenderPhaseRegistry &phases)
 {
     auto &c = device;
-    auto phase = std::make_unique<OffscreenRenderPhase>();
+    auto phase = std::make_unique<OffscreenRenderPhase>(c.getCmdBus(), c.getDevice().getVulkanDevice());
 
     // offscreen pre-setup (mirrors OffscreenRenderer::prepRender before DefaultRenderer::prepRender)
-    phase->m_cmdBus = &c.getCmdBus();
-    phase->m_device = c.getDevice().getVulkanDevice();
-
     phase->graphicsQueueFamilyIndex =
         star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
                                                   star::Queue_Type::Tgraphics)
@@ -67,7 +42,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> OffscreenRenderPhaseProvider:
     auto cmd = star::command_order::DeclarePass(phase->getCommandBuffer(), phase->graphicsQueueFamilyIndex);
     c.begin().set(cmd).submit();
 
-    phase->m_timelineSemaphores = CreateSemaphores(c.getEventBus(), c.frameTracker());
+    phase->m_timelineSemaphores = star::core::renderer::CreateSemaphores(c.getEventBus(), c.frameTracker());
 
     // shared base build, in place into phase's DefaultRenderPhase base subobject
     star::core::renderer::DefaultRenderPhase::Builder(c)

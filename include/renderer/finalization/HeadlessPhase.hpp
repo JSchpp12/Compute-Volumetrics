@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <starlight/core/renderer/HeadlessRenderPhase.hpp>
 
@@ -6,18 +6,10 @@ namespace renderer::finalization
 {
 class HeadlessPhaseProvider;
 
-/// Finalization headless phase. Extends the starlight HeadlessRenderPhase --
-/// which already owns the per-frame timeline semaphores, the TriggerPass submit
-/// in frameUpdate, the GPU timeline wait before recording, and the edge-based
-/// submission override -- and adds the finalization-specific color/depth image
-/// layout transitions that bracket the render pass. The render-to color image
-/// is left in TransferSrcOptimal by the previous frame's screenshot copy and
-/// must return to ColorAttachmentOptimal; depth is transitioned out of
-/// Undefined on the first frame. Setup lives on HeadlessPhaseProvider.
 class HeadlessPhase : public star::core::renderer::HeadlessRenderPhase
 {
   public:
-    HeadlessPhase() = default;
+    HeadlessPhase(const star::core::CommandBus &cmdBus, vk::Device device);
     virtual ~HeadlessPhase() = default;
 
     HeadlessPhase(const HeadlessPhase &) = delete;

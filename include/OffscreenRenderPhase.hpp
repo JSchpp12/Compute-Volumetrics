@@ -1,6 +1,7 @@
 #pragma once
 
 #include <starlight/core/renderer/DefaultRenderPhase.hpp>
+#include <starlight/core/CommandBus.hpp>
 
 class OffscreenRenderPhaseProvider;
 
@@ -13,7 +14,7 @@ class OffscreenRenderPhaseProvider;
 class OffscreenRenderPhase : public star::core::renderer::DefaultRenderPhase
 {
   public:
-    OffscreenRenderPhase() = default;
+    OffscreenRenderPhase(const star::core::CommandBus &cmdBus, vk::Device device);
     virtual ~OffscreenRenderPhase() = default;
 
     OffscreenRenderPhase(const OffscreenRenderPhase &) = delete;
@@ -57,12 +58,4 @@ class OffscreenRenderPhase : public star::core::renderer::DefaultRenderPhase
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
         const star::common::FrameTracker &frameTracker) override;
-
-    vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
-                               std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                               std::vector<vk::Semaphore> dataSemaphores,
-                               std::vector<vk::PipelineStageFlags> dataWaitPoints,
-                               std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue);
-
-    void waitForSemaphore(const star::common::FrameTracker &ft) const;
 };

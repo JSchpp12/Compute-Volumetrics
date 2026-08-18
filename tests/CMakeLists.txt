@@ -1,4 +1,4 @@
-# tests/CMakeLists.txt
+﻿# tests/CMakeLists.txt
 
 find_package(GTest CONFIG REQUIRED)
 
@@ -7,6 +7,7 @@ add_executable(unit_tests
     test_distance_metrics_json.cpp
     test_AppConfigLoader.cpp
     test_coverage_info_json.cpp
+    test_SboCallable.cpp
 )
 
 # Mirror useful compile defs/macros you rely on in pure code paths

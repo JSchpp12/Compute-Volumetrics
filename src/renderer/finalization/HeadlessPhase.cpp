@@ -1,7 +1,12 @@
-﻿#include "renderer/finalization/HeadlessPhase.hpp"
+#include "renderer/finalization/HeadlessPhase.hpp"
 
 namespace renderer::finalization
 {
+HeadlessPhase::HeadlessPhase(const star::core::CommandBus &cmdBus, vk::Device device)
+    : star::core::renderer::HeadlessRenderPhase(cmdBus, device)
+{
+}
+
 void HeadlessPhase::addMemoryBarriersPost(vk::CommandBuffer cmdBuff, const star::common::FrameTracker &ft) const
 {
 }
