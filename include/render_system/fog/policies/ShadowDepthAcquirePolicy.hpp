@@ -9,8 +9,6 @@
 
 namespace render_system::fog
 {
-// Forward (shadow -> compute): acquire the shadow depth on the compute queue so
-// the volume can sample it. Emitted in the volume Pre (color::PreDifferentFamilies).
 struct ShadowDepthOwnershipAcquire
 {
     uint32_t graphicsQueueFamilyIndex;

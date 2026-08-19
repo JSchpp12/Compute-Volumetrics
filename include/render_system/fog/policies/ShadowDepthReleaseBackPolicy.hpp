@@ -9,9 +9,6 @@
 
 namespace render_system::fog
 {
-// Reverse (compute -> shadow): release the shadow depth back to graphics after the
-// volume sampled it. Emitted in the volume Post (color::PostDifferentFamilies).
-// For the same-queue case this is a no-op; the shadow Pre does the single transition back.
 struct ShadowDepthOwnershipReleaseBack
 {
     uint32_t graphicsQueueFamilyIndex;
