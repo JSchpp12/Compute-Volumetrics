@@ -1,4 +1,4 @@
-#include "render_system/fog/commands/color/PostDifferentFamilies.hpp"
+﻿#include "render_system/fog/commands/color/PostDifferentFamilies.hpp"
 
 namespace render_system::fog::commands::color
 {
@@ -98,6 +98,12 @@ void PostDifferentFamilies::build(const PassInfo &info, const star::common::Fram
     for (uint8_t i{0}; i < barrierCountImage; i++)
     {
         batch.addImage(imageBarriers[i]);
+    }
+
+    if (info.terrainPassInfo.renderToShadowDepth != VK_NULL_HANDLE)
+    {
+        std::visit([&](const auto &p) { p.build(info.terrainPassInfo.renderToShadowDepth, batch); },
+                   shadowDepthReleaseBack);
     }
 
     const auto [memoryBarriers, barrierCountBuffer] =

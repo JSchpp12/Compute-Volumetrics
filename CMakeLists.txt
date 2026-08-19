@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.26)
+﻿cmake_minimum_required(VERSION 3.26)
 
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
@@ -146,7 +146,9 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/commands/distance/PostMemoryBarrierRecorder.cpp"
 	"src/render_system/fog/commands/color/PostMemoryBarrierRecorder.cpp"
 	"src/render_system/fog/commands/color/PostDifferentFamilies.cpp"
-	"src/render_system/fog/commands/color/PreDifferentFamilies.cpp" 
+	"src/render_system/fog/commands/color/PreDifferentFamilies.cpp"
+	"src/render_system/fog/policies/ShadowDepthAcquirePolicy.cpp" 
+	"src/render_system/fog/policies/ShadowDepthReleaseBackPolicy.cpp" 
 	"src/render_system/fog/commands/color/PreMemoryBarrierRecorder.cpp"
  	"src/render_system/fog/commands/distance/PreDifferentFamilies.cpp" 
 	"src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp" 

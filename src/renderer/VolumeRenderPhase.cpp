@@ -1,4 +1,4 @@
-#include "renderer/VolumeRenderPhase.hpp"
+﻿#include "renderer/VolumeRenderPhase.hpp"
 
 #include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/Exceptions.hpp>
@@ -114,7 +114,14 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
              .renderToDepth =
                  m_renderingContext.recordDependentImage
                      .get(m_offscreenPhase->getRenderTargets().depthHandles()[ft.getCurrent().getFrameInFlightIndex()])
-                     ->getVulkanImage()},
+                     ->getVulkanImage(),
+             .renderToShadowDepth =
+                 (m_terrainShadowPhase != nullptr)
+                     ? m_renderingContext.recordDependentImage
+                           .get(m_terrainShadowPhase->getRenderTargets()
+                                    .depthHandles()[ft.getCurrent().getFrameInFlightIndex()])
+                           ->getVulkanImage()
+                     : VK_NULL_HANDLE},
         .computeWriteToImage = computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage(),
         .computeRayAtCutoffDistance =
             computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),

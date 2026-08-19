@@ -111,7 +111,13 @@ layout(set = 1, binding = 5) uniform FogControllerInfo
     uint gridType;
 }
 fogInfo;
-layout(set = 1, binding = 6, r32f) uniform readonly image2D terrainShadowMap;
+layout(set = 1, binding = 6) uniform ShadowCalculationData
+{
+    mat4 worldToLightViewProj;
+    mat4 worldToShadowMapProj;
+}
+shadowLight;
+layout(set = 1, binding = 7) uniform sampler2D terrainShadowMap;
 
 // per-draw
 layout(set = 2, binding = 0) uniform sampler2D inputSceneDepth;
@@ -160,14 +166,46 @@ float applyHenyeyGreensteinPhase(const float cosTheta, const float g)
     return (1.0 / (4.0 * PI)) * (1.0 - g * g) / pow(denom, 1.5);
 }
 
-bool forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const vec3 backgroundColor, const Ray ray,
-                  const float t0, const float t1, const mat4 inverseModelMatrix, float sigmaAbsorption,
-                  float sigmaScattering, float lightPropertyDir_g, float mainStepSize, float lightStepSize,
-                  const float cutOffDistance, const vec4 randomValues, const float defaultDensity,
-                  const float densityMultiplier, const float cutoffValue, const float lightExtinctionScale,
-                  const uint frame, inout vec3 resultingColor, inout float rayDistanceTraveled)
+float getShadowMapDepth(const vec3 lightNDC)
 {
-    bool hitTransparencyCutoff = false;
+    vec2 shadowUV = lightNDC.xy * 0.5 + 0.5;
+    // ivec2 imgSize = imageSize(terrainShadowMap);
+    // ivec2 texelCoord = ivec2(shadowUV * vec2(imgSize));
+    return texture(terrainShadowMap, shadowUV).r;
+}
+
+bool isInShadow(const vec3 volumeLocalPosition)
+{
+    vec4 worldPosition = instanceModelMatrix[0] * vec4(volumeLocalPosition, 1.0);
+    vec4 lightClipPos = shadowLight.worldToLightViewProj * worldPosition;
+    vec3 ndc = lightClipPos.xyz / lightClipPos.w;
+    float shadowDepth = ndc.z;
+    float storedMapDepth = getShadowMapDepth(ndc);
+    return shadowDepth > storedMapDepth;
+}
+
+struct ForwardMarchDebugOptions
+{
+    bool stopAtShadowRange;
+};
+
+struct ForwardMarchDebugMarchResult
+{
+    bool hitTransparencyCutoff;
+    bool hitShadowCutoff;
+};
+
+ForwardMarchDebugMarchResult forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord,
+                                          const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
+                                          const mat4 inverseModelMatrix, float sigmaAbsorption, float sigmaScattering,
+                                          float lightPropertyDir_g, float mainStepSize, float lightStepSize,
+                                          const float cutOffDistance, const vec4 randomValues,
+                                          const float defaultDensity, const float densityMultiplier,
+                                          const float cutoffValue, const float lightExtinctionScale, const uint frame,
+                                          const ForwardMarchDebugOptions options, inout vec3 resultingColor,
+                                          inout float rayDistanceTraveled)
+{
+    ForwardMarchDebugMarchResult results = ForwardMarchDebugMarchResult(false, false);
     Light_Type lChecker = createLightTypeStruct();
 
     pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
@@ -197,7 +235,7 @@ bool forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const 
         if (transparency < cutoffValue)
         {
             transparency = 0.0;
-            hitTransparencyCutoff = true;
+            results.hitTransparencyCutoff = true;
             break;
         }
 
@@ -206,6 +244,14 @@ bool forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const 
         const float t = stepStart + stepJitter * ds;
         const vec3 marchPos = ray.origin.xyz + (t * ray.direction.xyz);
         float pDensity = gridReadAt(grid, acc, gType, marchPos, true) * densityMultiplier;
+
+        const bool inShadow = isInShadow(marchPos);
+        if (inShadow && options.stopAtShadowRange)
+        {
+            results.hitShadowCutoff = true;
+            break;
+        }
+
         if (pDensity == 0.0f)
             pDensity = defaultDensity * densityMultiplier;
 
@@ -292,16 +338,26 @@ bool forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord, const 
     }
 
     resultingColor = backgroundColor * transparency + resultingRadiance;
-    return hitTransparencyCutoff;
+
+    return results;
+}
+
+bool readRayState(inout RayState rayState)
+{
+    uint gid = gl_GlobalInvocationID.x;
+    if (gid >= rss.activeCount)
+        return false;
+
+    rayState = rss.activeData[gid];
+    return true;
 }
 
 void main()
 {
-    uint gid = gl_GlobalInvocationID.x;
-    if (gid >= rss.activeCount)
+    RayState rayState;
+    if (!readRayState(rayState))
         return;
 
-    RayState rayState = rss.activeData[gid];
     vec3 resultingColor = imageLoad(inputSceneColor, rayState.targetPixel).rgb;
     const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]);
     pnanovdb_grid_handle_t grid = makeNanoGrid(0);
@@ -314,25 +370,25 @@ void main()
     localRay.direction = vec4(rayState.direction, 0.0);
     const vec4 randomValues = imageLoad(randomTexture, rayState.targetPixel);
 
-    bool hitTransparencyCutoff =
-        forwardMarch(grid, uvec2(rayState.targetPixel), resultingColor, localRay, rayState.t0, rayState.tEnd,
-                     inverseModelMatrix, fogInfo.marchedFog_sigmaAbsorption * scale,
-                     fogInfo.marchedFog_sigmaScattering * scale, fogInfo.marchedFog_lightPropertyDirG,
-                     fogInfo.marchedFog_stepSizeDist / scale, fogInfo.marchedFog_stepSizeDist_light / scale,
-                     rayState.localDepthDistance, randomValues, fogInfo.marchedFog_defaultDensity,
-                     fogInfo.marchedFog_densityMultiplier, fogInfo.marchedFog_colorTransparencyCutoff,
-                     fogInfo.marchedFog_lightExtinctionScale, 0u, resultingColor, rayState.rayDistanceTraveled);
+    const ForwardMarchDebugOptions options =
+        ForwardMarchDebugOptions(hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_SHADOW_HIGHLIGHT));
 
-    if (hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_CUTOFF) && hitTransparencyCutoff)
+    const ForwardMarchDebugMarchResult marchResult = forwardMarch(
+        grid, uvec2(rayState.targetPixel), resultingColor, localRay, rayState.t0, rayState.tEnd, inverseModelMatrix,
+        fogInfo.marchedFog_sigmaAbsorption * scale, fogInfo.marchedFog_sigmaScattering * scale,
+        fogInfo.marchedFog_lightPropertyDirG, fogInfo.marchedFog_stepSizeDist / scale,
+        fogInfo.marchedFog_stepSizeDist_light / scale, rayState.localDepthDistance, randomValues,
+        fogInfo.marchedFog_defaultDensity, fogInfo.marchedFog_densityMultiplier,
+        fogInfo.marchedFog_colorTransparencyCutoff, fogInfo.marchedFog_lightExtinctionScale, 0u, options,
+        resultingColor, rayState.rayDistanceTraveled);
+
+    if ((hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_CUTOFF) && marchResult.hitTransparencyCutoff))
     {
         resultingColor = vec3(1.0, 0.0, 0.0);
     }
-    else if (hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_SHADOW_HIGHLIGHT))
+    else if (marchResult.hitShadowCutoff)
     {
-        const float shadowMapValue = imageLoad(terrainShadowMap, rayState.targetPixel).r;
-        resultingColor = vec3(shadowMapValue, 0, 0);
-        // imageStore(outputImage, rayState.targetPixel, vec4(shadowMapColor, 0, 0, 1));
-        // resultingColor = vec3(1.0, 0.0, 0.0);
+        resultingColor = vec3(0.0, 1.0, 0.0);
     }
     else
     {

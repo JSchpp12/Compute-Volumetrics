@@ -1,4 +1,4 @@
-#include "VolumeRenderPhaseProvider.hpp"
+﻿#include "VolumeRenderPhaseProvider.hpp"
 
 #include "renderer/VolumeRenderPhase.hpp"
 
@@ -20,6 +20,8 @@
 #include "renderer/volume/VolumeFrameRoles.hpp"
 #include "renderer/volume/VolumePipelineBuilder.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
+
+#include <star_terrain/rendering/DataRoles.hpp>
 
 #include <star_common/FrameTracker.hpp>
 #include <star_common/HandleTypeRegistry.hpp>
@@ -255,6 +257,10 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     const auto colorRole = star::core::renderer::roleHandle("Color");
     const auto outputRole = star::core::renderer::roleHandle("Output");
     const auto shadowMapRole = star::core::renderer::roleHandle(data_roles::TerrainShadowMap);
+    const auto shadowLightCalculationRole = star::core::renderer::roleHandle(data_roles::TerrainShadowMap);
+
+    const auto staticInfo = star::core::renderer::shaderInfoHandle("Static");
+    const auto dynamicInfo = star::core::renderer::shaderInfoHandle("Dynamic");
 
     phase->m_volumeFrameData->add(
         star::core::renderer::FrameData::TextureHandle{.textureHandle = phase->randomValueTexture,
@@ -271,10 +277,15 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                                                                                 .layout = vk::ImageLayout::eGeneral,
                                                                                 .format = vk::Format::eR8G8B8A8Unorm},
                                   outputRole);
+    auto builder = star::core::renderer::DescriptorRecipe::Builder(
+        c.getEventBus(), c, star::event::DescriptorPoolReady::GetUniqueTypeName());
     {
+        const star::Handle shadowRole =
+            star::core::renderer::roleHandle(star::terrain::rendering::data_roles::ShadowLightProjections);
+
         assert(m_shadowTerrainPhaseHandle.isInitialized() && "Shadow registration was never provided");
 
-        const auto *shadowPhase = phases.getPhase(m_shadowTerrainPhaseHandle);
+        auto *shadowPhase = phases.getPhase(m_shadowTerrainPhaseHandle);
         assert(shadowPhase != nullptr && "Terrain shadow phase must be defined before volume");
         std::vector<const star::StarTextures::Texture *> shadowMaps(n);
         for (size_t i = 0; i < n; i++)
@@ -286,6 +297,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
             star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(shadowMaps),
                                                              .layout = vk::ImageLayout::eShaderReadOnlyOptimal},
             shadowMapRole);
+        builder.addBinding(staticInfo, 1, shadowPhase->getFrameData(), shadowRole, 6,
+                           vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
     }
 
     {
@@ -318,11 +331,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
 
     phase->m_volumeFrameData->prepRender(c, numFramesInFlight);
 
-    const auto staticInfo = star::core::renderer::shaderInfoHandle("Static");
-    const auto dynamicInfo = star::core::renderer::shaderInfoHandle("Dynamic");
-    star::core::renderer::DescriptorRecipe::Builder(c.getEventBus(), c,
-                                                    star::event::DescriptorPoolReady::GetUniqueTypeName())
-        .setShaderInfoOut(staticInfo, &phase->m_staticShaderInfo)
+    builder.setShaderInfoOut(staticInfo, &phase->m_staticShaderInfo)
         .setShaderInfoOut(dynamicInfo, &phase->m_dynamicShaderInfo)
         .addBinding(staticInfo, 0, phase->m_volumeFrameData, randomTexRole, 0, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
@@ -350,7 +359,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
         .addBinding(staticInfo, 1, phase->m_volumeFrameData,
                     star::core::renderer::roleHandle(renderer::volume::frame_roles::Fog), 5,
                     vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-        .addBinding(staticInfo, 1, phase->m_volumeFrameData, shadowMapRole, 6,
+        .addBinding(staticInfo, 1, phase->m_volumeFrameData, shadowMapRole, 7,
                     vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
         // set 0 (dynamic): depth / color / output -- from the volume FD
         .addBinding(dynamicInfo, 0, phase->m_volumeFrameData, depthRole, 0, vk::DescriptorType::eCombinedImageSampler,
@@ -410,12 +419,20 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     auto cmd = star::command_order::DeclarePass(phase->m_commandBuffer, computeQueueFamilyIndex);
     c.begin().set(cmd).submit();
 
+    auto *shadowPhase = phases.getPhase(m_shadowTerrainPhaseHandle);
+
     for (size_t i = 0; i < n; i++)
     {
         auto &ch = offscreenPhase->getRenderTargets().colorHandles()[i];
         phase->m_renderingContext.recordDependentImage.manualInsert(ch, &c.getImageManager().get(ch)->texture);
         auto &dh = offscreenPhase->getRenderTargets().depthHandles()[i];
         phase->m_renderingContext.recordDependentImage.manualInsert(dh, &c.getImageManager().get(dh)->texture);
+
+        if (shadowPhase != nullptr) // NEW
+        {
+            auto &sh = shadowPhase->getRenderTargets().depthHandles()[i];
+            phase->m_renderingContext.recordDependentImage.manualInsert(sh, &c.getImageManager().get(sh)->texture);
+        }
     }
 
     phase->m_chunkHandler.prepRender(c, phase->m_commandBuffer, phase->isReady);
@@ -430,3 +447,4 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
 
     return phase;
 }
+

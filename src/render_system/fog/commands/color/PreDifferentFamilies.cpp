@@ -1,4 +1,6 @@
-#include "render_system/fog/commands/color/PreDifferentFamilies.hpp"
+﻿#include "render_system/fog/commands/color/PreDifferentFamilies.hpp"
+
+#include <variant>
 
 namespace render_system::fog::commands::color
 {
@@ -150,6 +152,13 @@ void PreDifferentFamilies::build(const PassInfo &info, const star::common::Frame
         {
             batch.addBuffer(bufferBarriers[i]);
         }
+    }
+
+    if (info.terrainPassInfo.renderToShadowDepth != VK_NULL_HANDLE)
+    {
+        std::visit(
+            [&](const auto &p) { p.build(info.terrainPassInfo.renderToShadowDepth, batch); },
+            shadowDepthAcquire);
     }
 }
 } // namespace render_system::fog::commands::color

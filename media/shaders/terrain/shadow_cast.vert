@@ -5,7 +5,7 @@ layout(location = 0) in vec3 inPosition;
 layout(binding = 0, set = 0) uniform GlobalUniformBufferObject
 {
     mat4 worldToLightViewProj;
-    mat4 worldToShadowMapProj;
+    mat4 terrainToLightViewProj;
 }
 globalUbo;
 

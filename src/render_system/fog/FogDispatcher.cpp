@@ -1,4 +1,4 @@
-#include "render_system/fog/FogDispatcher.hpp"
+﻿#include "render_system/fog/FogDispatcher.hpp"
 
 #include "render_system/fog/commands/Distance.hpp"
 #include "render_system/fog/commands/Pass.hpp"
@@ -6,6 +6,8 @@
 #include "render_system/fog/commands/PreMemoryBarrierContributor.hpp"
 #include "render_system/fog/struct/ShaderFlags.hpp"
 #include "render_system/fog/struct/ShaderPushInfo.hpp"
+#include "render_system/fog/policies/ShadowDepthAcquirePolicy.hpp"
+#include "render_system/fog/policies/ShadowDepthReleaseBackPolicy.hpp"
 #include "render_system/fog/struct/SyncInfo.hpp"
 
 #include <starlight/command/command_order/GetPassInfo.hpp>
@@ -52,12 +54,16 @@ static ChunkOrchestrator CreateColorPass(star::core::device::DeviceContext &ctx,
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
 
     pass[0] = Pass{ComputeContributor{Init{ctx.getEngineResolution()}},
-                   PreMemoryBarrierContributor{color::PreMemoryBarrierRecorder{color::PreDifferentFamilies{info}}}};
+                   PreMemoryBarrierContributor{color::PreMemoryBarrierRecorder{color::PreDifferentFamilies{
+                       info, render_system::fog::makeShadowDepthAcquirePolicy(graphicsQueueFamilyIndex,
+                                                                              computeQueueFamilyIndex)}}}};
 
     pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
 
     pass[2] = Pass{ComputeContributor{Color{}},
-                   PostMemoryBarrierContributor{color::PostMemoryBarrierRecorder{color::PostDifferentFamilies{info}}}};
+                   PostMemoryBarrierContributor{color::PostMemoryBarrierRecorder{color::PostDifferentFamilies{info,
+                                              render_system::fog::makeShadowDepthReleaseBackPolicy(graphicsQueueFamilyIndex,
+                                                                                                    computeQueueFamilyIndex)}}}};
 
     return ChunkOrchestrator{
         star::StarCommandBuffer(ctx.getDevice().getVulkanDevice(),

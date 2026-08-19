@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "FogType.hpp"
 
@@ -16,6 +16,7 @@ struct PassInfo
     {
         vk::Image renderToColor{VK_NULL_HANDLE};
         vk::Image renderToDepth{VK_NULL_HANDLE};
+        vk::Image renderToShadowDepth{VK_NULL_HANDLE};
     };
     std::optional<vk::Buffer> globalCameraBuffer{std::nullopt};
     std::optional<vk::Buffer> fogControllerBuffer{std::nullopt};
