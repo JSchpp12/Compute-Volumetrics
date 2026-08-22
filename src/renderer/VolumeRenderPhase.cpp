@@ -115,13 +115,12 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
                  m_renderingContext.recordDependentImage
                      .get(m_offscreenPhase->getRenderTargets().depthHandles()[ft.getCurrent().getFrameInFlightIndex()])
                      ->getVulkanImage(),
-             .renderToShadowDepth =
-                 (m_terrainShadowPhase != nullptr)
-                     ? m_renderingContext.recordDependentImage
-                           .get(m_terrainShadowPhase->getRenderTargets()
-                                    .depthHandles()[ft.getCurrent().getFrameInFlightIndex()])
-                           ->getVulkanImage()
-                     : VK_NULL_HANDLE},
+             .renderToShadowDepth = (m_terrainShadowPhase != nullptr)
+                                        ? m_renderingContext.recordDependentImage
+                                              .get(m_terrainShadowPhase->getRenderTargets()
+                                                       .depthHandles()[ft.getCurrent().getFrameInFlightIndex()])
+                                              ->getVulkanImage()
+                                        : VK_NULL_HANDLE},
         .computeWriteToImage = computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage(),
         .computeRayAtCutoffDistance =
             computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
@@ -246,6 +245,7 @@ void VolumeRenderPhase::cleanupRender(star::common::IDeviceContext &context)
     m_distanceComputer.cleanupRender(c);
     m_staticShaderInfo->cleanupRender(c.getDevice());
     m_dynamicShaderInfo->cleanupRender(c.getDevice());
+    m_shadowShaderInfo->cleanupRender(c.getDevice());
 
     for (auto &image : computeWriteToImages)
     {
