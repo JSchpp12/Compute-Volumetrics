@@ -15,6 +15,8 @@
 #include "core/device/managers/DescriptorPool.hpp"
 #include "core/device/managers/Image.hpp"
 #include "core/renderer/DescriptorRecipe.hpp"
+#include "render_system/fog/DataRoles.hpp"
+#include "render_system/fog/ShadowDispatchResourceProvider.hpp"
 #include "render_system/fog/util/CreateBuffers.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "renderer/volume/VolumeFrameRoles.hpp"
@@ -34,14 +36,15 @@
 #include <starlight/core/renderer/RenderPhase.hpp>
 #include <starlight/event/DescriptorPoolReady.hpp>
 
+#include <vma/vk_mem_alloc.h>
+#include <vulkan/vulkan.hpp>
+
 #include <cassert>
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
-#include <vma/vk_mem_alloc.h>
-#include <vulkan/vulkan.hpp>
 
 static std::vector<std::shared_ptr<star::StarTextures::Texture>> CreateComputeWriteToImages(
     star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate,
@@ -132,14 +135,27 @@ static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus
 }
 
 VolumeRenderPhaseProvider::VolumeRenderPhaseProvider(
+    render_system::fog::policies::ShadowResourceResolutionPolicy resPolicy,
     star::ManagerController::RenderResource::Buffer *instanceManagerInfo,
     star::ManagerController::RenderResource::Buffer *instanceNormalInfo,
     std::shared_ptr<star::core::renderer::FrameData> frameData, star::Handle offscreenPhaseHandle,
     std::string vdbFilePath, std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds)
-    : m_infoManagerInstanceModel(instanceManagerInfo), m_infoManagerInstanceNormal(instanceNormalInfo),
-      m_frameData(std::move(frameData)), m_offscreenPhaseHandle(std::move(offscreenPhaseHandle)),
-      m_vdbFilePath(std::move(vdbFilePath)), m_camera(std::move(camera)), m_aabbBounds(aabbBounds)
+    : m_shadowResourceProvider(std::move(resPolicy)), m_infoManagerInstanceModel(instanceManagerInfo),
+      m_infoManagerInstanceNormal(instanceNormalInfo), m_frameData(std::move(frameData)),
+      m_offscreenPhaseHandle(std::move(offscreenPhaseHandle)), m_vdbFilePath(std::move(vdbFilePath)),
+      m_camera(std::move(camera)), m_aabbBounds(aabbBounds)
 {
+}
+
+static VolumeDirectoryProcessor GetVolumeProcessor(std::string vdbFilePath) noexcept
+{
+    // need to find a way to tell what type the volume is...
+    // dragon is level set
+    const auto tmpDir = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::tmp_directory));
+    VolumeDirectoryProcessor processor(vdbFilePath, tmpDir);
+    processor.init();
+
+    return processor;
 }
 
 std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::build(
@@ -180,6 +196,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     phase->m_volumeFrameData->add(star::core::renderer::FrameData::BorrowedBuffer{m_infoManagerInstanceNormal},
                                   star::core::renderer::roleHandle(renderer::volume::frame_roles::InstanceNormal));
 
+    m_shadowResourceProvider.addResourcesTo(c, *phase->m_volumeFrameData);
+
     const uint32_t computeQueueFamilyIndex =
         star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
                                                   star::Queue_Type::Tcompute)
@@ -203,12 +221,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
             c.getDevice().getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment),
         nullptr, true, &phase->transferQueueFamilyIndex);
 
-    // need to find a way to tell what type the volume is...
-    // dragon is level set
-    const auto tmpDir = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::tmp_directory));
-    VolumeDirectoryProcessor processor(m_vdbFilePath, tmpDir);
-    processor.init();
-
+    auto processor = GetVolumeProcessor(m_vdbFilePath);
     const auto &frontPath = processor.getProcessedFiles().front().getDataFilePath();
 
     phase->vdbInfoFog = star::ManagerRenderResource::addRequest(
@@ -257,15 +270,17 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     const auto colorRole = star::core::renderer::roleHandle("Color");
     const auto outputRole = star::core::renderer::roleHandle("Output");
     const auto shadowMapRole = star::core::renderer::roleHandle(data_roles::TerrainShadowMap);
-    const auto shadowLightCalculationRole = star::core::renderer::roleHandle(data_roles::TerrainShadowMap);
+    const auto transmittanceMapShadowRole =
+        star::core::renderer::roleHandle(render_system::fog::data_roles::LightTransmittanceMap);
 
     const auto staticInfo = star::core::renderer::shaderInfoHandle("Static");
     const auto dynamicInfo = star::core::renderer::shaderInfoHandle("Dynamic");
+    const auto shadowInfo = star::core::renderer::shaderInfoHandle("Shadow");
 
     phase->m_volumeFrameData->add(
-        star::core::renderer::FrameData::TextureHandle{.textureHandle = phase->randomValueTexture,
-                                                       .layout = vk::ImageLayout::eGeneral,
-                                                       .format = vk::Format::eR32G32B32A32Sfloat},
+        star::core::renderer::FrameData::FixedTextureHandle{.handle = phase->randomValueTexture,
+                                                            .layout = vk::ImageLayout::eGeneral,
+                                                            .format = vk::Format::eR32G32B32A32Sfloat},
         randomTexRole);
     phase->m_volumeFrameData->add(star::core::renderer::FrameData::FixedBufferHandle{.handle = phase->vdbInfoFog},
                                   vdbRole);
@@ -277,6 +292,9 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                                                                                 .layout = vk::ImageLayout::eGeneral,
                                                                                 .format = vk::Format::eR8G8B8A8Unorm},
                                   outputRole);
+
+    m_shadowResourceProvider.addResourcesTo(c, *phase->m_volumeFrameData);
+
     auto builder = star::core::renderer::DescriptorRecipe::Builder(
         c.getEventBus(), c, star::event::DescriptorPoolReady::GetUniqueTypeName());
     {
@@ -333,6 +351,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
 
     builder.setShaderInfoOut(staticInfo, &phase->m_staticShaderInfo)
         .setShaderInfoOut(dynamicInfo, &phase->m_dynamicShaderInfo)
+        .setShaderInfoOut(shadowInfo, &phase->m_shadowShaderInfo)
         .addBinding(staticInfo, 0, phase->m_volumeFrameData, randomTexRole, 0, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(staticInfo, 0, phase->m_volumeFrameData, vdbRole, 1, vk::DescriptorType::eStorageBuffer,
@@ -368,6 +387,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(dynamicInfo, 0, phase->m_volumeFrameData, outputRole, 2, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
+        .addBinding(shadowInfo, 1, phase->m_volumeFrameData, transmittanceMapShadowRole, 0,
+                    vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
         .setOnShaderInfoReady(
             [pipelineBuilder =
                  VolumePipelineBuilder{&c, &phase->m_staticShaderInfo, &phase->m_dynamicShaderInfo,
@@ -447,4 +468,3 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
 
     return phase;
 }
-

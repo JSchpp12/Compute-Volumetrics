@@ -140,7 +140,8 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     star::core::renderer::RenderingContext m_renderingContext = star::core::renderer::RenderingContext();
     star::Handle cameraShaderInfo, vdbInfoFog, randomValueTexture;
     std::shared_ptr<FogInfoController> m_fogController;
-    std::unique_ptr<star::StarShaderInfo> m_staticShaderInfo{nullptr}, m_dynamicShaderInfo{nullptr};
+    std::unique_ptr<star::StarShaderInfo> m_staticShaderInfo{nullptr}, m_dynamicShaderInfo{nullptr},
+        m_shadowShaderInfo{nullptr};
     std::vector<star::Handle> aabbInfoBuffers;
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
         std::vector<std::shared_ptr<star::StarTextures::Texture>>();

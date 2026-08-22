@@ -174,6 +174,11 @@ void Volume::initVolume(star::core::device::DeviceContext &context, std::string 
     loadModel(context, vdbFilePath);
 
     this->m_phaseProvider = std::make_unique<VolumeRenderPhaseProvider>(
+        render_system::fog::policies::ShadowResourceResolutionPolicy::Builder()
+            .setMainWorldCamera(*camera)
+            .setShadowCastLightDir(glm::vec3{0, -1, 0})
+            .setResolution({256, 256, 256})
+            .build(),
         &m_instanceInfo.getControllerModel(), &m_instanceInfo.getControllerNormal(), std::move(frameData),
         star::Handle{}, std::move(vdbFilePath), this->camera, this->aabbBounds);
 }
