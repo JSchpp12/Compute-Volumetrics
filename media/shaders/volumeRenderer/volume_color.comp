@@ -117,7 +117,7 @@ layout(set = 1, binding = 6) uniform ShadowCalculationData
     mat4 worldToShadowMapProj;
 }
 shadowLight;
-layout(set = 1, binding = 7) uniform sampler2D terrainShadowMap;
+layout(set = 1, binding = 7) uniform sampler2DShadow terrainShadowMapCompare;
 
 // per-draw
 layout(set = 2, binding = 0) uniform sampler2D inputSceneDepth;
@@ -166,22 +166,15 @@ float applyHenyeyGreensteinPhase(const float cosTheta, const float g)
     return (1.0 / (4.0 * PI)) * (1.0 - g * g) / pow(denom, 1.5);
 }
 
-float getShadowMapDepth(const vec3 lightNDC)
-{
-    vec2 shadowUV = lightNDC.xy * 0.5 + 0.5;
-    // ivec2 imgSize = imageSize(terrainShadowMap);
-    // ivec2 texelCoord = ivec2(shadowUV * vec2(imgSize));
-    return texture(terrainShadowMap, shadowUV).r;
-}
-
 bool isInShadow(const vec3 volumeLocalPosition)
 {
     vec4 worldPosition = instanceModelMatrix[0] * vec4(volumeLocalPosition, 1.0);
     vec4 lightClipPos = shadowLight.worldToLightViewProj * worldPosition;
     vec3 ndc = lightClipPos.xyz / lightClipPos.w;
-    float shadowDepth = ndc.z;
-    float storedMapDepth = getShadowMapDepth(ndc);
-    return shadowDepth > storedMapDepth;
+
+    vec2 shadowUV = ndc.xy * 0.5 + 0.5;
+    float visibility = texture(terrainShadowMapCompare, vec3(shadowUV, ndc.z));
+    return visibility < 0.5;
 }
 
 struct ForwardMarchDebugOptions
