@@ -1,14 +1,14 @@
 
 #version 450
 
-#include "struct_DispatchIndirectCommand.comp"
-#include "struct_Light.comp"
-#include "struct_RayState.comp"
-
 const uint FLAG_ENABLE_AABB = 1u << 0;
 const uint FLAG_ENABLE_DEPTH = 1u << 1;
 const uint FLAG_ENABLE_COLOR_OUTPUT = 1u << 2;
 const uint WG = 64u;
+
+#include "struct_DispatchIndirectCommand.comp"
+#include "struct_Light.comp"
+#include "struct_RayState.comp"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
@@ -142,6 +142,7 @@ void main()
     const uint lid = gl_LocalInvocationIndex;
     const bool enableDepth = inBounds && hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEPTH);
     const bool enableAABB = inBounds && hasFlag(dispatchOptions.flags, FLAG_ENABLE_AABB);
+    const bool enableShadowDepth = inBounds && hasFlag(dispatchOptions.flags, FLAG_ENABLE_SHADOW_DEPTH_TEST);
 
     ivec2 targetPixel = ivec2(gid);
     const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]);
@@ -168,18 +169,47 @@ void main()
     }
 
     bool passDepth = true;
-    if (inBounds && enableDepth)
+    if (enableDepth)
     {
         // camera depth path (color/distance): depthTestImage is bound to the
         // world-camera depth. Read raw depth per pixel and gate along the ray.
         const float sceneDepth = texelFetch(depthTestImage, targetPixel, 0).r;
-
-        // If the helper assumes a valid hit position based on t0,
-        // only call it when we either have a real AABB hit, or when
-        // your helper supports arbitrary ray positions without AABB.
         passDepth = testForLocalDistanceDepthBehindHitPoint(t0, localRay, inverseModelMatrix, gid,
                                                             uvec2(addCamInfo.cameraDimensions.xy), sceneDepth,
                                                             localDepthDistance);
+    }
+    else if (enableShadowDepth)
+    {
+        // sun depth path (transmittance): depthTestImage is bound to the
+        // non-compare sun (orthographic) shadow depth. Project the AABB entry
+        // point t0 into light clip space and compare against the sampled sun
+        // depth. Lit (in front of the sun depth) -> active; occluded -> skip.
+        const vec3 entryLocal = localRay.origin.xyz + (t0 * localRay.direction.xyz);
+        const vec4 worldPos = instanceModelMatrix[0] * vec4(entryLocal, 1.0);
+        const vec4 lightClip = shadowLight.worldToLightViewProj * worldPos;
+        if (lightClip.w <= 0.0)
+        {
+            localDepthDistance = t1;
+        }
+        else
+        {
+            const vec3 ndc = lightClip.xyz / lightClip.w;
+            const vec2 shadowUV = ndc.xy * 0.5 + 0.5;
+            const bool inFrustum = all(greaterThanEqual(ndc, vec3(-1.0))) && all(lessThanEqual(ndc, vec3(1.0)));
+            if (!inFrustum || any(lessThan(shadowUV, vec2(0.0))) || any(greaterThan(shadowUV, vec2(1.0))))
+            {
+                // outside the sun frustum: nothing to gate against -> keep the ray
+                passDepth = true;
+                localDepthDistance = t1;
+            }
+            else
+            {
+                const float refDepth = ndc.z; // Vulkan depth in [0, 1]
+                const float sunDepth = textureLod(depthTestImage, shadowUV, 0.0).r;
+                passDepth = (refDepth <= sunDepth); // lit -> in front of (or at) sun depth
+                localDepthDistance = t1;
+            }
+        }
     }
     else
     {
@@ -209,7 +239,9 @@ void main()
     // only have 1 thread do the atomicAdd call for less memory contention
     if (lid == 0u)
         s_baseWriteIndex = atomicAdd(rss.activeCount, total);
-    barrier(); // all need to wait on the base thread to finish before everyone continues
+
+    // all need to wait on the base thread to finish before everyone continues
+    barrier();
 
     if (inBounds && isActive)
     {
