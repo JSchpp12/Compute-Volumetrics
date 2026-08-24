@@ -130,6 +130,7 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     render_system::fog::PassPipelineInfo m_pipeInfo;
     star::Handle m_indirectDispatchPipe;
     star::Handle m_initPipe;
+    star::Handle m_precomputeLightTransmittancePipe;
     std::shared_ptr<star::core::renderer::FrameData> m_frameData;
     std::shared_ptr<star::core::renderer::FrameData> m_volumeFrameData;
     /// Cached role handle for the shared camera controller (looked up from the
@@ -141,7 +142,8 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     star::Handle cameraShaderInfo, vdbInfoFog, randomValueTexture;
     std::shared_ptr<FogInfoController> m_fogController;
     std::unique_ptr<star::StarShaderInfo> m_staticShaderInfo{nullptr}, m_dynamicShaderInfo{nullptr},
-        m_shadowShaderInfo{nullptr};
+        m_shadowShaderInfo{nullptr}, m_sceneDepthShaderInfo{nullptr};
+    std::unique_ptr<star::StarShaderInfo> m_shadowDepthShaderInfo{nullptr};
     std::vector<star::Handle> aabbInfoBuffers;
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
         std::vector<std::shared_ptr<star::StarTextures::Texture>>();
@@ -158,9 +160,9 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     Fog::Type currentFogType = Fog::Type::sMarched;
     bool m_enableColorDebugCutoff{false};
     bool m_enableShadowMapDebug{false};
-    bool isReady = false;
-    bool isFirstPass = true;
-    bool transferTriggeredThisFrame = false;
+    bool isReady{false};
+    bool isFirstPass{true};
+    bool transferTriggeredThisFrame{false};
     star::core::CommandBus *m_cmdBus{nullptr};
     vk::Device m_device{VK_NULL_HANDLE};
 

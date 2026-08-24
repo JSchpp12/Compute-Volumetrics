@@ -43,11 +43,6 @@ layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer
 {
     uint pnanovdb_buf_data[];
 };
-layout(set = 0, binding = 2) uniform aabbInfo
-{
-    vec4 bounds[2];
-}
-aabb;
 layout(set = 0, binding = 2) uniform additionalCameraInfo
 {
     mat4 invProj;
@@ -112,10 +107,11 @@ layout(set = 1, binding = 5) uniform FogControllerInfo
     uint gridType;
 }
 fogInfo;
-// only marched types
-layout(set = 2, binding = 0) uniform sampler2D inputSceneDepth;
-layout(set = 2, binding = 1, rgba8) uniform readonly image2D inputSceneColor;
-layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
+// per-draw (depth moved to set 3 -- matches the pipeline set-2 layout)
+layout(set = 2, binding = 0, rgba8) uniform readonly image2D inputSceneColor;
+layout(set = 2, binding = 1, rgba8) uniform writeonly image2D outputImage;
+// depth-test image set (set 3): scene depth for the color pass
+layout(set = 3, binding = 0) uniform sampler2D inputSceneDepth;
 
 struct Ray
 {
@@ -135,14 +131,14 @@ Ray createRay(const vec4 origin, const vec4 direction)
 
 vec4 getClipSpaceCoordsFromPixel(const ivec2 pixelCoords, const float ndz)
 {
-    // 1) Build NDC coordinates in [−1, +1]
+    // 1) Build NDC coordinates in [Ã¢Ë†â€™1, +1]
     float ndcX = ((float(pixelCoords.x) + 0.5) / addCamInfo.cameraDimensions.x) * 2.0 - 1.0;
     float ndcY = ((float(pixelCoords.y) + 0.5) / addCamInfo.cameraDimensions.y) * 2.0 - 1.0;
 
     // Vulkan's Y axis is flipped compared to OpenGL
     ndcY = -ndcY;
 
-    // 2) Reconstruct clip-space with Z = −1 (the near plane), W = 1
+    // 2) Reconstruct clip-space with Z = Ã¢Ë†â€™1 (the near plane), W = 1
     return vec4(ndcX, ndcY, ndz, 1.0);
 }
 

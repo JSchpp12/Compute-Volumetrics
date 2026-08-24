@@ -119,10 +119,9 @@ layout(set = 1, binding = 6) uniform ShadowCalculationData
 shadowLight;
 layout(set = 1, binding = 7) uniform sampler2DShadow terrainShadowMapCompare;
 
-// per-draw
-layout(set = 2, binding = 0) uniform sampler2D inputSceneDepth;
-layout(set = 2, binding = 1, rgba8) uniform readonly image2D inputSceneColor;
-layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
+// per-draw (depth moved to set 3 -- see volume_rayInit.comp)
+layout(set = 2, binding = 0, rgba8) uniform readonly image2D inputSceneColor;
+layout(set = 2, binding = 1, rgba8) uniform writeonly image2D outputImage;
 
 #include "PNanoVDB.h"
 

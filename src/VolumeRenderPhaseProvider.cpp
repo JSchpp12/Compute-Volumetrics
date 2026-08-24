@@ -1,4 +1,4 @@
-﻿#include "VolumeRenderPhaseProvider.hpp"
+#include "VolumeRenderPhaseProvider.hpp"
 
 #include "renderer/VolumeRenderPhase.hpp"
 
@@ -18,12 +18,14 @@
 #include "render_system/fog/DataRoles.hpp"
 #include "render_system/fog/ShadowDispatchResourceProvider.hpp"
 #include "render_system/fog/util/CreateBuffers.hpp"
+#include "renderer/volume/ComputePipelineLayout.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "renderer/volume/VolumeFrameRoles.hpp"
-#include "renderer/volume/VolumePipelineBuilder.hpp"
+#include "renderer/volume/VolumePipelineRecipe.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
 
 #include <star_terrain/rendering/DataRoles.hpp>
+#include <star_terrain/rendering/TerrainShadowRenderPhase.hpp>
 
 #include <star_common/FrameTracker.hpp>
 #include <star_common/HandleTypeRegistry.hpp>
@@ -53,8 +55,7 @@ static std::vector<std::shared_ptr<star::StarTextures::Texture>> CreateComputeWr
     auto textures = std::vector<std::shared_ptr<star::StarTextures::Texture>>(numToCreate);
 
     auto builder =
-        star::StarTextures::Texture::Builder(context.getDevice().getVulkanDevice(),
-                                             context.getDevice().getAllocator().get())
+        star::StarTextures::Texture::Builder(context.getDevice())
             .setCreateInfo(star::Allocator::AllocationBuilder()
                                .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
                                .setUsage(VMA_MEMORY_USAGE_AUTO)
@@ -270,12 +271,15 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     const auto colorRole = star::core::renderer::roleHandle("Color");
     const auto outputRole = star::core::renderer::roleHandle("Output");
     const auto shadowMapRole = star::core::renderer::roleHandle(data_roles::TerrainShadowMap);
+    const auto shadowDepthRole = star::core::renderer::roleHandle(data_roles::TerrainShadowDepthRaw);
     const auto transmittanceMapShadowRole =
         star::core::renderer::roleHandle(render_system::fog::data_roles::LightTransmittanceMap);
 
     const auto staticInfo = star::core::renderer::shaderInfoHandle("Static");
     const auto dynamicInfo = star::core::renderer::shaderInfoHandle("Dynamic");
     const auto shadowInfo = star::core::renderer::shaderInfoHandle("Shadow");
+    const auto depthSceneInfo = star::core::renderer::shaderInfoHandle("DepthScene");
+    const auto depthShadowInfo = star::core::renderer::shaderInfoHandle("DepthShadow");
 
     phase->m_volumeFrameData->add(
         star::core::renderer::FrameData::FixedTextureHandle{.handle = phase->randomValueTexture,
@@ -317,6 +321,23 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
             shadowMapRole);
         builder.addBinding(staticInfo, 1, shadowPhase->getFrameData(), shadowRole, 6,
                            vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
+
+        // Non-compare (raw) sun depth for the transmittance pass's rayInit depth test.
+        // Same shadow depth images as shadowMapRole, but with a non-compare sampler for
+        // raw reads via texelFetch.
+        std::vector<const star::StarTextures::Texture *> rawShadowDepths;
+        rawShadowDepths.reserve(n);
+        for (size_t i = 0; i < n; i++)
+        {
+            rawShadowDepths.push_back(
+                &c.getImageManager()
+                     .get(static_cast<star::terrain::TerrainShadowRenderPhase *>(shadowPhase)->rawDepthHandles()[i])
+                     ->texture);
+        }
+        phase->m_volumeFrameData->add(
+            star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(rawShadowDepths),
+                                                             .layout = vk::ImageLayout::eShaderReadOnlyOptimal},
+            shadowDepthRole);
     }
 
     {
@@ -352,6 +373,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     builder.setShaderInfoOut(staticInfo, &phase->m_staticShaderInfo)
         .setShaderInfoOut(dynamicInfo, &phase->m_dynamicShaderInfo)
         .setShaderInfoOut(shadowInfo, &phase->m_shadowShaderInfo)
+        .setShaderInfoOut(depthSceneInfo, &phase->m_sceneDepthShaderInfo)
+        .setShaderInfoOut(depthShadowInfo, &phase->m_shadowDepthShaderInfo)
         .addBinding(staticInfo, 0, phase->m_volumeFrameData, randomTexRole, 0, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(staticInfo, 0, phase->m_volumeFrameData, vdbRole, 1, vk::DescriptorType::eStorageBuffer,
@@ -380,24 +403,65 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                     vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
         .addBinding(staticInfo, 1, phase->m_volumeFrameData, shadowMapRole, 7,
                     vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
-        // set 0 (dynamic): depth / color / output -- from the volume FD
-        .addBinding(dynamicInfo, 0, phase->m_volumeFrameData, depthRole, 0, vk::DescriptorType::eCombinedImageSampler,
+        // set 0 (dynamic): color / output -- depth moved to the depth set (set 3)
+        .addBinding(dynamicInfo, 0, phase->m_volumeFrameData, colorRole, 0, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
-        .addBinding(dynamicInfo, 0, phase->m_volumeFrameData, colorRole, 1, vk::DescriptorType::eStorageImage,
+        .addBinding(dynamicInfo, 0, phase->m_volumeFrameData, outputRole, 1, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
-        .addBinding(dynamicInfo, 0, phase->m_volumeFrameData, outputRole, 2, vk::DescriptorType::eStorageImage,
-                    vk::ShaderStageFlagBits::eCompute)
-        .addBinding(shadowInfo, 1, phase->m_volumeFrameData, transmittanceMapShadowRole, 0,
+        .addBinding(shadowInfo, 0, phase->m_volumeFrameData, transmittanceMapShadowRole, 0,
                     vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+        .addBinding(shadowInfo, 0, phase->m_volumeFrameData, transmittanceMapShadowRole, 1,
+                    vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+        // depth-test image set (set 3): scene depth (color/distance rayInit)
+        .addBinding(depthSceneInfo, 0, phase->m_volumeFrameData, depthRole, 0,
+                    vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
+        // depth-test image set (set 3): non-compare sun depth (transmittance rayInit)
+        .addBinding(depthShadowInfo, 0, phase->m_volumeFrameData, shadowDepthRole, 0,
+                    vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
         .setOnShaderInfoReady(
-            [pipelineBuilder =
-                 VolumePipelineBuilder{&c, &phase->m_staticShaderInfo, &phase->m_dynamicShaderInfo,
-                                       &phase->computePipelineLayout, &phase->marchedHomogenousPipeline,
-                                       &phase->nanoVDBPipeline_hitBoundingBox, &phase->nanoVDBPipeline_surface,
-                                       &phase->marchedPipeline, &phase->linearPipeline, &phase->expPipeline,
-                                       &phase->m_initPipe, &phase->m_pipeInfo.initPipeline,
-                                       &phase->m_indirectDispatchPipe, &phase->m_pipeInfo.indirectDispatchPipeline}](
-                star::core::device::DeviceContext &) mutable { pipelineBuilder(); })
+            [layoutRecipe =
+                 renderer::volume::ComputePipelineLayoutRecipe{
+                     .context = &c,
+                     .shaderInfos = {.staticInfo = &phase->m_staticShaderInfo,
+                                     .dynamicInfo = &phase->m_dynamicShaderInfo,
+                                     .depthInfo = &phase->m_sceneDepthShaderInfo},
+                     .out = &phase->computePipelineLayout},
+             recipes =
+                 std::vector<renderer::volume::VolumePipelineRecipe>{
+                     {.context = &c,
+                      .shaderFile = "volume_debugColorRedActiveRays.comp",
+                      .outHandle = &phase->nanoVDBPipeline_hitBoundingBox},
+                     {.context = &c,
+                      .shaderFile = "volume_nanoVDBSurface.comp",
+                      .outHandle = &phase->nanoVDBPipeline_surface},
+                     {.context = &c, .shaderFile = "volume_color.comp", .outHandle = &phase->marchedPipeline},
+                     {.context = &c, .shaderFile = "volume_linear.comp", .outHandle = &phase->linearPipeline},
+                     {.context = &c, .shaderFile = "volume_exp.comp", .outHandle = &phase->expPipeline},
+                     {.context = &c,
+                      .shaderFile = "volume_homogenousMarch.comp",
+                      .outHandle = &phase->marchedHomogenousPipeline},
+                     {.context = &c,
+                      .shaderFile = "volume_rayInit.comp",
+                      .outHandle = &phase->m_initPipe,
+                      .outCachedPipeline = &phase->m_pipeInfo.initPipeline},
+                     {.context = &c,
+                      .shaderFile = "volume_calcIndirectDispatch.comp",
+                      .outHandle = &phase->m_indirectDispatchPipe,
+                      .outCachedPipeline = &phase->m_pipeInfo.indirectDispatchPipeline},
+                     {.context = &c,
+                      .shaderFile = "volume_precomputeLightTransmittance.comp",
+                      .outHandle = &phase->m_precomputeLightTransmittancePipe,
+                      .outCachedPipeline = &phase->m_pipeInfo.transmittancePipe.pipeline}}](
+                star::core::device::DeviceContext &) mutable {
+                layoutRecipe();
+
+                const vk::PipelineLayout &layout = *layoutRecipe.out->get();
+                for (auto &recipe : recipes)
+                {
+                    recipe.layout = &layout;
+                    recipe();
+                }
+            })
         .build();
 
     renderer::volume::ContainerRenderResourceData pipelineData{

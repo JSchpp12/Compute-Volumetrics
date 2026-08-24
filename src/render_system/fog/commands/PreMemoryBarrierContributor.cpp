@@ -12,4 +12,8 @@ void render_system::fog::commands::PreMemoryBarrierContributor::recordPreCommand
     {
         std::get<distance::PreMemoryBarrierRecorder>(m_policy).recordCommands(tInfo, ft, cmdBuf);
     }
+    else if (std::holds_alternative<transmittance::PreMemoryBarrierRecorder>(m_policy))
+    {
+        std::get<transmittance::PreMemoryBarrierRecorder>(m_policy).recordCommands(tInfo, ft, cmdBuf);
+    }
 }

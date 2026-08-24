@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "FogType.hpp"
 
@@ -31,19 +31,25 @@ struct PassInfo
 
 struct PassPipelineInfo
 {
-    struct PipelineInfo{
+    struct PipelineInfo
+    {
         vk::PipelineLayout layout{VK_NULL_HANDLE};
         vk::Pipeline pipeline{VK_NULL_HANDLE};
     };
+
     vk::Pipeline initPipeline{VK_NULL_HANDLE};
     vk::Pipeline indirectDispatchPipeline{VK_NULL_HANDLE};
     vk::Buffer indirectDispatchBuffer{VK_NULL_HANDLE};
     PipelineInfo colorPipe;
     PipelineInfo distancePipe;
-    star::StarShaderInfo *staticShaderInfo{
-        nullptr}; // static shared shader info -> such as the camera and light info used by all
+    PipelineInfo transmittancePipe;
+    // static shared shader info -> such as the camera and light info used by all
+    star::StarShaderInfo *staticShaderInfo{nullptr};
     star::StarShaderInfo *colorOnlyShaderInfo{nullptr};
     star::StarShaderInfo *distanceOnlyShaderInfo{nullptr};
+    star::StarShaderInfo *transmittanceOnlyShaderInfo{nullptr};
+    star::StarShaderInfo *sceneDepthShaderInfo{nullptr};
+    star::StarShaderInfo *shadowDepthShaderInfo{nullptr};
     Fog::Type fogType;
 };
 

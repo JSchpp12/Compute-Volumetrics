@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.26)
+cmake_minimum_required(VERSION 3.26)
 
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
@@ -80,7 +80,8 @@ set(${PROJECT_NAME}_SOURCES
  	"src/Application.cpp"
 	"src/Volume.cpp"
  	"src/renderer/volume/ContainerRenderResourceData.cpp"
-	"src/renderer/volume/VolumePipelineBuilder.cpp"
+	"src/renderer/volume/ComputePipelineLayout.cpp"
+	"src/renderer/volume/VolumePipelineRecipe.cpp"
 	"src/renderer/VolumeRenderPhase.cpp"
 	"src/renderer/VolumeShadowRenderPhase.cpp"
 	"src/VolumeRenderPhaseProvider.cpp"
@@ -154,6 +155,8 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/commands/color/PreMemoryBarrierRecorder.cpp"
  	"src/render_system/fog/commands/distance/PreDifferentFamilies.cpp" 
 	"src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp" 
+	"src/render_system/fog/commands/transmittance/TransmittancePrecompute.cpp"
+	"src/render_system/fog/commands/transmittance/PreMemoryBarrierRecorder.cpp" 
 	"src/service/detail/image_metric_manager/VolumeInfo_json.cpp" 
 	"src/service/detail/image_metric_manager/RayDistanceStats_json.cpp"
 	"src/service/detail/image_metric_manager/RayVisibilityMetrics_json.cpp"
@@ -195,7 +198,8 @@ set(${PROJECT_NAME}_HEADERS
 	"include/Volume.hpp"
 	"include/render_system/fog/ShadowDispatchResourceProvider.hpp"
  	"include/renderer/volume/ContainerRenderResourceData.hpp"
-	"include/renderer/volume/VolumePipelineBuilder.hpp"
+	"include/renderer/volume/ComputePipelineLayout.hpp"
+	"include/renderer/volume/VolumePipelineRecipe.hpp"
 	"include/renderer/volume/VolumeFrameRoles.hpp"
 	"include/renderer/VolumeRenderPhase.hpp"
 	"include/renderer/VolumeShadowRenderPhase.hpp"

@@ -1,13 +1,14 @@
-﻿#include "render_system/fog/FogDispatcher.hpp"
+#include "render_system/fog/FogDispatcher.hpp"
 
 #include "render_system/fog/commands/Distance.hpp"
 #include "render_system/fog/commands/Pass.hpp"
 #include "render_system/fog/commands/PostMemoryBarrierContributor.hpp"
 #include "render_system/fog/commands/PreMemoryBarrierContributor.hpp"
-#include "render_system/fog/struct/ShaderFlags.hpp"
-#include "render_system/fog/struct/ShaderPushInfo.hpp"
+#include "render_system/fog/commands/transmittance/TransmittancePrecompute.hpp"
 #include "render_system/fog/policies/ShadowDepthAcquirePolicy.hpp"
 #include "render_system/fog/policies/ShadowDepthReleaseBackPolicy.hpp"
+#include "render_system/fog/struct/ShaderFlags.hpp"
+#include "render_system/fog/struct/ShaderPushInfo.hpp"
 #include "render_system/fog/struct/SyncInfo.hpp"
 
 #include <starlight/command/command_order/GetPassInfo.hpp>
@@ -39,6 +40,35 @@ static std::tuple<uint32_t, uint32_t, uint32_t> GetQueueFamilyIndices(star::core
     return std::make_tuple(graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex);
 }
 
+static ChunkOrchestrator CreateTransmittancePrecomputePass(star::core::device::DeviceContext &ctx,
+                                                           star::Handle &passReg, bool &isReady)
+{
+    const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
+        GetQueueFamilyIndices(ctx);
+
+    std::vector<commands::Pass> pass;
+    pass.resize(3);
+
+    const auto *queueInfo = ctx.getManagerCommandBuffer().m_manager.getInUseInfoForType(star::Queue_Type::Tcompute);
+    assert(queueInfo != nullptr && "Failed to get queue info from manager");
+
+    // Acquire the shadow depth (graphics -> compute) before the transmittance
+    // pass -- it is the first shadow-depth consumer (rayInit reads the
+    // non-compare sun depth at set 3). The color pass relies on this acquire.
+    pass[0] = Pass{
+        ComputeContributor{Init{ctx.getEngineResolution(), false}},
+        PreMemoryBarrierContributor{transmittance::PreMemoryBarrierRecorder{transmittance::ShadowDepthAcquire{
+            render_system::fog::makeShadowDepthAcquirePolicy(graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
+    pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
+    pass[2] = Pass{ComputeContributor{TransmittancePrecompute{}}};
+
+    return ChunkOrchestrator{
+        star::StarCommandBuffer(ctx.getDevice().getVulkanDevice(),
+                                static_cast<int>(ctx.frameTracker().getSetup().getNumFramesInFlight()),
+                                &queueInfo->pool, star::Queue_Type::Tcompute, false, false),
+        std::move(pass), false, &isReady};
+}
+
 static ChunkOrchestrator CreateColorPass(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
 {
     const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
@@ -54,16 +84,14 @@ static ChunkOrchestrator CreateColorPass(star::core::device::DeviceContext &ctx,
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
 
     pass[0] = Pass{ComputeContributor{Init{ctx.getEngineResolution()}},
-                   PreMemoryBarrierContributor{color::PreMemoryBarrierRecorder{color::PreDifferentFamilies{
-                       info, render_system::fog::makeShadowDepthAcquirePolicy(graphicsQueueFamilyIndex,
-                                                                              computeQueueFamilyIndex)}}}};
+                   PreMemoryBarrierContributor{color::PreMemoryBarrierRecorder{color::PreDifferentFamilies{info}}}};
 
     pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
 
     pass[2] = Pass{ComputeContributor{Color{}},
-                   PostMemoryBarrierContributor{color::PostMemoryBarrierRecorder{color::PostDifferentFamilies{info,
-                                              render_system::fog::makeShadowDepthReleaseBackPolicy(graphicsQueueFamilyIndex,
-                                                                                                    computeQueueFamilyIndex)}}}};
+                   PostMemoryBarrierContributor{color::PostMemoryBarrierRecorder{
+                       color::PostDifferentFamilies{info, render_system::fog::makeShadowDepthReleaseBackPolicy(
+                                                              graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
 
     return ChunkOrchestrator{
         star::StarCommandBuffer(ctx.getDevice().getVulkanDevice(),
@@ -122,7 +150,6 @@ void FogDispatcher::cleanupRender(star::core::device::DeviceContext &ctx)
         chunk.cleanupRender(ctx);
     }
 }
-
 void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk::Semaphore> dataSemaphores,
                            std::vector<vk::PipelineStageFlags> dataWaitPoints,
                            std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue,
@@ -189,8 +216,14 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
     // TODO: move the wait for semaphore value from the volume renderer to here
     for (size_t i{0}; i < m_passes.size(); i++)
     {
-        if (i == 0)
+        switch (i)
         {
+        // case 0: // transmittance precompute pass
+        //     // rayInit gates against the sun (orthographic) shadow depth
+        //     // (set 3 binds the non-compare sun depth) instead of the camera depth.
+        //     dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
+        //     break;
+        case 0: // color pass
             switch (pipeInfo.fogType)
             {
             case (Fog::Type::sExponential):
@@ -198,20 +231,20 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
                 dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableColorOutput, MarchShaderFlags::None);
                 break;
             default:
-
                 dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest |
                                                     InitShaderFlags::EnableColorOutput,
                                                 MarchShaderFlags::None);
             }
-        }
-        else if (pipeInfo.fogType == Fog::Type::sMarched)
-        {
-            // distance passes always have AAbb test but no depth test
-            dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
+            break;
+        case 1: // depth pass (marched only)
+            if (pipeInfo.fogType == Fog::Type::sMarched)
+                dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
+            break;
         }
 
-        // only dispatch the distance compute for the marched option. All others have analytical solutions.
-        if ((i == 1 && pipeInfo.fogType == Fog::Type::sMarched) || i == 0)
+        // transmittance and color always dispatch; the distance compute only runs for the marched option.
+        const bool dispatch = (i == 0) || (i == 1) || (i == 2 && pipeInfo.fogType == Fog::Type::sMarched);
+        if (dispatch)
         {
             m_passes[i].recordCommands(dInfo, pInfo, pipeInfo, ft);
             m_numCbRecorded++;
@@ -229,6 +262,7 @@ void FogDispatcher::createChunks(star::core::device::DeviceContext &ctx, star::H
     const size_t nf = static_cast<size_t>(ctx.frameTracker().getSetup().getNumFramesInFlight());
 
     m_passes.resize(2);
+    // m_passes[0] = CreateTransmittancePrecomputePass(ctx, passReg, isReady);
     m_passes[0] = CreateColorPass(ctx, passReg, isReady);
     m_passes[1] = CreateDepthPass(ctx, passReg, isReady);
 

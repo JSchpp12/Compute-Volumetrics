@@ -1,4 +1,4 @@
-﻿#include "renderer/VolumeRenderPhase.hpp"
+#include "renderer/VolumeRenderPhase.hpp"
 
 #include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/Exceptions.hpp>
@@ -134,9 +134,13 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
     m_pipeInfo.staticShaderInfo = m_staticShaderInfo.get();
     m_pipeInfo.colorOnlyShaderInfo = m_dynamicShaderInfo.get();
     m_pipeInfo.distanceOnlyShaderInfo = m_distanceComputer.getDynamicShaderInfo();
+    m_pipeInfo.transmittanceOnlyShaderInfo = m_shadowShaderInfo.get();
+    m_pipeInfo.sceneDepthShaderInfo = m_sceneDepthShaderInfo.get();
+    m_pipeInfo.shadowDepthShaderInfo = m_shadowDepthShaderInfo.get();
     m_pipeInfo.indirectDispatchBuffer = m_activeRayStorage[ii]->getVulkanBuffer();
     m_pipeInfo.colorPipe.layout = *this->computePipelineLayout;
     m_pipeInfo.colorPipe.pipeline = this->m_renderingContext.pipeline->getVulkanPipeline();
+    m_pipeInfo.transmittancePipe.layout = *this->computePipelineLayout;
     m_pipeInfo.fogType = this->currentFogType;
 
     vk::Semaphore workingSemaphore{VK_NULL_HANDLE};
@@ -246,6 +250,8 @@ void VolumeRenderPhase::cleanupRender(star::common::IDeviceContext &context)
     m_staticShaderInfo->cleanupRender(c.getDevice());
     m_dynamicShaderInfo->cleanupRender(c.getDevice());
     m_shadowShaderInfo->cleanupRender(c.getDevice());
+    m_sceneDepthShaderInfo->cleanupRender(c.getDevice());
+    m_shadowDepthShaderInfo->cleanupRender(c.getDevice());
 
     for (auto &image : computeWriteToImages)
     {
@@ -271,10 +277,10 @@ std::vector<std::pair<vk::DescriptorType, const uint32_t>> VolumeRenderPhase::ge
     const int &numFramesInFlight)
 {
     return std::vector<std::pair<vk::DescriptorType, const uint32_t>>{
-        std::make_pair(vk::DescriptorType::eStorageImage, 1 + (3 * numFramesInFlight * 50)),
+        std::make_pair(vk::DescriptorType::eStorageImage, 1 + (4 * numFramesInFlight * 50)),
         std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + (4 * numFramesInFlight * 50)),
         std::make_pair(vk::DescriptorType::eStorageBuffer, 6 * numFramesInFlight),
-        std::make_pair(vk::DescriptorType::eCombinedImageSampler, 805 * numFramesInFlight)};
+        std::make_pair(vk::DescriptorType::eCombinedImageSampler, 806 * numFramesInFlight)};
 }
 
 void VolumeRenderPhase::recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer,

@@ -21,6 +21,10 @@ void render_system::fog::commands::ComputeContributor::recordCommands(const rend
     {
         std::get<IndirectDispatch>(m_approach).recordCommands(dInfo, pipeInfo, cmdBuf, ft);
     }
+    else if (std::holds_alternative<TransmittancePrecompute>(m_approach))
+    {
+        std::get<TransmittancePrecompute>(m_approach).recordCommands(dInfo, pipeInfo, cmdBuf, ft);
+    }
 }
 
 void render_system::fog::commands::ComputeContributor::setAdditionalClears(

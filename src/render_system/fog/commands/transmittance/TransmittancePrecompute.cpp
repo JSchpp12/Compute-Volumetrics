@@ -1,5 +1,8 @@
-#include "render_system/fog/commands/Color.hpp"
+#include "render_system/fog/commands/transmittance/TransmittancePrecompute.hpp"
 
+#include <vulkan/vulkan.hpp>
+
+#include <cassert>
 
 namespace render_system::fog::commands
 {
@@ -18,37 +21,28 @@ static void AddMemoryBarrier(const PassPipelineInfo &pipeInfo, vk::CommandBuffer
     cmdBuf.pipelineBarrier2(vk::DependencyInfo().setBufferMemoryBarrierCount(1).setPBufferMemoryBarriers(&memBarr));
 }
 
-void Color::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuffer,
-                           const star::common::FrameTracker &ft)
+void TransmittancePrecompute::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo,
+                                             vk::CommandBuffer cmdBuffer, const star::common::FrameTracker &ft)
 {
-    assert(pipeInfo.colorPipe.pipeline);
+    assert(pipeInfo.transmittancePipe.pipeline);
 
     AddMemoryBarrier(pipeInfo, cmdBuffer);
 
-    cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.pipeline);
+    cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.transmittancePipe.pipeline);
 
-    assert(pipeInfo.staticShaderInfo != nullptr);
+    // static sets (0,1) + the transmittance per-draw set (2). The transmittance
+    // march does not read the depth-test image (set 3) -- rayInit already gated
+    // the active rays against the sun depth.
     auto sets = pipeInfo.staticShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
     {
-        assert(pipeInfo.colorOnlyShaderInfo != nullptr);
+        assert(pipeInfo.transmittanceOnlyShaderInfo != nullptr);
 
-        auto dynamicSets = pipeInfo.colorOnlyShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+        auto dynamicSets =
+            pipeInfo.transmittanceOnlyShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
         sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end());
     }
 
-    // Bind the depth-test image set (set 3) so march shaders that read the
-    // scene depth (e.g. volume_exp / volume_linear) can sample it. The scene
-    // depth is in eShaderReadOnlyOptimal during the color pass (acquired by the
-    // color pre-barrier in Init). Shaders that do not reference set 3 simply
-    // ignore the extra bound set.
-    {
-        assert(pipeInfo.sceneDepthShaderInfo != nullptr);
-
-        auto depthSets = pipeInfo.sceneDepthShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
-        sets.insert(sets.end(), depthSets.begin(), depthSets.end());
-    }
-
-    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, 0,
+    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.transmittancePipe.layout, 0,
                                  static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
 
     assert(dInfo.indirectBuffer);

@@ -5,6 +5,7 @@
 #include "render_system/fog/commands/Distance.hpp"
 #include "render_system/fog/commands/IndirectDispatch.hpp"
 #include "render_system/fog/commands/Init.hpp"
+#include "render_system/fog/commands/transmittance/TransmittancePrecompute.hpp"
 
 #include <variant>
 
@@ -12,7 +13,7 @@ namespace render_system::fog::commands
 {
 class ComputeContributor
 {
-    std::variant<Color, Distance, Init, IndirectDispatch> m_approach;
+    std::variant<Color, Distance, Init, IndirectDispatch, TransmittancePrecompute> m_approach;
 
   public:
     explicit ComputeContributor(Color approach) : m_approach(std::move(approach))
@@ -22,6 +23,9 @@ class ComputeContributor
     {
     }
     explicit ComputeContributor(Init approach) : m_approach(std::move(approach))
+    {
+    }
+    explicit ComputeContributor(TransmittancePrecompute approach) : m_approach(std::move(approach))
     {
     }
     explicit ComputeContributor(IndirectDispatch approach) : m_approach(std::move(approach))

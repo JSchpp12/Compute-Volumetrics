@@ -1,0 +1,149 @@
+#version 450
+
+#include "struct_DispatchIndirectCommand.comp"
+#include "struct_RayState.comp"
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+#include "layout_pushConstants.comp"
+
+struct Light_Type
+{
+    uint point;
+    uint directional;
+    uint spot;
+};
+
+struct Light
+{
+    vec4 position;
+    vec4 direction;
+    vec4 ambient;
+    vec4 diffuse;
+    vec4 specular;
+    vec4 controls;
+    uvec4 settings;
+    uint luminance;
+};
+
+// globals -- shared with volume_color.comp / volume_rayInit.comp
+layout(rgba32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
+layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer
+{
+    uint pnanovdb_buf_data[];
+};
+layout(set = 0, binding = 2) uniform AdditionalTransformInfo
+{
+    mat4 invProj;
+    vec2 cameraDimensions;
+    float aspectRatio;
+    float farClipDist;
+    float nearClipDist;
+    float scale;
+}
+addCamInfo;
+layout(std430, set = 0, binding = 3) buffer RayDispatchInfoBuffer
+{
+    DispatchIndirectCommand dispatch;
+    uint activeCount;
+    RayState activeData[];
+}
+rss;
+
+// per-frame update data
+layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
+{
+    mat4 proj;
+    mat4 view;
+    mat4 invView;
+}
+globalUbo;
+layout(set = 1, binding = 1) uniform GlobalLightInfo
+{
+    int numLights;
+}
+lightInfo;
+layout(set = 1, binding = 2) readonly buffer GlobalLightBuffer
+{
+    Light lights[];
+}
+lightList;
+layout(set = 1, binding = 3) uniform InstanceModelMatrix
+{
+    mat4 instanceModelMatrix[1024];
+};
+layout(set = 1, binding = 4) uniform InstanceInverseModelMatrix
+{
+    mat4 instanceInverseMatrix[1024];
+};
+layout(set = 1, binding = 5) uniform FogControllerInfo
+{
+    float linearFog_nearDistance;
+    float linearFog_farDistance;
+    float expFog_density;
+    float marchedFog_defaultDensity;
+    float marchedFog_sigmaAbsorption;
+    float marchedFog_sigmaScattering;
+    float marchedFog_lightPropertyDirG;
+    float marchedFog_stepSizeDist;
+    float marchedFog_stepSizeDist_light;
+    float marchedFog_densityMultiplier;
+    float marchedFog_colorTransparencyCutoff;
+    float marchedFog_distanceTransparencyCutoff;
+    float marchedFog_lightExtinctionScale;
+    uint marchedFog_uniform_maxNumSteps;
+    uint gridType;
+}
+fogInfo;
+layout(set = 1, binding = 6) uniform ShadowCalculationData
+{
+    mat4 worldToLightViewProj;
+    mat4 worldToShadowMapProj;
+}
+shadowLight;
+
+// per-draw: the 3D transmittance map this pass writes. Bound at pipeline set 2
+// (the transmittance march per-draw set). Format matches the R8Unorm 3D image
+// created by ShadowDispatchResourceProvider.
+layout(set = 2, binding = 0, r8) uniform writeonly image3D transmittanceMap;
+
+#include "PNanoVDB.h"
+#include "struct_Ray.comp"
+#include "func_reconstructDepthDistanceInObjectLocalSpace.comp"
+#include "volume_helpers.comp"
+
+bool readRayState(inout RayState rayState)
+{
+    uint gid = gl_GlobalInvocationID.x;
+    if (gid >= rss.activeCount)
+        return false;
+    rayState = rss.activeData[gid];
+    return true;
+}
+
+void main()
+{
+    RayState rayState;
+    if (!readRayState(rayState))
+        return;
+
+    // TODO(transmittance): precompute light transmittance.
+    //
+    // rayInit (volume_rayInit.comp -- this pass init stage) has already gated
+    // rays against the sun (orthographic) shadow depth: active rays are those
+    // whose volume entry point (t0) is lit, i.e. in front of the sun depth. The
+    // ray volume interval is [rayState.t0, rayState.tEnd].
+    //
+    // For each active ray, march along the light direction through the volume,
+    // accumulate optical depth from the NanoVDB grid (gridReadAt), and write the
+    // resulting transmittance into the 3D transmittance map. Use
+    // shadowLight.worldToLightViewProj (set 1 binding 6) to map into the
+    // light/shadow-map space the transmittance map is indexed by.
+    //
+    // Placeholder below writes a neutral (fully transmissive) value so the
+    // pipeline compiles and runs until the real algorithm is implemented.
+    const ivec3 mapDims = imageSize(transmittanceMap);
+    const ivec2 px = ivec2(clamp(rayState.targetPixel, ivec2(0), mapDims.xy - 1));
+    for (int z = 0; z < mapDims.z; z++)
+        imageStore(transmittanceMap, ivec3(px, z), vec4(1.0, 0.0, 0.0, 0.0));
+}

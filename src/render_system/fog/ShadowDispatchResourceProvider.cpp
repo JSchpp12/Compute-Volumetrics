@@ -1,4 +1,4 @@
-﻿#include "render_system/fog/ShadowDispatchResourceProvider.hpp"
+#include "render_system/fog/ShadowDispatchResourceProvider.hpp"
 
 #include "render_system/fog/DataRoles.hpp"
 #include "render_system/fog/policies/ShadowResourceResolutionPolicy.hpp"
@@ -21,8 +21,7 @@ static std::pair<std::vector<star::StarTextures::Texture>, vk::Format> CreateTra
     const vk::Format imageFormat = vk::Format::eR8Unorm;
 
     auto builder =
-        star::StarTextures::Texture::Builder(context.getDevice().getVulkanDevice(),
-                                             context.getDevice().getAllocator().get())
+        star::StarTextures::Texture::Builder(context.getDevice())
             .setCreateInfo(star::Allocator::AllocationBuilder()
                                .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
                                .setUsage(VMA_MEMORY_USAGE_AUTO)
@@ -53,28 +52,30 @@ static std::pair<std::vector<star::StarTextures::Texture>, vk::Format> CreateTra
     for (size_t i = 0; i < numToCreate; i++)
     {
         textures[i] = builder.build();
+        // The transmittance map is an R8Unorm 3D color storage image written by the
+        // transmittance compute march. Transition it to eGeneral (color aspect) so
+        // imageStore can write it; it stays in eGeneral across frames.
         barriers[i] = vk::ImageMemoryBarrier2()
                           .setOldLayout(vk::ImageLayout::eUndefined)
-                          .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+                          .setNewLayout(vk::ImageLayout::eGeneral)
                           .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
                           .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
                           .setImage(textures[i].getVulkanImage())
                           .setSrcAccessMask(vk::AccessFlagBits2::eNone)
                           .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-                          .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentRead |
-                                            vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
-                          .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests)
+                          .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
+                          .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
                           .setSubresourceRange(vk::ImageSubresourceRange()
-                                                   .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                                   .setAspectMask(vk::ImageAspectFlagBits::eColor)
                                                    .setBaseMipLevel(0)
                                                    .setLevelCount(vk::RemainingMipLevels)
                                                    .setBaseArrayLayer(0)
                                                    .setLayerCount(vk::RemainingArrayLayers));
     }
 
-    star::core::helper::command_buffer::SingleTimeCommands(context, star::Queue_Type::Tcompute, [&](vk::CommandBuffer cmd) {
-        cmd.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barriers));
-    });
+    star::core::helper::command_buffer::SingleTimeCommands(
+        context, star::Queue_Type::Tcompute,
+        [&](vk::CommandBuffer cmd) { cmd.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barriers)); });
 
     return std::make_pair(textures, imageFormat);
 }
@@ -108,10 +109,17 @@ bool ShadowDispatchResourceProvider::addTransmittanceMaps(star::core::device::De
             star::core::device::manager::ImageRequest{std::move(transmittanceMaps[i])});
     }
 
+    // borrow textures for different view
+    std::vector<const star::StarTextures::Texture *> textures{fi};
+    for (size_t i = 0; i < fi; i++)
+    {
+        textures[i] = &context.getGraphicsManagers().imageManager.get(handles[i])->texture;
+    }
+
     const star::Handle tranmittanceUse = star::core::renderer::roleHandle(data_roles::LightTransmittanceMap);
-    fd.add(star::core::renderer::FrameData::TextureHandle{.handles = handles,
-                                                          .layout = vk::ImageLayout::eGeneral,
-                                                          .format = format},
+    fd.add(star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(textures),
+                                                            .layout = vk::ImageLayout::eGeneral,
+                                                            .format = format},
            tranmittanceUse);
 
     return true;

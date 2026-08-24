@@ -1,6 +1,8 @@
 #include "render_system/fog/commands/Init.hpp"
 
 #include "render_system/fog/struct/DispatchIndirectCommand.hpp"
+#include "render_system/fog/struct/ShaderFlags.hpp"
+
 #include <algorithm>
 
 namespace render_system::fog::commands
@@ -65,7 +67,7 @@ void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pip
     cmdBuffer.fillBuffer(pipeInfo.indirectDispatchBuffer, 0, sizeof(DispatchIndirectCommand), 0);
     cmdBuffer.fillBuffer(pipeInfo.indirectDispatchBuffer, sizeof(DispatchIndirectCommand), sizeof(uint32_t), 0);
 
-    for (uint32_t i{ 0 }; i < m_additionalClearCount; i++)
+    for (uint32_t i{0}; i < m_additionalClearCount; i++)
     {
         cmdBuffer.fillBuffer(m_additionalClears[i].buffer, 0, vk::WholeSize, m_additionalClears[i].fillValue);
     }
@@ -80,6 +82,13 @@ void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pip
 
         auto dynamicSets = pipeInfo.colorOnlyShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
         sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end());
+    }
+    {
+        assert(pipeInfo.sceneDepthShaderInfo != nullptr &&
+               "The init stage uses the sceneDepthShaderInfo. This must be provided");
+
+        auto shadowSets = pipeInfo.sceneDepthShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+        sets.insert(sets.end(), shadowSets.begin(), shadowSets.end());
     }
 
     cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, 0,
