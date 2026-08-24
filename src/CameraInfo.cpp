@@ -18,7 +18,8 @@ std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createStagingBuffer(star:
         .buildUnique();
 }
 
-std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createFinal(star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const
+std::unique_ptr<star::StarBuffers::Buffer> CameraInfo::createFinal(
+    star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
     uint32_t numInds = 1;
     std::vector<uint32_t> indices = {this->computeQueueFamilyIndex};

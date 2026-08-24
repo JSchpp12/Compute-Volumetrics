@@ -2,7 +2,8 @@
 
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
-std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createStagingBuffer(star::core::device::StarDevice &device) const
+std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createStagingBuffer(
+    star::core::device::StarDevice &device) const
 {
     const vk::DeviceSize size = sizeof(FogInfo::FinalizedInfo);
 
@@ -22,7 +23,8 @@ std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createStaging
         .buildUnique();
 }
 
-std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createFinal(star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const
+std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createFinal(
+    star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
     std::vector<uint32_t> indices = {this->computeQueueFamilyIndex};
     for (const auto &index : transferQueueFamilyIndex)

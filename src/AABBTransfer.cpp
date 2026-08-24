@@ -1,6 +1,7 @@
 #include "AABBTransfer.hpp"
 
-std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createStagingBuffer(star::core::device::StarDevice &device) const
+std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createStagingBuffer(
+    star::core::device::StarDevice &device) const
 {
     return star::StarBuffers::Buffer::Builder(device.getAllocator().get())
         .setAllocationCreateInfo(
@@ -18,7 +19,8 @@ std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createStagingBuffer(sta
         .buildUnique();
 }
 
-std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createFinal(star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const
+std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createFinal(
+    star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
     std::vector<uint32_t> indices = {
         this->computeQueueFamilyIndex,

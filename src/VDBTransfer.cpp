@@ -2,11 +2,13 @@
 
 #include "FileHelpers.hpp"
 
-void VDBTransfer::prep(){
-    m_volumeData->prep(); 
+void VDBTransfer::prep()
+{
+    m_volumeData->prep();
 }
 
-std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createStagingBuffer(star::core::device::StarDevice &device) const
+std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createStagingBuffer(
+    star::core::device::StarDevice &device) const
 {
     return star::StarBuffers::Buffer::Builder(device.getAllocator().get())
         .setAllocationCreateInfo(
@@ -24,7 +26,8 @@ std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createStagingBuffer(star
         .buildUnique();
 }
 
-std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createFinal(star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const
+std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createFinal(
+    star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
     uint32_t numInds = 1;
     std::vector<uint32_t> indices = {m_computeQueueIndex};
