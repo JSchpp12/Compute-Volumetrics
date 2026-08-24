@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdint>
+#include <memory>
+
 struct LinearFogInfo
 {
     float nearDist = 0.0f, farDist = 0.0f;

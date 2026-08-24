@@ -1,8 +1,8 @@
 #include "AABBTransfer.hpp"
 
-std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createStagingBuffer(vk::Device &device, VmaAllocator &allocator) const
+std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createStagingBuffer(star::core::device::StarDevice &device) const
 {
-    return star::StarBuffers::Buffer::Builder(allocator)
+    return star::StarBuffers::Buffer::Builder(device.getAllocator().get())
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)
@@ -18,8 +18,7 @@ std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createStagingBuffer(vk:
         .buildUnique();
 }
 
-std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createFinal(vk::Device &device, VmaAllocator &allocator,
-                                                            const std::vector<uint32_t> &transferQueueFamilyIndex) const
+std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createFinal(star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
     std::vector<uint32_t> indices = {
         this->computeQueueFamilyIndex,
@@ -28,7 +27,7 @@ std::unique_ptr<star::StarBuffers::Buffer> AABBTransfer::createFinal(vk::Device 
     for (const auto &index : transferQueueFamilyIndex)
         indices.push_back(index);
 
-    return star::StarBuffers::Buffer::Builder(allocator)
+    return star::StarBuffers::Buffer::Builder(device.getAllocator().get())
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)

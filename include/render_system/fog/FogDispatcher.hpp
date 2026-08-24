@@ -12,11 +12,6 @@ class FogDispatcherBuilder;
 class FogDispatcher
 {
   public:
-    FogDispatcher()
-        : m_passes(), m_cbSubmitInfo(), m_syncApproach(), m_cmdBus(nullptr), m_numCbRecorded(0), m_cbSubmitWait(6)
-    {
-    }
-
     void prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady);
 
     void cleanupRender(star::core::device::DeviceContext &ctx);
@@ -35,7 +30,7 @@ class FogDispatcher
     friend class FogDispatcherBuilder;
 
     std::vector<ChunkOrchestrator> m_passes;
-    std::vector<vk::SemaphoreSubmitInfo> m_cbSubmitWait;
+    std::vector<vk::SemaphoreSubmitInfo> m_cbSubmitWait{6};
     std::vector<vk::CommandBufferSubmitInfo> m_cbSubmitInfo;
     sync::SyncProvider m_syncApproach;
     star::core::CommandBus *m_cmdBus{nullptr};

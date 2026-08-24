@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdint>
+#include <memory>
+
 struct HomogenousRendering
 {
     uint32_t maxNumSteps = 256;

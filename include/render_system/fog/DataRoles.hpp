@@ -4,5 +4,5 @@
 
 namespace render_system::fog::data_roles
 {
-constexpr std::string_view LightTransmittanceMap = "stSMap";
+constexpr std::string_view LightTransmittanceMap = "stLTM";
 }

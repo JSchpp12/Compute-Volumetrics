@@ -6,10 +6,9 @@ void VDBTransfer::prep(){
     m_volumeData->prep(); 
 }
 
-std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createStagingBuffer(vk::Device &device,
-                                                                           VmaAllocator &allocator) const
+std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createStagingBuffer(star::core::device::StarDevice &device) const
 {
-    return star::StarBuffers::Buffer::Builder(allocator)
+    return star::StarBuffers::Buffer::Builder(device.getAllocator().get())
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)
@@ -25,8 +24,7 @@ std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createStagingBuffer(vk::
         .buildUnique();
 }
 
-std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createFinal(
-    vk::Device &device, VmaAllocator &allocator, const std::vector<uint32_t> &transferQueueFamilyIndex) const
+std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createFinal(star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
     uint32_t numInds = 1;
     std::vector<uint32_t> indices = {m_computeQueueIndex};
@@ -36,7 +34,7 @@ std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createFinal(
         numInds++;
     }
 
-    return star::StarBuffers::Buffer::Builder(allocator)
+    return star::StarBuffers::Buffer::Builder(device.getAllocator().get())
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)

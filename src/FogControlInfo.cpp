@@ -2,12 +2,11 @@
 
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
-std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createStagingBuffer(vk::Device &device,
-                                                                                       VmaAllocator &allocator) const
+std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createStagingBuffer(star::core::device::StarDevice &device) const
 {
     const vk::DeviceSize size = sizeof(FogInfo::FinalizedInfo);
 
-    return star::StarBuffers::Buffer::Builder(allocator)
+    return star::StarBuffers::Buffer::Builder(device.getAllocator().get())
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)
@@ -23,8 +22,7 @@ std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createStaging
         .buildUnique();
 }
 
-std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createFinal(
-    vk::Device &device, VmaAllocator &allocator, const std::vector<uint32_t> &transferQueueFamilyIndex) const
+std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createFinal(star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
     std::vector<uint32_t> indices = {this->computeQueueFamilyIndex};
     for (const auto &index : transferQueueFamilyIndex)
@@ -32,7 +30,7 @@ std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createFinal(
 
     const vk::DeviceSize size = sizeof(FogInfo::FinalizedInfo);
 
-    return star::StarBuffers::Buffer::Builder(allocator)
+    return star::StarBuffers::Buffer::Builder(device.getAllocator().get())
         .setAllocationCreateInfo(
             star::Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
