@@ -2,8 +2,7 @@
 #version 450
 
 const uint FLAG_ENABLE_AABB = 1u << 0;
-const uint FLAG_ENABLE_DEPTH = 1u << 1;
-const uint FLAG_ENABLE_COLOR_OUTPUT = 1u << 2;
+const uint FLAG_ENABLE_SHADOW_DEPTH_TEST = 1u << 3;
 const uint WG = 64u;
 
 #include "struct_DispatchIndirectCommand.comp"
@@ -90,13 +89,10 @@ layout(set = 1, binding = 6) uniform ShadowCalculationData
     mat4 worldToShadowMapProj;
 }
 shadowLight;
-// per-draw (depth moved to its own set -- set 3 -- so each pass can swap
-// the depth-test image: world-camera depth for color/distance, non-compare
-// sun depth for transmittance).
-layout(set = 2, binding = 0, rgba8) uniform readonly image2D inputSceneColor;
-layout(set = 2, binding = 1, rgba8) uniform writeonly image2D outputImage;
-
-// depth-test image set (set 3)
+// per-draw: the transmittance (light-camera) rayInit only reads the
+// non-compare sun depth at set 3 binding 0. Set 3 binding 1
+// (terrainShadowMapCompare) is bound for pipeline-layout compatibility but
+// is not referenced by this shader. Sets 0/1 are shared globals.
 layout(set = 3, binding = 0) uniform sampler2D depthTestImage;
 
 uvec2 getTargetPixel()
@@ -140,8 +136,8 @@ void main()
         inBounds = false;
 
     const uint lid = gl_LocalInvocationIndex;
-    const bool enableDepth = inBounds && hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEPTH);
     const bool enableAABB = inBounds && hasFlag(dispatchOptions.flags, FLAG_ENABLE_AABB);
+    const bool enableShadowDepth = inBounds && hasFlag(dispatchOptions.flags, FLAG_ENABLE_SHADOW_DEPTH_TEST);
 
     ivec2 targetPixel = ivec2(gid);
     const mat4 inverseModelMatrix = inverse(instanceModelMatrix[0]);
@@ -168,14 +164,38 @@ void main()
     }
 
     bool passDepth = true;
-    if (enableDepth)
+    if (enableShadowDepth)
     {
-        // camera depth path (color/distance): depthTestImage is bound to the
-        // world-camera depth. Read raw depth per pixel and gate along the ray.
-        const float sceneDepth = texelFetch(depthTestImage, targetPixel, 0).r;
-        passDepth = testForLocalDistanceDepthBehindHitPoint(t0, localRay, inverseModelMatrix, gid,
-                                                            uvec2(addCamInfo.cameraDimensions.xy), sceneDepth,
-                                                            localDepthDistance);
+        // sun depth path (transmittance): depthTestImage is bound to the
+        // non-compare sun (orthographic) shadow depth. Project the AABB entry
+        // point t0 into light clip space and compare against the sampled sun
+        // depth. Lit (in front of the sun depth) -> active; occluded -> skip.
+        const vec3 entryLocal = localRay.origin.xyz + (t0 * localRay.direction.xyz);
+        const vec4 worldPos = instanceModelMatrix[0] * vec4(entryLocal, 1.0);
+        const vec4 lightClip = shadowLight.worldToLightViewProj * worldPos;
+        if (lightClip.w <= 0.0)
+        {
+            localDepthDistance = t1;
+        }
+        else
+        {
+            const vec3 ndc = lightClip.xyz / lightClip.w;
+            const vec2 shadowUV = ndc.xy * 0.5 + 0.5;
+            const bool inFrustum = all(greaterThanEqual(ndc, vec3(-1.0))) && all(lessThanEqual(ndc, vec3(1.0)));
+            if (!inFrustum || any(lessThan(shadowUV, vec2(0.0))) || any(greaterThan(shadowUV, vec2(1.0))))
+            {
+                // outside the sun frustum: nothing to gate against -> keep the ray
+                passDepth = true;
+                localDepthDistance = t1;
+            }
+            else
+            {
+                const float refDepth = ndc.z; // Vulkan depth in [0, 1]
+                const float sunDepth = textureLod(depthTestImage, shadowUV, 0.0).r;
+                passDepth = (refDepth <= sunDepth); // lit -> in front of (or at) sun depth
+                localDepthDistance = t1;
+            }
+        }
     }
     else
     {
@@ -224,10 +244,5 @@ void main()
         state.status = true;
 
         rss.activeData[s_baseWriteIndex + localTargetWriteIndex] = state;
-    }
-    else if (inBounds && hasFlag(dispatchOptions.flags, FLAG_ENABLE_COLOR_OUTPUT))
-    {
-        const vec3 resultingColor = imageLoad(inputSceneColor, targetPixel).rgb;
-        imageStore(outputImage, targetPixel, vec4(resultingColor, 1.0));
     }
 }

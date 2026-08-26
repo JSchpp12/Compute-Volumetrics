@@ -7,7 +7,8 @@ enum class InitShaderFlags : uint16_t
     None = 0,
     EnableAabbTest = 1u << 0,
     EnableDepthtest = 1u << 1,
-    EnableColorOutput = 1u << 2
+    EnableColorOutput = 1u << 2,
+    EnableShadowDepthTest = 1u << 3
 };
 enum class MarchShaderFlags : uint16_t
 {

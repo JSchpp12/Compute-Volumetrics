@@ -117,7 +117,7 @@ layout(set = 1, binding = 6) uniform ShadowCalculationData
     mat4 worldToShadowMapProj;
 }
 shadowLight;
-layout(set = 1, binding = 7) uniform sampler2DShadow terrainShadowMapCompare;
+layout(set = 3, binding = 1) uniform sampler2DShadow terrainShadowMapCompare;
 
 // per-draw (depth moved to set 3 -- see volume_rayInit.comp)
 layout(set = 2, binding = 0, rgba8) uniform readonly image2D inputSceneColor;

@@ -56,7 +56,7 @@ static ChunkOrchestrator CreateTransmittancePrecomputePass(star::core::device::D
     // pass -- it is the first shadow-depth consumer (rayInit reads the
     // non-compare sun depth at set 3). The color pass relies on this acquire.
     pass[0] = Pass{
-        ComputeContributor{Init{ctx.getEngineResolution(), false}},
+        ComputeContributor{Init{ctx.getEngineResolution(), InitPassType::LightCamera}},
         PreMemoryBarrierContributor{transmittance::PreMemoryBarrierRecorder{transmittance::ShadowDepthAcquire{
             render_system::fog::makeShadowDepthAcquirePolicy(graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
     pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
@@ -115,7 +115,7 @@ static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx,
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
 
     pass[0] =
-        Pass{ComputeContributor{Init{ctx.getEngineResolution(), true}},
+        Pass{ComputeContributor{Init{ctx.getEngineResolution(), InitPassType::Camera, true}},
              PreMemoryBarrierContributor{distance::PreMemoryBarrierRecorder{distance::PreDifferentFamilies{info}}}};
 
     pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
@@ -218,12 +218,13 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
     {
         switch (i)
         {
-        // case 0: // transmittance precompute pass
-        //     // rayInit gates against the sun (orthographic) shadow depth
-        //     // (set 3 binds the non-compare sun depth) instead of the camera depth.
-        //     dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
-        //     break;
-        case 0: // color pass
+        case 0: // transmittance precompute pass
+            // rayInit gates against the sun (orthographic) shadow depth
+            // (set 3 binds the non-compare sun depth) instead of the camera depth.
+            dInfo.shaderOptionFlags |=
+                Pack(InitShaderFlags::EnableAabbTest | InitShaderFlags::EnableShadowDepthTest, MarchShaderFlags::None);
+            break;
+        case 1: // color pass
             switch (pipeInfo.fogType)
             {
             case (Fog::Type::sExponential):
@@ -236,7 +237,7 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
                                                 MarchShaderFlags::None);
             }
             break;
-        case 1: // depth pass (marched only)
+        case 2: // depth pass (marched only)
             if (pipeInfo.fogType == Fog::Type::sMarched)
                 dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
             break;
@@ -261,12 +262,12 @@ void FogDispatcher::createChunks(star::core::device::DeviceContext &ctx, star::H
 {
     const size_t nf = static_cast<size_t>(ctx.frameTracker().getSetup().getNumFramesInFlight());
 
-    m_passes.resize(2);
-    // m_passes[0] = CreateTransmittancePrecomputePass(ctx, passReg, isReady);
-    m_passes[0] = CreateColorPass(ctx, passReg, isReady);
-    m_passes[1] = CreateDepthPass(ctx, passReg, isReady);
+    m_passes.resize(3);
+    m_passes[0] = CreateTransmittancePrecomputePass(ctx, passReg, isReady);
+    m_passes[1] = CreateColorPass(ctx, passReg, isReady);
+    m_passes[2] = CreateDepthPass(ctx, passReg, isReady);
 
-    m_cbSubmitInfo.resize(2);
+    m_cbSubmitInfo.resize(3);
     m_numCbRecorded = 0;
 }
 } // namespace render_system::fog

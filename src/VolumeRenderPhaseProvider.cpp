@@ -401,8 +401,6 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
         .addBinding(staticInfo, 1, phase->m_volumeFrameData,
                     star::core::renderer::roleHandle(renderer::volume::frame_roles::Fog), 5,
                     vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-        .addBinding(staticInfo, 1, phase->m_volumeFrameData, shadowMapRole, 7,
-                    vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
         // set 0 (dynamic): color / output -- depth moved to the depth set (set 3)
         .addBinding(dynamicInfo, 0, phase->m_volumeFrameData, colorRole, 0, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
@@ -412,11 +410,17 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                     vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
         .addBinding(shadowInfo, 0, phase->m_volumeFrameData, transmittanceMapShadowRole, 1,
                     vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-        // depth-test image set (set 3): scene depth (color/distance rayInit)
+        // depth-test image set (set 3): per-pass sampled inputs.
+        // binding 0: depth (scene depth for color/distance, sun depth for transmittance).
+        // binding 1: terrainShadowMapCompare (sampler2DShadow) -- same resource for all
+        // passes; bound for the transmittance march as well (unused for now).
         .addBinding(depthSceneInfo, 0, phase->m_volumeFrameData, depthRole, 0,
                     vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
-        // depth-test image set (set 3): non-compare sun depth (transmittance rayInit)
+        .addBinding(depthSceneInfo, 0, phase->m_volumeFrameData, shadowMapRole, 1,
+                    vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
         .addBinding(depthShadowInfo, 0, phase->m_volumeFrameData, shadowDepthRole, 0,
+                    vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
+        .addBinding(depthShadowInfo, 0, phase->m_volumeFrameData, shadowMapRole, 1,
                     vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
         .setOnShaderInfoReady(
             [layoutRecipe =
@@ -444,6 +448,10 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                       .shaderFile = "volume_rayInit.comp",
                       .outHandle = &phase->m_initPipe,
                       .outCachedPipeline = &phase->m_pipeInfo.initPipeline},
+                     {.context = &c,
+                      .shaderFile = "volume_rayInit_lightCamera.comp",
+                      .outHandle = &phase->m_initLightCameraPipe,
+                      .outCachedPipeline = &phase->m_pipeInfo.initLightCameraPipeline},
                      {.context = &c,
                       .shaderFile = "volume_calcIndirectDispatch.comp",
                       .outHandle = &phase->m_indirectDispatchPipe,

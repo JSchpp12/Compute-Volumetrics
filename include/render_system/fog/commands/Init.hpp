@@ -9,6 +9,12 @@
 
 namespace render_system::fog::commands
 {
+enum class InitPassType
+{
+    Camera,
+    LightCamera // set for ray generation from the light source -- triggers binding the shadow depth map
+};
+
 class Init
 {
   public:
@@ -18,7 +24,8 @@ class Init
         uint32_t fillValue{0};
     };
 
-    Init(const vk::Extent2D &screenResolution, bool needsMemoryBarrierProtectFromPreviousDispatch = false);
+    Init(const vk::Extent2D &screenResolution, InitPassType passType = InitPassType::Camera,
+         bool needsMemoryBarrierProtectFromPreviousDispatch = false);
 
     void recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuffer,
                         const star::common::FrameTracker &ft, std::span<OptionalClearBuffer> optionalClears = {});
@@ -30,6 +37,7 @@ class Init
     std::array<OptionalClearBuffer, MaxAdditionalClears> m_additionalClears{};
     std::array<uint32_t, 2> m_workgroupSize{0, 0};
     uint32_t m_additionalClearCount{0};
+    InitPassType m_passType{InitPassType::Camera};
     bool m_needsMemoryBarrierProtectFromPreviousDispatch{false};
 };
 } // namespace render_system::fog::commands

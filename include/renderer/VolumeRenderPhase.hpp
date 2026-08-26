@@ -130,6 +130,7 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     render_system::fog::PassPipelineInfo m_pipeInfo;
     star::Handle m_indirectDispatchPipe;
     star::Handle m_initPipe;
+    star::Handle m_initLightCameraPipe;
     star::Handle m_precomputeLightTransmittancePipe;
     std::shared_ptr<star::core::renderer::FrameData> m_frameData;
     std::shared_ptr<star::core::renderer::FrameData> m_volumeFrameData;

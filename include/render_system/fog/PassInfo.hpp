@@ -38,6 +38,7 @@ struct PassPipelineInfo
     };
 
     vk::Pipeline initPipeline{VK_NULL_HANDLE};
+    vk::Pipeline initLightCameraPipeline{VK_NULL_HANDLE};
     vk::Pipeline indirectDispatchPipeline{VK_NULL_HANDLE};
     vk::Buffer indirectDispatchBuffer{VK_NULL_HANDLE};
     PipelineInfo colorPipe;

@@ -50,8 +50,9 @@ static std::array<uint32_t, 2> CalculateWorkgroupSize(const vk::Extent2D &screen
     return {width, height};
 }
 
-Init::Init(const vk::Extent2D &screenResolution, bool needsMemoryBarrierProtectFromPreviousDispatch)
-    : m_workgroupSize(CalculateWorkgroupSize(screenResolution)),
+Init::Init(const vk::Extent2D &screenResolution, InitPassType passType,
+           bool needsMemoryBarrierProtectFromPreviousDispatch)
+    : m_workgroupSize(CalculateWorkgroupSize(screenResolution)), m_passType(passType),
       m_needsMemoryBarrierProtectFromPreviousDispatch(needsMemoryBarrierProtectFromPreviousDispatch)
 {
 }
@@ -59,7 +60,6 @@ Init::Init(const vk::Extent2D &screenResolution, bool needsMemoryBarrierProtectF
 void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuffer,
                           const star::common::FrameTracker &ft, std::span<OptionalClearBuffer> optionalClears)
 {
-    assert(pipeInfo.initPipeline && "Init pipeline should have been provided in PassPipelineInfo");
     assert(pipeInfo.colorPipe.layout != VK_NULL_HANDLE);
 
     AddBarrierDepPreviousIndirectRead(pipeInfo, cmdBuffer, m_needsMemoryBarrierProtectFromPreviousDispatch);
@@ -74,21 +74,28 @@ void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pip
 
     AddBarrierDepCompute(pipeInfo, cmdBuffer);
 
-    cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.initPipeline);
+    const bool isLightCamera = (m_passType == InitPassType::LightCamera);
+    const vk::Pipeline initPipeline = isLightCamera ? pipeInfo.initLightCameraPipeline : pipeInfo.initPipeline;
+    assert(initPipeline && "Init pipeline should have been provided in PassPipelineInfo");
+
+    cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, initPipeline);
 
     auto sets = pipeInfo.staticShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
     {
-        assert(pipeInfo.colorOnlyShaderInfo != nullptr);
+        auto *const dynamicShaderInfo =
+            isLightCamera ? pipeInfo.transmittanceOnlyShaderInfo : pipeInfo.colorOnlyShaderInfo;
+        assert(dynamicShaderInfo != nullptr);
 
-        auto dynamicSets = pipeInfo.colorOnlyShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+        auto dynamicSets = dynamicShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
         sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end());
     }
     {
-        assert(pipeInfo.sceneDepthShaderInfo != nullptr &&
-               "The init stage uses the sceneDepthShaderInfo. This must be provided");
+        auto *const depthShaderInfo = isLightCamera ? pipeInfo.shadowDepthShaderInfo : pipeInfo.sceneDepthShaderInfo;
+        assert(depthShaderInfo != nullptr &&
+               "The init stage requires a depth-test shader info for set 3. This must be provided");
 
-        auto shadowSets = pipeInfo.sceneDepthShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
-        sets.insert(sets.end(), shadowSets.begin(), shadowSets.end());
+        auto depthSets = depthShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+        sets.insert(sets.end(), depthSets.begin(), depthSets.end());
     }
 
     cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, 0,

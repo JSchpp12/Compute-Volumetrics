@@ -74,7 +74,8 @@ bool VolumeRenderPhase::isRenderReady(star::core::device::DeviceContext &context
         context.getPipelineManager().get(nanoVDBPipeline_surface)->isReady() &&
         context.getPipelineManager().get(marchedHomogenousPipeline)->isReady() && m_distanceComputer.isReady(context) &&
         context.getPipelineManager().get(m_indirectDispatchPipe)->isReady() &&
-        context.getPipelineManager().get(m_initPipe)->isReady())
+        context.getPipelineManager().get(m_initPipe)->isReady() &&
+        context.getPipelineManager().get(m_initLightCameraPipe)->isReady())
     {
         isReady = true;
     }
