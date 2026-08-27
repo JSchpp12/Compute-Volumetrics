@@ -101,7 +101,7 @@ layout(set = 1, binding = 6) uniform ShadowCalculationData
 shadowLight;
 
 // per-draw: the 3D transmittance map this pass writes.
-layout(set = 2, binding = 0, r8) uniform writeonly image3D transmittanceMap;
+layout(set = 2, binding = 2, r8) uniform writeonly image3D transmittanceMap;
 
 // per-draw depth-test set (set 3)
 layout(set = 3, binding = 0) uniform sampler2D sunDepth;

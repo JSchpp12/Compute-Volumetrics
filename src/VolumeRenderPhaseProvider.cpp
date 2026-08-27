@@ -411,9 +411,9 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
         .addBinding(phase->m_volumeFrameData, 0, 2, transmittanceMapShadowRole,
                     vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
         .setShaderInfoOut(shadowInfo, &phase->m_shadowShaderInfo)
-        .addBinding(phase->m_volumeFrameData, 0, 0, transmittanceMapShadowRole,
+        .addBinding(phase->m_volumeFrameData, 0, 0, colorRole,
                     vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-        .addBinding(phase->m_volumeFrameData, 0, 1, transmittanceMapShadowRole,
+        .addBinding(phase->m_volumeFrameData, 0, 1, outputRole,
                     vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
         .addBinding(phase->m_volumeFrameData, 0, 2, transmittanceMapShadowRole,
                     vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
