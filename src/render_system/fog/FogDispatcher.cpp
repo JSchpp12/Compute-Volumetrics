@@ -41,26 +41,29 @@ static std::tuple<uint32_t, uint32_t, uint32_t> GetQueueFamilyIndices(star::core
 }
 
 static ChunkOrchestrator CreateTransmittancePrecomputePass(star::core::device::DeviceContext &ctx,
-                                                           star::Handle &passReg, bool &isReady)
+                                                           star::Handle &passReg,
+                                                           const vk::Extent2D &transmittanceMapResolution,
+                                                           bool &isReady)
 {
     const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
         GetQueueFamilyIndices(ctx);
 
     std::vector<commands::Pass> pass;
-    pass.resize(3);
+    pass.resize(1);
 
     const auto *queueInfo = ctx.getManagerCommandBuffer().m_manager.getInUseInfoForType(star::Queue_Type::Tcompute);
     assert(queueInfo != nullptr && "Failed to get queue info from manager");
 
-    // Acquire the shadow depth (graphics -> compute) before the transmittance
-    // pass -- it is the first shadow-depth consumer (rayInit reads the
-    // non-compare sun depth at set 3). The color pass relies on this acquire.
+    // Option B: the transmittance pass is a single direct 2D dispatch over the
+    // 3D transmittance map's columns -- no rayInit/active-ray compaction and no
+    // indirect dispatch. The pre-barrier acquires the shadow depth (graphics ->
+    // compute) so the march can sample the non-compare sun depth at set 3, and
+    // clears the transmittance map to 0. The color pass releases the shadow
+    // depth later (its post-barrier).
     pass[0] = Pass{
-        ComputeContributor{Init{ctx.getEngineResolution(), InitPassType::LightCamera}},
+        ComputeContributor{TransmittancePrecompute{transmittanceMapResolution}},
         PreMemoryBarrierContributor{transmittance::PreMemoryBarrierRecorder{transmittance::ShadowDepthAcquire{
             render_system::fog::makeShadowDepthAcquirePolicy(graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
-    pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
-    pass[2] = Pass{ComputeContributor{TransmittancePrecompute{}}};
 
     return ChunkOrchestrator{
         star::StarCommandBuffer(ctx.getDevice().getVulkanDevice(),
@@ -131,7 +134,8 @@ static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx,
         std::move(pass), true, &isReady};
 }
 
-void FogDispatcher::prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
+void FogDispatcher::prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg,
+                               DispatchContextInfo contextInfo, bool &isReady)
 {
     m_cmdBus = &ctx.getCmdBus();
 
@@ -140,7 +144,7 @@ void FogDispatcher::prepRender(star::core::device::DeviceContext &ctx, star::Han
 
     m_syncApproach = {signal::CalcFromFt{1, 1, &ctx.frameTracker()}, wait::GatherFromCO{passReg, &ctx.getCmdBus()}};
 
-    createChunks(ctx, passReg, isReady);
+    createChunks(ctx, passReg, contextInfo, isReady);
 }
 
 void FogDispatcher::cleanupRender(star::core::device::DeviceContext &ctx)
@@ -258,12 +262,17 @@ uint64_t FogDispatcher::getTimelineDoneSignalValue(const star::common::FrameTrac
     return m_syncApproach.getSignalInfo().value;
 }
 
-void FogDispatcher::createChunks(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
+void FogDispatcher::createChunks(star::core::device::DeviceContext &ctx, star::Handle &passReg,
+                                 const DispatchContextInfo &dContext, bool &isReady)
 {
     const size_t nf = static_cast<size_t>(ctx.frameTracker().getSetup().getNumFramesInFlight());
 
     m_passes.resize(3);
-    m_passes[0] = CreateTransmittancePrecomputePass(ctx, passReg, isReady);
+    m_passes[0] = CreateTransmittancePrecomputePass(ctx, passReg,
+                                                    vk::Extent2D()
+                                                        .setHeight(dContext.tranmittanceTextureResolution.height)
+                                                        .setWidth(dContext.tranmittanceTextureResolution.width),
+                                                    isReady);
     m_passes[1] = CreateColorPass(ctx, passReg, isReady);
     m_passes[2] = CreateDepthPass(ctx, passReg, isReady);
 

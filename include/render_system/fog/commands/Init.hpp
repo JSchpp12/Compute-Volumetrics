@@ -24,7 +24,7 @@ class Init
         uint32_t fillValue{0};
     };
 
-    Init(const vk::Extent2D &screenResolution, InitPassType passType = InitPassType::Camera,
+    Init(const vk::Extent2D &targetDispatchResolution, InitPassType passType = InitPassType::Camera,
          bool needsMemoryBarrierProtectFromPreviousDispatch = false);
 
     void recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuffer,

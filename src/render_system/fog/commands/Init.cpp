@@ -50,9 +50,9 @@ static std::array<uint32_t, 2> CalculateWorkgroupSize(const vk::Extent2D &screen
     return {width, height};
 }
 
-Init::Init(const vk::Extent2D &screenResolution, InitPassType passType,
+Init::Init(const vk::Extent2D &targetDispatchResolution, InitPassType passType,
            bool needsMemoryBarrierProtectFromPreviousDispatch)
-    : m_workgroupSize(CalculateWorkgroupSize(screenResolution)), m_passType(passType),
+    : m_workgroupSize(CalculateWorkgroupSize(targetDispatchResolution)), m_passType(passType),
       m_needsMemoryBarrierProtectFromPreviousDispatch(needsMemoryBarrierProtectFromPreviousDispatch)
 {
 }

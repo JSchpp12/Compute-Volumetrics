@@ -29,7 +29,8 @@ static std::pair<std::vector<star::StarTextures::Texture>, vk::Format> CreateTra
                            vk::ImageCreateInfo()
                                .setExtent(vk::Extent3D().setHeight(height).setWidth(width).setDepth(depth))
                                .setSharingMode(vk::SharingMode::eExclusive)
-                               .setUsage(vk::ImageUsageFlagBits::eStorage)
+                               .setUsage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled |
+                                         vk::ImageUsageFlagBits::eTransferDst)
                                .setImageType(vk::ImageType::e3D)
                                .setArrayLayers(1)
                                .setMipLevels(1)

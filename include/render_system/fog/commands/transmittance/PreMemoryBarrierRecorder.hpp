@@ -25,6 +25,10 @@ class PreMemoryBarrierRecorder
 {
     PreMemoryPolicy m_policy;
 
+    void recordPrepMemoryBarriers(const PassInfo &vInfo, const star::common::FrameTracker &ft,
+                                  vk::CommandBuffer cmdBuf) const noexcept;
+    void recordTransmittanceMapReset(const PassInfo &vInfo, vk::CommandBuffer cmdBuf) const noexcept;
+
   public:
     explicit PreMemoryBarrierRecorder(PreMemoryPolicy policy) : m_policy(std::move(policy))
     {

@@ -301,6 +301,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
 
     auto builder = star::core::renderer::DescriptorRecipe::Builder(
         c.getEventBus(), c, star::event::DescriptorPoolReady::GetUniqueTypeName());
+    builder.setShaderInfoOut(staticInfo, &phase->m_staticShaderInfo);
     {
         const star::Handle shadowRole =
             star::core::renderer::roleHandle(star::terrain::rendering::data_roles::ShadowLightProjections);
@@ -319,7 +320,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
             star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(shadowMaps),
                                                              .layout = vk::ImageLayout::eShaderReadOnlyOptimal},
             shadowMapRole);
-        builder.addBinding(staticInfo, 1, shadowPhase->getFrameData(), shadowRole, 6,
+        // shadow light projections: set 1 of the static shader info (current = staticInfo).
+        builder.addBinding(shadowPhase->getFrameData(), 1, 6, shadowRole,
                            vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
 
         // Non-compare (raw) sun depth for the transmittance pass's rayInit depth test.
@@ -370,57 +372,64 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
 
     phase->m_volumeFrameData->prepRender(c, numFramesInFlight);
 
-    builder.setShaderInfoOut(staticInfo, &phase->m_staticShaderInfo)
-        .setShaderInfoOut(dynamicInfo, &phase->m_dynamicShaderInfo)
-        .setShaderInfoOut(shadowInfo, &phase->m_shadowShaderInfo)
-        .setShaderInfoOut(depthSceneInfo, &phase->m_sceneDepthShaderInfo)
-        .setShaderInfoOut(depthShadowInfo, &phase->m_shadowDepthShaderInfo)
-        .addBinding(staticInfo, 0, phase->m_volumeFrameData, randomTexRole, 0, vk::DescriptorType::eStorageImage,
+    // current shader info = staticInfo (set above, before the shadow block).
+    builder.addBinding(phase->m_volumeFrameData, 0, 0, randomTexRole, vk::DescriptorType::eStorageImage,
+                       vk::ShaderStageFlagBits::eCompute)
+        .addBinding(phase->m_volumeFrameData, 0, 1, vdbRole, vk::DescriptorType::eStorageBuffer,
                     vk::ShaderStageFlagBits::eCompute)
-        .addBinding(staticInfo, 0, phase->m_volumeFrameData, vdbRole, 1, vk::DescriptorType::eStorageBuffer,
+        .addBinding(phase->m_volumeFrameData, 0, 2, cameraExtraRole, vk::DescriptorType::eUniformBuffer,
                     vk::ShaderStageFlagBits::eCompute)
-        .addBinding(staticInfo, 0, phase->m_volumeFrameData, cameraExtraRole, 2, vk::DescriptorType::eUniformBuffer,
+        .addBinding(phase->m_volumeFrameData, 0, 3, activeRayRole, vk::DescriptorType::eStorageBuffer,
                     vk::ShaderStageFlagBits::eCompute)
-        .addBinding(staticInfo, 0, phase->m_volumeFrameData, activeRayRole, 3, vk::DescriptorType::eStorageBuffer,
-                    vk::ShaderStageFlagBits::eCompute)
-        .addBinding(staticInfo, 1, phase->m_frameData,
-                    star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera), 0,
+        .addBinding(phase->m_frameData, 1, 0,
+                    star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera),
                     vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-        .addBinding(staticInfo, 1, phase->m_frameData,
-                    star::core::renderer::roleHandle(star::core::renderer::frame_roles::LightInfo), 1,
+        .addBinding(phase->m_frameData, 1, 1,
+                    star::core::renderer::roleHandle(star::core::renderer::frame_roles::LightInfo),
                     vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-        .addBinding(staticInfo, 1, phase->m_frameData,
-                    star::core::renderer::roleHandle(star::core::renderer::frame_roles::LightList), 2,
+        .addBinding(phase->m_frameData, 1, 2,
+                    star::core::renderer::roleHandle(star::core::renderer::frame_roles::LightList),
                     vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
-        .addBinding(staticInfo, 1, phase->m_volumeFrameData,
-                    star::core::renderer::roleHandle(renderer::volume::frame_roles::InstanceModel), 3,
+        .addBinding(phase->m_volumeFrameData, 1, 3,
+                    star::core::renderer::roleHandle(renderer::volume::frame_roles::InstanceModel),
                     vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-        .addBinding(staticInfo, 1, phase->m_volumeFrameData,
-                    star::core::renderer::roleHandle(renderer::volume::frame_roles::InstanceNormal), 4,
+        .addBinding(phase->m_volumeFrameData, 1, 4,
+                    star::core::renderer::roleHandle(renderer::volume::frame_roles::InstanceNormal),
                     vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
-        .addBinding(staticInfo, 1, phase->m_volumeFrameData,
-                    star::core::renderer::roleHandle(renderer::volume::frame_roles::Fog), 5,
+        .addBinding(phase->m_volumeFrameData, 1, 5,
+                    star::core::renderer::roleHandle(renderer::volume::frame_roles::Fog),
                     vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute)
+        .setShaderInfoOut(dynamicInfo, &phase->m_dynamicShaderInfo)
         // set 0 (dynamic): color / output -- depth moved to the depth set (set 3)
-        .addBinding(dynamicInfo, 0, phase->m_volumeFrameData, colorRole, 0, vk::DescriptorType::eStorageImage,
+        .addBinding(phase->m_volumeFrameData, 0, 0, colorRole, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
-        .addBinding(dynamicInfo, 0, phase->m_volumeFrameData, outputRole, 1, vk::DescriptorType::eStorageImage,
+        .addBinding(phase->m_volumeFrameData, 0, 1, outputRole, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
-        .addBinding(shadowInfo, 0, phase->m_volumeFrameData, transmittanceMapShadowRole, 0,
+        // transmittance map: also bound into the dynamic set at binding 2 (read by the
+        // marched color/distance passes); the shadow set below owns bindings 0-2 for
+        // the transmittance pass.
+        .addBinding(phase->m_volumeFrameData, 0, 2, transmittanceMapShadowRole,
                     vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
-        .addBinding(shadowInfo, 0, phase->m_volumeFrameData, transmittanceMapShadowRole, 1,
+        .setShaderInfoOut(shadowInfo, &phase->m_shadowShaderInfo)
+        .addBinding(phase->m_volumeFrameData, 0, 0, transmittanceMapShadowRole,
                     vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+        .addBinding(phase->m_volumeFrameData, 0, 1, transmittanceMapShadowRole,
+                    vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+        .addBinding(phase->m_volumeFrameData, 0, 2, transmittanceMapShadowRole,
+                    vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute)
+        .setShaderInfoOut(depthSceneInfo, &phase->m_sceneDepthShaderInfo)
         // depth-test image set (set 3): per-pass sampled inputs.
         // binding 0: depth (scene depth for color/distance, sun depth for transmittance).
         // binding 1: terrainShadowMapCompare (sampler2DShadow) -- same resource for all
         // passes; bound for the transmittance march as well (unused for now).
-        .addBinding(depthSceneInfo, 0, phase->m_volumeFrameData, depthRole, 0,
+        .addBinding(phase->m_volumeFrameData, 0, 0, depthRole,
                     vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
-        .addBinding(depthSceneInfo, 0, phase->m_volumeFrameData, shadowMapRole, 1,
+        .addBinding(phase->m_volumeFrameData, 0, 1, shadowMapRole,
                     vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
-        .addBinding(depthShadowInfo, 0, phase->m_volumeFrameData, shadowDepthRole, 0,
+        .setShaderInfoOut(depthShadowInfo, &phase->m_shadowDepthShaderInfo)
+        .addBinding(phase->m_volumeFrameData, 0, 0, shadowDepthRole,
                     vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
-        .addBinding(depthShadowInfo, 0, phase->m_volumeFrameData, shadowMapRole, 1,
+        .addBinding(phase->m_volumeFrameData, 0, 1, shadowMapRole,
                     vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
         .setOnShaderInfoReady(
             [layoutRecipe =
@@ -521,14 +530,19 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
         auto &dh = offscreenPhase->getRenderTargets().depthHandles()[i];
         phase->m_renderingContext.recordDependentImage.manualInsert(dh, &c.getImageManager().get(dh)->texture);
 
-        if (shadowPhase != nullptr) // NEW
+        if (shadowPhase != nullptr)
         {
             auto &sh = shadowPhase->getRenderTargets().depthHandles()[i];
             phase->m_renderingContext.recordDependentImage.manualInsert(sh, &c.getImageManager().get(sh)->texture);
         }
     }
 
-    phase->m_chunkHandler.prepRender(c, phase->m_commandBuffer, phase->isReady);
+    phase->m_chunkHandler.prepRender(
+        c, phase->m_commandBuffer,
+        render_system::fog::FogDispatcher::DispatchContextInfo{
+            .engineResolution = c.getEngineResolution(),
+            .tranmittanceTextureResolution = vk::Extent3D().setHeight(256).setWidth(256).setDepth(256)},
+        phase->isReady);
 
     // apply the initial fog config the application threaded in before build()
     phase->setFogInfo(std::move(m_fogInfo));

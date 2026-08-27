@@ -146,8 +146,7 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
         m_shadowShaderInfo{nullptr}, m_sceneDepthShaderInfo{nullptr};
     std::unique_ptr<star::StarShaderInfo> m_shadowDepthShaderInfo{nullptr};
     std::vector<star::Handle> aabbInfoBuffers;
-    std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages =
-        std::vector<std::shared_ptr<star::StarTextures::Texture>>();
+    std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages;
     std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers, computeRayAtCutoffDistanceBuffers;
     star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline,
         marchedHomogenousPipeline;

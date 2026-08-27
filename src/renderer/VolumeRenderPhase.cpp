@@ -1,5 +1,7 @@
 #include "renderer/VolumeRenderPhase.hpp"
 
+#include "render_system/fog/DataRoles.hpp"
+
 #include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/Exceptions.hpp>
 
@@ -96,6 +98,10 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
 
     auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer, m_transferNeighborHandle);
 
+    const auto *trRes = m_volumeFrameData->resource(
+        star::core::renderer::roleHandle(render_system::fog::data_roles::LightTransmittanceMap));
+    assert(trRes != nullptr && "Unable to request transmittance info from provided frameData");
+
     render_system::fog::PassInfo tInfo{
         .globalCameraBuffer =
             m_frameData->getController(m_cameraRole)
@@ -123,6 +129,8 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
                                               ->getVulkanImage()
                                         : VK_NULL_HANDLE},
         .computeWriteToImage = computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage(),
+        .transmittanceMap =
+            std::get<star::core::renderer::FrameData::BorrowedTexture>(*trRes).textures[ii]->getVulkanImage(),
         .computeRayAtCutoffDistance =
             computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
         .computeRayDistance = computeRayDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),

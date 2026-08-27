@@ -23,6 +23,7 @@ struct PassInfo
 
     TerrainPassInfo terrainPassInfo;
     vk::Image computeWriteToImage{VK_NULL_HANDLE};
+    vk::Image transmittanceMap{VK_NULL_HANDLE};
     vk::Buffer computeRayAtCutoffDistance{VK_NULL_HANDLE};
     vk::Buffer computeRayDistance{VK_NULL_HANDLE};
     bool transferWasRunLast{false};         // flag set to signal if a dedicated transfer was run last frame

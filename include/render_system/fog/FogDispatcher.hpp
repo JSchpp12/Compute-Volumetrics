@@ -7,12 +7,17 @@
 
 namespace render_system::fog
 {
-class FogDispatcherBuilder;
-
 class FogDispatcher
 {
   public:
-    void prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady);
+    struct DispatchContextInfo
+    {
+        vk::Extent2D engineResolution;
+        vk::Extent3D tranmittanceTextureResolution;
+    };
+
+    void prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg, DispatchContextInfo contextInfo,
+                    bool &isReady);
 
     void cleanupRender(star::core::device::DeviceContext &ctx);
 
@@ -27,8 +32,6 @@ class FogDispatcher
     [[nodiscard]] uint64_t getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const;
 
   private:
-    friend class FogDispatcherBuilder;
-
     std::vector<ChunkOrchestrator> m_passes;
     std::vector<vk::SemaphoreSubmitInfo> m_cbSubmitWait{6};
     std::vector<vk::CommandBufferSubmitInfo> m_cbSubmitInfo;
@@ -36,6 +39,7 @@ class FogDispatcher
     star::core::CommandBus *m_cmdBus{nullptr};
     uint8_t m_numCbRecorded{0};
 
-    void createChunks(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady);
+    void createChunks(star::core::device::DeviceContext &ctx, star::Handle &passReg,
+                      const DispatchContextInfo &dContext, bool &isReady);
 };
 } // namespace render_system::fog
