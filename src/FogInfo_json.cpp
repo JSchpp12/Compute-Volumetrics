@@ -1,7 +1,6 @@
 #include "FogInfo_json.hpp"
 #include "structs/ExpFogInfo.hpp"
 #include "structs/FogInfo.hpp"
-#include "structs/HomogenousRendering.hpp"
 #include "structs/LinearFogInfo.hpp"
 #include "structs/MarchedFogInfo.hpp"
 
@@ -65,16 +64,6 @@ void from_json(const nlohmann::json &j, MarchedFogInfo &v)
     v.setLightExtinctionScale(lightExtinctionScale);
 }
 
-void to_json(nlohmann::json &j, const HomogenousRendering &v)
-{
-    j = nlohmann::json{{"maxNumSteps", v.maxNumSteps}};
-}
-
-void from_json(const nlohmann::json &j, HomogenousRendering &v)
-{
-    v.maxNumSteps = j.value("maxNumSteps", v.maxNumSteps);
-}
-
 void to_json(nlohmann::json &j, const FogInfo &v)
 {
     nlohmann::json linearData;
@@ -83,13 +72,10 @@ void to_json(nlohmann::json &j, const FogInfo &v)
     to_json(expData, v.expFogInfo);
     nlohmann::json marchedData;
     to_json(marchedData, v.marchedInfo);
-    nlohmann::json homoData;
-    to_json(homoData, v.homogenousInfo);
 
     j = nlohmann::json{{"linearInfo", linearData},
                        {"expFogInfo", expData},
-                       {"marchedInfo", marchedData},
-                       {"homogenousInfo", homoData}};
+                       {"marchedInfo", marchedData}};
 }
 
 void from_json(const nlohmann::json &j, FogInfo &v)
@@ -100,6 +86,4 @@ void from_json(const nlohmann::json &j, FogInfo &v)
         from_json(j["expFogInfo"], v.expFogInfo);
     if (j.contains("marchedInfo"))
         from_json(j["marchedInfo"], v.marchedInfo);
-    if (j.contains("homogenousInfo"))
-        from_json(j["homogenousInfo"], v.homogenousInfo);
 }

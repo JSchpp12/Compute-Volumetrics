@@ -3,7 +3,6 @@
 #include "structs/ExpFogInfo.hpp"
 #include "structs/LinearFogInfo.hpp"
 #include "structs/MarchedFogInfo.hpp"
-#include "structs/HomogenousRendering.hpp"
 #include <memory>
 
 class FogInfo
@@ -22,19 +21,12 @@ class FogInfo
     LinearFogInfo linearInfo;
     ExpFogInfo expFogInfo;
     MarchedFogInfo marchedInfo;
-    HomogenousRendering homogenousInfo;
 
     FogInfo() = default;
 
-    FogInfo(const LinearFogInfo &linearInfo, const ExpFogInfo &expFogInfo, const MarchedFogInfo &marchedInfo,
-            const HomogenousRendering &homoInfo)
-        : linearInfo(linearInfo), expFogInfo(expFogInfo), marchedInfo(marchedInfo), homogenousInfo(homoInfo)
-    {
-    }
 
     FogInfo(const FogInfo &other)
-        : linearInfo(other.linearInfo), expFogInfo(other.expFogInfo), marchedInfo(other.marchedInfo),
-          homogenousInfo(other.homogenousInfo)
+        : linearInfo(other.linearInfo), expFogInfo(other.expFogInfo), marchedInfo(other.marchedInfo)
     {
     }
 
@@ -43,21 +35,19 @@ class FogInfo
         this->linearInfo = other.linearInfo;
         this->expFogInfo = other.expFogInfo;
         this->marchedInfo = other.marchedInfo;
-        this->homogenousInfo = other.homogenousInfo;
-
         return *this;
     }
 
     bool operator==(const FogInfo &other) const
     {
         return this->linearInfo == other.linearInfo && this->expFogInfo == other.expFogInfo &&
-               this->marchedInfo == other.marchedInfo && this->homogenousInfo == other.homogenousInfo;
+               this->marchedInfo == other.marchedInfo;
     }
 
     bool operator!=(const FogInfo &other) const
     {
         return this->linearInfo != other.linearInfo || this->expFogInfo != other.expFogInfo ||
-               this->marchedInfo != other.marchedInfo || this->homogenousInfo != other.homogenousInfo;
+               this->marchedInfo != other.marchedInfo;
     }
 
     FinalizedInfo getInfo() const
@@ -75,7 +65,7 @@ class FogInfo
                              this->marchedInfo.getColorTransparencyCutoff(),
                              this->marchedInfo.getDistanceTransparencyCutoff(),
                              this->marchedInfo.getLightExtinctionScale(),
-                             this->homogenousInfo.maxNumSteps,
+                             25600,
                              uint32_t(0)};
     }
 };

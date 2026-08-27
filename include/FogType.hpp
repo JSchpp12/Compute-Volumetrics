@@ -9,7 +9,6 @@ enum Type
     sNone,
     sLinear,
     sExponential,
-    sMarchedHomogenous,
     sMarched,
     sCountOfNonDebugTypes,
     sNanoBoundingBox,

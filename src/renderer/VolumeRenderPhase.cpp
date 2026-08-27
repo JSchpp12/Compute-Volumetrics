@@ -74,7 +74,7 @@ bool VolumeRenderPhase::isRenderReady(star::core::device::DeviceContext &context
         context.getPipelineManager().get(expPipeline)->isReady() &&
         context.getPipelineManager().get(nanoVDBPipeline_hitBoundingBox)->isReady() &&
         context.getPipelineManager().get(nanoVDBPipeline_surface)->isReady() &&
-        context.getPipelineManager().get(marchedHomogenousPipeline)->isReady() && m_distanceComputer.isReady(context) &&
+        m_distanceComputer.isReady(context) &&
         context.getPipelineManager().get(m_indirectDispatchPipe)->isReady() &&
         context.getPipelineManager().get(m_initPipe)->isReady() &&
         context.getPipelineManager().get(m_initLightCameraPipe)->isReady())
@@ -350,9 +350,6 @@ void VolumeRenderPhase::updateRenderingContext(star::core::device::DeviceContext
         break;
     case (Fog::Type::sExponential):
         m_renderingContext.pipeline = &context.getPipelineManager().get(this->expPipeline)->builtPipeline;
-        break;
-    case (Fog::Type::sMarchedHomogenous):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->marchedHomogenousPipeline)->builtPipeline;
         break;
     case (Fog::Type::sNanoBoundingBox):
         m_renderingContext.pipeline =

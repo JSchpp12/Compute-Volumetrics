@@ -52,11 +52,6 @@ static MarchedFogInfo CalcSteps(const MarchedFogInfo &start, const MarchedFogInf
             util::CalcDiff(start.getLightExtinctionScale(), stop.getLightExtinctionScale())};
 }
 
-static HomogenousRendering CalcSteps(const HomogenousRendering &start, const HomogenousRendering &stop)
-{
-    return HomogenousRendering(util::CalcDiff(start.maxNumSteps, stop.maxNumSteps));
-}
-
 SimulationSteps CalculateSimSteps(const SimulationBounds &bounds)
 {
     SimulationSteps steps;
@@ -66,7 +61,6 @@ SimulationSteps CalculateSimSteps(const SimulationBounds &bounds)
     steps.fogInfoChanges.linearInfo = CalcSteps(bounds.start.linearInfo, bounds.stop.linearInfo);
     steps.fogInfoChanges.expFogInfo = CalcSteps(bounds.start.expFogInfo, bounds.stop.expFogInfo);
     steps.fogInfoChanges.marchedInfo = CalcSteps(bounds.start.marchedInfo, bounds.stop.marchedInfo);
-    steps.fogInfoChanges.homogenousInfo = CalcSteps(bounds.start.homogenousInfo, bounds.stop.homogenousInfo);
 
     return steps;
 }

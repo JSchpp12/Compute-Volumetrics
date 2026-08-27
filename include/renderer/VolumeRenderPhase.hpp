@@ -148,8 +148,7 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     std::vector<star::Handle> aabbInfoBuffers;
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages;
     std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers, computeRayAtCutoffDistanceBuffers;
-    star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline,
-        marchedHomogenousPipeline;
+    star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline;
     std::vector<star::Handle> m_timelineSemaphores;
     VisibilityDistanceCompute m_distanceComputer;
     render_system::fog::FogDispatcher m_chunkHandler;

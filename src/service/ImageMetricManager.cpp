@@ -169,7 +169,7 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
     const std::filesystem::path jsonPath = std::filesystem::path(imageCaptureFileName).replace_extension(".json");
 
     const Fog::Type fogType = volume.getRenderer().getFogType();
-    const bool isMarchedFog = fogType == Fog::Type::sMarched || fogType == Fog::Type::sMarchedHomogenous;
+    const bool isMarchedFog = fogType == Fog::Type::sMarched;
 
     std::optional<image_metric_manager::DistanceMaskImages> distanceMaskImages;
     if (isMarchedFog)
