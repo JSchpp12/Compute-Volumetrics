@@ -18,6 +18,6 @@ class Distance
                         const star::common::FrameTracker &ft);
 
   private:
-    std::array<vk::DescriptorSet, 4> m_descriptors;
+    std::array<vk::DescriptorSet, 3> m_descriptors;
 };
 } // namespace render_system::fog::commands

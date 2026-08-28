@@ -166,6 +166,26 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     const uint8_t numFramesInFlight = c.frameTracker().getSetup().getNumFramesInFlight();
     const size_t n = static_cast<size_t>(numFramesInFlight);
 
+    const auto randomTexRole = star::core::renderer::roleHandle("RandomTex");
+    const auto vdbRole = star::core::renderer::roleHandle("Vdb");
+    const auto cameraExtraRole = star::core::renderer::roleHandle("CameraExtra");
+    const auto activeRayRole = star::core::renderer::roleHandle("ActiveRay");
+    const auto depthRole = star::core::renderer::roleHandle("Depth");
+    const auto colorRole = star::core::renderer::roleHandle("Color");
+    const auto outputRole = star::core::renderer::roleHandle("Output");
+    const auto shadowMapRole = star::core::renderer::roleHandle(data_roles::TerrainShadowMap);
+    const auto shadowDepthRole = star::core::renderer::roleHandle(data_roles::TerrainShadowDepthRaw);
+    const auto transmittanceMapShadowRole =
+        star::core::renderer::roleHandle(render_system::fog::data_roles::LightTransmittanceMap);
+    const auto transmittanceMapSampledRole =
+        star::core::renderer::roleHandle(render_system::fog::data_roles::LightTransmittanceMapSampled);
+
+    const auto staticInfo = star::core::renderer::shaderInfoHandle("Static");
+    const auto dynamicInfo = star::core::renderer::shaderInfoHandle("Dynamic");
+    const auto shadowInfo = star::core::renderer::shaderInfoHandle("Shadow");
+    const auto depthSceneInfo = star::core::renderer::shaderInfoHandle("DepthScene");
+    const auto depthShadowInfo = star::core::renderer::shaderInfoHandle("DepthShadow");
+
     auto phase = std::make_unique<VolumeRenderPhase>();
     phase->m_device = c.getDevice().getVulkanDevice();
     phase->m_cmdBus = &c.getCmdBus();
@@ -197,7 +217,12 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     phase->m_volumeFrameData->add(star::core::renderer::FrameData::BorrowedBuffer{m_infoManagerInstanceNormal},
                                   star::core::renderer::roleHandle(renderer::volume::frame_roles::InstanceNormal));
 
-    m_shadowResourceProvider.addResourcesTo(c, *phase->m_volumeFrameData);
+    std::array<int, 3> transmittanceMapResolution{0, 0, 0};
+    {
+        const auto shadowResources = m_shadowResourceProvider.addResourcesTo(c, *phase->m_volumeFrameData);
+        const auto &addedInfo = shadowResources.getInfoForType(transmittanceMapShadowRole);
+        transmittanceMapResolution = addedInfo.resolution;
+    }
 
     const uint32_t computeQueueFamilyIndex =
         star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
@@ -262,26 +287,6 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
         phase->m_activeRayStorage[i] = std::make_shared<star::StarBuffers::Buffer>(
             render_system::fog::CreateActiveRayStorageBuffer(c, "RMEM_" + cstr, c.getEngineResolution()));
     }
-
-    const auto randomTexRole = star::core::renderer::roleHandle("RandomTex");
-    const auto vdbRole = star::core::renderer::roleHandle("Vdb");
-    const auto cameraExtraRole = star::core::renderer::roleHandle("CameraExtra");
-    const auto activeRayRole = star::core::renderer::roleHandle("ActiveRay");
-    const auto depthRole = star::core::renderer::roleHandle("Depth");
-    const auto colorRole = star::core::renderer::roleHandle("Color");
-    const auto outputRole = star::core::renderer::roleHandle("Output");
-    const auto shadowMapRole = star::core::renderer::roleHandle(data_roles::TerrainShadowMap);
-    const auto shadowDepthRole = star::core::renderer::roleHandle(data_roles::TerrainShadowDepthRaw);
-    const auto transmittanceMapShadowRole =
-        star::core::renderer::roleHandle(render_system::fog::data_roles::LightTransmittanceMap);
-    const auto transmittanceMapSampledRole =
-        star::core::renderer::roleHandle(render_system::fog::data_roles::LightTransmittanceMapSampled);
-
-    const auto staticInfo = star::core::renderer::shaderInfoHandle("Static");
-    const auto dynamicInfo = star::core::renderer::shaderInfoHandle("Dynamic");
-    const auto shadowInfo = star::core::renderer::shaderInfoHandle("Shadow");
-    const auto depthSceneInfo = star::core::renderer::shaderInfoHandle("DepthScene");
-    const auto depthShadowInfo = star::core::renderer::shaderInfoHandle("DepthShadow");
 
     phase->m_volumeFrameData->add(
         star::core::renderer::FrameData::FixedTextureHandle{.handle = phase->randomValueTexture,
@@ -539,12 +544,14 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
         }
     }
 
-    phase->m_chunkHandler.prepRender(
-        c, phase->m_commandBuffer,
-        render_system::fog::FogDispatcher::DispatchContextInfo{
-            .engineResolution = c.getEngineResolution(),
-            .tranmittanceTextureResolution = vk::Extent3D().setHeight(256).setWidth(256).setDepth(256)},
-        phase->isReady);
+    phase->m_chunkHandler.prepRender(c, phase->m_commandBuffer,
+                                     render_system::fog::FogDispatcher::DispatchContextInfo{
+                                         .engineResolution = c.getEngineResolution(),
+                                         .tranmittanceTextureResolution = vk::Extent3D()
+                                                                              .setWidth(transmittanceMapResolution[0])
+                                                                              .setHeight(transmittanceMapResolution[1])
+                                                                              .setDepth(transmittanceMapResolution[2])},
+                                     phase->isReady);
 
     // apply the initial fog config the application threaded in before build()
     phase->setFogInfo(std::move(m_fogInfo));

@@ -132,17 +132,18 @@ ShadowDispatchResourceProvider::ShadowDispatchResourceProvider(policies::ShadowR
 {
 }
 
-bool ShadowDispatchResourceProvider::addResourcesTo(star::core::device::DeviceContext &context,
-                                                    star::core::renderer::FrameData &frameData) const noexcept
+ShadowDispatchResourceProvider::AdditionalResourcesInfo ShadowDispatchResourceProvider::addResourcesTo(
+    star::core::device::DeviceContext &context, star::core::renderer::FrameData &frameData) const noexcept
 {
-    if (!addTransmittanceMaps(context, frameData))
-        return false;
+    std::vector<std::pair<star::Handle, ShadowDispatchResourceProvider::AdditionalResourcesInfo::Info>> addResources{1};
 
-    return true;
+    addResources[0] = addTransmittanceMaps(context, frameData);
+
+    return ShadowDispatchResourceProvider::AdditionalResourcesInfo(addResources);
 }
 
-bool ShadowDispatchResourceProvider::addTransmittanceMaps(star::core::device::DeviceContext &context,
-                                                          star::core::renderer::FrameData &fd) const noexcept
+std::pair<star::Handle, ShadowDispatchResourceProvider::AdditionalResourcesInfo::Info> ShadowDispatchResourceProvider::
+    addTransmittanceMaps(star::core::device::DeviceContext &context, star::core::renderer::FrameData &fd) const noexcept
 {
     const size_t &fi = static_cast<const size_t &>(context.frameTracker().getSetup().getNumFramesInFlight());
 
@@ -163,19 +164,14 @@ bool ShadowDispatchResourceProvider::addTransmittanceMaps(star::core::device::De
         textures[i] = &context.getGraphicsManagers().imageManager.get(handles[i])->texture;
     }
 
-    const star::Handle tranmittanceUse = star::core::renderer::roleHandle(data_roles::LightTransmittanceMap);
+    const star::Handle transmittanceMapRole = star::core::renderer::roleHandle(data_roles::LightTransmittanceMap);
     fd.add(star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(textures),
                                                             .layout = vk::ImageLayout::eGeneral,
                                                             .format = format},
-           tranmittanceUse);
+           transmittanceMapRole);
 
-    // Create sampled wrappers (same vk::Image, with sampler) so the
-    // transmittance map can also be bound as a combined-image-sampler
-    // (sampler3D in volume_color.comp).  The wrapper does not own the image
-    // memory -- it only owns its view and sampler.
-    //
-    // textures was moved above, but the raw pointers are still valid (owned by
-    // the image manager).  Re-gather the pointers before building wrappers.
+    // Create sampled wrappers (same vk::Image, with sampler) so the transmittance map can also be bound as a
+    // combined-image-sampler (sampler3D in volume_color.comp)
     std::vector<const star::StarTextures::Texture *> transmittanceTexturePtrs{fi};
     for (size_t i = 0; i < fi; i++)
     {
@@ -189,6 +185,7 @@ bool ShadowDispatchResourceProvider::addTransmittanceMaps(star::core::device::De
                                                          .format = format},
            sampledUse);
 
-    return true;
+    return std::make_pair(transmittanceMapRole,
+                          ShadowDispatchResourceProvider::AdditionalResourcesInfo::Info{.resolution = res});
 }
 } // namespace render_system::fog

@@ -1,5 +1,8 @@
 #include "render_system/fog/commands/IndirectDispatch.hpp"
 
+#include <array>
+#include <cassert>
+
 namespace render_system::fog::commands
 {
 
@@ -29,10 +32,15 @@ void IndirectDispatch::recordCommands(const DispatchInfo &dInfo, const PassPipel
     cmdBuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.indirectDispatchPipeline);
 
     // todo: move this up to callee/structs as this is used across multiples and getting it multiple times is strange
-    auto sets = pipeInfo.staticShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+    std::array<vk::DescriptorSet, 2> descriptors{};
+    size_t numWritten = 0;
+    const auto frameInFlight = ft.getCurrent().getFrameInFlightIndex();
+    assert(pipeInfo.staticShaderInfo->getNumDescriptorSets(frameInFlight) <= descriptors.size());
+    pipeInfo.staticShaderInfo->getDescriptors(frameInFlight, descriptors.data(), numWritten);
+
     const uint32_t firstSet = pipeInfo.staticShaderInfo->getBaseSet();
     cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, firstSet,
-                              static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
+                              static_cast<uint32_t>(numWritten), descriptors.data(), 0, VK_NULL_HANDLE);
 
     cmdBuf.dispatch(1, 1, 1);
 }

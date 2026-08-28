@@ -51,7 +51,6 @@ static ChunkOrchestrator CreateTransmittancePrecomputePass(star::core::device::D
     std::vector<commands::Pass> pass;
     pass.resize(1);
 
-
     // Option B: the transmittance pass is a single direct 2D dispatch over the
     // 3D transmittance map's columns -- no rayInit/active-ray compaction and no
     // indirect dispatch. The pre-barrier acquires the shadow depth (graphics ->
@@ -73,7 +72,6 @@ static ChunkOrchestrator CreateColorPass(star::core::device::DeviceContext &ctx,
 
     std::vector<commands::Pass> pass;
     pass.resize(3);
-
 
     QueueFamilyIndices info{
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
@@ -99,7 +97,6 @@ static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx,
     std::vector<commands::Pass> pass;
     pass.resize(3);
 
-
     QueueFamilyIndices info{
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
 
@@ -109,9 +106,10 @@ static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx,
 
     pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
 
-    pass[2] =
-        Pass{ComputeContributor{Distance{}},
-             PostMemoryBarrierContributor{distance::PostMemoryBarrierRecorder{distance::PostDifferentFamilies{info, render_system::fog::makeShadowDepthReleaseBackPolicy(graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
+    pass[2] = Pass{ComputeContributor{Distance{}},
+                   PostMemoryBarrierContributor{distance::PostMemoryBarrierRecorder{
+                       distance::PostDifferentFamilies{info, render_system::fog::makeShadowDepthReleaseBackPolicy(
+                                                                 graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
 
     return ChunkOrchestrator{std::move(pass), true, &isReady};
 }
@@ -120,7 +118,6 @@ void FogDispatcher::prepRender(star::core::device::DeviceContext &ctx, star::Han
                                DispatchContextInfo contextInfo, bool &isReady)
 {
     m_cmdBus = &ctx.getCmdBus();
-
 
     m_syncApproach = {signal::CalcFromFt{1, 1, &ctx.frameTracker()}, wait::GatherFromCO{passReg, &ctx.getCmdBus()}};
 
@@ -200,10 +197,8 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
     assert(m_passes.size() > 0);
     m_numCbRecorded = 0;
 
-    // All compute passes share a single command buffer so the queue-ownership acquires recorded in
-    // the transmittance/color pre-barriers cover every read (color/distance) within the same command
-    // buffer. This keeps the EXCLUSIVE images one-release/one-acquire and satisfies the per-command-
-    // buffer ConcurrentUsageOfExclusiveImage best-practices check.
+    // All compute passes share a single command buffer so the queue-ownership acquires recorded in the
+    // transmittance/color pre-barriers cover every read (color/distance) within the same command buffer.
     const size_t fi = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
     vk::CommandBuffer cb = m_sharedCmdBuf.buffer(fi);
     m_sharedCmdBuf.begin(fi);

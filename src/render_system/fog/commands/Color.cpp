@@ -1,5 +1,8 @@
 #include "render_system/fog/commands/Color.hpp"
 
+#include <array>
+#include <cassert>
+
 namespace render_system::fog::commands
 {
 static void AddMemoryBarrier(const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuf)
@@ -26,22 +29,28 @@ void Color::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pi
 
     cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.pipeline);
 
+    std::array<vk::DescriptorSet, 2> descriptors{};
+    size_t numWritten = 0;
+    const auto frameInFlight = ft.getCurrent().getFrameInFlightIndex();
+
     assert(pipeInfo.staticShaderInfo != nullptr);
     assert(pipeInfo.colorOnlyShaderInfo != nullptr);
-    auto sets = pipeInfo.colorOnlyShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+    assert(pipeInfo.colorOnlyShaderInfo->getNumDescriptorSets(frameInFlight) <= descriptors.size());
+    pipeInfo.colorOnlyShaderInfo->getDescriptors(frameInFlight, descriptors.data(), numWritten);
     const uint32_t firstSet = pipeInfo.colorOnlyShaderInfo->getBaseSet();
 
     {
         assert(pipeInfo.sceneDepthShaderInfo != nullptr);
+        assert(numWritten + pipeInfo.sceneDepthShaderInfo->getNumDescriptorSets(frameInFlight) <= descriptors.size());
 
-        auto depthSets = pipeInfo.sceneDepthShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
-        assert(pipeInfo.sceneDepthShaderInfo->getBaseSet() == firstSet + sets.size() &&
+        pipeInfo.sceneDepthShaderInfo->getDescriptors(frameInFlight, descriptors.data() + numWritten, numWritten);
+        assert(pipeInfo.sceneDepthShaderInfo->getBaseSet() == firstSet + 1 &&
                "sceneDepth shader info baseSet does not match concatenation order");
-        sets.insert(sets.end(), depthSets.begin(), depthSets.end());
+        assert(numWritten == 2 && "color pass expected one dynamic and one depth descriptor set");
     }
 
     cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, firstSet,
-                                 static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
+                                 static_cast<uint32_t>(numWritten), descriptors.data(), 0, VK_NULL_HANDLE);
 
     assert(dInfo.indirectBuffer);
     cmdBuffer.dispatchIndirect(dInfo.indirectBuffer, 0);

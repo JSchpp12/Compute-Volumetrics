@@ -4,6 +4,7 @@
 #include "render_system/fog/struct/ShaderFlags.hpp"
 
 #include <algorithm>
+#include <cassert>
 
 namespace render_system::fog::commands
 {
@@ -80,20 +81,20 @@ void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pip
 
     cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, initPipeline);
     size_t numWritten{0};
-    pipeInfo.staticShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex(), m_descriptors.data(),
-                                              numWritten);
+    const auto frameInFlight = ft.getCurrent().getFrameInFlightIndex();
+    assert(pipeInfo.staticShaderInfo != nullptr);
+    assert(numWritten + pipeInfo.staticShaderInfo->getNumDescriptorSets(frameInFlight) <= m_descriptors.size());
+    pipeInfo.staticShaderInfo->getDescriptors(frameInFlight, m_descriptors.data(), numWritten);
 
     const uint32_t firstSet = pipeInfo.staticShaderInfo->getBaseSet();
     {
         auto *const dynamicShaderInfo =
             isLightCamera ? pipeInfo.transmittanceOnlyShaderInfo : pipeInfo.colorOnlyShaderInfo;
         assert(dynamicShaderInfo != nullptr);
-
-        dynamicShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex(), m_descriptors.data(), numWritten);
-
-        dynamicShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex(), &m_descriptors[numWritten],
-                                          numWritten);
-        assert(dynamicShaderInfo->getBaseSet() == numWritten &&
+        assert(numWritten + dynamicShaderInfo->getNumDescriptorSets(frameInFlight) <= m_descriptors.size());
+        dynamicShaderInfo->getDescriptors(frameInFlight, &m_descriptors[numWritten], numWritten);
+        assert(dynamicShaderInfo->getBaseSet() ==
+                   firstSet + pipeInfo.staticShaderInfo->getNumDescriptorSets(frameInFlight) &&
                "dynamic shader info baseSet does not match concatenation order");
     }
     {
@@ -101,10 +102,10 @@ void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pip
         assert(depthShaderInfo != nullptr &&
                "The init stage requires a depth-test shader info for set 3. This must be provided");
 
-        depthShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex(), &m_descriptors[numWritten],
-                                        numWritten);
         assert(depthShaderInfo->getBaseSet() == firstSet + numWritten &&
                "depth shader info baseSet does not match concatenation order");
+        depthShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex(), &m_descriptors[numWritten],
+                                        numWritten);
     }
 
     cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, firstSet, numWritten,

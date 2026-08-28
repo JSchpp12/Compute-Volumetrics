@@ -6,6 +6,8 @@
 #include <starlight/core/waiter/one_shot/CreateDescriptorsOnEventPolicy.hpp>
 #include <starlight/event/EnginePhaseComplete.hpp>
 
+#include <cassert>
+
 void VisibilityDistanceCompute::cleanupRender(star::core::device::DeviceContext &context)
 {
     m_dynamicShaderInfo->cleanupRender(context.getDevice());
@@ -56,8 +58,11 @@ void VisibilityDistanceCompute::recordCommandBuffer(vk::CommandBuffer commandBuf
                                                     const glm::uvec2 &workgroupSize, Fog::Type type)
 {
     size_t numWritten{0};
-    auto sets = m_dynamicShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex(),
-                                                    m_descriptors.data(), numWritten);
+    assert(m_dynamicShaderInfo);
+    assert(m_dynamicShaderInfo->getNumDescriptorSets(frameTracker.getCurrent().getFrameInFlightIndex()) <=
+           m_descriptors.size());
+    m_dynamicShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex(), m_descriptors.data(),
+                                        numWritten);
 
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_marchedPipeline.vkLayout,
                                      m_dynamicShaderInfo->getBaseSet(), numWritten, m_descriptors.data(), 0,
