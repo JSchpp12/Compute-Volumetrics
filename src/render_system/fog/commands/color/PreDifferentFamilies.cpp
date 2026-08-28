@@ -1,4 +1,4 @@
-#include "render_system/fog/commands/color/PreDifferentFamilies.hpp"
+﻿#include "render_system/fog/commands/color/PreDifferentFamilies.hpp"
 
 #include <variant>
 
@@ -156,3 +156,5 @@ void PreDifferentFamilies::build(const PassInfo &info, const star::common::Frame
 
 }
 } // namespace render_system::fog::commands::color
+
+

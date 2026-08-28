@@ -28,6 +28,10 @@ struct PassInfo
     vk::Buffer computeRayDistance{VK_NULL_HANDLE};
     bool transferWasRunLast{false};         // flag set to signal if a dedicated transfer was run last frame
     bool transferWillBeRunThisFrame{false}; // flag set to signal if a dedicated transfer will be run this frame
+    // True when the depth/visibility pass will run this frame (marched fog). The color pass uses this to
+    // decide whether to release the offscreen render-to-color/depth images back to graphics: when the
+    // depth pass runs it reads them after color, so it owns the release-back (distance::PostDifferentFamilies).
+    bool depthPassWillRun{false};
 };
 
 struct PassPipelineInfo

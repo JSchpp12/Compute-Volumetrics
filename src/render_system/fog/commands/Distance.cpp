@@ -27,15 +27,22 @@ void render_system::fog::commands::Distance::recordCommands(const DispatchInfo &
     cmdBuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.distancePipe.pipeline);
 
     AddMemoryBarrier(pipeInfo, cmdBuf);
-    // also need to bind the static sets from other set as these are now recorded on a different command buffer
-    auto sets = pipeInfo.staticShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
-    for (auto &set : pipeInfo.distanceOnlyShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex()))
-    {
-        sets.push_back(set);
-    }
 
-    cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.distancePipe.layout, 0, sets.size(),
-                              sets.data(), 0, VK_NULL_HANDLE);
+    size_t numWritten{0};
+    // also need to bind the static sets from other set as these are now recorded on a different command buffer
+    pipeInfo.staticShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex(), m_descriptors.data(),
+                                              numWritten);
+
+    const uint32_t firstSet = pipeInfo.staticShaderInfo->getBaseSet();
+    assert(pipeInfo.distanceOnlyShaderInfo != nullptr);
+    assert(pipeInfo.distanceOnlyShaderInfo->getBaseSet() == firstSet + sets.size() &&
+           "distanceOnly shader info baseSet does not match concatenation order");
+
+    pipeInfo.distanceOnlyShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex(), &m_descriptors[numWritten],
+                                                    numWritten);
+
+    cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.distancePipe.layout, firstSet, numWritten,
+                              m_descriptors.data(), 0, VK_NULL_HANDLE);
 
     assert(dInfo.indirectBuffer);
     cmdBuf.dispatchIndirect(dInfo.indirectBuffer, 0);

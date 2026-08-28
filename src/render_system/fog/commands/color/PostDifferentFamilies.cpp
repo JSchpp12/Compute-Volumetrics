@@ -1,4 +1,4 @@
-﻿#include "render_system/fog/commands/color/PostDifferentFamilies.hpp"
+#include "render_system/fog/commands/color/PostDifferentFamilies.hpp"
 
 namespace render_system::fog::commands::color
 {
@@ -95,12 +95,22 @@ void PostDifferentFamilies::build(const PassInfo &info, const star::common::Fram
 {
     const auto [imageBarriers, barrierCountImage] = GetImageMemoryBarriers(info, queueInfo.graphics, queueInfo.compute);
 
-    for (uint8_t i{0}; i < barrierCountImage; i++)
+    // imageBarriers[0],[1] = offscreen render-to-color/depth. When the depth/visibility pass runs it reads
+    // these after this (color) pass, so color only releases them back to graphics when it is the last reader
+    // (depth pass disabled -- non-marched fog). When the depth pass runs it owns the release-back
+    // (distance::PostDifferentFamilies). imageBarriers[2] = computeWriteToImage and the shadow depth
+    // are also deferred to the distance post when the depth pass runs -- the distance Init reads both
+    // after the color pass, so releasing them here would hand them back to graphics before the distance
+    // pass reads them. Only release them back from the color post when the depth pass does NOT run
+    // (color is then the last compute reader).
+    if (!info.depthPassWillRun)
     {
-        batch.addImage(imageBarriers[i]);
+        batch.addImage(imageBarriers[0]);
+        batch.addImage(imageBarriers[1]);
+        batch.addImage(imageBarriers[2]);
     }
 
-    if (info.terrainPassInfo.renderToShadowDepth != VK_NULL_HANDLE)
+    if (info.terrainPassInfo.renderToShadowDepth != VK_NULL_HANDLE && !info.depthPassWillRun)
     {
         std::visit([&](const auto &p) { p.build(info.terrainPassInfo.renderToShadowDepth, batch); },
                    shadowDepthReleaseBack);

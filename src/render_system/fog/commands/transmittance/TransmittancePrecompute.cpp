@@ -36,11 +36,14 @@ void TransmittancePrecompute::recordCommands(const DispatchInfo &dInfo, const Pa
     // depth-test set (3). The march samples the non-compare sun depth at set 3
     // to find each column's ground (surface) depth.
     auto sets = pipeInfo.staticShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+    const uint32_t firstSet = pipeInfo.staticShaderInfo->getBaseSet();
     {
         assert(pipeInfo.transmittanceOnlyShaderInfo != nullptr);
 
         auto dynamicSets =
             pipeInfo.transmittanceOnlyShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+        assert(pipeInfo.transmittanceOnlyShaderInfo->getBaseSet() == firstSet + sets.size() &&
+               "transmittanceOnly shader info baseSet does not match concatenation order");
         sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end());
     }
     {
@@ -48,10 +51,12 @@ void TransmittancePrecompute::recordCommands(const DispatchInfo &dInfo, const Pa
                "The transmittance march requires the sun depth (set 3) to sample each column's ground depth");
 
         auto depthSets = pipeInfo.shadowDepthShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+        assert(pipeInfo.shadowDepthShaderInfo->getBaseSet() == firstSet + sets.size() &&
+               "shadowDepth shader info baseSet does not match concatenation order");
         sets.insert(sets.end(), depthSets.begin(), depthSets.end());
     }
 
-    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.transmittancePipe.layout, 0,
+    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.transmittancePipe.layout, firstSet,
                                  static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
 
     // direct 2D dispatch: one workgroup per 8x8 block of transmittance-map columns

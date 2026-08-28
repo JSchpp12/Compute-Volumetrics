@@ -1,6 +1,5 @@
 #include "render_system/fog/commands/Color.hpp"
 
-
 namespace render_system::fog::commands
 {
 static void AddMemoryBarrier(const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuf)
@@ -28,27 +27,20 @@ void Color::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pi
     cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.pipeline);
 
     assert(pipeInfo.staticShaderInfo != nullptr);
-    auto sets = pipeInfo.staticShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
-    {
-        assert(pipeInfo.colorOnlyShaderInfo != nullptr);
+    assert(pipeInfo.colorOnlyShaderInfo != nullptr);
+    auto sets = pipeInfo.colorOnlyShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+    const uint32_t firstSet = pipeInfo.colorOnlyShaderInfo->getBaseSet();
 
-        auto dynamicSets = pipeInfo.colorOnlyShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
-        sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end());
-    }
-
-    // Bind the depth-test image set (set 3) so march shaders that read the
-    // scene depth (e.g. volume_exp / volume_linear) can sample it. The scene
-    // depth is in eShaderReadOnlyOptimal during the color pass (acquired by the
-    // color pre-barrier in Init). Shaders that do not reference set 3 simply
-    // ignore the extra bound set.
     {
         assert(pipeInfo.sceneDepthShaderInfo != nullptr);
 
         auto depthSets = pipeInfo.sceneDepthShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+        assert(pipeInfo.sceneDepthShaderInfo->getBaseSet() == firstSet + sets.size() &&
+               "sceneDepth shader info baseSet does not match concatenation order");
         sets.insert(sets.end(), depthSets.begin(), depthSets.end());
     }
 
-    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, 0,
+    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, firstSet,
                                  static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
 
     assert(dInfo.indirectBuffer);

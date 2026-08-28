@@ -32,9 +32,11 @@ class Init
     void setAdditionalClears(std::span<const OptionalClearBuffer> clears);
 
   private:
+    static constexpr size_t DescriptorSetSize = 4;
     static constexpr uint32_t MaxAdditionalClears = 2;
 
     std::array<OptionalClearBuffer, MaxAdditionalClears> m_additionalClears{};
+    std::array<vk::DescriptorSet, DescriptorSetSize> m_descriptors;
     std::array<uint32_t, 2> m_workgroupSize{0, 0};
     uint32_t m_additionalClearCount{0};
     InitPassType m_passType{InitPassType::Camera};

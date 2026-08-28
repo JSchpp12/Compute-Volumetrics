@@ -1,4 +1,4 @@
-#include "render_system/fog/ShadowDispatchResourceProvider.hpp"
+﻿#include "render_system/fog/ShadowDispatchResourceProvider.hpp"
 
 #include "render_system/fog/DataRoles.hpp"
 #include "render_system/fog/policies/ShadowResourceResolutionPolicy.hpp"
@@ -53,9 +53,6 @@ static std::pair<std::vector<star::StarTextures::Texture>, vk::Format> CreateTra
     for (size_t i = 0; i < numToCreate; i++)
     {
         textures[i] = builder.build();
-        // The transmittance map is an R8Unorm 3D color storage image written by the
-        // transmittance compute march. Transition it to eGeneral (color aspect) so
-        // imageStore can write it; it stays in eGeneral across frames.
         barriers[i] = vk::ImageMemoryBarrier2()
                           .setOldLayout(vk::ImageLayout::eUndefined)
                           .setNewLayout(vk::ImageLayout::eGeneral)
@@ -79,6 +76,55 @@ static std::pair<std::vector<star::StarTextures::Texture>, vk::Format> CreateTra
         [&](vk::CommandBuffer cmd) { cmd.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barriers)); });
 
     return std::make_pair(textures, imageFormat);
+}
+
+/// Create sampled wrapper textures that share the same underlying vk::Image as the transmittance maps but add their own
+/// ImageView + Sampler.
+static std::vector<std::shared_ptr<star::StarTextures::Texture>> CreateTransmittanceMapSampledWrappers(
+    star::core::device::DeviceContext &context,
+    const std::vector<const star::StarTextures::Texture *> &transmittanceTextures, const vk::Format format) noexcept
+{
+    const size_t num = transmittanceTextures.size();
+    std::vector<std::shared_ptr<star::StarTextures::Texture>> wrappers{num};
+
+    for (size_t i = 0; i < num; i++)
+    {
+        const auto &src = *transmittanceTextures[i];
+        const vk::Extent3D extent = src.getBaseExtent();
+        const vk::DeviceSize size =
+            star::StarTextures::Texture::CalculateSize(format, extent, /*arrayLayers=*/1, vk::ImageType::e3D,
+                                                       /*mipLevels=*/1);
+
+        wrappers[i] = star::StarTextures::Texture::Builder(context.getDevice(), src.getVulkanImage())
+                          .setBaseFormat(format)
+                          .addViewInfo(vk::ImageViewCreateInfo()
+                                           .setViewType(vk::ImageViewType::e3D)
+                                           .setFormat(format)
+                                           .setSubresourceRange(vk::ImageSubresourceRange()
+                                                                    .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                                                    .setBaseArrayLayer(0)
+                                                                    .setLayerCount(vk::RemainingArrayLayers)
+                                                                    .setBaseMipLevel(0)
+                                                                    .setLevelCount(1)))
+                          .setSamplerInfo(vk::SamplerCreateInfo()
+                                              .setMagFilter(vk::Filter::eLinear)
+                                              .setMinFilter(vk::Filter::eLinear)
+                                              .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+                                              .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+                                              .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
+                                              .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                                              .setUnnormalizedCoordinates(VK_FALSE)
+                                              .setCompareEnable(VK_FALSE)
+                                              .setCompareOp(vk::CompareOp::eAlways)
+                                              .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                                              .setMipLodBias(0.0f)
+                                              .setMinLod(0.0f)
+                                              .setMaxLod(0.0f))
+                          .setSizeInfo(size, extent)
+                          .buildShared();
+    }
+
+    return wrappers;
 }
 
 ShadowDispatchResourceProvider::ShadowDispatchResourceProvider(policies::ShadowResourceResolutionPolicy resPolicy)
@@ -122,6 +168,26 @@ bool ShadowDispatchResourceProvider::addTransmittanceMaps(star::core::device::De
                                                             .layout = vk::ImageLayout::eGeneral,
                                                             .format = format},
            tranmittanceUse);
+
+    // Create sampled wrappers (same vk::Image, with sampler) so the
+    // transmittance map can also be bound as a combined-image-sampler
+    // (sampler3D in volume_color.comp).  The wrapper does not own the image
+    // memory -- it only owns its view and sampler.
+    //
+    // textures was moved above, but the raw pointers are still valid (owned by
+    // the image manager).  Re-gather the pointers before building wrappers.
+    std::vector<const star::StarTextures::Texture *> transmittanceTexturePtrs{fi};
+    for (size_t i = 0; i < fi; i++)
+    {
+        transmittanceTexturePtrs[i] = &context.getGraphicsManagers().imageManager.get(handles[i])->texture;
+    }
+    auto sampledWrappers = CreateTransmittanceMapSampledWrappers(context, transmittanceTexturePtrs, format);
+
+    const star::Handle sampledUse = star::core::renderer::roleHandle(data_roles::LightTransmittanceMapSampled);
+    fd.add(star::core::renderer::FrameData::OwnedTexture{.textures = std::move(sampledWrappers),
+                                                         .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
+                                                         .format = format},
+           sampledUse);
 
     return true;
 }

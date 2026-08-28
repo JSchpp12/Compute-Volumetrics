@@ -10,7 +10,9 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <array>
 #include <memory>
+
 
 class VisibilityDistanceCompute
 {
@@ -48,6 +50,7 @@ class VisibilityDistanceCompute
         vk::Pipeline vkPipeline{VK_NULL_HANDLE};
         vk::PipelineLayout vkLayout{VK_NULL_HANDLE};
     };
+    std::array<vk::DescriptorSet, 4> m_descriptors;
     PipelineData m_marchedPipeline{};
     std::unique_ptr<star::StarShaderInfo> m_dynamicShaderInfo{nullptr};
     bool m_isReady{false};

@@ -138,6 +138,7 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
                                                           ft.getCurrent().getFrameInFlightIndex())
                                                     : false,
         .transferWillBeRunThisFrame = tNeighbor.has_value() ? tNeighbor.value().isTriggeredThisFrame : false};
+        tInfo.depthPassWillRun = (this->currentFogType == Fog::Type::sMarched);
 
     m_pipeInfo.distancePipe = {.layout = m_distanceComputer.getLayout(), .pipeline = m_distanceComputer.getPipeline()};
     m_pipeInfo.staticShaderInfo = m_staticShaderInfo.get();
@@ -289,7 +290,7 @@ std::vector<std::pair<vk::DescriptorType, const uint32_t>> VolumeRenderPhase::ge
         std::make_pair(vk::DescriptorType::eStorageImage, 1 + (4 * numFramesInFlight * 50)),
         std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + (4 * numFramesInFlight * 50)),
         std::make_pair(vk::DescriptorType::eStorageBuffer, 6 * numFramesInFlight),
-        std::make_pair(vk::DescriptorType::eCombinedImageSampler, 806 * numFramesInFlight)};
+        std::make_pair(vk::DescriptorType::eCombinedImageSampler, 807 * numFramesInFlight)};
 }
 
 void VolumeRenderPhase::recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer,
@@ -393,3 +394,4 @@ std::vector<star::StarBuffers::Buffer> VolumeRenderPhase::createComputeWriteToBu
 
     return buffers;
 }
+

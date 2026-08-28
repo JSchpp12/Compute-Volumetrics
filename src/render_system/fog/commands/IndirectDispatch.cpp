@@ -30,7 +30,8 @@ void IndirectDispatch::recordCommands(const DispatchInfo &dInfo, const PassPipel
 
     // todo: move this up to callee/structs as this is used across multiples and getting it multiple times is strange
     auto sets = pipeInfo.staticShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
-    cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, 0,
+    const uint32_t firstSet = pipeInfo.staticShaderInfo->getBaseSet();
+    cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, firstSet,
                               static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
 
     cmdBuf.dispatch(1, 1, 1);

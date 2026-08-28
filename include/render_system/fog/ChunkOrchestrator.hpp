@@ -35,8 +35,27 @@ class ChunkOrchestrator
     {
     }
 
+    // CB-less constructors: the orchestrator records into an externally-managed command buffer via
+    // recordInto(), so it does not own its own StarCommandBuffer (m_cmdBuf stays default/empty).
+    ChunkOrchestrator(std::vector<commands::Pass> cmdApproaches, bool isDistance, const bool *isReady)
+        : m_cmdApproaches(std::move(cmdApproaches)), m_syncApproach(std::nullopt), m_isDistance(isDistance),
+          m_isReady(isReady)
+    {
+    }
+    ChunkOrchestrator(std::vector<commands::Pass> cmdApproaches, sync::SyncProvider syncApproach,
+                      const bool *isReady)
+        : m_cmdApproaches(std::move(cmdApproaches)), m_syncApproach(std::move(syncApproach)),
+          m_isDistance(false), m_isReady(isReady)
+    {
+    }
+
     void recordCommands(const DispatchInfo &dInfo, const PassInfo &vInfo, const PassPipelineInfo &pipeInfo,
                         const star::common::FrameTracker &ft);
+
+    // Records this orchestrator's passes (push constants + pre/main/post) into the provided command
+    // buffer without begin/end, so several orchestrators can share a single command buffer.
+    void recordInto(const DispatchInfo &dInfo, const PassInfo &vInfo, const PassPipelineInfo &pipeInfo,
+                    const star::common::FrameTracker &ft, vk::CommandBuffer cmdBuf);
 
     void cleanupRender(star::core::device::DeviceContext &ctx);
 
