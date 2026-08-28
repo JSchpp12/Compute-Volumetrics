@@ -136,8 +136,10 @@ vk::Semaphore CopyCmds::submitBuffer(star::StarCommandBuffer &buffer, const star
         volumeSignaledSemaphoreValue = std::move(gather.getReply().get().toSignalValue);
     }
 
-    const vk::SemaphoreSubmitInfo waitInfo[1]{
-        vk::SemaphoreSubmitInfo().setSemaphore(volumeSignaledSemaphore).setValue(volumeSignaledSemaphoreValue)};
+    vk::SemaphoreSubmitInfo waitInfo = vk::SemaphoreSubmitInfo()
+                                           .setSemaphore(volumeSignaledSemaphore)
+                                           .setValue(volumeSignaledSemaphoreValue)
+                                           .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
 
     const vk::SemaphoreSubmitInfo signalInfo[1]{vk::SemaphoreSubmitInfo()
                                                     .setSemaphore(m_cpyDstResources.timelineRecord->semaphore)
@@ -145,11 +147,11 @@ vk::Semaphore CopyCmds::submitBuffer(star::StarCommandBuffer &buffer, const star
     const auto cbInfo = vk::CommandBufferSubmitInfo().setCommandBuffer(
         buffer.buffer(frameTracker.getCurrent().getFrameInFlightIndex()));
 
-    const auto submitInfo =
-        vk::SubmitInfo2().setWaitSemaphoreInfos(waitInfo).setCommandBufferInfos(cbInfo).setSignalSemaphoreInfos(
-            signalInfo);
-
-    m_targetTransferQueue->getVulkanQueue().submit2(submitInfo);
+    m_targetTransferQueue->getVulkanQueue().submit2(vk::SubmitInfo2()
+                                                        .setPWaitSemaphoreInfos(&waitInfo)
+                                                        .setWaitSemaphoreInfoCount(1)
+                                                        .setCommandBufferInfos(cbInfo)
+                                                        .setSignalSemaphoreInfos(signalInfo));
 
     return VK_NULL_HANDLE;
 }
