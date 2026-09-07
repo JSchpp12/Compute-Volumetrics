@@ -170,14 +170,17 @@ std::pair<star::Handle, ShadowDispatchResourceProvider::AdditionalResourcesInfo:
                                                             .format = format},
            transmittanceMapRole);
 
-    // Create sampled wrappers (same vk::Image, with sampler) so the transmittance map can also be bound as a
-    // combined-image-sampler (sampler3D in volume_color.comp)
     std::vector<const star::StarTextures::Texture *> transmittanceTexturePtrs{fi};
     for (size_t i = 0; i < fi; i++)
     {
         transmittanceTexturePtrs[i] = &context.getGraphicsManagers().imageManager.get(handles[i])->texture;
     }
+
     auto sampledWrappers = CreateTransmittanceMapSampledWrappers(context, transmittanceTexturePtrs, format);
+    for (const auto &sampledWrapper : sampledWrappers)
+    {
+        context.getGraphicsManagers().imageManager.submit(star::core::device::manager::ImageRequest{*sampledWrapper});
+    }
 
     const star::Handle sampledUse = star::core::renderer::roleHandle(data_roles::LightTransmittanceMapSampled);
     fd.add(star::core::renderer::FrameData::OwnedTexture{.textures = std::move(sampledWrappers),
