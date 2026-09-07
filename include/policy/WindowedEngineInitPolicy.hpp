@@ -4,24 +4,36 @@
 
 #include <star_windowing/policy/EngineInitPolicy.hpp>
 
+#include <memory>
+#include <set>
+#include <utility>
+
 namespace policy
 {
 class WindowEngineInitPolicy
 {
   public:
-    WindowEngineInitPolicy(std::string controllerFilePath, star::windowing::WindowingContext &winContext)
-        : m_controllerFilePath(std::move(controllerFilePath)), m_winPolicy(winContext)
-    {
-    }
+    using StartupDeviceRequirementsProvider = star::core::device::IStartupDeviceRequirementsProvider;
+
     WindowEngineInitPolicy(std::string controllerFilePath, star::windowing::WindowingContext &winContext,
-                           int overrideRenderingDeviceIndex)
-        : m_controllerFilePath(std::move(controllerFilePath)), m_winPolicy(winContext, overrideRenderingDeviceIndex)
+                           std::unique_ptr<StartupDeviceRequirementsProvider> startupDeviceRequirements)
+        : m_controllerFilePath(std::move(controllerFilePath)),
+          m_winPolicy(winContext, std::move(startupDeviceRequirements))
     {
     }
+
+    WindowEngineInitPolicy(std::string controllerFilePath, star::windowing::WindowingContext &winContext,
+                           int overrideRenderingDeviceIndex,
+                           std::unique_ptr<StartupDeviceRequirementsProvider> startupDeviceRequirements)
+        : m_controllerFilePath(std::move(controllerFilePath)),
+          m_winPolicy(winContext, overrideRenderingDeviceIndex, std::move(startupDeviceRequirements))
+    {
+    }
+
     star::core::RenderingInstance createRenderingInstance(std::string appName);
 
     star::core::device::StarDevice createNewDevice(
-        star::core::RenderingInstance &renderingInstance, std::set<star::Rendering_Features> &engineRenderingFeatures,
+        star::core::RenderingInstance &renderingInstance,
         std::set<star::Rendering_Device_Features> &engineRenderingDeviceFeatures);
 
     vk::Extent2D getEngineRenderingResolution();

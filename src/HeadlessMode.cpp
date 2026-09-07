@@ -6,13 +6,20 @@
 #include "loader/SceneLoaders.hpp"
 #include "policy/EngineExitOnFlag.hpp"
 #include "policy/FunctionalEngineInitPolicy.hpp"
+#include "policy/VolumetricsDeviceRequirementsProvider.hpp"
 #include "service/SimulationController.hpp"
 
 #include <starlight/StarEngine.hpp>
 #include <starlight/policy/DefaultEngineLoopPolicy.hpp>
 
+#include <memory>
+#include <optional>
+#include <utility>
+
 static FunctionalEngineInitPolicy CreateInit(std::shared_ptr<bool> doneFlag, std::string controllerFilePath,
-                                             std::optional<int> forcedDeviceIndex = std::nullopt)
+                                             std::optional<int> forcedDeviceIndex,
+                                             std::unique_ptr<star::core::device::IStartupDeviceRequirementsProvider>
+                                                 startupDeviceRequirements)
 {
     auto fun = [doneFlag, controllerFilePath](void) -> std::vector<star::service::Service> {
         auto serv = std::vector<star::service::Service>(1);
@@ -21,8 +28,9 @@ static FunctionalEngineInitPolicy CreateInit(std::shared_ptr<bool> doneFlag, std
         return serv;
     };
 
-    return forcedDeviceIndex.has_value() ? FunctionalEngineInitPolicy(fun, forcedDeviceIndex.value())
-                                         : FunctionalEngineInitPolicy(fun);
+    return forcedDeviceIndex.has_value()
+               ? FunctionalEngineInitPolicy(fun, forcedDeviceIndex.value(), std::move(startupDeviceRequirements))
+               : FunctionalEngineInitPolicy(fun, std::move(startupDeviceRequirements));
 }
 
 int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
@@ -37,9 +45,13 @@ int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
             : Application(&loader::ReleaseSceneLoader, cfg->terrainDir, cfg->volumeName,
                           {cfg->enableCutoffHighlighting});
 
+    auto startupDeviceRequirements =
+        std::make_unique<VolumetricsDeviceRequirementsProvider>();
+
     auto engine = star::StarEngine<FunctionalEngineInitPolicy, loop, exit>(
-        CreateInit(controllerSequenceDone, cfg->simControllerPath, cfg->overrideRenderingDevice), loop{},
-        exit{controllerSequenceDone}, application);
+        CreateInit(controllerSequenceDone, cfg->simControllerPath, cfg->overrideRenderingDevice,
+                   std::move(startupDeviceRequirements)),
+        loop{}, exit{controllerSequenceDone}, application);
 
     config::AppConfigLoader::LogConfig(*cfg);
     cfg = nullptr;

@@ -3,12 +3,14 @@
 #include "service/ImageMetricManager.hpp"
 
 star::core::device::StarDevice FunctionalEngineInitPolicy::createNewDevice(
-    star::core::RenderingInstance &renderingInstance, std::set<star::Rendering_Features> &engineRenderingFeatures,
+    star::core::RenderingInstance &renderingInstance,
     std::set<star::Rendering_Device_Features> &engineRenderingDeviceFeatures)
 {
+    const auto startupDeviceRequirements = consumeStartupDeviceRequirements();
+
     auto builder = star::core::device::StarDevice::Builder(renderingInstance)
                        .setRenderingDeviceFeatures(engineRenderingDeviceFeatures)
-                       .setRenderingFeatures(engineRenderingFeatures);
+                       .addRequiredDeviceRequirements(startupDeviceRequirements);
 
     int selectedOverride = m_overrideDeviceIndex.has_value()
                                ? m_overrideDeviceIndex.value()

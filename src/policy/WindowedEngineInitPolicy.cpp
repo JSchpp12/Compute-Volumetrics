@@ -17,10 +17,10 @@ star::core::RenderingInstance WindowEngineInitPolicy::createRenderingInstance(st
 }
 
 star::core::device::StarDevice WindowEngineInitPolicy::createNewDevice(
-    star::core::RenderingInstance &renderingInstance, std::set<star::Rendering_Features> &engineRenderingFeatures,
+    star::core::RenderingInstance &renderingInstance,
     std::set<star::Rendering_Device_Features> &engineRenderingDeviceFeatures)
 {
-    return m_winPolicy.createNewDevice(renderingInstance, engineRenderingFeatures, engineRenderingDeviceFeatures);
+    return m_winPolicy.createNewDevice(renderingInstance, engineRenderingDeviceFeatures);
 }
 
 vk::Extent2D WindowEngineInitPolicy::getEngineRenderingResolution()
