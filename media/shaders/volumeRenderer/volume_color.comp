@@ -5,6 +5,7 @@
 
 const uint FLAG_ENABLE_DEBUG_CUTOFF = 1u << 16u;
 const uint FLAG_ENABLE_DEBUG_SHADOW_HIGHLIGHT = 1u << 17u;
+const uint FLAG_ENABLE_DEBUG_TRANSMITTANCE_MAP = 1u << 18u;
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
@@ -415,7 +416,7 @@ void main()
     const ForwardMarchDebugOptions options =
         ForwardMarchDebugOptions(hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_SHADOW_HIGHLIGHT));
 
-    const bool debugTransmittance = true;
+    const bool debugTransmittance = hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_TRANSMITTANCE_MAP);
 
     if (debugTransmittance)
     {
