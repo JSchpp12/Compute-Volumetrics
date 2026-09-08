@@ -51,12 +51,8 @@ static ChunkOrchestrator CreateTransmittancePrecomputePass(star::core::device::D
     std::vector<commands::Pass> pass;
     pass.resize(1);
 
-    // Option B: the transmittance pass is a single direct 2D dispatch over the
-    // 3D transmittance map's columns -- no rayInit/active-ray compaction and no
-    // indirect dispatch. The pre-barrier acquires the shadow depth (graphics ->
-    // compute) so the march can sample the non-compare sun depth at set 3, and
-    // clears the transmittance map to 0. The color pass releases the shadow
-    // depth later (its post-barrier).
+    // The transmittance pass is a single direct 2D dispatch over the 3D transmittance map's columns -- no
+    // rayInit/active-ray compaction and no indirect dispatch.
     pass[0] = Pass{
         ComputeContributor{TransmittancePrecompute{transmittanceMapResolution}},
         PreMemoryBarrierContributor{transmittance::PreMemoryBarrierRecorder{transmittance::ShadowDepthAcquire{

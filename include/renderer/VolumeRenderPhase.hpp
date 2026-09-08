@@ -130,7 +130,6 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     render_system::fog::PassPipelineInfo m_pipeInfo;
     star::Handle m_indirectDispatchPipe;
     star::Handle m_initPipe;
-    star::Handle m_initLightCameraPipe;
     star::Handle m_precomputeLightTransmittancePipe;
     std::shared_ptr<star::core::renderer::FrameData> m_frameData;
     std::shared_ptr<star::core::renderer::FrameData> m_volumeFrameData;
@@ -145,7 +144,10 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     std::unique_ptr<star::StarShaderInfo> m_staticShaderInfo{nullptr}, m_dynamicShaderInfo{nullptr},
         m_shadowShaderInfo{nullptr}, m_sceneDepthShaderInfo{nullptr};
     std::unique_ptr<star::StarShaderInfo> m_shadowDepthShaderInfo{nullptr};
+    
+    //TODO: Remove
     std::vector<star::Handle> aabbInfoBuffers;
+    
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages;
     std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers, computeRayAtCutoffDistanceBuffers;
     star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline;

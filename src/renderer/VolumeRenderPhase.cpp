@@ -73,11 +73,9 @@ bool VolumeRenderPhase::isRenderReady(star::core::device::DeviceContext &context
         context.getPipelineManager().get(linearPipeline)->isReady() &&
         context.getPipelineManager().get(expPipeline)->isReady() &&
         context.getPipelineManager().get(nanoVDBPipeline_hitBoundingBox)->isReady() &&
-        context.getPipelineManager().get(nanoVDBPipeline_surface)->isReady() &&
-        m_distanceComputer.isReady(context) &&
+        context.getPipelineManager().get(nanoVDBPipeline_surface)->isReady() && m_distanceComputer.isReady(context) &&
         context.getPipelineManager().get(m_indirectDispatchPipe)->isReady() &&
-        context.getPipelineManager().get(m_initPipe)->isReady() &&
-        context.getPipelineManager().get(m_initLightCameraPipe)->isReady())
+        context.getPipelineManager().get(m_initPipe)->isReady())
     {
         isReady = true;
     }
@@ -138,7 +136,7 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
                                                           ft.getCurrent().getFrameInFlightIndex())
                                                     : false,
         .transferWillBeRunThisFrame = tNeighbor.has_value() ? tNeighbor.value().isTriggeredThisFrame : false};
-        tInfo.depthPassWillRun = (this->currentFogType == Fog::Type::sMarched);
+    tInfo.depthPassWillRun = (this->currentFogType == Fog::Type::sMarched);
 
     m_pipeInfo.distancePipe = {.layout = m_distanceComputer.getLayout(), .pipeline = m_distanceComputer.getPipeline()};
     m_pipeInfo.staticShaderInfo = m_staticShaderInfo.get();
@@ -402,4 +400,3 @@ std::vector<star::StarBuffers::Buffer> VolumeRenderPhase::createComputeWriteToBu
 
     return buffers;
 }
-
