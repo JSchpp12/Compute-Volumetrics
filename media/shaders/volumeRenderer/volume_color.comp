@@ -225,9 +225,11 @@ void marchDebugTransmittanceMap(const Ray ray, const float t0, const float t1, c
 
         const vec3 marchPos = ray.origin.xyz + (stepStart * ray.direction.xyz);
 
-        // assuming only 1 light which is the "sun"
+        // assuming only 1 light right now which is sun
+        // transmittance precompute writes non-0s when not in shadow
+        // highlight areas in shadow
         float transmittance = sampleTransmittanceMap(marchPos);
-        if (transmittance != 0)
+        if (transmittance <= 0.5)
         {
             resultingColor = vec3(0.0, 0.0, 1.0);
             break;
@@ -421,7 +423,7 @@ void main()
     if (debugTransmittance)
     {
         marchDebugTransmittanceMap(localRay, rayState.t0, rayState.tEnd, inverseModelMatrix,
-                                   fogInfo.marchedFog_stepSizeDist, rayState.localDepthDistance, resultingColor,
+                                   fogInfo.marchedFog_stepSizeDist / scale, rayState.localDepthDistance, resultingColor,
                                    rayState.rayDistanceTraveled);
     }
     else

@@ -159,6 +159,7 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     Fog::Type currentFogType = Fog::Type::sMarched;
     bool m_enableColorDebugCutoff{false};
     bool m_enableShadowMapDebug{false};
+    bool m_enableTransmittanceMapDebug{false};
     bool isReady{false};
     bool isFirstPass{true};
     bool transferTriggeredThisFrame{false};

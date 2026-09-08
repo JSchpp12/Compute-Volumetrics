@@ -183,6 +183,8 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
                                  : render_system::fog::MarchShaderFlags::None;
     if (m_enableShadowMapDebug)
         marchFlags |= render_system::fog::MarchShaderFlags::EnableDebugHighlightShadows;
+    if (m_enableTransmittanceMapDebug)
+        marchFlags |= render_system::fog::MarchShaderFlags::EnableDebugTransmittanceMap;
 
     render_system::fog::DispatchInfo dInfo{
         .indirectBuffer = m_activeRayStorage[ii]->getVulkanBuffer(),
@@ -201,6 +203,9 @@ void VolumeRenderPhase::setShaderFlag(render_system::fog::MarchShaderFlags flag,
     case (render_system::fog::MarchShaderFlags::EnableDebugHighlightCutoffValue):
         m_enableColorDebugCutoff = state;
         break;
+    case (render_system::fog::MarchShaderFlags::EnableDebugTransmittanceMap):
+        m_enableTransmittanceMapDebug = state;
+        break;
     default:
         star::core::logging::warning("Attempted to set an unsupported dynamic march shader flag -- ignoring");
         break;
@@ -217,6 +222,9 @@ bool VolumeRenderPhase::toggleShaderFlag(render_system::fog::MarchShaderFlags fl
     case (render_system::fog::MarchShaderFlags::EnableDebugHighlightCutoffValue):
         m_enableColorDebugCutoff = !m_enableColorDebugCutoff;
         return m_enableColorDebugCutoff;
+    case (render_system::fog::MarchShaderFlags::EnableDebugTransmittanceMap):
+        m_enableTransmittanceMapDebug = !m_enableTransmittanceMapDebug;
+        return m_enableTransmittanceMapDebug;
     default:
         star::core::logging::warning("Attempted to toggle an unsupported dynamic march shader flag -- ignoring");
         return false;

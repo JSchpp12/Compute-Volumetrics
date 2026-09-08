@@ -3,6 +3,7 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "OffscreenRenderPhase.hpp"
+#include "render_system/fog/struct/ShaderFlags.hpp"
 
 #include <star_windowing/SwapChainRenderPhaseProvider.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
@@ -13,6 +14,10 @@
 
 #include <star_windowing/InteractivityBus.hpp>
 #include <star_windowing/event/RequestSwapChainFromService.hpp>
+
+#include <iostream>
+#include <optional>
+#include <string>
 
 static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerCommandBuffer &mgrCmdBuff,
                                            const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
@@ -26,6 +31,43 @@ static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerC
                       .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
                       .setPass(c));
 };
+
+static std::optional<render_system::fog::MarchShaderFlags> PromptForShaderDebugFlag()
+{
+    using render_system::fog::MarchShaderFlags;
+
+    std::cout << "Select shader debug flag to toggle" << std::endl;
+    std::cout << "1 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugHighlightCutoffValue)
+              << std::endl;
+    std::cout << "2 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugHighlightShadows)
+              << std::endl;
+    std::cout << "3 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugTransmittanceMap)
+              << std::endl;
+
+    std::string inputOption;
+    std::getline(std::cin, inputOption);
+
+    try
+    {
+        switch (std::stoi(inputOption))
+        {
+        case (1):
+            return MarchShaderFlags::EnableDebugHighlightCutoffValue;
+        case (2):
+            return MarchShaderFlags::EnableDebugHighlightShadows;
+        case (3):
+            return MarchShaderFlags::EnableDebugTransmittanceMap;
+        default:
+            break;
+        }
+    }
+    catch (const std::exception &)
+    {
+    }
+
+    std::cout << "Unknown option" << std::endl;
+    return std::nullopt;
+}
 
 static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
                                        star::core::device::manager::Semaphore &mgrSemaphore,
@@ -365,9 +407,14 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
 
     if (key == GLFW_KEY_LEFT_ALT)
     {
-        const bool enabled =
-            m_volume->toggleShaderDebug(render_system::fog::MarchShaderFlags::EnableDebugHighlightShadows);
-        std::cout << "Shadow map debug highlight: " << (enabled ? "ON" : "OFF") << std::endl;
+        const auto selectedFlag = PromptForShaderDebugFlag();
+        if (!selectedFlag)
+        {
+            return;
+        }
+
+        const bool enabled = m_volume->toggleShaderDebug(*selectedFlag);
+        std::cout << render_system::fog::to_string(*selectedFlag) << ": " << (enabled ? "ON" : "OFF") << std::endl;
     }
 
     if (key == GLFW_KEY_O)

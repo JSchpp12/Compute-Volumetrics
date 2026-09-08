@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string_view>
+
 namespace render_system::fog
 {
 enum class InitShaderFlags : uint16_t
@@ -14,8 +16,26 @@ enum class MarchShaderFlags : uint16_t
 {
     None = 0,
     EnableDebugHighlightCutoffValue = 1u << 0,
-    EnableDebugHighlightShadows = 1u << 1
+    EnableDebugHighlightShadows = 1u << 1,
+    EnableDebugTransmittanceMap = 1u << 2
 };
+
+constexpr std::string_view to_string(MarchShaderFlags flag) noexcept
+{
+    switch (flag)
+    {
+    case (MarchShaderFlags::None):
+        return "None";
+    case (MarchShaderFlags::EnableDebugHighlightCutoffValue):
+        return "EnableDebugHighlightCutoffValue";
+    case (MarchShaderFlags::EnableDebugHighlightShadows):
+        return "EnableDebugHighlightShadows";
+    case (MarchShaderFlags::EnableDebugTransmittanceMap):
+        return "EnableDebugTransmittanceMap";
+    default:
+        return "Unknown";
+    }
+}
 
 constexpr uint32_t Pack(InitShaderFlags initFlags, MarchShaderFlags marchFlags) noexcept
 {
