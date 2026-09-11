@@ -39,9 +39,9 @@ static std::optional<render_system::fog::MarchShaderFlags> PromptForShaderDebugF
     std::cout << "Select shader debug flag to toggle" << std::endl;
     std::cout << "1 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugHighlightCutoffValue)
               << std::endl;
-    std::cout << "2 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugHighlightShadows)
-              << std::endl;
-    std::cout << "3 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugTransmittanceMap)
+    std::cout << "2 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugHighlightShadows) << std::endl;
+    std::cout << "3 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugTransmittanceMap) << std::endl;
+    std::cout << "4 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance)
               << std::endl;
 
     std::string inputOption;
@@ -57,6 +57,8 @@ static std::optional<render_system::fog::MarchShaderFlags> PromptForShaderDebugF
             return MarchShaderFlags::EnableDebugHighlightShadows;
         case (3):
             return MarchShaderFlags::EnableDebugTransmittanceMap;
+        case (4):
+            return MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance;
         default:
             break;
         }

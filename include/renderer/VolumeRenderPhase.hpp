@@ -144,10 +144,10 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     std::unique_ptr<star::StarShaderInfo> m_staticShaderInfo{nullptr}, m_dynamicShaderInfo{nullptr},
         m_shadowShaderInfo{nullptr}, m_sceneDepthShaderInfo{nullptr};
     std::unique_ptr<star::StarShaderInfo> m_shadowDepthShaderInfo{nullptr};
-    
-    //TODO: Remove
+
+    // TODO: Remove
     std::vector<star::Handle> aabbInfoBuffers;
-    
+
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages;
     std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers, computeRayAtCutoffDistanceBuffers;
     star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline;
@@ -162,6 +162,7 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     bool m_enableColorDebugCutoff{false};
     bool m_enableShadowMapDebug{false};
     bool m_enableTransmittanceMapDebug{false};
+    bool m_enableForceMarchCalculateTransmittance{false};
     bool isReady{false};
     bool isFirstPass{true};
     bool transferTriggeredThisFrame{false};

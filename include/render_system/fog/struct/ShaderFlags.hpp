@@ -17,7 +17,8 @@ enum class MarchShaderFlags : uint16_t
     None = 0,
     EnableDebugHighlightCutoffValue = 1u << 0,
     EnableDebugHighlightShadows = 1u << 1,
-    EnableDebugTransmittanceMap = 1u << 2
+    EnableDebugTransmittanceMap = 1u << 2,
+    EnableDebugForceMarchCalculateTransmittance = 1u << 3
 };
 
 constexpr std::string_view to_string(MarchShaderFlags flag) noexcept
@@ -32,6 +33,8 @@ constexpr std::string_view to_string(MarchShaderFlags flag) noexcept
         return "EnableDebugHighlightShadows";
     case (MarchShaderFlags::EnableDebugTransmittanceMap):
         return "EnableDebugTransmittanceMap";
+    case (MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance):
+        return "EnableDebugForceMarchCalculateTransmittance";
     default:
         return "Unknown";
     }

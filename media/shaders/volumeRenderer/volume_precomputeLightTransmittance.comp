@@ -114,11 +114,18 @@ layout(set = 3, binding = 0) uniform sampler2D sunDepth;
 
 #include "volume_helpers.comp"
 
-void forwardMarch(const ivec2 columnPixel, const float surfaceDepth)
+void getShadowMapInfo(inout ivec3 mapDims, inout int surfaceSlice, const float surfaceDepth)
 {
-    const ivec3 mapDims = imageSize(transmittanceMap);
-    const int surfaceSlice = clamp(int(surfaceDepth * float(mapDims.z)), 0, mapDims.z);
+    mapDims = imageSize(transmittanceMap);
+    surfaceSlice = clamp(int(surfaceDepth * float(mapDims.z)), 0, mapDims.z);
+}
 
+void recordWhereInShadow(const ivec2 columnPixel, const float surfaceDepth)
+{
+    ivec3 mapDims = ivec3(0.0);
+    int surfaceSlice = 0;
+
+    getShadowMapInfo(mapDims, surfaceSlice, surfaceDepth);
     for (int z = 0; z < surfaceSlice; z++)
         imageStore(transmittanceMap, ivec3(columnPixel, z), vec4(1.0, 0.0, 0.0, 0.0));
 }
@@ -134,5 +141,5 @@ void main()
     const vec2 uv = (vec2(px) + 0.5) / vec2(mapDims.xy);
     const float surfaceDepth = texture(sunDepth, uv).r;
 
-    forwardMarch(px, surfaceDepth);
+    recordWhereInShadow(px, surfaceDepth);
 }

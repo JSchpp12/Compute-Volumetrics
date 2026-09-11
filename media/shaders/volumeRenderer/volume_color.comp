@@ -6,6 +6,7 @@
 const uint FLAG_ENABLE_DEBUG_CUTOFF = 1u << 16u;
 const uint FLAG_ENABLE_DEBUG_SHADOW_HIGHLIGHT = 1u << 17u;
 const uint FLAG_ENABLE_DEBUG_TRANSMITTANCE_MAP = 1u << 18u;
+const uint FLAG_ENABLE_DEBUG_FORCE_MARCH_CALCULATE_TRANSMITTANCE = 1u << 19u;
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
@@ -193,6 +194,7 @@ bool isInShadow(const vec3 volumeLocalPosition)
 struct ForwardMarchDebugOptions
 {
     bool stopAtShadowRange;
+    bool forceCalculateTransmittance;
 };
 
 struct ForwardMarchDebugMarchResult
@@ -238,6 +240,38 @@ void marchDebugTransmittanceMap(const Ray ray, const float t0, const float t1, c
         stepStart = stepEnd;
         rayDistanceTraveled = stepEnd;
     }
+}
+
+float marchLightTransmittance(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccessor_t acc,
+                              const pnanovdb_grid_type_t gridType, const Ray rayToLight, const vec3 marchPos,
+                              const uvec2 pixelCoord, const int mainStepIndex, const int lightIndex,
+                              const float marchStopDistance, const float lightStepSize, const float defaultDensity,
+                              const float densityMultiplier)
+{
+    const int fittedNumStepsLight = max(1, int(ceil(marchStopDistance / lightStepSize)));
+    const uint lightSeed =
+        makeSeed(pixelCoord, 0u, uint(mainStepIndex) * 1664525u + uint(lightIndex) * 1013904223u, 1u);
+
+    float tau = 0.0f;
+    float stepStart = 0.0f;
+    for (int k = 0; k < fittedNumStepsLight; k++)
+    {
+        const float stepEnd = min(stepStart + lightStepSize, marchStopDistance);
+        const float ds = stepEnd - stepStart;
+        const uint stepSeed = hash_u32(lightSeed + uint(k)); // ? unique per light step
+        const float stepJitter = rand01(stepSeed);
+        const float t = stepStart + stepJitter * ds;
+
+        const vec3 lightMarchPos = rayToLight.origin.xyz + (t * rayToLight.direction.xyz);
+        float density = gridReadAt(grid, acc, gridType, lightMarchPos, true) * densityMultiplier;
+        if (density == 0.0f)
+            density = defaultDensity;
+
+        tau += density * ds;
+        stepStart = stepEnd;
+    }
+
+    return tau;
 }
 
 ForwardMarchDebugMarchResult forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord,
@@ -326,7 +360,6 @@ ForwardMarchDebugMarchResult forwardMarch(in pnanovdb_grid_handle_t grid, const 
                 float lt1 = 0;
                 if (rayBoxIntersect(grid, rayToLight, lt0, lt1) && lt1 > 0)
                 {
-                    float lTau = 0.0;
                     float lMarchStopDist;
                     if (isDirectional)
                     {
@@ -338,28 +371,17 @@ ForwardMarchDebugMarchResult forwardMarch(in pnanovdb_grid_handle_t grid, const 
                         lMarchStopDist = min(distToLight, lt1);
                     }
 
-                    const int fittedNumStepsLight = max(1, int(ceil(lMarchStopDist / lightStepSize)));
-                    // initialize offset by random value
-
-                    const uint lightSeed = makeSeed(pixelCoord, 0u, uint(i) * 1664525u + uint(j) * 1013904223u, 1u);
-                    const float lightJitter = rand01(lightSeed);
-
-                    float lStepStart = 0.0f;
-                    for (int k = 0; k < fittedNumStepsLight; k++)
+                    float lTau = 0.0;
+                    if (!options.forceCalculateTransmittance)
                     {
-                        const float lStepEnd = min(lStepStart + lightStepSize, lMarchStopDist);
-                        const float lds = lStepEnd - lStepStart;
-                        const uint lStepSeed = hash_u32(lightSeed + uint(k)); // ← unique per light step
-                        const float lStepJitter = rand01(lStepSeed);
-                        const float lt = lStepStart + lStepJitter * lds;
-
-                        const vec3 lMarchPos = rayToLight.origin.xyz + (lt * rayToLight.direction.xyz);
-                        float lDensity = (gridReadAt(grid, acc, gType, lMarchPos, true) * densityMultiplier);
-                        if (lDensity == 0.0f)
-                            lDensity = defaultDensity;
-
-                        lTau += lDensity * lds;
-                        lStepStart = lStepEnd;
+                        // sample map
+                        lTau = sampleTransmittanceMap(marchPos);
+                    }
+                    else
+                    {
+                        lTau =
+                            marchLightTransmittance(grid, acc, gType, rayToLight, marchPos, pixelCoord, i, j,
+                                                    lMarchStopDist, lightStepSize, defaultDensity, densityMultiplier);
                     }
 
                     const float shadowSigmaT = sigmaT * lightExtinctionScale;
@@ -372,7 +394,6 @@ ForwardMarchDebugMarchResult forwardMarch(in pnanovdb_grid_handle_t grid, const 
                                          transparency * ds * pDensity;
                 }
             }
-
             const float tau = ds * pDensity * sigmaT;
             const float pTransmission = exp(-tau);
             transparency *= pTransmission;
@@ -416,7 +437,8 @@ void main()
     const vec4 randomValues = imageLoad(randomTexture, rayState.targetPixel);
 
     const ForwardMarchDebugOptions options =
-        ForwardMarchDebugOptions(hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_SHADOW_HIGHLIGHT));
+        ForwardMarchDebugOptions(hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_SHADOW_HIGHLIGHT),
+                                 hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_FORCE_MARCH_CALCULATE_TRANSMITTANCE));
 
     const bool debugTransmittance = hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_TRANSMITTANCE_MAP);
 
