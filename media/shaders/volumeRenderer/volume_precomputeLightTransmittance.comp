@@ -5,6 +5,8 @@
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
+const uint FLAG_ENABLE_DEBUG_TRANSMITTANCE_PRECOMPUTE_SET_AREAS_IN_SHADOW = 1u << 8u;
+
 #include "layout_pushConstants.comp"
 
 struct Light_Type
@@ -130,6 +132,44 @@ void recordWhereInShadow(const ivec2 columnPixel, const float surfaceDepth)
         imageStore(transmittanceMap, ivec3(columnPixel, z), vec4(1.0, 0.0, 0.0, 0.0));
 }
 
+vec3 lightSpaceToVolume(const vec3 ndcPos)
+{
+    // go to world space
+    vec4 worldPos = inverse(shadowLight.worldToLightViewProj) * vec4(ndcPos, 1.0);
+    worldPos /= worldPos.w;
+    const vec4 volumePos = inverse(instanceModelMatrix[0]) * worldPos;
+    return volumePos.xyz;
+}
+
+void computeTransmittance(const ivec2 columnPixel, const float surfaceDepth)
+{
+    ivec3 mapDims = ivec3(0.0);
+    int surfaceSlice = 0;
+    getShadowMapInfo(mapDims, surfaceSlice, surfaceDepth);
+
+    const vec2 uv = (vec2(columnPixel) + 0.5) / vec2(mapDims.xy);
+    const vec2 ndcXY = uv * 2.0 - 1.0;
+    float tau = 0.0;
+
+    const float tDelta = 1.0 / surfaceSlice;
+    for (int z = 0; z < surfaceSlice; z++)
+    {
+        // match shadow depth transform from main()
+        const float depthNDC = (float(z) + 0.5) / float(mapDims.z);
+
+        // transform from light space into volume space
+        const vec3 volumePos = lightSpaceToVolume(vec3(ndcXY, depthNDC));
+
+        // sample the density from the nanoVDB
+
+        // increment tau
+        tau += tDelta;
+
+        // store to texture
+        imageStore(transmittanceMap, ivec3(columnPixel, z), vec4(tau, 0.0, 0.0, 0.0));
+    }
+}
+
 void main()
 {
     const ivec3 mapDims = imageSize(transmittanceMap);
@@ -141,5 +181,12 @@ void main()
     const vec2 uv = (vec2(px) + 0.5) / vec2(mapDims.xy);
     const float surfaceDepth = texture(sunDepth, uv).r;
 
-    recordWhereInShadow(px, surfaceDepth);
+    if (hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_TRANSMITTANCE_PRECOMPUTE_SET_AREAS_IN_SHADOW))
+    {
+        recordWhereInShadow(px, surfaceDepth);
+    }
+    else
+    {
+        computeTransmittance(px, surfaceDepth);
+    }
 }

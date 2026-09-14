@@ -120,7 +120,9 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
 
     void setShaderFlag(render_system::fog::InitShaderFlags flag, bool state) noexcept;
     void setShaderFlag(render_system::fog::MarchShaderFlags flag, bool state) noexcept;
+    void setShaderFlag(render_system::fog::PrecomputeLightTransmittanceShaderFlags flag, bool state) noexcept;
     bool toggleShaderFlag(render_system::fog::MarchShaderFlags flag) noexcept;
+    bool toggleShaderFlag(render_system::fog::PrecomputeLightTransmittanceShaderFlags flag) noexcept;
 
   protected:
     virtual std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride>
@@ -163,6 +165,7 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     bool m_enableShadowMapDebug{false};
     bool m_enableTransmittanceMapDebug{false};
     bool m_enableForceMarchCalculateTransmittance{false};
+    bool m_enableTransmittancePrecomputeSetAreasInShadow{false};
     bool isReady{false};
     bool isFirstPass{true};
     bool transferTriggeredThisFrame{false};

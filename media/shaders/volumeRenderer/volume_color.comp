@@ -214,8 +214,7 @@ void marchDebugTransmittanceMap(const Ray ray, const float t0, const float t1, c
     const mat3 prepInverseModelMat = mat3(inverseModelMatrix);
 
     float stepStart = t0;
-    float accumulatedAlpha = 0.0;
-    vec3 accumulatedColor = vec3(0.0);
+    float accumulatedSample = 0.0;
     for (int i = 0; i < fittedNumSteps; i++)
     {
         const float stepEnd = min(stepStart + mainStepSize, marchStopDistance);
@@ -230,16 +229,16 @@ void marchDebugTransmittanceMap(const Ray ray, const float t0, const float t1, c
         // assuming only 1 light right now which is sun
         // transmittance precompute writes non-0s when not in shadow
         // highlight areas in shadow
-        float transmittance = sampleTransmittanceMap(marchPos);
-        if (transmittance <= 0.5)
-        {
-            resultingColor = vec3(0.0, 0.0, 1.0);
-            break;
-        }
+        const float transmittance = sampleTransmittanceMap(marchPos);
+        accumulatedSample += transmittance;
 
         stepStart = stepEnd;
         rayDistanceTraveled = stepEnd;
     }
+
+    accumulatedSample = min(5.0, accumulatedSample); 
+    float mixAmt = accumulatedSample / 5.0;
+    resultingColor = mix(resultingColor, vec3(1.0, 0.0, 0.0), mixAmt); 
 }
 
 float marchLightTransmittance(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccessor_t acc,
@@ -434,15 +433,12 @@ void main()
     Ray localRay;
     localRay.origin = vec4(rayState.origin, 1.0);
     localRay.direction = vec4(rayState.direction, 0.0);
-    const vec4 randomValues = imageLoad(randomTexture, rayState.targetPixel);
 
     const ForwardMarchDebugOptions options =
         ForwardMarchDebugOptions(hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_SHADOW_HIGHLIGHT),
                                  hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_FORCE_MARCH_CALCULATE_TRANSMITTANCE));
 
-    const bool debugTransmittance = hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_TRANSMITTANCE_MAP);
-
-    if (debugTransmittance)
+    if (hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_TRANSMITTANCE_MAP))
     {
         marchDebugTransmittanceMap(localRay, rayState.t0, rayState.tEnd, inverseModelMatrix,
                                    fogInfo.marchedFog_stepSizeDist / scale, rayState.localDepthDistance, resultingColor,
@@ -450,6 +446,7 @@ void main()
     }
     else
     {
+        const vec4 randomValues = imageLoad(randomTexture, rayState.targetPixel);
         const ForwardMarchDebugMarchResult marchResult = forwardMarch(
             grid, uvec2(rayState.targetPixel), resultingColor, localRay, rayState.t0, rayState.tEnd, inverseModelMatrix,
             fogInfo.marchedFog_sigmaAbsorption * scale, fogInfo.marchedFog_sigmaScattering * scale,
@@ -470,7 +467,7 @@ void main()
         else
         {
             // apply triangular noise distribution function for banding
-            float tpdfNoise = (randomValues.r + randomValues.g - 1.0) / 255;
+            const float tpdfNoise = (randomValues.r + randomValues.g - 1.0) / 255;
             resultingColor += vec3(tpdfNoise);
         }
     }

@@ -186,9 +186,15 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
     if (m_enableForceMarchCalculateTransmittance)
         marchFlags |= render_system::fog::MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance;
 
-    render_system::fog::DispatchInfo dInfo{
-        .indirectBuffer = m_activeRayStorage[ii]->getVulkanBuffer(),
-        .shaderOptionFlags = render_system::fog::Pack(render_system::fog::InitShaderFlags::None, marchFlags)};
+    render_system::fog::PrecomputeLightTransmittanceShaderFlags precomputeLightTransmittanceFlags =
+        m_enableTransmittancePrecomputeSetAreasInShadow
+            ? render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow
+            : render_system::fog::PrecomputeLightTransmittanceShaderFlags::None;
+
+    render_system::fog::DispatchInfo dInfo{.indirectBuffer = m_activeRayStorage[ii]->getVulkanBuffer(),
+                                           .shaderOptionFlags =
+                                               render_system::fog::Pack(render_system::fog::InitShaderFlags::None,
+                                                                        precomputeLightTransmittanceFlags, marchFlags)};
 
     m_chunkHandler.recordCommands(dInfo, ft, tInfo, m_pipeInfo);
 }
@@ -215,6 +221,21 @@ void VolumeRenderPhase::setShaderFlag(render_system::fog::MarchShaderFlags flag,
     }
 }
 
+void VolumeRenderPhase::setShaderFlag(render_system::fog::PrecomputeLightTransmittanceShaderFlags flag,
+                                      bool state) noexcept
+{
+    switch (flag)
+    {
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow):
+        m_enableTransmittancePrecomputeSetAreasInShadow = state;
+        break;
+    default:
+        star::core::logging::warning(
+            "Attempted to set an unsupported dynamic precompute light transmittance shader flag -- ignoring");
+        break;
+    }
+}
+
 bool VolumeRenderPhase::toggleShaderFlag(render_system::fog::MarchShaderFlags flag) noexcept
 {
     switch (flag)
@@ -233,6 +254,20 @@ bool VolumeRenderPhase::toggleShaderFlag(render_system::fog::MarchShaderFlags fl
         return m_enableForceMarchCalculateTransmittance;
     default:
         star::core::logging::warning("Attempted to toggle an unsupported dynamic march shader flag -- ignoring");
+        return false;
+    }
+}
+
+bool VolumeRenderPhase::toggleShaderFlag(render_system::fog::PrecomputeLightTransmittanceShaderFlags flag) noexcept
+{
+    switch (flag)
+    {
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow):
+        m_enableTransmittancePrecomputeSetAreasInShadow = !m_enableTransmittancePrecomputeSetAreasInShadow;
+        return m_enableTransmittancePrecomputeSetAreasInShadow;
+    default:
+        star::core::logging::warning(
+            "Attempted to toggle an unsupported dynamic precompute light transmittance shader flag -- ignoring");
         return false;
     }
 }

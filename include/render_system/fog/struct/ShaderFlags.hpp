@@ -1,10 +1,11 @@
 #pragma once
 
+#include <cstdint>
 #include <string_view>
 
 namespace render_system::fog
 {
-enum class InitShaderFlags : uint16_t
+enum class InitShaderFlags : uint8_t
 {
     None = 0,
     EnableAabbTest = 1u << 0,
@@ -40,9 +41,31 @@ constexpr std::string_view to_string(MarchShaderFlags flag) noexcept
     }
 }
 
-constexpr uint32_t Pack(InitShaderFlags initFlags, MarchShaderFlags marchFlags) noexcept
+enum class PrecomputeLightTransmittanceShaderFlags : uint8_t
 {
-    return static_cast<uint32_t>(initFlags) | (static_cast<uint32_t>(marchFlags) << 16);
+    None = 0,
+    EnableDebugSetAreasInShadow = 1u << 0
+};
+
+constexpr std::string_view to_string(PrecomputeLightTransmittanceShaderFlags flag) noexcept
+{
+    switch (flag)
+    {
+    case (PrecomputeLightTransmittanceShaderFlags::None):
+        return "None";
+    case (PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow):
+        return "EnableDebugSetAreasInShadow";
+    default:
+        return "Unknown";
+    }
+}
+
+constexpr uint32_t Pack(InitShaderFlags initFlags,
+                        PrecomputeLightTransmittanceShaderFlags precomputeLightTransmittanceFlags,
+                        MarchShaderFlags marchFlags) noexcept
+{
+    return static_cast<uint32_t>(initFlags) | (static_cast<uint32_t>(precomputeLightTransmittanceFlags) << 8) |
+           (static_cast<uint32_t>(marchFlags) << 16);
 }
 
 // opt-in trait
@@ -55,6 +78,10 @@ template <> struct EnableBitmaskOperators<InitShaderFlags> : std::true_type
 };
 
 template <> struct EnableBitmaskOperators<MarchShaderFlags> : std::true_type
+{
+};
+
+template <> struct EnableBitmaskOperators<PrecomputeLightTransmittanceShaderFlags> : std::true_type
 {
 };
 

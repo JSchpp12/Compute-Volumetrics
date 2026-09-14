@@ -207,25 +207,27 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
         case 0: // transmittance precompute pass
             // rayInit gates against the sun (orthographic) shadow depth
             // (set 3 binds the non-compare sun depth) instead of the camera depth.
-            dInfo.shaderOptionFlags |=
-                Pack(InitShaderFlags::EnableAabbTest | InitShaderFlags::EnableShadowDepthTest, MarchShaderFlags::None);
+            dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableAabbTest | InitShaderFlags::EnableShadowDepthTest,
+                                            PrecomputeLightTransmittanceShaderFlags::None, MarchShaderFlags::None);
             break;
         case 1: // color pass
             switch (pipeInfo.fogType)
             {
             case (Fog::Type::sExponential):
             case (Fog::Type::sLinear):
-                dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableColorOutput, MarchShaderFlags::None);
+                dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableColorOutput,
+                                                PrecomputeLightTransmittanceShaderFlags::None, MarchShaderFlags::None);
                 break;
             default:
                 dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest |
                                                     InitShaderFlags::EnableColorOutput,
-                                                MarchShaderFlags::None);
+                                                PrecomputeLightTransmittanceShaderFlags::None, MarchShaderFlags::None);
             }
             break;
         case 2: // depth pass (marched only)
             if (pipeInfo.fogType == Fog::Type::sMarched)
-                dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableAabbTest, MarchShaderFlags::None);
+                dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableAabbTest,
+                                                PrecomputeLightTransmittanceShaderFlags::None, MarchShaderFlags::None);
             break;
         }
 

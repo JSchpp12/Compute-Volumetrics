@@ -18,6 +18,7 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <variant>
 
 static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerCommandBuffer &mgrCmdBuff,
                                            const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
@@ -32,9 +33,13 @@ static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerC
                       .setPass(c));
 };
 
-static std::optional<render_system::fog::MarchShaderFlags> PromptForShaderDebugFlag()
+using DebugShaderFlag =
+    std::variant<render_system::fog::PrecomputeLightTransmittanceShaderFlags, render_system::fog::MarchShaderFlags>;
+
+static std::optional<DebugShaderFlag> PromptForShaderDebugFlag()
 {
     using render_system::fog::MarchShaderFlags;
+    using render_system::fog::PrecomputeLightTransmittanceShaderFlags;
 
     std::cout << "Select shader debug flag to toggle" << std::endl;
     std::cout << "1 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugHighlightCutoffValue)
@@ -42,6 +47,9 @@ static std::optional<render_system::fog::MarchShaderFlags> PromptForShaderDebugF
     std::cout << "2 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugHighlightShadows) << std::endl;
     std::cout << "3 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugTransmittanceMap) << std::endl;
     std::cout << "4 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance)
+              << std::endl;
+    std::cout << "5 - "
+              << render_system::fog::to_string(PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow)
               << std::endl;
 
     std::string inputOption;
@@ -52,13 +60,15 @@ static std::optional<render_system::fog::MarchShaderFlags> PromptForShaderDebugF
         switch (std::stoi(inputOption))
         {
         case (1):
-            return MarchShaderFlags::EnableDebugHighlightCutoffValue;
+            return DebugShaderFlag{MarchShaderFlags::EnableDebugHighlightCutoffValue};
         case (2):
-            return MarchShaderFlags::EnableDebugHighlightShadows;
+            return DebugShaderFlag{MarchShaderFlags::EnableDebugHighlightShadows};
         case (3):
-            return MarchShaderFlags::EnableDebugTransmittanceMap;
+            return DebugShaderFlag{MarchShaderFlags::EnableDebugTransmittanceMap};
         case (4):
-            return MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance;
+            return DebugShaderFlag{MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance};
+        case (5):
+            return DebugShaderFlag{PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow};
         default:
             break;
         }
@@ -415,8 +425,15 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
             return;
         }
 
-        const bool enabled = m_volume->toggleShaderDebug(*selectedFlag);
-        std::cout << render_system::fog::to_string(*selectedFlag) << ": " << (enabled ? "ON" : "OFF") << std::endl;
+        const bool enabled = std::visit(
+            [this](const auto &flag) {
+                using FlagType = std::decay_t<decltype(flag)>;
+
+                return m_volume->toggleShaderDebug(flag);
+            },
+            *selectedFlag);
+        std::cout << std::visit([](const auto &flag) { return render_system::fog::to_string(flag); }, *selectedFlag)
+                  << ": " << (enabled ? "ON" : "OFF") << std::endl;
     }
 
     if (key == GLFW_KEY_O)
