@@ -32,14 +32,15 @@ void TransmittancePrecompute::recordCommands(const DispatchInfo &dInfo, const Pa
     // static sets (0,1) + the transmittance per-draw set (2) + the sun depth
     // depth-test set (3). The march samples the non-compare sun depth at set 3
     // to find each column's ground (surface) depth.
-    std::array<vk::DescriptorSet, 2> descriptors{};
+    std::array<vk::DescriptorSet, 4> descriptors{};
     size_t numWritten = 0;
-    const auto frameInFlight = ft.getCurrent().getFrameInFlightIndex();
+    const uint8_t frameInFlight = static_cast<uint8_t>(ft.getCurrent().getFrameInFlightIndex());
+    pipeInfo.staticShaderInfo->getDescriptors(frameInFlight, descriptors.data(), numWritten);
 
     assert(pipeInfo.staticShaderInfo != nullptr);
     assert(pipeInfo.transmittanceOnlyShaderInfo != nullptr);
     assert(pipeInfo.transmittanceOnlyShaderInfo->getNumDescriptorSets(frameInFlight) <= descriptors.size());
-    pipeInfo.transmittanceOnlyShaderInfo->getDescriptors(frameInFlight, descriptors.data(), numWritten);
+    pipeInfo.transmittanceOnlyShaderInfo->getDescriptors(frameInFlight, descriptors.data() + numWritten, numWritten);
 
     const uint32_t firstSet = pipeInfo.transmittanceOnlyShaderInfo->getBaseSet();
     assert(firstSet >= 2 && "transmittance dynamic set should follow the two shared static sets");
@@ -52,10 +53,10 @@ void TransmittancePrecompute::recordCommands(const DispatchInfo &dInfo, const Pa
         pipeInfo.shadowDepthShaderInfo->getDescriptors(frameInFlight, descriptors.data() + numWritten, numWritten);
         assert(pipeInfo.shadowDepthShaderInfo->getBaseSet() == firstSet + 1 &&
                "shadowDepth shader info baseSet does not match concatenation order");
-        assert(numWritten == 2 && "transmittance pass expected one dynamic and one depth descriptor set");
+        assert(numWritten == 4 && "transmittance pass expected one dynamic and one depth descriptor set");
     }
 
-    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.transmittancePipe.layout, firstSet,
+    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.transmittancePipe.layout, 0,
                                  static_cast<uint32_t>(numWritten), descriptors.data(), 0, VK_NULL_HANDLE);
 
     // direct 2D dispatch: one workgroup per 8x8 block of transmittance-map columns

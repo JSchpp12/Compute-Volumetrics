@@ -21,6 +21,11 @@ enum class MarchShaderFlags : uint16_t
     EnableDebugTransmittanceMap = 1u << 2,
     EnableDebugForceMarchCalculateTransmittance = 1u << 3
 };
+enum class PrecomputeLightTransmittanceShaderFlags : uint8_t
+{
+    None = 0,
+    EnableDebugSetAreasInShadow = 1u << 0
+};
 
 constexpr std::string_view to_string(MarchShaderFlags flag) noexcept
 {
@@ -40,12 +45,6 @@ constexpr std::string_view to_string(MarchShaderFlags flag) noexcept
         return "Unknown";
     }
 }
-
-enum class PrecomputeLightTransmittanceShaderFlags : uint8_t
-{
-    None = 0,
-    EnableDebugSetAreasInShadow = 1u << 0
-};
 
 constexpr std::string_view to_string(PrecomputeLightTransmittanceShaderFlags flag) noexcept
 {

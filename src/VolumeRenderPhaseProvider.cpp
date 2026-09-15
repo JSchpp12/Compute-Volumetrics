@@ -425,12 +425,6 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(phase->m_volumeFrameData, 3, 1, shadowMapRole, vk::DescriptorType::eCombinedImageSampler,
                     vk::ShaderStageFlagBits::eCompute)
-        // volume_color.comp declares set 3 binding 2 as sampler3D
-        // precomputedTransmittance. The sampled wrapper (same underlying vk::Image
-        // as the storage-image transmittance map, with its own view + sampler) is
-        // bound here as a combined-image-sampler. The color pre-barrier transitions
-        // the image to eShaderReadOnlyOptimal before this pass; the post-barrier
-        // transitions it back to eGeneral for the next frame's precompute write.
         .addBinding(phase->m_volumeFrameData, 3, 2, transmittanceMapSampledRole,
                     vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
         .setShaderInfoOut(depthShadowInfo, &phase->m_shadowDepthShaderInfo, /*baseSet=*/3)

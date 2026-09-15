@@ -215,13 +215,13 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
             {
             case (Fog::Type::sExponential):
             case (Fog::Type::sLinear):
-                dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableColorOutput,
-                                                PrecomputeLightTransmittanceShaderFlags::None, MarchShaderFlags::None);
+                dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableColorOutput,
+                                               PrecomputeLightTransmittanceShaderFlags::None, MarchShaderFlags::None);
                 break;
             default:
-                dInfo.shaderOptionFlags |= Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest |
-                                                    InitShaderFlags::EnableColorOutput,
-                                                PrecomputeLightTransmittanceShaderFlags::None, MarchShaderFlags::None);
+                dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest |
+                                                   InitShaderFlags::EnableColorOutput,
+                                               PrecomputeLightTransmittanceShaderFlags::None, MarchShaderFlags::None);
             }
             break;
         case 2: // depth pass (marched only)

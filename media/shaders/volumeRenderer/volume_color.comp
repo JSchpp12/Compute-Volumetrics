@@ -236,8 +236,8 @@ void marchDebugTransmittanceMap(const Ray ray, const float t0, const float t1, c
         rayDistanceTraveled = stepEnd;
     }
 
-    accumulatedSample = min(5.0, accumulatedSample); 
-    float mixAmt = accumulatedSample / 5.0;
+    accumulatedSample = min(10.0, accumulatedSample); 
+    float mixAmt = accumulatedSample / 10.0;
     resultingColor = mix(resultingColor, vec3(1.0, 0.0, 0.0), mixAmt); 
 }
 
