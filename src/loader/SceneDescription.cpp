@@ -22,6 +22,13 @@ void SceneDescription::addDebugCube(DebugCubeComponent cube)
     m_counter++;
 }
 
+void SceneDescription::addTransmittanceViz(TransmittanceVizComponent viz)
+{
+    assert(!m_transmittanceVizComponents.contains(m_counter));
+    m_transmittanceVizComponents[m_counter] = std::move(viz);
+    m_counter++;
+}
+
 DebugCubeComponent* SceneDescription::getSquareComponent(uint32_t index)
 {
     if (m_cubeComponents.contains(index))
@@ -30,6 +37,16 @@ DebugCubeComponent* SceneDescription::getSquareComponent(uint32_t index)
     }
 
     return nullptr; 
+}
+
+TransmittanceVizComponent* SceneDescription::getTransmittanceVizComponent(uint32_t index)
+{
+    if (m_transmittanceVizComponents.contains(index))
+    {
+        return &m_transmittanceVizComponents[index];
+    }
+
+    return nullptr;
 }
 
 std::shared_ptr<star::StarObject> SceneDescription::getObject(uint32_t index)

@@ -9,6 +9,7 @@ add_executable(unit_tests
     test_coverage_info_json.cpp
     test_SboCallable.cpp
     test_DeviceRequirementsProvider.cpp
+    test_TransmittanceCellPlanner.cpp
 )
 
 # Mirror useful compile defs/macros you rely on in pure code paths

@@ -7,6 +7,7 @@
 #include "TransferRequest_IndicesInfo.hpp"
 #include "TransferRequest_VertInfo.hpp"
 #include "VolumeFile.hpp"
+#include "render_system/fog/TransmittanceMapConfig.hpp"
 
 #include <cassert>
 
@@ -177,7 +178,7 @@ void Volume::initVolume(star::core::device::DeviceContext &context, std::string 
         render_system::fog::policies::ShadowResourceResolutionPolicy::Builder()
             .setMainWorldCamera(*camera)
             .setShadowCastLightDir(glm::vec3{0, -1, 0})
-            .setResolution({1024, 1024, 512})
+            .setResolution(render_system::fog::kTransmittanceMapResolution)
             .build(),
         &m_instanceInfo.getControllerModel(), &m_instanceInfo.getControllerNormal(), std::move(frameData),
         star::Handle{}, std::move(vdbFilePath), this->camera, this->aabbBounds);

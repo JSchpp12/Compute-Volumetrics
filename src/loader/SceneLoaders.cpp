@@ -1,7 +1,10 @@
 #include "loader/SceneLoaders.hpp"
 
+#include "TransmittanceCellPlanner.hpp"
 #include "command/image_metrics/RegisterTerrainRecordInfo.hpp"
 #include "util/Color.hpp"
+
+#include <array>
 
 #include <star_terrain/rendering/FromTerrainDirLoader.hpp>
 #include <star_terrain/rendering/TerrainObject.hpp>
@@ -105,6 +108,29 @@ static DebugCubeComponent LoadCube(star::core::device::DeviceContext &ctx, size_
                               .numberOfDebugSquares = static_cast<uint8_t>(colors.size())};
 }
 
+static TransmittanceVizComponent LoadTransmittanceViz()
+{
+    const std::array<int, 3> windowSize = transmittance_viz::kDefaultWindowSize;
+
+    // One cube per window cell. The color encodes the cell's z offset in the
+    // window (one hue band per depth slice). Colors are uploaded once, so they
+    // describe the cell's offset from the window's low corner rather than its
+    // absolute texel, which changes as the window follows the camera.
+    std::vector<star::primitive::CubeDesc> cubeDesc;
+    cubeDesc.reserve(transmittance_viz::WindowCellCount(windowSize));
+    for (size_t i = 0; i < transmittance_viz::WindowCellCount(windowSize); ++i)
+    {
+        const std::array<int, 3> offset = transmittance_viz::WindowOffsetAt(i, windowSize);
+        const glm::vec3 rgb =
+            util::HSVToRGB(static_cast<float>(offset[2]) / static_cast<float>(windowSize[2]), 0.85f, 0.9f);
+
+        cubeDesc.push_back(
+            star::primitive::CubeDesc{.size = glm::vec3{1.0f}, .color = star::Color{rgb.r, rgb.g, rgb.b, 1.0f}});
+    }
+
+    return TransmittanceVizComponent{.cubeInfos = std::move(cubeDesc), .windowSize = windowSize};
+}
+
 static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceContext &ctx,
                                                    const std::filesystem::path &mediaPath)
 {
@@ -122,7 +148,7 @@ static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceCon
 }
 
 SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
-                                  const std::filesystem::path &terrainPath)
+                                  const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug)
 {
     constexpr uint8_t numCubes{15};
 
@@ -132,17 +158,25 @@ SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const 
     // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));
     desc.addDebugCube(LoadCube(ctx, numCubes));
+
+    if (enableTransmittanceMapDebug)
+        desc.addTransmittanceViz(LoadTransmittanceViz());
+
     return desc;
 }
 
 SceneDescription ReleaseSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
-                                    const std::filesystem::path &terrainPath)
+                                    const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug)
 {
     SceneDescription desc;
     auto [colorTerrain, shadowMapTerrain] = LoadTerrain(ctx, mediaDirPath, terrainPath);
     desc.addObject(std::move(colorTerrain));
     // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));
+
+    if (enableTransmittanceMapDebug)
+        desc.addTransmittanceViz(LoadTransmittanceViz());
+
     return desc;
 }
 } // namespace loader

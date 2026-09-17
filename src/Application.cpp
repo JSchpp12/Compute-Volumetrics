@@ -3,11 +3,13 @@
 #include "DeclareDependentPasses.hpp"
 #include "OffscreenRenderPhase.hpp"
 #include "OffscreenRenderPhaseProvider.hpp"
+#include "TransmittanceCellPlanner.hpp"
 #include "VolumeShadowRenderPhaseProvider.hpp"
 #include "command/image_metrics/GetTransferCopyPass.hpp"
 #include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
+#include "render_system/fog/TransmittanceMapConfig.hpp"
 #include "renderer/finalization/HeadlessPhaseProvider.hpp"
 #include "util/Distance.hpp"
 
@@ -22,6 +24,8 @@
 #include <starlight/command/headless_render_result_write/GetSetOutputDir.hpp>
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
+#include <starlight/debug/DebugPrimitives.hpp>
+#include <starlight/primitive/CubeObject.hpp>
 #include <starlight/virtual/StarCamera.hpp>
 
 #include <star_common/helper/StringHelpers.hpp>
@@ -67,7 +71,7 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const std::filesystem::path mediaPath{star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)};
 
-    auto desc = m_loaderFn(context, mediaPath, terrainPath);
+    auto desc = m_loaderFn(context, mediaPath, terrainPath, m_volumeOptions.enableTransmittanceMapDebug);
 
     // The shadow-cast terrain is kept separate from the color object list so it
     // can be routed to the terrain shadow render phase instead of the offscreen
@@ -78,10 +82,29 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
     for (uint32_t i{0}; i < desc.getCount(); i++)
     {
         auto *sqComponent = desc.getSquareComponent(i);
+        auto *transmittanceVizComponent = desc.getTransmittanceVizComponent(i);
         auto obj = desc.getObject(i);
         if (obj)
         {
             objects.push_back(std::move(obj));
+        }
+        else if (transmittanceVizComponent != nullptr)
+        {
+            const std::filesystem::path vizShaderDir = mediaPath / "shaders" / "transmittanceViz";
+
+            star::ShaderResolver cellResolver =
+                star::ShaderResolver::Builder{context.getCmdBus()}
+                    .setShader(star::Shader_Stage::vertex, (vizShaderDir / "transmittanceCell.vert").string())
+                    .setShader(star::Shader_Stage::fragment, (vizShaderDir / "transmittanceCell.frag").string())
+                    .build();
+
+            const std::array<int, 3> windowSize = transmittanceVizComponent->windowSize;
+            auto cells = star::debug::CreateCube(std::move(transmittanceVizComponent->cubeInfos), cellResolver,
+                                                 star::primitive::CubeObject::RenderMode::lines);
+
+            m_transmittanceVizInfo = TransmittanceVizInfo{.cells = cells, .windowSize = windowSize};
+            placeTransmittanceCells(*camera);
+            objects.push_back(std::move(cells));
         }
         else if (sqComponent != nullptr)
         {
@@ -101,7 +124,8 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
                     .setShader(star::Shader_Stage::vertex, (cubeShaderDir / "debugCube.vert").string())
                     .setShader(star::Shader_Stage::fragment, (cubeShaderDir / "debugCube.frag").string())
                     .build();
-            auto cube = star::debug::CreateCube(sqComponent->cubeInfos, cubeResolver);
+            auto cube = star::debug::CreateCube(sqComponent->cubeInfos, cubeResolver,
+                                                star::primitive::CubeObject::RenderMode::triangles);
             m_debugCubeInfo = std::make_optional(
                 DebugCubeInfo{.debugCube = cube, .numUniqueCubes = sqComponent->numberOfDebugSquares});
 
@@ -326,6 +350,7 @@ void Application::frameUpdate(star::core::SystemContext &context)
         const auto result = TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
         if (m_debugCubeInfo.has_value() && result.cameraViewDirection)
             placeDebugCubes(m_mainScene->getCamera()->getForwardVector(), m_mainScene->getCamera()->getPosition());
+        updateTransmittanceViz(*m_mainScene->getCamera());
 
         triggerImageRecord(d, d.frameTracker(), cmd.getReply().get());
     }
@@ -359,6 +384,45 @@ void Application::placeDebugCubes(const glm::vec3 &direction, const glm::vec3 &s
 
             rotDeg += degPerStep;
         }
+    }
+}
+
+void Application::updateTransmittanceViz(const star::StarCamera &camera)
+{
+    if (!m_transmittanceVizInfo.has_value())
+        return;
+
+    const std::pair<glm::vec3, glm::vec3> cameraState{camera.getPosition(), glm::vec3{camera.getForwardVector()}};
+
+    if (m_transmittanceVizLastCamera.has_value() && m_transmittanceVizLastCamera.value() == cameraState)
+        return;
+
+    placeTransmittanceCells(camera);
+    m_transmittanceVizLastCamera = cameraState;
+}
+
+void Application::placeTransmittanceCells(const star::StarCamera &camera)
+{
+    if (!m_transmittanceVizInfo.has_value())
+        return;
+
+    const auto &vizInfo = m_transmittanceVizInfo.value();
+
+    // The terrain shadow camera is driven by the first scene light
+    // (ShadowCameraController), so use the same direction to keep the
+    // visualization in sync with the precompute it mirrors.
+    glm::vec3 lightDirection{0.0f, -1.0f, 0.0f};
+    if (m_mainLight != nullptr && !m_mainLight->empty())
+        lightDirection = m_mainLight->front().getDirection();
+
+    const auto placements = transmittance_viz::ComputeWindowPlacements(
+        camera, lightDirection, render_system::fog::kTransmittanceMapResolution, vizInfo.windowSize);
+
+    for (size_t i = 0; i < placements.cells.size(); ++i)
+    {
+        auto &instance = vizInfo.cells->getInstance(i);
+        instance.setPosition(placements.cells[i].position);
+        instance.setScale(placements.cells[i].size);
     }
 }
 

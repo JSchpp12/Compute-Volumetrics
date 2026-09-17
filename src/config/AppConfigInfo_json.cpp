@@ -12,7 +12,8 @@ void to_json(nlohmann::json &j, const AppConfigInfo &v)
                        {"simControllerPath", v.simControllerPath},
                        {"engineConfigPath", v.engineConfigPath},
                        {"enableDistanceMarkers", v.enableDistanceMarkers},
-                       {"enableCutoffHighlighting", v.enableCutoffHighlighting}};
+                       {"enableCutoffHighlighting", v.enableCutoffHighlighting},
+                       {"enableTransmittanceMapDebug", v.enableTransmittanceMapDebug}};
 
     if (v.overrideRenderingDevice.has_value())
         j["overrideRenderingDevice"] = *v.overrideRenderingDevice;
@@ -30,6 +31,7 @@ void from_json(const nlohmann::json &j, AppConfigInfo &v)
     v.engineConfigPath = j.value("engineConfigPath", v.engineConfigPath);
     v.enableDistanceMarkers = j.value("enableDistanceMarkers", v.enableDistanceMarkers);
     v.enableCutoffHighlighting = j.value("enableCutoffHighlighting", v.enableCutoffHighlighting);
+    v.enableTransmittanceMapDebug = j.value("enableTransmittanceMapDebug", v.enableTransmittanceMapDebug);
 
     if (j.contains("overrideRenderingDevice"))
         v.overrideRenderingDevice = j["overrideRenderingDevice"].get<int>();

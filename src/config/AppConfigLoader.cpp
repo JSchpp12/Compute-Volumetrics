@@ -95,6 +95,7 @@ void AppConfigLoader::LogConfig(const AppConfigInfo &cfg)
         << "\n"
         << "  enableDistanceMarkers:   " << (cfg.enableDistanceMarkers ? "true" : "false") << "\n"
         << "  enableCutoffHighlighting: " << (cfg.enableCutoffHighlighting ? "true" : "false") << "\n"
+        << "  enableTransmittanceMapDebug: " << (cfg.enableTransmittanceMapDebug ? "true" : "false") << "\n"
         << "  interactiveConfig:\n"
         << "    cameraMovementSpeed:   " << cfg.interactiveConfig.cameraMovementSpeed << "\n"
         << "    cameraSensitivity:     " << cfg.interactiveConfig.cameraSensitivity << "\n"
@@ -119,6 +120,8 @@ std::unique_ptr<AppConfigInfo> AppConfigLoader::ApplyCliOverrides(int argc, char
         cfg->enableDistanceMarkers = true;
     if (util::CmdLine::DoesContainOption(argc, argv, "--enableCutoffHighlighting"))
         cfg->enableCutoffHighlighting = true;
+    if (util::CmdLine::DoesContainOption(argc, argv, "--enableTransmittanceMapDebug"))
+        cfg->enableTransmittanceMapDebug = true;
 
     return cfg;
 }

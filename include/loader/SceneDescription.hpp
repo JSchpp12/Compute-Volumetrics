@@ -1,6 +1,7 @@
 #pragma once
 
 #include "loader/DebugSquareComponent.hpp"
+#include "loader/TransmittanceVizComponent.hpp"
 
 #include <absl/container/flat_hash_map.h>
 #include <starlight/object/StarObject.hpp>
@@ -10,6 +11,7 @@ namespace loader
 struct SceneDescription
 {
     absl::flat_hash_map<uint32_t, DebugCubeComponent> m_cubeComponents;
+    absl::flat_hash_map<uint32_t, TransmittanceVizComponent> m_transmittanceVizComponents;
     absl::flat_hash_map<uint32_t, std::shared_ptr<star::StarObject>> m_objectComponents;
     std::shared_ptr<star::StarObject> m_shadowObject;
     uint32_t m_counter{0};
@@ -18,8 +20,10 @@ struct SceneDescription
     void addObject(std::shared_ptr<star::StarObject> obj);
 
     void addDebugCube(DebugCubeComponent cube);
+    void addTransmittanceViz(TransmittanceVizComponent viz);
 
     DebugCubeComponent *getSquareComponent(uint32_t index);
+    TransmittanceVizComponent *getTransmittanceVizComponent(uint32_t index);
 
     std::shared_ptr<star::StarObject> getObject(uint32_t index);
 

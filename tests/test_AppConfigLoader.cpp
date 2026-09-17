@@ -70,6 +70,7 @@ TEST_F(AppConfigLoader_CreateIfMissing, CreatesDefaultFileWhenPathDoesNotExist)
     EXPECT_TRUE(j.contains("simControllerPath"));
     EXPECT_TRUE(j.contains("enableDistanceMarkers"));
     EXPECT_TRUE(j.contains("enableCutoffHighlighting"));
+    EXPECT_TRUE(j.contains("enableTransmittanceMapDebug"));
     EXPECT_TRUE(j.contains("interactiveConfig"));
     EXPECT_TRUE(j["interactiveConfig"].contains("cameraMovementSpeed"));
     EXPECT_TRUE(j["interactiveConfig"].contains("cameraSensitivity"));
@@ -113,6 +114,7 @@ class AppConfigLoader_PatchMissing : public ::testing::Test
         j["simControllerPath"] = "/some/path";
         j["enableDistanceMarkers"] = true;
         j["enableCutoffHighlighting"] = true;
+        j["enableTransmittanceMapDebug"] = true;
         j["interactiveConfig"] = nlohmann::json{{"cameraMovementSpeed", 999.0f},
                                                 {"cameraSensitivity", 2.5f},
                                                 {"objectMovementSpeed", 42.0f}};
@@ -221,6 +223,24 @@ TEST_F(AppConfigLoader_PatchMissing, PatchesMissing_enableCutoffHighlighting)
     EXPECT_TRUE(patched["enableDistanceMarkers"].get<bool>());
 }
 
+TEST_F(AppConfigLoader_PatchMissing, PatchesMissing_enableTransmittanceMapDebug)
+{
+    const auto cfgPath = m_tempDir / "config.json";
+    auto j = buildCompleteConfigJson();
+    j.erase("enableTransmittanceMapDebug");
+    writeJsonFile(cfgPath, j);
+
+    ArgvBuilder args = {"prog", "--appConfig", cfgPath.string()};
+    EXPECT_THROW(config::AppConfigLoader::LoadFromArgs(args.argc(), args.argv()), star::core::RuntimeError);
+
+    auto patched = readJsonFile(cfgPath);
+    ASSERT_TRUE(patched.contains("enableTransmittanceMapDebug"));
+    EXPECT_FALSE(patched["enableTransmittanceMapDebug"].get<bool>());
+    EXPECT_EQ(patched["volumeName"].get<std::string>(), "myvol");
+    EXPECT_TRUE(patched["enableDistanceMarkers"].get<bool>());
+    EXPECT_TRUE(patched["enableCutoffHighlighting"].get<bool>());
+}
+
 TEST_F(AppConfigLoader_PatchMissing, PatchesMissing_interactiveConfig)
 {
     const auto cfgPath = m_tempDir / "config.json";
@@ -308,6 +328,7 @@ TEST_F(AppConfigLoader_PatchMissing, PatchesAllFieldsWhenFileIsEmptyObject)
     EXPECT_EQ(patched["simControllerPath"].get<std::string>(), "");
     EXPECT_FALSE(patched["enableDistanceMarkers"].get<bool>());
     EXPECT_FALSE(patched["enableCutoffHighlighting"].get<bool>());
+    EXPECT_FALSE(patched["enableTransmittanceMapDebug"].get<bool>());
     ASSERT_TRUE(patched.contains("interactiveConfig"));
     EXPECT_FLOAT_EQ(patched["interactiveConfig"]["cameraMovementSpeed"].get<float>(), 5000.0f);
     EXPECT_FLOAT_EQ(patched["interactiveConfig"]["cameraSensitivity"].get<float>(), 0.1f);
