@@ -236,9 +236,9 @@ void marchDebugTransmittanceMap(const Ray ray, const float t0, const float t1, c
         rayDistanceTraveled = stepEnd;
     }
 
-    accumulatedSample = min(10.0, accumulatedSample); 
+    accumulatedSample = min(10.0, accumulatedSample);
     float mixAmt = accumulatedSample / 10.0;
-    resultingColor = mix(resultingColor, vec3(1.0, 0.0, 0.0), mixAmt); 
+    resultingColor = mix(resultingColor, vec3(1.0, 0.0, 0.0), mixAmt);
 }
 
 float marchLightTransmittance(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccessor_t acc,
@@ -370,21 +370,21 @@ ForwardMarchDebugMarchResult forwardMarch(in pnanovdb_grid_handle_t grid, const 
                         lMarchStopDist = min(distToLight, lt1);
                     }
 
-                    float lTau = 0.0;
+                    float lRayAttenuation = 0.0;
                     if (!options.forceCalculateTransmittance)
                     {
                         // sample map
-                        lTau = sampleTransmittanceMap(marchPos);
+                        lRayAttenuation = sampleTransmittanceMap(marchPos);
                     }
                     else
                     {
-                        lTau =
+                        float lTau =
                             marchLightTransmittance(grid, acc, gType, rayToLight, marchPos, pixelCoord, i, j,
                                                     lMarchStopDist, lightStepSize, defaultDensity, densityMultiplier);
+                        const float shadowSigmaT = sigmaT * lightExtinctionScale;
+                        lRayAttenuation = exp(-lTau * shadowSigmaT);
                     }
 
-                    const float shadowSigmaT = sigmaT * lightExtinctionScale;
-                    const float lRayAttenuation = exp(-lTau * shadowSigmaT);
                     const float cosTheta = dot(-ray.direction.xyz, -rayToLight.direction.xyz);
                     const float phase = applyHenyeyGreensteinPhase(cosTheta, lightPropertyDir_g);
                     const vec3 lightColor = lightList.lights[j].ambient.rgb;

@@ -141,9 +141,19 @@ vec3 lightSpaceToVolume(const vec3 ndcPos)
     return volumePos.xyz;
 }
 
+vec3 computeSingleStepFromLightOrtho(const vec2 ndcXY, const float mapDimsZ)
+{
+    const float z_a = (float(0) + 0.5) / mapDimsZ;
+    const vec3 initPosition = lightSpaceToVolume(vec3(ndcXY, z_a));
+
+    const float z_b = (float(1) + 0.5) / mapDimsZ;
+    const vec3 secondStepPosition = lightSpaceToVolume(vec3(ndcXY, z_b));
+
+    return secondStepPosition - initPosition;
+}
+
 void computeTransmittance(in pnanovdb_grid_handle_t grid, const ivec2 columnPixel, const float surfaceDepth)
 {
-
     pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
     pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
     pnanovdb_readaccessor_t acc;
@@ -158,26 +168,30 @@ void computeTransmittance(in pnanovdb_grid_handle_t grid, const ivec2 columnPixe
     const vec2 ndcXY = uv * 2.0 - 1.0;
     float tau = 0.0;
 
-    // get ds --> distance between centers of each pixel in volume space
-    const float ds = 1.0;
+    const vec3 vol_step = computeSingleStepFromLightOrtho(ndcXY, float(mapDims.z));
+    const float vol_stepSize = length(vol_step) * extractUniformVolumeScale(instanceModelMatrix[0]);
+    const float sigmaExtinction = fogInfo.marchedFog_sigmaScattering + fogInfo.marchedFog_sigmaAbsorption;
 
-    const float tDelta = 1.0 / surfaceSlice;
-    for (int z = 0; z < surfaceSlice; z++)
+    vec3 vol_startPos = lightSpaceToVolume(vec3(ndcXY, (float(0) + 0.5) / float(mapDims.z)));
+
+    // why not just do the whole step process in volume space?
+    for (int z = 0; z < surfaceSlice; ++z)
     {
-        // match shadow depth transform from main()
-        const float depthNDC = (float(z) + 0.5) / float(mapDims.z);
+        // start and stop vectors primed already use them directly then increment distances
+        const float density = gridReadAt(grid, acc, gType, vol_startPos, true);
 
-        // transform from light space into volume space
-        const vec3 volumePos = lightSpaceToVolume(vec3(ndcXY, depthNDC));
+        const float sliceContribution = density * sigmaExtinction * vol_stepSize;
 
-        // sample the density from the nanoVDB
-        const float density = gridReadAt(grid, acc, gType, volumePos, false);
+        // only want half of the whole slice contribution since we are only stepping half way through
+        const float transmittance = exp(-(tau + 0.5 * sliceContribution));
+        // store to texture
+        imageStore(transmittanceMap, ivec3(columnPixel, z), vec4(transmittance, 0.0, 0.0, 0.0));
 
         // increment tau
-        tau += density;
+        tau += sliceContribution;
 
-        // store to texture
-        imageStore(transmittanceMap, ivec3(columnPixel, z), vec4(tau, 0.0, 0.0, 0.0));
+        // setup for next loop
+        vol_startPos = vol_startPos + vol_step * float(1);
     }
 }
 
