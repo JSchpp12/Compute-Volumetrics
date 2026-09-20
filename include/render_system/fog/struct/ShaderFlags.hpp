@@ -67,6 +67,17 @@ constexpr uint32_t Pack(InitShaderFlags initFlags,
            (static_cast<uint32_t>(marchFlags) << 16);
 }
 
+constexpr PrecomputeLightTransmittanceShaderFlags GetPrecomputeLightTransmittanceShaderFlags(
+    uint32_t flags) noexcept
+{
+    return static_cast<PrecomputeLightTransmittanceShaderFlags>((flags >> 8) & 0xffu);
+}
+
+constexpr MarchShaderFlags GetMarchShaderFlags(uint32_t flags) noexcept
+{
+    return static_cast<MarchShaderFlags>((flags >> 16) & 0xffffu);
+}
+
 // opt-in trait
 template <typename E> struct EnableBitmaskOperators : std::false_type
 {
