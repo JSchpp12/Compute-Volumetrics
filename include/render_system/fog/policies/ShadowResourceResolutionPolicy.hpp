@@ -29,7 +29,7 @@ class ShadowResourceResolutionPolicy
             m_shadowCastLightDir = &shadowCastLightDir;
             return *this;
         }
-        Builder &setResolution(std::array<int, 3> resolution)
+        Builder &setResolution(std::array<uint32_t, 3> resolution)
         {
             m_resolution = std::move(resolution);
             return *this;
@@ -37,20 +37,20 @@ class ShadowResourceResolutionPolicy
         ShadowResourceResolutionPolicy build();
 
       private:
-        std::optional<std::array<int, 3>> m_resolution{std::nullopt};
+        std::optional<std::array<uint32_t, 3>> m_resolution{std::nullopt};
         const glm::vec3 *m_shadowCastLightDir{nullptr};
         const star::StarCamera *m_mainWorldCamera{nullptr};
     };
 
-    std::array<int, 3> getTransmittanceResolution() const noexcept
+    std::array<uint32_t, 3> getTransmittanceResolution() const noexcept
     {
         return m_resolution;
     }
 
   private:
-    std::array<int, 3> m_resolution;
+    std::array<uint32_t, 3> m_resolution;
 
-    explicit ShadowResourceResolutionPolicy(std::array<int, 3> resolution) : m_resolution(std::move(resolution))
+    explicit ShadowResourceResolutionPolicy(std::array<uint32_t, 3> resolution) : m_resolution(std::move(resolution))
     {
     }
 };

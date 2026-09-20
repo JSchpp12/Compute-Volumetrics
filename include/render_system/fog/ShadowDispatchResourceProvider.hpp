@@ -35,7 +35,7 @@ class ShadowDispatchResourceProvider
       public:
         struct Info
         {
-            std::array<int, 3> resolution;
+            std::array<uint32_t, 3> resolution;
         };
 
         AdditionalResourcesInfo(std::vector<std::pair<star::Handle, Info>> records) : m_records("stFrameRole")

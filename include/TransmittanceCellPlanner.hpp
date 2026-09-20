@@ -55,5 +55,5 @@ std::array<int, 3> WindowOffsetAt(size_t index, const std::array<int, 3> &window
 /// x/y NDC spans [-1, 1] over the map extents and z NDC spans [0, 1] over the
 /// light frustum depth (GLM_FORCE_DEPTH_ZERO_TO_ONE is enabled project-wide).
 WindowPlacements ComputeWindowPlacements(const star::StarCamera &camera, const glm::vec3 &lightDirection,
-                                         const std::array<int, 3> &mapResolution, const std::array<int, 3> &windowSize);
+                                         const std::array<uint32_t, 3> &mapResolution, const std::array<int, 3> &windowSize);
 } // namespace transmittance_viz

@@ -15,7 +15,7 @@ namespace render_system::fog::policies
 #pragma region Builder
 
 static void LogTransmittanceMapCoverage(const star::terrain::rendering::ShadowCasterInfo &shadowCalculator,
-                                        const std::array<int, 3> &targetResolution) noexcept
+                                        const std::array<uint32_t, 3> &targetResolution) noexcept
 {
 
     const auto bounds = shadowCalculator.getLightCameraFrustumInfo();

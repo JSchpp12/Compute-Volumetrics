@@ -217,7 +217,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     phase->m_volumeFrameData->add(star::core::renderer::FrameData::BorrowedBuffer{m_infoManagerInstanceNormal},
                                   star::core::renderer::roleHandle(renderer::volume::frame_roles::InstanceNormal));
 
-    std::array<int, 3> transmittanceMapResolution{0, 0, 0};
+    std::array<uint32_t, 3> transmittanceMapResolution{0, 0, 0};
     {
         const auto shadowResources = m_shadowResourceProvider.addResourcesTo(c, *phase->m_volumeFrameData);
         const auto &addedInfo = shadowResources.getInfoForType(transmittanceMapShadowRole);
