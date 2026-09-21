@@ -4,7 +4,6 @@
 #include "OffscreenRenderPhase.hpp"
 #include "OffscreenRenderPhaseProvider.hpp"
 #include "TransmittanceCellPlanner.hpp"
-#include "VolumeShadowRenderPhaseProvider.hpp"
 #include "command/image_metrics/GetTransferCopyPass.hpp"
 #include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
