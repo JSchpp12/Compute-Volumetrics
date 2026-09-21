@@ -152,6 +152,18 @@ vec3 computeSingleStepFromLightOrtho(const vec2 ndcXY, const float mapDimsZ)
     return secondStepPosition - initPosition;
 }
 
+void setupMarchInfo(const ivec2 columnPixel, const float surfaceDepth, inout int surfaceSlice, inout vec3 vol_startPos, inout vec3 vol_step)
+{
+    ivec3 mapDims = ivec3(0.0);
+    getShadowMapInfo(mapDims, surfaceSlice, surfaceDepth);
+
+    const vec2 uv = (vec2(columnPixel) + 0.5) / vec2(mapDims.xy);
+    const vec2 ndcXY = uv * 2.0 - 1.0;
+
+    vol_startPos = lightSpaceToVolume(vec3(ndcXY, (float(0) + 0.5) / float(mapDims.z)));
+    vol_step = computeSingleStepFromLightOrtho(ndcXY, float(mapDims.z));
+}
+
 void computeTransmittance(in pnanovdb_grid_handle_t grid, const ivec2 columnPixel, const float surfaceDepth)
 {
     pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
@@ -160,26 +172,21 @@ void computeTransmittance(in pnanovdb_grid_handle_t grid, const ivec2 columnPixe
     pnanovdb_readaccessor_init(acc, root);
     pnanovdb_grid_type_t gType = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid);
 
-    ivec3 mapDims = ivec3(0.0);
-    int surfaceSlice = 0;
-    getShadowMapInfo(mapDims, surfaceSlice, surfaceDepth);
-
-    const vec2 uv = (vec2(columnPixel) + 0.5) / vec2(mapDims.xy);
-    const vec2 ndcXY = uv * 2.0 - 1.0;
-    float tau = 0.0;
-
-    const vec3 vol_step = computeSingleStepFromLightOrtho(ndcXY, float(mapDims.z));
+    int surfaceSlice = 0; 
+    vec3 vol_startPos = vec3(0); 
+    vec3 vol_step = vec3(0); 
+    setupMarchInfo(columnPixel, surfaceDepth, surfaceSlice, vol_startPos, vol_step); 
+    
     const float vol_stepSize = length(vol_step) * extractUniformVolumeScale(instanceModelMatrix[0]);
     const float sigmaExtinction = fogInfo.marchedFog_sigmaScattering + fogInfo.marchedFog_sigmaAbsorption;
 
-    vec3 vol_startPos = lightSpaceToVolume(vec3(ndcXY, (float(0) + 0.5) / float(mapDims.z)));
-
-    // why not just do the whole step process in volume space?
+    float tau = 0.0;
     for (int z = 0; z < surfaceSlice; ++z)
     {
         // start and stop vectors primed already use them directly then increment distances
         const float density = gridReadAt(grid, acc, gType, vol_startPos, true);
 
+        //calculate contribution of the individual slice as a whole value for tau summation
         const float sliceContribution = density * sigmaExtinction * vol_stepSize;
 
         // only want half of the whole slice contribution since we are only stepping half way through
