@@ -153,6 +153,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/policies/ShadowDepthAcquirePolicy.cpp" 
 	"src/render_system/fog/policies/ShadowDepthReleaseBackPolicy.cpp"
 	"src/render_system/fog/policies/ShadowResourceResolutionPolicy.cpp" 
+	"src/render_system/fog/commands/color/FrameInputPreMemoryBarrierRecorder.cpp"
 	"src/render_system/fog/commands/color/PreMemoryBarrierRecorder.cpp"
  	"src/render_system/fog/commands/distance/PreDifferentFamilies.cpp" 
 	"src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp" 

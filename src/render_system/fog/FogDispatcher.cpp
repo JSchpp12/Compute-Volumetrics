@@ -48,6 +48,9 @@ static ChunkOrchestrator CreateTransmittancePrecomputePass(star::core::device::D
     const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
         GetQueueFamilyIndices(ctx);
 
+    QueueFamilyIndices info{
+        .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
+
     std::vector<commands::Pass> pass;
     pass.resize(1);
 
@@ -55,8 +58,10 @@ static ChunkOrchestrator CreateTransmittancePrecomputePass(star::core::device::D
     // rayInit/active-ray compaction and no indirect dispatch.
     pass[0] = Pass{
         ComputeContributor{TransmittancePrecompute{transmittanceMapResolution}},
-        PreMemoryBarrierContributor{transmittance::PreMemoryBarrierRecorder{transmittance::ShadowDepthAcquire{
-            render_system::fog::makeShadowDepthAcquirePolicy(graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
+        PreMemoryBarrierContributor{
+            color::FrameInputPreMemoryBarrierRecorder{color::PreDifferentFamilies{info}},
+            transmittance::PreMemoryBarrierRecorder{transmittance::ShadowDepthAcquire{
+                render_system::fog::makeShadowDepthAcquirePolicy(graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
 
     return ChunkOrchestrator{std::move(pass), false, &isReady};
 }
@@ -73,7 +78,7 @@ static ChunkOrchestrator CreateColorPass(star::core::device::DeviceContext &ctx,
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
 
     pass[0] = Pass{ComputeContributor{Init{ctx.getEngineResolution()}},
-                   PreMemoryBarrierContributor{color::PreMemoryBarrierRecorder{color::PreDifferentFamilies{info}}}};
+                   PreMemoryBarrierContributor{color::PreMemoryBarrierRecorder{}}};
 
     pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
 
@@ -222,9 +227,8 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
             {
             case (Fog::Type::sExponential):
             case (Fog::Type::sLinear):
-                dInfo.shaderOptionFlags =
-                    Pack(InitShaderFlags::EnableColorOutput, PrecomputeLightTransmittanceShaderFlags::None,
-                         marchDebugFlags);
+                dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableColorOutput,
+                                               PrecomputeLightTransmittanceShaderFlags::None, marchDebugFlags);
                 break;
             default:
                 dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest |
@@ -233,8 +237,8 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
             }
             break;
         case 2: // depth pass (marched only)
-            dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableAabbTest, PrecomputeLightTransmittanceShaderFlags::None,
-                                           MarchShaderFlags::None);
+            dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableAabbTest,
+                                           PrecomputeLightTransmittanceShaderFlags::None, MarchShaderFlags::None);
             break;
         }
 
