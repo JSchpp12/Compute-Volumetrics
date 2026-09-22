@@ -8,12 +8,13 @@ struct MarchedFogInfo
 
     MarchedFogInfo(const float &defaultDensity, const float &sigmaAbsorption, const float &sigmaScattering,
                    const float &lightPropertyDirG, const float &stepSizeDist, const float &stepSizeDist_light,
-                float densityMultiplier, float colorTransparencyCutoff,
-                    float distanceTransparencyCutoff, float lightExtinctionScale)
+                   float densityMultiplier, float colorTransparencyCutoff, float distanceTransparencyCutoff,
+                   float lightExtinctionScale, float shadowBias)
         : defaultDensity(defaultDensity), stepSizeDist(stepSizeDist), stepSizeDist_light(stepSizeDist_light),
           lightPropertyDirG(lightPropertyDirG), sigmaAbsorption(sigmaAbsorption), sigmaScattering(sigmaScattering),
           densityMultiplier(densityMultiplier), colorTransparencyCutoff(colorTransparencyCutoff),
-          distanceTransparencyCutoff(distanceTransparencyCutoff), lightExtinctionScale(lightExtinctionScale)
+          distanceTransparencyCutoff(distanceTransparencyCutoff), lightExtinctionScale(lightExtinctionScale),
+          shadowBias(shadowBias)
     {
     }
 
@@ -23,7 +24,7 @@ struct MarchedFogInfo
           sigmaAbsorption(other.sigmaAbsorption), sigmaScattering(other.sigmaScattering),
           densityMultiplier(other.densityMultiplier), colorTransparencyCutoff(other.colorTransparencyCutoff),
           distanceTransparencyCutoff(other.distanceTransparencyCutoff),
-          lightExtinctionScale(other.lightExtinctionScale)
+          lightExtinctionScale(other.lightExtinctionScale), shadowBias(other.shadowBias)
     {
     }
 
@@ -41,6 +42,7 @@ struct MarchedFogInfo
             this->colorTransparencyCutoff = other.colorTransparencyCutoff;
             this->distanceTransparencyCutoff = other.distanceTransparencyCutoff;
             this->lightExtinctionScale = other.lightExtinctionScale;
+            this->shadowBias = other.shadowBias;
         }
 
         return *this;
@@ -54,7 +56,7 @@ struct MarchedFogInfo
                this->densityMultiplier == other.densityMultiplier &&
                this->colorTransparencyCutoff == other.colorTransparencyCutoff &&
                this->distanceTransparencyCutoff == other.distanceTransparencyCutoff &&
-               this->lightExtinctionScale == other.lightExtinctionScale;
+               this->lightExtinctionScale == other.lightExtinctionScale && this->shadowBias == other.shadowBias;
     }
 
     bool operator!=(const MarchedFogInfo &other) const
@@ -65,7 +67,7 @@ struct MarchedFogInfo
                this->densityMultiplier != other.densityMultiplier ||
                this->colorTransparencyCutoff != other.colorTransparencyCutoff ||
                this->distanceTransparencyCutoff != other.distanceTransparencyCutoff ||
-               this->lightExtinctionScale != other.lightExtinctionScale;
+               this->lightExtinctionScale != other.lightExtinctionScale || this->shadowBias != other.shadowBias;
     }
 
     float getLightPropertyDirG() const
@@ -145,9 +147,20 @@ struct MarchedFogInfo
         return lightExtinctionScale;
     }
 
+    void setShadowBias(float value)
+    {
+        shadowBias = std::move(value);
+    }
+
+    float getShadowBias() const
+    {
+        return shadowBias;
+    }
+
   private:
     float lightPropertyDirG = 0.0f, sigmaAbsorption = 0.0f, sigmaScattering = 0.0f, densityMultiplier = 1.0f,
-          colorTransparencyCutoff = 0.01f, distanceTransparencyCutoff = 0.01f, lightExtinctionScale = 1.0f;
+          colorTransparencyCutoff = 0.01f, distanceTransparencyCutoff = 0.01f, lightExtinctionScale = 1.0f,
+          shadowBias = 0.01f;
 
     bool validateSigmaTotal(const float &sigmaAbsorption, const float &sigmaScattering) const
     {

@@ -36,7 +36,8 @@ void to_json(nlohmann::json &j, const MarchedFogInfo &v)
                        {"densityMultiplier", v.getDensityMultiplier()},
                        {"colorTransparencyCutoff", v.getColorTransparencyCutoff()},
                        {"distanceTransparencyCutoff", v.getDistanceTransparencyCutoff()},
-                       {"lightExtinctionScale", v.getLightExtinctionScale()}};
+                       {"lightExtinctionScale", v.getLightExtinctionScale()},
+                       {"shadowBias", v.getShadowBias()}};
 }
 
 void from_json(const nlohmann::json &j, MarchedFogInfo &v)
@@ -54,6 +55,7 @@ void from_json(const nlohmann::json &j, MarchedFogInfo &v)
     const float colorTransparencyCutoff = j.at("colorTransparencyCutoff").get<float>();
     const float distanceTransparencyCutoff = j.at("distanceTransparencyCutoff").get<float>();
     const float lightExtinctionScale = j.at("lightExtinctionScale").get<float>();
+    const float shadowBias = j.value("shadowBias", 0.01f);
 
     v.setSigmaAbsorption(sigmaAbs);
     v.setSigmaScattering(sigmaSca);
@@ -62,6 +64,7 @@ void from_json(const nlohmann::json &j, MarchedFogInfo &v)
     v.setColorTransparencyCutoff(colorTransparencyCutoff);
     v.setDistanceTransparencyCutoff(distanceTransparencyCutoff);
     v.setLightExtinctionScale(lightExtinctionScale);
+    v.setShadowBias(shadowBias);
 }
 
 void to_json(nlohmann::json &j, const FogInfo &v)

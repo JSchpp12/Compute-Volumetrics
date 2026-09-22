@@ -14,7 +14,8 @@ class FogInfo
               marchedFog_defaultDensity = 0.0f, marchedFog_sigmaAbsorption = 0.0f, marchedFog_sigmaScattering = 0.0f,
               marchedFog_lightPropertyDirG = 0.0f, marchedFog_stepSizeDist = 1.0f, marchedFog_stepSizeDist_light = 3.0f,
               marchedFog_densityMultiplier = 0.0f, marchedFog_colorTransparencyCutoff = 0.01f,
-              marchedFog_distanceTransparencyCutoff = 0.01f, marchedFog_lightExtinctionScale = 1.0f;
+              marchedFog_distanceTransparencyCutoff = 0.01f, marchedFog_lightExtinctionScale = 1.0f,
+              marchedFog_shadowBias = 0.01f;
         uint32_t marchedFog_maxNumSteps = 25600, vdb_gridType = 0;
     };
 
@@ -65,6 +66,7 @@ class FogInfo
                              this->marchedInfo.getColorTransparencyCutoff(),
                              this->marchedInfo.getDistanceTransparencyCutoff(),
                              this->marchedInfo.getLightExtinctionScale(),
+                             this->marchedInfo.getShadowBias(),
                              25600,
                              uint32_t(0)};
     }

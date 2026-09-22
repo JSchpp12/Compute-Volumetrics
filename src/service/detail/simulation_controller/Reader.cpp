@@ -49,7 +49,8 @@ static MarchedFogInfo CalcSteps(const MarchedFogInfo &start, const MarchedFogInf
             util::CalcDiff(start.getDensityMultiplier(), stop.getDensityMultiplier()),
             util::CalcDiff(start.getColorTransparencyCutoff(), stop.getColorTransparencyCutoff()),
             util::CalcDiff(start.getDistanceTransparencyCutoff(), stop.getDistanceTransparencyCutoff()),
-            util::CalcDiff(start.getLightExtinctionScale(), stop.getLightExtinctionScale())};
+            util::CalcDiff(start.getLightExtinctionScale(), stop.getLightExtinctionScale()),
+            util::CalcDiff(start.getShadowBias(), stop.getShadowBias())};
 }
 
 SimulationSteps CalculateSimSteps(const SimulationBounds &bounds)

@@ -109,6 +109,7 @@ layout(set = 1, binding = 5) uniform FogControllerInfo
     float marchedFog_colorTransparencyCutoff;
     float marchedFog_distanceTransparencyCutoff;
     float marchedFog_lightExtinctionScale;
+    float marchedFog_shadowBias;
     uint marchedFog_uniform_maxNumSteps;
     uint gridType;
 }
@@ -176,11 +177,27 @@ vec3 getShadowNDC(const vec3 volumeLocalPosition)
     return lightClipPos.xyz / lightClipPos.w;
 }
 
-float sampleTransmittanceMap(const vec3 volumeLocalPosition)
+float sampleTransmittanceMap(const vec3 volumeLocalPosition, bool useSampling)
 {
     vec3 ndc = getShadowNDC(volumeLocalPosition);
     vec3 shadowUVW = vec3(ndc.xy * 0.5 + 0.5, ndc.z);
     return texture(precomputedTransmittance, shadowUVW).r;
+
+    // if (useSampling)
+
+
+    // // Get the actual dimensions of mip level 0
+    // ivec3 texSize = textureSize(precomputedTransmittance, 0);
+
+    // // Convert normalized UVW -> integer texel coordinate
+    // ivec3 texel = ivec3(shadowUVW * vec3(texSize));
+
+    // // texelFetch does NOT clamp/wrap out-of-range coords for you —
+    // // out-of-bounds fetches return 0, so you must clamp manually
+    // texel = clamp(texel, ivec3(0), texSize - 1);
+
+    // return texelFetch(precomputedTransmittance, texel, 0).r;
+
 }
 
 bool isInShadow(const vec3 volumeLocalPosition)
@@ -229,7 +246,7 @@ void marchDebugTransmittanceMap(const Ray ray, const float t0, const float t1, c
         // assuming only 1 light right now which is sun
         // transmittance precompute writes non-0s when not in shadow
         // highlight areas in shadow
-        const float transmittance = sampleTransmittanceMap(marchPos);
+        const float transmittance = sampleTransmittanceMap(marchPos, false);
         accumulatedSample += transmittance;
 
         stepStart = stepEnd;
@@ -374,7 +391,7 @@ ForwardMarchDebugMarchResult forwardMarch(in pnanovdb_grid_handle_t grid, const 
                     if (!options.forceCalculateTransmittance)
                     {
                         // sample map
-                        lRayAttenuation = sampleTransmittanceMap(marchPos);
+                        lRayAttenuation = sampleTransmittanceMap(marchPos, false);
                     }
                     else
                     {

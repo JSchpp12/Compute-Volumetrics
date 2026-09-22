@@ -253,9 +253,9 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
             m_volume->getProvider().getFogInfo().linearInfo.nearDist = 0.01f;
             m_volume->getProvider().getFogInfo().linearInfo.farDist = 16000.0f;
             m_volume->getProvider().getFogInfo().expFogInfo.density = 0.6f;
-            m_volume->getProvider().getFogInfo().marchedInfo.setDensityMultiplier(0.1f);
             m_volume->getProvider().getFogInfo().marchedInfo.setColorTransparencyCutoff(0.000001f);
             m_volume->getProvider().getFogInfo().marchedInfo.setDistanceTransparencyCutoff(0.000001f);
+            m_volume->getProvider().getFogInfo().marchedInfo.setDensityMultiplier(0.1f);
         }
 
         std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
