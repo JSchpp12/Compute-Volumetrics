@@ -51,8 +51,7 @@ static ChunkOrchestrator CreateTransmittancePrecomputePass(star::core::device::D
     QueueFamilyIndices info{
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
 
-    std::vector<commands::Pass> pass;
-    pass.resize(1);
+    std::vector<commands::Pass> pass{1};
 
     // The transmittance pass is a single direct 2D dispatch over the 3D transmittance map's columns -- no
     // rayInit/active-ray compaction and no indirect dispatch.
@@ -95,8 +94,7 @@ static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx,
     const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
         GetQueueFamilyIndices(ctx);
 
-    std::vector<commands::Pass> pass;
-    pass.resize(3);
+    std::vector<commands::Pass> pass{3};
 
     QueueFamilyIndices info{
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
