@@ -39,6 +39,20 @@ static std::pair<std::vector<star::StarTextures::Texture>, vk::Format> CreateTra
                                .setSamples(vk::SampleCountFlagBits::e1),
                            "TransmittanceMap")
             .setBaseFormat(imageFormat)
+            .setSamplerInfo(vk::SamplerCreateInfo()
+                                .setMagFilter(vk::Filter::eNearest)
+                                .setMinFilter(vk::Filter::eNearest)
+                                .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+                                .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+                                .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
+                                .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+                                .setUnnormalizedCoordinates(VK_FALSE)
+                                .setCompareEnable(VK_FALSE)
+                                .setCompareOp(vk::CompareOp::eAlways)
+                                .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                                .setMipLodBias(0.0f)
+                                .setMinLod(0.0f)
+                                .setMaxLod(0.0f))
             .addViewInfo(vk::ImageViewCreateInfo()
                              .setViewType(vk::ImageViewType::e3D)
                              .setFormat(imageFormat)
@@ -76,55 +90,6 @@ static std::pair<std::vector<star::StarTextures::Texture>, vk::Format> CreateTra
         [&](vk::CommandBuffer cmd) { cmd.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barriers)); });
 
     return std::make_pair(textures, imageFormat);
-}
-
-/// Create sampled wrapper textures that share the same underlying vk::Image as the transmittance maps but add their own
-/// ImageView + Sampler.
-static std::vector<std::shared_ptr<star::StarTextures::Texture>> CreateTransmittanceMapSampledWrappers(
-    star::core::device::DeviceContext &context,
-    const std::vector<const star::StarTextures::Texture *> &transmittanceTextures, const vk::Format format) noexcept
-{
-    const size_t num = transmittanceTextures.size();
-    std::vector<std::shared_ptr<star::StarTextures::Texture>> wrappers{num};
-
-    for (size_t i = 0; i < num; i++)
-    {
-        const auto &src = *transmittanceTextures[i];
-        const vk::Extent3D extent = src.getBaseExtent();
-        const vk::DeviceSize size =
-            star::StarTextures::Texture::CalculateSize(format, extent, /*arrayLayers=*/1, vk::ImageType::e3D,
-                                                       /*mipLevels=*/1);
-
-        wrappers[i] = star::StarTextures::Texture::Builder(context.getDevice(), src.getVulkanImage())
-                          .setBaseFormat(format)
-                          .addViewInfo(vk::ImageViewCreateInfo()
-                                           .setViewType(vk::ImageViewType::e3D)
-                                           .setFormat(format)
-                                           .setSubresourceRange(vk::ImageSubresourceRange()
-                                                                    .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                                                    .setBaseArrayLayer(0)
-                                                                    .setLayerCount(vk::RemainingArrayLayers)
-                                                                    .setBaseMipLevel(0)
-                                                                    .setLevelCount(1)))
-                          .setSamplerInfo(vk::SamplerCreateInfo()
-                                              .setMagFilter(vk::Filter::eLinear)
-                                              .setMinFilter(vk::Filter::eLinear)
-                                              .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
-                                              .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
-                                              .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
-                                              .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-                                              .setUnnormalizedCoordinates(VK_FALSE)
-                                              .setCompareEnable(VK_FALSE)
-                                              .setCompareOp(vk::CompareOp::eAlways)
-                                              .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-                                              .setMipLodBias(0.0f)
-                                              .setMinLod(0.0f)
-                                              .setMaxLod(0.0f))
-                          .setSizeInfo(size, extent)
-                          .buildShared();
-    }
-
-    return wrappers;
 }
 
 ShadowDispatchResourceProvider::ShadowDispatchResourceProvider(policies::ShadowResourceResolutionPolicy resPolicy)
@@ -165,7 +130,7 @@ std::pair<star::Handle, ShadowDispatchResourceProvider::AdditionalResourcesInfo:
     }
 
     const star::Handle transmittanceMapRole = star::core::renderer::roleHandle(data_roles::LightTransmittanceMap);
-    fd.add(star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(textures),
+    fd.add(star::core::renderer::FrameData::BorrowedTexture{.textures = textures,
                                                             .layout = vk::ImageLayout::eGeneral,
                                                             .format = format},
            transmittanceMapRole);
@@ -176,16 +141,10 @@ std::pair<star::Handle, ShadowDispatchResourceProvider::AdditionalResourcesInfo:
         transmittanceTexturePtrs[i] = &context.getGraphicsManagers().imageManager.get(handles[i])->texture;
     }
 
-    auto sampledWrappers = CreateTransmittanceMapSampledWrappers(context, transmittanceTexturePtrs, format);
-    for (const auto &sampledWrapper : sampledWrappers)
-    {
-        context.getGraphicsManagers().imageManager.submit(star::core::device::manager::ImageRequest{*sampledWrapper});
-    }
-
     const star::Handle sampledUse = star::core::renderer::roleHandle(data_roles::LightTransmittanceMapSampled);
-    fd.add(star::core::renderer::FrameData::OwnedTexture{.textures = std::move(sampledWrappers),
-                                                         .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
-                                                         .format = format},
+    fd.add(star::core::renderer::FrameData::BorrowedTexture{.textures = textures,
+                                                            .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
+                                                            .format = format},
            sampledUse);
 
     return std::make_pair(transmittanceMapRole,
