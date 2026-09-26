@@ -51,6 +51,14 @@ static std::optional<DebugShaderFlag> PromptForShaderDebugFlag()
     std::cout << "5 - "
               << render_system::fog::to_string(PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow)
               << std::endl;
+    std::cout << "6 - "
+              << render_system::fog::to_string(
+                     PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest)
+              << std::endl;
+    std::cout << "7 - "
+              << render_system::fog::to_string(
+                     PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest)
+              << std::endl;
 
     std::string inputOption;
     std::getline(std::cin, inputOption);
@@ -69,6 +77,10 @@ static std::optional<DebugShaderFlag> PromptForShaderDebugFlag()
             return DebugShaderFlag{MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance};
         case (5):
             return DebugShaderFlag{PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow};
+        case (6):
+            return DebugShaderFlag{PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest};
+        case (7):
+            return DebugShaderFlag{PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest};
         default:
             break;
         }
@@ -188,6 +200,7 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         }
         oss << context.getAllDevices().getData()[0].frameTracker().getCurrent().getGlobalFrameCounter();
         star::core::logging::info(oss.str());
+
     }
 
     if (m_switchMode)
@@ -505,6 +518,7 @@ void InteractiveApplication::onKeyPress(const int &key, const int &scancode, con
         m_actDir[star::Type::Axis::z] = true;
     }
 }
+
 void InteractiveApplication::initImageOutputDir(star::core::CommandBus &bus)
 {
     m_imageOutputDir = std::filesystem::path(star::common::strings::GetStartTime());

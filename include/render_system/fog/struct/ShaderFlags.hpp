@@ -24,7 +24,9 @@ enum class MarchShaderFlags : uint16_t
 enum class PrecomputeLightTransmittanceShaderFlags : uint8_t
 {
     None = 0,
-    EnableDebugSetAreasInShadow = 1u << 0
+    EnableDebugSetAreasInShadow = 1u << 0,
+    EnableDebugDisableAabbRayTest = 1u << 1,
+    EnableDebugSetTexelsOfInterest = 1u << 2
 };
 
 constexpr std::string_view to_string(MarchShaderFlags flag) noexcept
@@ -54,6 +56,10 @@ constexpr std::string_view to_string(PrecomputeLightTransmittanceShaderFlags fla
         return "None";
     case (PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow):
         return "EnableDebugSetAreasInShadow";
+    case (PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest):
+        return "EnableDebugDisableAabbRayTest";
+    case (PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest):
+        return "EnableDebugSetTexelsOfInterest";
     default:
         return "Unknown";
     }

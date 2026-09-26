@@ -132,6 +132,7 @@ void FogDispatcher::cleanupRender(star::core::device::DeviceContext &ctx)
 
     m_sharedCmdBuf.cleanupRender(ctx.getDevice().getVulkanDevice());
 }
+
 void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk::Semaphore> dataSemaphores,
                            std::vector<vk::PipelineStageFlags> dataWaitPoints,
                            std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue,

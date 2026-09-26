@@ -308,9 +308,6 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
         c.getEventBus(), c, star::event::DescriptorPoolReady::GetUniqueTypeName());
     builder.setShaderInfoOut(staticInfo, &phase->m_staticShaderInfo, /*baseSet=*/0);
     {
-        const star::Handle shadowRole =
-            star::core::renderer::roleHandle(star::terrain::rendering::data_roles::ShadowLightProjections);
-
         assert(m_shadowTerrainPhaseHandle.isInitialized() && "Shadow registration was never provided");
 
         auto *shadowPhase = phases.getPhase(m_shadowTerrainPhaseHandle);
@@ -325,9 +322,12 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
             star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(shadowMaps),
                                                              .layout = vk::ImageLayout::eShaderReadOnlyOptimal},
             shadowMapRole);
-        // shadow light projections: set 1 of the static shader info (current = staticInfo).
-        builder.addBinding(shadowPhase->getFrameData(), 1, 6, shadowRole, vk::DescriptorType::eUniformBuffer,
-                           vk::ShaderStageFlagBits::eCompute);
+        {
+            const star::Handle shadowRole =
+                star::core::renderer::roleHandle(star::terrain::rendering::data_roles::ShadowLightProjections);
+            builder.addBinding(shadowPhase->getFrameData(), 1, 6, shadowRole, vk::DescriptorType::eUniformBuffer,
+                               vk::ShaderStageFlagBits::eCompute);
+        }
 
         // Non-compare (raw) sun depth for the transmittance pass's rayInit depth test.
         // Same shadow depth images as shadowMapRole, but with a non-compare sampler for

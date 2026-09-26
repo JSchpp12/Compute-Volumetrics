@@ -144,11 +144,6 @@ Application::Application(LoaderFn objectLoader, std::string terrainPath, std::st
       m_screenshotRegistrations(), m_debugCubeInfo(), m_mainScene(nullptr), m_volume(), m_mainLight(),
       m_volumeOptions(volumeOptions)
 {
-    // const std::filesystem::path terrain(m_terrainDir);
-    // if (!std::filesystem::exists(terrain))
-    //{
-    //     STAR_THROW("Provided terrain path does not exist: " + m_terrainDir);
-    // }
 }
 
 std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::DeviceContext &context)
@@ -280,18 +275,6 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
         m_volume->getProvider().setOffscreenPhaseHandle(m_offscreenPhaseHandle);
         m_volume->getProvider().setShadowTerrainPhaseHandle(m_terrainShadowPhaseHandle);
-
-        // auto volumeShadowProvider = std::make_unique<VolumeShadowRenderPhaseProvider>(
-        //     m_offscreenFrameData, m_offscreenPhaseHandle, m_mainScene->getCamera().get(),
-        // /*enableShadowCasting=*/false);
-        // auto shadowPhaseReg = m_mainScene->addProvider(std::move(volumeShadowProvider));
-        // DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
-        //     .setConsumer([this]() -> star::Handle { return this->m_volume->getRenderer().getCommandBuffer(); })
-        //     .setProducer([this, shadowPhaseReg]() -> star::Handle {
-        //         return this->m_mainScene->getPhase(shadowPhaseReg)->getCommandBuffer();
-        //     })
-        //     .build();
-
         m_volumePhaseHandle = m_mainScene->addProvider(m_volume->takePhaseProvider());
         m_volume->setVolumePhase(m_mainScene.get(), m_volumePhaseHandle);
         m_finalizationPhaseHandle = m_mainScene->addProvider(std::move(mainRendererProvider));

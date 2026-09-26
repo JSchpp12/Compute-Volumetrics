@@ -15,22 +15,25 @@ if (STAR_ENABLE_UBSAN)
 		add_link_options(-fsanitize=undefined -lubsan)
 	endif()
 endif()
-if (STAR_ENABLE_WARNINGS)
-	message("STAR - Enable WARNINGS")
+
+# Apply warning flags only to first-party targets. PRIVATE flags do not leak
+# into consumers or vendored subprojects. Note: no -Werror is added here.
+function(star_enable_warnings target)
+	if(NOT STAR_ENABLE_WARNINGS OR NOT TARGET ${target})
+		return()
+	endif()
 
 	if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-		add_compile_options(
+		target_compile_options(${target} PRIVATE
 			-Wall
 			-Wextra
 			-Wpedantic
 			-Wconversion
 		)
+	elseif(MSVC)
+		target_compile_options(${target} PRIVATE /W4)
 	endif()
-
-	if (MSVC)
-		add_compile_options(/W4)
-	endif()
-endif()
+endfunction()
 
 option(HEADLESS "Build without presentation support" OFF)
 
@@ -59,6 +62,10 @@ add_subdirectory("extern/Starlight-Terrain")
 if (NOT HEADLESS)
 	add_subdirectory("extern/Starlight-Windowing")
 endif()
+
+star_enable_warnings(starlight)
+star_enable_warnings(starlight_terrain)
+star_enable_warnings(starlight_windowing)
 
 set(${PROJECT_NAME}_SOURCES
 	"src/service/detail/simulation_controller/CameraController.cpp"
@@ -274,6 +281,7 @@ add_library(${PROJECT_NAME}_lib
 target_include_directories(${PROJECT_NAME}_lib 
 	PUBLIC include
 )
+star_enable_warnings(${PROJECT_NAME}_lib)
 if(COMMAND star_add_pch)
     star_add_pch(${PROJECT_NAME}_lib)
 endif()
@@ -355,6 +363,7 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE ${PROJECT_NAME}_lib
 )
+star_enable_warnings(${PROJECT_NAME})
 
 set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
 
@@ -362,15 +371,21 @@ find_package(Git REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 set(STARLIGHT_APP_BUILDER_SRC "${CMAKE_BINARY_DIR}/extern/StarlightAppBuilder-src")
+set(STARLIGHT_APP_BUILDER_PYTHON_DIR "${CMAKE_BINARY_DIR}/python/StarlightAppBuilder")
 set(STARLIGHT_APP_BUILDER_STAMP "${CMAKE_BINARY_DIR}/starlight_app_builder.stamp")
 
 add_custom_command(
 	OUTPUT ${STARLIGHT_APP_BUILDER_STAMP}
-	COMMAND ${CMAKE_COMMAND} -E rm -rf "${STARLIGHT_APP_BUILDER_SRC}"
+	COMMAND ${CMAKE_COMMAND} -E rm -rf
+			"${STARLIGHT_APP_BUILDER_SRC}"
+			"${STARLIGHT_APP_BUILDER_PYTHON_DIR}"
 	COMMAND ${GIT_EXECUTABLE} clone --depth 1
 			"https://github.com/JSchpp12/StarlightAppBuilder.git"
 			"${STARLIGHT_APP_BUILDER_SRC}"
-	COMMAND ${Python3_EXECUTABLE} -m pip install --upgrade "${STARLIGHT_APP_BUILDER_SRC}"
+	COMMAND ${Python3_EXECUTABLE} -m pip install
+			--upgrade
+			--target "${STARLIGHT_APP_BUILDER_PYTHON_DIR}"
+			"${STARLIGHT_APP_BUILDER_SRC}"
 	COMMAND ${CMAKE_COMMAND} -E touch "${STARLIGHT_APP_BUILDER_STAMP}"
 	WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 	COMMENT "Fetching and installing StarlightAppBuilder"
@@ -381,13 +396,22 @@ add_custom_target(starlight_app_builder DEPENDS ${STARLIGHT_APP_BUILDER_STAMP})
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	add_custom_target(prepare_media ALL
-		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media --fastest
+		COMMAND ${CMAKE_COMMAND} -E env
+			"PYTHONPATH=${STARLIGHT_APP_BUILDER_PYTHON_DIR}"
+			${Python3_EXECUTABLE} -m star_app_builder prep-media
+			--outDir=${FINAL_APPLICATION_DIR}/media
+			--inDir=${CMAKE_CURRENT_SOURCE_DIR}/media
+			--fastest
 		COMMENT "Running media prep"
 		VERBATIM
 	)
 else()
 	add_custom_target(prepare_media ALL
-		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media
+		COMMAND ${CMAKE_COMMAND} -E env
+			"PYTHONPATH=${STARLIGHT_APP_BUILDER_PYTHON_DIR}"
+			${Python3_EXECUTABLE} -m star_app_builder prep-media
+			--outDir=${FINAL_APPLICATION_DIR}/media
+			--inDir=${CMAKE_CURRENT_SOURCE_DIR}/media
 		COMMENT "Running media prep"
 		VERBATIM
 	)
@@ -395,7 +419,10 @@ endif()
 add_dependencies(prepare_media starlight_app_builder)
 
 add_custom_target(create_config ALL
-	COMMAND ${Python3_EXECUTABLE} -m star_app_builder create-config --outDir=${FINAL_APPLICATION_DIR}
+	COMMAND ${CMAKE_COMMAND} -E env
+			"PYTHONPATH=${STARLIGHT_APP_BUILDER_PYTHON_DIR}"
+			${Python3_EXECUTABLE} -m star_app_builder create-config
+			--outDir=${FINAL_APPLICATION_DIR}
 	COMMENT "Running config prep"
 	VERBATIM
 )
@@ -474,12 +501,14 @@ install(TARGETS ${PROJECT_NAME}
             ".*ld-linux-.*\\.so\\..*" ".*libnss_.*\\.so\\..*"
             # (Optional) exclude libgcc_s
             ".*libgcc_s\\.so\\..*"
+            ".*libvulkan\\.so.*"
         POST_EXCLUDE_REGEXES
             # Same as above to be safe
             ".*libc\\.so\\..*" ".*libm\\.so\\..*" ".*libpthread\\.so\\..*"
             ".*librt\\.so\\..*" ".*libdl\\.so\\..*" ".*libresolv\\.so\\..*"
             ".*ld-linux-.*\\.so\\..*" ".*libnss_.*\\.so\\..*"
             ".*libgcc_s\\.so\\..*"
+            ".*libvulkan\\.so.*"
     RUNTIME DESTINATION .
 	LIBRARY DESTINATION lib
 	ARCHIVE DESTINATION lib
@@ -504,4 +533,5 @@ option(BUILD_UNIT_TESTS "Build unit tests" ON)
 
 if (BUILD_UNIT_TESTS)
 	add_subdirectory(tests)
+	star_enable_warnings(unit_tests)
 endif()

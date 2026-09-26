@@ -187,9 +187,16 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
         marchFlags |= render_system::fog::MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance;
 
     render_system::fog::PrecomputeLightTransmittanceShaderFlags precomputeLightTransmittanceFlags =
-        m_enableTransmittancePrecomputeSetAreasInShadow
-            ? render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow
-            : render_system::fog::PrecomputeLightTransmittanceShaderFlags::None;
+        render_system::fog::PrecomputeLightTransmittanceShaderFlags::None;
+    if (m_enableTransmittancePrecomputeSetAreasInShadow)
+        precomputeLightTransmittanceFlags |=
+            render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow;
+    if (m_enableTransmittancePrecomputeDisableAabbRayTest)
+        precomputeLightTransmittanceFlags |=
+            render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest;
+    if (m_enableTransmittancePrecomputeSetTexelsOfInterest)
+        precomputeLightTransmittanceFlags |=
+            render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest;
 
     render_system::fog::DispatchInfo dInfo{.indirectBuffer = m_activeRayStorage[ii]->getVulkanBuffer(),
                                            .shaderOptionFlags =
@@ -229,6 +236,12 @@ void VolumeRenderPhase::setShaderFlag(render_system::fog::PrecomputeLightTransmi
     case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow):
         m_enableTransmittancePrecomputeSetAreasInShadow = state;
         break;
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest):
+        m_enableTransmittancePrecomputeDisableAabbRayTest = state;
+        break;
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest):
+        m_enableTransmittancePrecomputeSetTexelsOfInterest = state;
+        break;
     default:
         star::core::logging::warning(
             "Attempted to set an unsupported dynamic precompute light transmittance shader flag -- ignoring");
@@ -265,6 +278,12 @@ bool VolumeRenderPhase::toggleShaderFlag(render_system::fog::PrecomputeLightTran
     case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow):
         m_enableTransmittancePrecomputeSetAreasInShadow = !m_enableTransmittancePrecomputeSetAreasInShadow;
         return m_enableTransmittancePrecomputeSetAreasInShadow;
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest):
+        m_enableTransmittancePrecomputeDisableAabbRayTest = !m_enableTransmittancePrecomputeDisableAabbRayTest;
+        return m_enableTransmittancePrecomputeDisableAabbRayTest;
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest):
+        m_enableTransmittancePrecomputeSetTexelsOfInterest = !m_enableTransmittancePrecomputeSetTexelsOfInterest;
+        return m_enableTransmittancePrecomputeSetTexelsOfInterest;
     default:
         star::core::logging::warning(
             "Attempted to toggle an unsupported dynamic precompute light transmittance shader flag -- ignoring");

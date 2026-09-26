@@ -166,6 +166,8 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     bool m_enableTransmittanceMapDebug{false};
     bool m_enableForceMarchCalculateTransmittance{false};
     bool m_enableTransmittancePrecomputeSetAreasInShadow{false};
+    bool m_enableTransmittancePrecomputeDisableAabbRayTest{false};
+    bool m_enableTransmittancePrecomputeSetTexelsOfInterest{false};
     bool isReady{false};
     bool isFirstPass{true};
     bool transferTriggeredThisFrame{false};
