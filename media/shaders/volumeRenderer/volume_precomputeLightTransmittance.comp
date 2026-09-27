@@ -213,7 +213,7 @@ float calculateSurfaceShadowDepth(const MapInfo info)
 
     // need to add bias to shadow. Otherwise on terrains the light can bleed through the surface and parts of the area
     // near the terrain which should be in shadow, appear to not be in shadow. A small bias corrects this
-    return texture(sunDepth, uv).r - fogInfo.marchedFog_shadowBias;
+    return texture(sunDepth, uv).r + fogInfo.marchedFog_shadowBias;
 }
 
 void buildVolumeRay(const in ivec2 columnPixel, const in float surfaceDepth, out int surfaceSlice, out Ray volumeRay)

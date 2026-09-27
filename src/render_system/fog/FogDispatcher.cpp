@@ -40,6 +40,18 @@ static std::tuple<uint32_t, uint32_t, uint32_t> GetQueueFamilyIndices(star::core
     return std::make_tuple(graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex);
 }
 
+static bool NeedsTransmittancePrecompute(const Fog::Type fogType) noexcept
+{
+    switch (fogType)
+    {
+    case (Fog::Type::sLinear):
+    case (Fog::Type::sExponential):
+        return false;
+    default:
+        return true;
+    }
+}
+
 static ChunkOrchestrator CreateTransmittancePrecomputePass(star::core::device::DeviceContext &ctx,
                                                            star::Handle &passReg,
                                                            const vk::Extent2D &transmittanceMapResolution,
@@ -241,8 +253,10 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
             break;
         }
 
-        // transmittance and color always dispatch; the distance compute only runs for the marched option.
-        const bool dispatch = (i == 0) || (i == 1) || (i == 2 && pipeInfo.fogType == Fog::Type::sMarched);
+        // Linear and exponential fog do not sample the precomputed transmittance map. Skip the entire
+        // transmittance chunk, including its pre-pass barriers and map clear, for those fog types.
+        const bool dispatch = (i == 0 && NeedsTransmittancePrecompute(pipeInfo.fogType)) || (i == 1) ||
+                              (i == 2 && pipeInfo.fogType == Fog::Type::sMarched);
         if (dispatch)
         {
             m_passes[i].recordInto(dInfo, pInfo, pipeInfo, ft, cb);
