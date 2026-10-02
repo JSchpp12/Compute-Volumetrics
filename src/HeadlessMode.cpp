@@ -42,9 +42,11 @@ int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
     Application application =
         cfg->enableDistanceMarkers
             ? Application(&loader::DebugSceneLoader, cfg->terrainDir, cfg->volumeName,
-                          {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug})
+                          {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
+                           cfg->aggressiveTerrainTextureLoading})
             : Application(&loader::ReleaseSceneLoader, cfg->terrainDir, cfg->volumeName,
-                          {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug});
+                          {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
+                           cfg->aggressiveTerrainTextureLoading});
 
     auto startupDeviceRequirements =
         std::make_unique<VolumetricsDeviceRequirementsProvider>();

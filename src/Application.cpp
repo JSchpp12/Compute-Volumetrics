@@ -70,7 +70,8 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const std::filesystem::path mediaPath{star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)};
 
-    auto desc = m_loaderFn(context, mediaPath, terrainPath, m_volumeOptions.enableTransmittanceMapDebug);
+    auto desc = m_loaderFn(context, mediaPath, terrainPath, m_volumeOptions.enableTransmittanceMapDebug,
+                           m_volumeOptions.aggressiveTerrainTextureLoading);
 
     // The shadow-cast terrain is kept separate from the color object list so it
     // can be routed to the terrain shadow render phase instead of the offscreen

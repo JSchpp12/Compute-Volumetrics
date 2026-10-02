@@ -13,6 +13,7 @@
 #include <device/managers/GraphicsContainer.hpp>
 #include <memory>
 #include <star_common/Handle.hpp>
+#include <starlight/core/CommandBus.hpp>
 #include <vector>
 #include <vulkan/vulkan_handles.hpp>
 
@@ -50,6 +51,7 @@ struct CreatePipelines
         star::ManagerRenderResource *resourceManger{nullptr};
         const star::Handle *deviceID{nullptr};
         star::core::device::manager::GraphicsContainer *graphicsManagers{nullptr};
+        star::core::CommandBus *commandBus{nullptr};
     };
 
     Inputs inputs;

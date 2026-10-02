@@ -23,13 +23,15 @@ static std::shared_ptr<star::StarObject> SubmitInitTerrain(star::core::device::D
                                                            star::terrain::TerrainGeometryDefinition geomDef,
                                                            std::filesystem::path vertShader,
                                                            std::filesystem::path fragShader, std::string name,
-                                                           bool useGreyscale)
+                                                           bool useGreyscale, bool aggressiveTerrainTextureLoading)
 {
-    star::terrain::TerrainObjectDefinition def{.geometry = std::move(geomDef),
-                                               .vertShaderPath = std::move(vertShader),
-                                               .fragShaderPath = std::move(fragShader),
-                                               .colorMode = useGreyscale ? star::terrain::ColoringMode::greyscale
-                                                                         : star::terrain::ColoringMode::color};
+    star::terrain::TerrainObjectDefinition def{
+        .geometry = std::move(geomDef),
+        .vertShaderPath = std::move(vertShader),
+        .fragShaderPath = std::move(fragShader),
+        .colorMode = useGreyscale ? star::terrain::ColoringMode::greyscale : star::terrain::ColoringMode::color,
+        .textures = aggressiveTerrainTextureLoading ? star::terrain::TerrainTextureLoaderPlan::Aggressive()
+                                                    : star::terrain::TerrainTextureLoaderPlan::Lazy()};
 
     star::ShaderResolver terrainResolver = star::ShaderResolver::Builder{ctx.getCmdBus()}
                                                .setShader(star::Shader_Stage::vertex, def.vertShaderPath.string())
@@ -48,7 +50,7 @@ static std::shared_ptr<star::StarObject> SubmitInitTerrain(star::core::device::D
 
 static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarObject>> LoadTerrain(
     star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
-    const std::filesystem::path &terrainPath)
+    const std::filesystem::path &terrainPath, bool aggressiveTerrainTextureLoading)
 {
     // create terrain geometry definition
     auto geometry = star::terrain::TerrainGeometryDefinition::Builder(ctx)
@@ -58,10 +60,12 @@ static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarOb
 
     const std::filesystem::path terrainShaderDir = mediaDirPath / "shaders" / "terrain";
     // share between them
-    auto colorTerrain = SubmitInitTerrain(ctx, geometry, terrainShaderDir / "color.vert",
-                                          terrainShaderDir / "color.frag", "terrain_color", false);
-    auto shadowTerrain = SubmitInitTerrain(ctx, geometry, terrainShaderDir / "shadow_cast.vert",
-                                           terrainShaderDir / "shadow_cast.frag", "terrain_depth", true);
+    auto colorTerrain =
+        SubmitInitTerrain(ctx, geometry, terrainShaderDir / "color.vert", terrainShaderDir / "color.frag",
+                          "terrain_color", false, aggressiveTerrainTextureLoading);
+    auto shadowTerrain =
+        SubmitInitTerrain(ctx, geometry, terrainShaderDir / "shadow_cast.vert", terrainShaderDir / "shadow_cast.frag",
+                          "terrain_depth", true, aggressiveTerrainTextureLoading);
 
     // register the terrain information with the image metric manager for cache
     const auto *terrain = static_cast<const star::terrain::TerrainObject *>(colorTerrain.get());
@@ -96,12 +100,11 @@ static std::vector<star::Color> CreateNeonColors(std::size_t count)
 
 static DebugCubeComponent LoadCube(star::core::device::DeviceContext &ctx, size_t numToCreate)
 {
-    std::vector<star::primitive::CubeDesc> cubeDesc;
     std::vector<star::Color> colors = CreateNeonColors(numToCreate);
-    cubeDesc.reserve(colors.size());
-    for (const auto &color : colors)
+    std::vector<star::primitive::CubeDesc> cubeDesc{colors.size()};
+    for (size_t i{0}; i < colors.size(); i++)
     {
-        cubeDesc.push_back({.color = color});
+        cubeDesc[i] = {.color = colors[i]};
     }
 
     return DebugCubeComponent{.cubeInfos = std::move(cubeDesc),
@@ -112,20 +115,15 @@ static TransmittanceVizComponent LoadTransmittanceViz()
 {
     const std::array<int, 3> windowSize = transmittance_viz::kDefaultWindowSize;
 
-    // One cube per window cell. The color encodes the cell's z offset in the
-    // window (one hue band per depth slice). Colors are uploaded once, so they
-    // describe the cell's offset from the window's low corner rather than its
-    // absolute texel, which changes as the window follows the camera.
-    std::vector<star::primitive::CubeDesc> cubeDesc;
-    cubeDesc.reserve(transmittance_viz::WindowCellCount(windowSize));
+    std::vector<star::primitive::CubeDesc> cubeDesc{transmittance_viz::WindowCellCount(windowSize)};
     for (size_t i = 0; i < transmittance_viz::WindowCellCount(windowSize); ++i)
     {
         const std::array<int, 3> offset = transmittance_viz::WindowOffsetAt(i, windowSize);
         const glm::vec3 rgb =
             util::HSVToRGB(static_cast<float>(offset[2]) / static_cast<float>(windowSize[2]), 0.85f, 0.9f);
 
-        cubeDesc.push_back(
-            star::primitive::CubeDesc{.size = glm::vec3{1.0f}, .color = star::Color{rgb.r, rgb.g, rgb.b, 1.0f}});
+        cubeDesc[i] =
+            star::primitive::CubeDesc{.size = glm::vec3{1.0f}, .color = star::Color{rgb.r, rgb.g, rgb.b, 1.0f}};
     }
 
     return TransmittanceVizComponent{.cubeInfos = std::move(cubeDesc), .windowSize = windowSize};
@@ -148,12 +146,14 @@ static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceCon
 }
 
 SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
-                                  const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug)
+                                  const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug,
+                                  bool aggressiveTerrainTextureLoading)
 {
     constexpr uint8_t numCubes{15};
 
     SceneDescription desc;
-    auto [colorTerrain, shadowMapTerrain] = LoadTerrain(ctx, mediaDirPath, terrainPath);
+    auto [colorTerrain, shadowMapTerrain] =
+        LoadTerrain(ctx, mediaDirPath, terrainPath, aggressiveTerrainTextureLoading);
     desc.addObject(std::move(colorTerrain));
     // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));
@@ -166,10 +166,12 @@ SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const 
 }
 
 SceneDescription ReleaseSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
-                                    const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug)
+                                    const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug,
+                                    bool aggressiveTerrainTextureLoading)
 {
     SceneDescription desc;
-    auto [colorTerrain, shadowMapTerrain] = LoadTerrain(ctx, mediaDirPath, terrainPath);
+    auto [colorTerrain, shadowMapTerrain] =
+        LoadTerrain(ctx, mediaDirPath, terrainPath, aggressiveTerrainTextureLoading);
     desc.addObject(std::move(colorTerrain));
     // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));

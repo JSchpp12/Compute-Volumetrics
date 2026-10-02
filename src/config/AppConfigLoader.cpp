@@ -96,6 +96,7 @@ void AppConfigLoader::LogConfig(const AppConfigInfo &cfg)
         << "  enableDistanceMarkers:   " << (cfg.enableDistanceMarkers ? "true" : "false") << "\n"
         << "  enableCutoffHighlighting: " << (cfg.enableCutoffHighlighting ? "true" : "false") << "\n"
         << "  enableTransmittanceMapDebug: " << (cfg.enableTransmittanceMapDebug ? "true" : "false") << "\n"
+        << "  aggressiveTerrainTextureLoading: " << (cfg.aggressiveTerrainTextureLoading ? "true" : "false") << "\n"
         << "  interactiveConfig:\n"
         << "    cameraMovementSpeed:   " << cfg.interactiveConfig.cameraMovementSpeed << "\n"
         << "    cameraSensitivity:     " << cfg.interactiveConfig.cameraSensitivity << "\n"
@@ -122,6 +123,8 @@ std::unique_ptr<AppConfigInfo> AppConfigLoader::ApplyCliOverrides(int argc, char
         cfg->enableCutoffHighlighting = true;
     if (util::CmdLine::DoesContainOption(argc, argv, "--enableTransmittanceMapDebug"))
         cfg->enableTransmittanceMapDebug = true;
+    if (util::CmdLine::DoesContainOption(argc, argv, "--aggressiveTerrainTextureLoading"))
+        cfg->aggressiveTerrainTextureLoading = true;
 
     return cfg;
 }

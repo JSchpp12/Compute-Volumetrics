@@ -9,8 +9,10 @@
 namespace loader
 {
 SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
-                                  const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug);
+                                  const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug,
+                                  bool aggressiveTerrainTextureLoading);
 
 SceneDescription ReleaseSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
-                                    const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug);
+                                    const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug,
+                                    bool aggressiveTerrainTextureLoading);
 } // namespace loader

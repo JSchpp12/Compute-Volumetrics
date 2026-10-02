@@ -19,6 +19,7 @@
 #include <memory>
 #include <star_common/Handle.hpp>
 #include <star_common/HandleTypeRegistry.hpp>
+#include <starlight/command/pipeline/CreatePipeline.hpp>
 #include <string>
 #include <utility>
 #include <vector>
@@ -64,14 +65,19 @@ std::unique_ptr<star::StarShaderInfo> CreatePipelines::buildShaderInfo() const
 }
 
 static star::Handle BuildPipeline(vk::PipelineLayout computePipelineLayout,
-                                  star::core::device::manager::GraphicsContainer &graphicsManagers)
+                                  renderer::distance::CreatePipelines::DeviceContext &context)
 {
     const auto shaderPath = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) / "shaders" / "volumeRenderer" / "volume_distance.comp";
-    auto shaderRequest = graphicsManagers.shaderManager->submit(star::core::device::manager::ShaderRequest{
-        star::StarShader(shaderPath.string(), star::Shader_Stage::compute), star::Compiler("PNANOVDB_GLSL")});
 
-    return graphicsManagers.pipelineManager->submit(star::core::device::manager::PipelineRequest{
-        star::PipelineProvider{std::move(shaderRequest), computePipelineLayout}});
+    assert(context.commandBus != nullptr && "Command bus required to build the distance pipeline");
+
+    star::command::pipeline::CreatePipeline cmd;
+    cmd.setComputePipeline()
+        .addShaderRequest({star::Shader_Stage::compute, shaderPath, star::Compiler("PNANOVDB_GLSL")})
+        .setPipelineLayout(computePipelineLayout);
+
+    context.commandBus->submit(cmd);
+    return cmd.getReply().get();
 }
 
 void CreatePipelines::create()
@@ -105,7 +111,7 @@ void CreatePipelines::create()
     *outputs.pipelineLayout = assembler();
 
     assert(context.graphicsManagers != nullptr);
-    *outputs.marchedPipeline = BuildPipeline(*outputs.pipelineLayout, *context.graphicsManagers);
+    *outputs.marchedPipeline = BuildPipeline(*outputs.pipelineLayout, context);
 }
 
 } // namespace renderer::distance

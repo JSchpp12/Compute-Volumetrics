@@ -20,10 +20,12 @@ class Application : public star::StarApplication
     {
         bool enableCutoffHighlighting{false};
         bool enableTransmittanceMapDebug{false};
+        bool aggressiveTerrainTextureLoading{false};
     };
     using LoaderFn =
         std::function<loader::SceneDescription(star::core::device::DeviceContext &, const std::filesystem::path &,
-                                               const std::filesystem::path &, bool enableTransmittanceMapDebug)>;
+                                               const std::filesystem::path &, bool enableTransmittanceMapDebug,
+                                               bool aggressiveTerrainTextureLoading)>;
 
     Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName,
                 VolumeRenderingOptions volumeOptions);

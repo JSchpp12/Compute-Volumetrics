@@ -8,6 +8,7 @@
 #include <StarShader.hpp>
 #include <device/managers/Pipeline.hpp>
 #include <device/managers/Shader.hpp>
+#include <starlight/command/pipeline/CreatePipeline.hpp>
 #include <starlight/core/waiter/one_shot/WaiterFactory.hpp>
 
 #include <vulkan/vulkan.hpp>
@@ -19,16 +20,17 @@ namespace renderer::volume
 {
 static star::Handle BuildPipeline(const std::filesystem::path &shaderDir, const std::string &shaderFile,
                                   const vk::PipelineLayout &computePipelineLayout,
-                                  star::core::device::manager::GraphicsContainer *graphicsManagers)
+                                  star::core::device::DeviceContext *context)
 {
     const auto fPath = shaderDir / shaderFile;
-    auto handle =
-        graphicsManagers->pipelineManager->submit(star::core::device::manager::PipelineRequest{star::PipelineProvider(
-            graphicsManagers->shaderManager->submit(star::core::device::manager::ShaderRequest{
-                star::StarShader(fPath.string(), star::Shader_Stage::compute), star::Compiler("PNANOVDB_GLSL")}),
-            computePipelineLayout)});
 
-    return handle;
+    star::command::pipeline::CreatePipeline cmd;
+    cmd.setComputePipeline()
+        .addShaderRequest({star::Shader_Stage::compute, fPath, star::Compiler("PNANOVDB_GLSL")})
+        .setPipelineLayout(computePipelineLayout);
+
+    context->getCmdBus().submit(cmd);
+    return cmd.getReply().get();
 }
 
 static std::filesystem::path VolumeShaderDir()
@@ -41,8 +43,7 @@ int VolumePipelineRecipe::operator()()
 {
     assert(layout != nullptr && "Shared pipeline layout should have been set before the () operator was called");
 
-    auto &graphicsManagers = context->getGraphicsManagers();
-    *outHandle = BuildPipeline(VolumeShaderDir(), shaderFile, *layout, &graphicsManagers);
+    *outHandle = BuildPipeline(VolumeShaderDir(), shaderFile, *layout, context);
 
     if (outCachedPipeline != nullptr)
     {
