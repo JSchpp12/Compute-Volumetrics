@@ -279,6 +279,10 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         m_volumePhaseHandle = m_mainScene->addProvider(m_volume->takePhaseProvider());
         m_volume->setVolumePhase(m_mainScene.get(), m_volumePhaseHandle);
         m_finalizationPhaseHandle = m_mainScene->addProvider(std::move(mainRendererProvider));
+
+        // Presentation-only phases (e.g. the ImGui overlay) need the built
+        // finalization phase, so they are queued only once its handle is known.
+        addPresentationFinalizationPhases(context);
     }
 
     DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())

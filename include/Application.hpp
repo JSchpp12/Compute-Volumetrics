@@ -22,10 +22,9 @@ class Application : public star::StarApplication
         bool enableTransmittanceMapDebug{false};
         bool aggressiveTerrainTextureLoading{false};
     };
-    using LoaderFn =
-        std::function<loader::SceneDescription(star::core::device::DeviceContext &, const std::filesystem::path &,
-                                               const std::filesystem::path &, bool enableTransmittanceMapDebug,
-                                               bool aggressiveTerrainTextureLoading)>;
+    using LoaderFn = std::function<loader::SceneDescription(
+        star::core::device::DeviceContext &, const std::filesystem::path &, const std::filesystem::path &,
+        bool enableTransmittanceMapDebug, bool aggressiveTerrainTextureLoading)>;
 
     Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName,
                 VolumeRenderingOptions volumeOptions);
@@ -108,6 +107,14 @@ class Application : public star::StarApplication
                                     const std::string &targetImageFileName);
 
     virtual void initListeners(star::core::device::DeviceContext &context) {};
+
+    /// Invoked from loadScene() immediately after the finalization provider has
+    /// been queued, so presentation-only phases (e.g. the ImGui overlay) can
+    /// look up the built finalization phase by its already-assigned handle.
+    /// Default is a no-op so headless builds are unaffected.
+    virtual void addPresentationFinalizationPhases(star::core::device::DeviceContext &context)
+    {
+    }
 
     static bool CheckIfControllerIsDone(star::core::CommandBus &cmd);
 

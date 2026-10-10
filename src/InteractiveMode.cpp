@@ -6,11 +6,15 @@
 #include "config/AppConfigLoader.hpp"
 #include "loader/SceneLoaders.hpp"
 #include "policy/VolumetricsDeviceRequirementsProvider.hpp"
-#include "policy/WindowedEngineInitPolicy.hpp"
+#include "service/ImageMetricManager.hpp"
+#include "service/SimulationController.hpp"
 
 #include <star_windowing/policy/EngineExitPolicy.hpp>
+#include <star_windowing/policy/EngineInitPolicy.hpp>
 #include <star_windowing/policy/EngineMainLoopPolicy.hpp>
+#include <star_windowing/service/EngineServicesFactory.hpp>
 #include <starlight/StarEngine.hpp>
+#include <starlight/service/EngineServicesFactory.hpp>
 
 #include <memory>
 #include <utility>
@@ -23,11 +27,17 @@ int InteractiveMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
     star::windowing::WindowingContext winContext;
     auto startupDeviceRequirements = std::make_unique<VolumetricsDeviceRequirementsProvider>();
 
-    policy::WindowEngineInitPolicy windowInit =
+    auto engineServices = star::service::EngineServicesFactory::createDefault(false);
+    star::windowing::EngineServicesFactory::addDefaultServices(engineServices, winContext);
+    engineServices.add(star::service::Service{service::ImageMetricManager{}});
+    engineServices.add(star::service::Service{SimulationControllerService(std::move(cfg->simControllerPath))});
+
+    star::windowing::EngineInitPolicy windowInit =
         cfg->overrideRenderingDevice.has_value()
-            ? policy::WindowEngineInitPolicy{cfg->simControllerPath, winContext, cfg->overrideRenderingDevice.value(),
-                                             std::move(startupDeviceRequirements)}
-            : policy::WindowEngineInitPolicy{cfg->simControllerPath, winContext, std::move(startupDeviceRequirements)};
+            ? star::windowing::EngineInitPolicy{winContext, engineServices, cfg->overrideRenderingDevice.value(),
+                                                std::move(startupDeviceRequirements)}
+            : star::windowing::EngineInitPolicy{winContext, engineServices, std::nullopt,
+                                                std::move(startupDeviceRequirements)};
     win_loop windowLoop{winContext};
     win_exit windowExit{winContext};
 
@@ -42,7 +52,7 @@ int InteractiveMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
                                       cfg->aggressiveTerrainTextureLoading},
                                      cfg->interactiveConfig);
 
-    auto engine = star::StarEngine<policy::WindowEngineInitPolicy, win_loop, win_exit>(
+    auto engine = star::StarEngine<star::windowing::EngineInitPolicy, win_loop, win_exit>(
         std::move(windowInit), std::move(windowLoop), std::move(windowExit), application);
 
     config::AppConfigLoader::LogConfig(*cfg);

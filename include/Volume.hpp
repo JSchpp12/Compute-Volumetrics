@@ -128,6 +128,14 @@ class Volume : public star::StarObject
     {
         this->getVolumePhase()->setShaderFlag(flag, state);
     }
+    bool isShaderDebugEnabled(render_system::fog::MarchShaderFlags flag) const
+    {
+        return this->getVolumePhase()->isShaderFlagEnabled(flag);
+    }
+    bool isShaderDebugEnabled(render_system::fog::PrecomputeLightTransmittanceShaderFlags flag) const
+    {
+        return this->getVolumePhase()->isShaderFlagEnabled(flag);
+    }
     bool toggleShaderDebug(render_system::fog::MarchShaderFlags flag)
     {
         return this->getVolumePhase()->toggleShaderFlag(flag);

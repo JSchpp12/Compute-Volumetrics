@@ -43,7 +43,15 @@
     "windowed": {
       "description": "Enables installation of dependencies for windowing support",
       "dependencies": [
-        "glfw3"
+        "glfw3",
+        {
+          "name": "imgui",
+          "default-features": false,
+          "features": [
+            "glfw-binding",
+            "vulkan-binding"
+          ]
+        }
       ]
     }
   }

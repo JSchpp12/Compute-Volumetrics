@@ -249,6 +249,39 @@ void VolumeRenderPhase::setShaderFlag(render_system::fog::PrecomputeLightTransmi
     }
 }
 
+bool VolumeRenderPhase::isShaderFlagEnabled(render_system::fog::MarchShaderFlags flag) const noexcept
+{
+    switch (flag)
+    {
+    case (render_system::fog::MarchShaderFlags::EnableDebugHighlightShadows):
+        return m_enableShadowMapDebug;
+    case (render_system::fog::MarchShaderFlags::EnableDebugHighlightCutoffValue):
+        return m_enableColorDebugCutoff;
+    case (render_system::fog::MarchShaderFlags::EnableDebugTransmittanceMap):
+        return m_enableTransmittanceMapDebug;
+    case (render_system::fog::MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance):
+        return m_enableForceMarchCalculateTransmittance;
+    default:
+        return false;
+    }
+}
+
+bool VolumeRenderPhase::isShaderFlagEnabled(
+    render_system::fog::PrecomputeLightTransmittanceShaderFlags flag) const noexcept
+{
+    switch (flag)
+    {
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow):
+        return m_enableTransmittancePrecomputeSetAreasInShadow;
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest):
+        return m_enableTransmittancePrecomputeDisableAabbRayTest;
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest):
+        return m_enableTransmittancePrecomputeSetTexelsOfInterest;
+    default:
+        return false;
+    }
+}
+
 bool VolumeRenderPhase::toggleShaderFlag(render_system::fog::MarchShaderFlags flag) noexcept
 {
     switch (flag)

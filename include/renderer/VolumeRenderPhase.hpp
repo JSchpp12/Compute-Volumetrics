@@ -121,6 +121,8 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     void setShaderFlag(render_system::fog::InitShaderFlags flag, bool state) noexcept;
     void setShaderFlag(render_system::fog::MarchShaderFlags flag, bool state) noexcept;
     void setShaderFlag(render_system::fog::PrecomputeLightTransmittanceShaderFlags flag, bool state) noexcept;
+    bool isShaderFlagEnabled(render_system::fog::MarchShaderFlags flag) const noexcept;
+    bool isShaderFlagEnabled(render_system::fog::PrecomputeLightTransmittanceShaderFlags flag) const noexcept;
     bool toggleShaderFlag(render_system::fog::MarchShaderFlags flag) noexcept;
     bool toggleShaderFlag(render_system::fog::PrecomputeLightTransmittanceShaderFlags flag) noexcept;
 

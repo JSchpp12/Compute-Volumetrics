@@ -31,6 +31,8 @@ class InteractiveApplication : public Application,
   protected:
     virtual void initListeners(star::core::device::DeviceContext &context) override;
 
+    virtual void addPresentationFinalizationPhases(star::core::device::DeviceContext &context) override;
+
   private:
     enum ModifyMode
     {
@@ -62,9 +64,9 @@ class InteractiveApplication : public Application,
 
     virtual std::shared_ptr<star::StarCamera> createMainCamera(star::core::device::DeviceContext &context) override;
 
-    virtual std::unique_ptr<star::core::renderer::IRenderPhaseProvider> createMainRenderer(star::core::device::DeviceContext &context,
-                                                      std::vector<std::shared_ptr<star::StarObject>> objects,
-                                                      std::shared_ptr<star::StarCamera> camera) override;
+    virtual std::unique_ptr<star::core::renderer::IRenderPhaseProvider> createMainRenderer(
+        star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
+        std::shared_ptr<star::StarCamera> camera) override;
 
     star::Handle getFinalizationCommandBuffer() override;
 };

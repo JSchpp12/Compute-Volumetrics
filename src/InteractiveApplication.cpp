@@ -6,9 +6,12 @@
 #include "render_system/fog/struct/ShaderFlags.hpp"
 
 #include <star_windowing/SwapChainRenderPhaseProvider.hpp>
+#include <star_windowing/command/CreateGui.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
 #include <starlight/core/json/glm_json.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
+
+#include <imgui.h>
 
 #include <star_common/helper/StringHelpers.hpp>
 
@@ -52,12 +55,10 @@ static std::optional<DebugShaderFlag> PromptForShaderDebugFlag()
               << render_system::fog::to_string(PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow)
               << std::endl;
     std::cout << "6 - "
-              << render_system::fog::to_string(
-                     PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest)
+              << render_system::fog::to_string(PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest)
               << std::endl;
     std::cout << "7 - "
-              << render_system::fog::to_string(
-                     PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest)
+              << render_system::fog::to_string(PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest)
               << std::endl;
 
     std::string inputOption;
@@ -91,6 +92,19 @@ static std::optional<DebugShaderFlag> PromptForShaderDebugFlag()
 
     std::cout << "Unknown option" << std::endl;
     return std::nullopt;
+}
+
+/// <summary>
+/// Draw an ImGui checkbox which reflects -- and when clicked, toggles -- one of
+/// the volume's dynamic shader debug flags.
+/// </summary>
+template <typename FlagType> static void DrawShaderFlagToggle(Volume &volume, const FlagType flag)
+{
+    bool state = volume.isShaderDebugEnabled(flag);
+    if (ImGui::Checkbox(render_system::fog::to_string(flag).data(), &state))
+    {
+        volume.setShaderDebug(flag, state);
+    }
 }
 
 static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
@@ -200,7 +214,6 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
         }
         oss << context.getAllDevices().getData()[0].frameTracker().getCurrent().getGlobalFrameCounter();
         star::core::logging::info(oss.str());
-
     }
 
     if (m_switchMode)
@@ -256,6 +269,48 @@ void InteractiveApplication::initListeners(star::core::device::DeviceContext &co
     star::windowing::HandleKeyPressPolicy<InteractiveApplication>::init(context.getEventBus());
 
     m_screenshotRegistrations.resize(context.frameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
+}
+
+void InteractiveApplication::addPresentationFinalizationPhases(star::core::device::DeviceContext &context)
+{
+    auto draw = [this]() {
+        if (ImGui::Begin("Volumetrics"))
+        {
+            if (m_mainScene && m_mainScene->getCamera())
+            {
+                const auto position = m_mainScene->getCamera()->getPosition();
+                ImGui::Text("Camera: %.2f, %.2f, %.2f", position.x, position.y, position.z);
+            }
+
+            if (m_volume)
+            {
+                using render_system::fog::MarchShaderFlags;
+                using render_system::fog::PrecomputeLightTransmittanceShaderFlags;
+
+                const auto &fog = m_volume->getRenderer().getFogInfo();
+                ImGui::SeparatorText("Fog");
+                ImGui::Text("Linear near/far: %.3f / %.3f", fog.linearInfo.nearDist, fog.linearInfo.farDist);
+                ImGui::Text("Exponential density: %.3f", fog.expFogInfo.density);
+                ImGui::Text("Marched default density: %.4f", fog.marchedInfo.defaultDensity);
+
+                ImGui::SeparatorText("March Shader Flags");
+                DrawShaderFlagToggle(*m_volume, MarchShaderFlags::EnableDebugHighlightCutoffValue);
+                DrawShaderFlagToggle(*m_volume, MarchShaderFlags::EnableDebugHighlightShadows);
+                DrawShaderFlagToggle(*m_volume, MarchShaderFlags::EnableDebugTransmittanceMap);
+                DrawShaderFlagToggle(*m_volume, MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance);
+
+                ImGui::SeparatorText("Precompute Light Transmittance Shader Flags");
+                DrawShaderFlagToggle(*m_volume, PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow);
+                DrawShaderFlagToggle(*m_volume, PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest);
+                DrawShaderFlagToggle(*m_volume,
+                                     PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest);
+            }
+        }
+        ImGui::End();
+    };
+
+    star::windowing::CreateGui createGui{*m_mainScene, std::move(draw)};
+    context.getCmdBus().submit(createGui);
 }
 
 void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, const int &mods)

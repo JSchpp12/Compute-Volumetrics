@@ -161,6 +161,8 @@ void setupMarchInfo(const in ivec2 columnPixel, const in vec3 mapDims, out vec3 
     vol_step = computeSingleStepFromLightOrtho(ndcXY, float(mapDims.z));
 }
 
+const float EPSILON_DENSITY = 0.000001;
+
 // march from [startTexel, stopTexel)
 void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims, const in ivec2 columnPixel,
                           const in int startTexel, const in int stopTexel)
@@ -182,10 +184,12 @@ void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims,
     for (int z = startTexel; z < stopTexel; ++z)
     {
         // start and stop vectors primed already use them directly then increment distances
-        const float density = gridReadAt(grid, acc, gType, vol_startPos, true);
+        float density = gridReadAt(grid, acc, gType, vol_startPos, true);
+        if (density < EPSILON_DENSITY)
+            density = fogInfo.marchedFog_defaultDensity;
 
         // calculate contribution of the individual slice as a whole value for tau summation
-        const float sliceContribution = density * sigmaExtinction * vol_stepSize;
+        const float sliceContribution = (density * fogInfo.marchedFog_densityMultiplier) * sigmaExtinction * vol_stepSize;
 
         // only want half of the whole slice contribution since we are only stepping half way through
         const float transmittance = exp(-(tau + 0.5 * sliceContribution));
@@ -273,9 +277,9 @@ void main()
         getShadowMapInfoFromTexture(surfaceDepth, mapDims, stopTexel);
         // if (!hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_TRANSMITTANCE_PRECOMPUTE_DISABLE_AABB_RAY_TEST))
         // {
-            int AABBExitTexel = 0;
-            calculateInAndOutTexelsFromAABB(grid, info, surfaceDepth, startTexel, AABBExitTexel);
-            stopTexel = min(stopTexel, AABBExitTexel);
+        int AABBExitTexel = 0;
+        calculateInAndOutTexelsFromAABB(grid, info, surfaceDepth, startTexel, AABBExitTexel);
+        stopTexel = min(stopTexel, AABBExitTexel);
         // }
 
         computeTransmittance(grid, mapDims, info.px, startTexel, stopTexel);

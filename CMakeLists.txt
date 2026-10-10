@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.1.20
+	VERSION 1.2.0
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -130,9 +130,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/command/image_metrics/GetTransferCopyPass.cpp"
 	"src/command/sim_controller/TriggerUpdate.cpp"
 	"src/command/sim_controller/CheckIfDone.cpp"
-	"src/policy/FunctionalEngineInitPolicy.cpp"
 	"src/policy/VolumetricsDeviceRequirementsProvider.cpp"
-	"src/policy/WindowedEngineInitPolicy.cpp"
 	"src/policy/EngineExitOnFlag.cpp"
 	"src/service/detail/image_metric_manager/CopyDeviceToHostMemory.cpp"
 	"src/service/detail/image_metric_manager/CopyCmds.cpp"
@@ -244,8 +242,6 @@ set(${PROJECT_NAME}_HEADERS
 	"include/VDBFileInfo.hpp"
 	"include/PrepareDistanceBufferInfo.hpp"
 	"include/service/ImageMetricManager.hpp"
-	"include/policy/WindowedEngineInitPolicy.hpp"
-	"include/policy/FunctionalEngineInitPolicy.hpp"
 	"include/policy/VolumetricsDeviceRequirementsProvider.hpp"
 	"include/policy/EngineExitOnFlag.hpp"
 	"include/command/image_metrics/TriggerCapture.hpp"
@@ -370,35 +366,55 @@ set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
 find_package(Git REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-set(STARLIGHT_APP_BUILDER_SRC "${CMAKE_BINARY_DIR}/extern/StarlightAppBuilder-src")
-set(STARLIGHT_APP_BUILDER_PYTHON_DIR "${CMAKE_BINARY_DIR}/python/StarlightAppBuilder")
-set(STARLIGHT_APP_BUILDER_STAMP "${CMAKE_BINARY_DIR}/starlight_app_builder.stamp")
+# StarlightAppBuilder provides the star_app_builder command. Keep a single
+# shared checkout/install so every build configuration (Debug/Release/etc.)
+# reuses it instead of cloning its own copy. If the command is already
+# available (for example from StarlightAppBuilder's init script), skip the
+# fetch entirely.
+set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_SOURCE_DIR}/out/extern/StarlightAppBuilder" CACHE PATH "Shared StarlightAppBuilder install directory")
+set(STARLIGHT_APP_BUILDER_BIN "${STARLIGHT_APP_BUILDER_DIR}/bin")
+set(STARLIGHT_APP_BUILDER_SRC "${STARLIGHT_APP_BUILDER_DIR}/src")
 
-add_custom_command(
-	OUTPUT ${STARLIGHT_APP_BUILDER_STAMP}
-	COMMAND ${CMAKE_COMMAND} -E rm -rf
-			"${STARLIGHT_APP_BUILDER_SRC}"
-			"${STARLIGHT_APP_BUILDER_PYTHON_DIR}"
-	COMMAND ${GIT_EXECUTABLE} clone --depth 1
-			"https://github.com/JSchpp12/StarlightAppBuilder.git"
-			"${STARLIGHT_APP_BUILDER_SRC}"
-	COMMAND ${Python3_EXECUTABLE} -m pip install
-			--upgrade
-			--target "${STARLIGHT_APP_BUILDER_PYTHON_DIR}"
-			"${STARLIGHT_APP_BUILDER_SRC}"
-	COMMAND ${CMAKE_COMMAND} -E touch "${STARLIGHT_APP_BUILDER_STAMP}"
-	WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-	COMMENT "Fetching and installing StarlightAppBuilder"
-	VERBATIM
+find_program(STAR_APP_BUILDER_COMMAND
+	NAMES star_app_builder
+	PATHS "${STARLIGHT_APP_BUILDER_BIN}"
 )
 
-add_custom_target(starlight_app_builder DEPENDS ${STARLIGHT_APP_BUILDER_STAMP})
+if (STAR_APP_BUILDER_COMMAND)
+	message(STATUS "Found star_app_builder: ${STAR_APP_BUILDER_COMMAND} (skipping fetch/install)")
+else()
+	message(STATUS "star_app_builder not found; fetching and installing into ${STARLIGHT_APP_BUILDER_DIR}")
+	file(REMOVE_RECURSE
+		"${STARLIGHT_APP_BUILDER_SRC}"
+		"${STARLIGHT_APP_BUILDER_BIN}"
+	)
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} clone --depth 1
+				"https://github.com/JSchpp12/StarlightAppBuilder.git"
+				"${STARLIGHT_APP_BUILDER_SRC}"
+		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+		COMMAND_ERROR_IS_FATAL ANY
+	)
+	execute_process(
+		COMMAND ${Python3_EXECUTABLE} -m pip install
+				--upgrade
+				--target "${STARLIGHT_APP_BUILDER_DIR}"
+				"${STARLIGHT_APP_BUILDER_SRC}"
+		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+		COMMAND_ERROR_IS_FATAL ANY
+	)
+endif()
+
+add_custom_target(starlight_app_builder)
+
+set(STAR_APP_BUILDER_ENV_ARGS "PYTHONPATH=${STARLIGHT_APP_BUILDER_DIR}")
+set(STAR_APP_BUILDER_EXEC_ARGS ${Python3_EXECUTABLE} -m star_app_builder)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	add_custom_target(prepare_media ALL
 		COMMAND ${CMAKE_COMMAND} -E env
-			"PYTHONPATH=${STARLIGHT_APP_BUILDER_PYTHON_DIR}"
-			${Python3_EXECUTABLE} -m star_app_builder prep-media
+			${STAR_APP_BUILDER_ENV_ARGS}
+			${STAR_APP_BUILDER_EXEC_ARGS} prep-media
 			--outDir=${FINAL_APPLICATION_DIR}/media
 			--inDir=${CMAKE_CURRENT_SOURCE_DIR}/media
 			--fastest
@@ -408,8 +424,8 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 else()
 	add_custom_target(prepare_media ALL
 		COMMAND ${CMAKE_COMMAND} -E env
-			"PYTHONPATH=${STARLIGHT_APP_BUILDER_PYTHON_DIR}"
-			${Python3_EXECUTABLE} -m star_app_builder prep-media
+			${STAR_APP_BUILDER_ENV_ARGS}
+			${STAR_APP_BUILDER_EXEC_ARGS} prep-media
 			--outDir=${FINAL_APPLICATION_DIR}/media
 			--inDir=${CMAKE_CURRENT_SOURCE_DIR}/media
 		COMMENT "Running media prep"
@@ -420,8 +436,8 @@ add_dependencies(prepare_media starlight_app_builder)
 
 add_custom_target(create_config ALL
 	COMMAND ${CMAKE_COMMAND} -E env
-			"PYTHONPATH=${STARLIGHT_APP_BUILDER_PYTHON_DIR}"
-			${Python3_EXECUTABLE} -m star_app_builder create-config
+			${STAR_APP_BUILDER_ENV_ARGS}
+			${STAR_APP_BUILDER_EXEC_ARGS} create-config
 			--outDir=${FINAL_APPLICATION_DIR}
 	COMMENT "Running config prep"
 	VERBATIM

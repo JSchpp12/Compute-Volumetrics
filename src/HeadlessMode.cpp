@@ -5,33 +5,18 @@
 #include "config/AppConfigLoader.hpp"
 #include "loader/SceneLoaders.hpp"
 #include "policy/EngineExitOnFlag.hpp"
-#include "policy/FunctionalEngineInitPolicy.hpp"
 #include "policy/VolumetricsDeviceRequirementsProvider.hpp"
+#include "service/ImageMetricManager.hpp"
 #include "service/SimulationController.hpp"
 
 #include <starlight/StarEngine.hpp>
+#include <starlight/policy/DefaultEngineInitPolicy.hpp>
 #include <starlight/policy/DefaultEngineLoopPolicy.hpp>
+#include <starlight/service/EngineServicesFactory.hpp>
 
 #include <memory>
 #include <optional>
 #include <utility>
-
-static FunctionalEngineInitPolicy CreateInit(std::shared_ptr<bool> doneFlag, std::string controllerFilePath,
-                                             std::optional<int> forcedDeviceIndex,
-                                             std::unique_ptr<star::core::device::IStartupDeviceRequirementsProvider>
-                                                 startupDeviceRequirements)
-{
-    auto fun = [doneFlag, controllerFilePath](void) -> std::vector<star::service::Service> {
-        auto serv = std::vector<star::service::Service>(1);
-        serv[0] = star::service::Service{SimulationControllerService(std::move(controllerFilePath), doneFlag)};
-
-        return serv;
-    };
-
-    return forcedDeviceIndex.has_value()
-               ? FunctionalEngineInitPolicy(fun, forcedDeviceIndex.value(), std::move(startupDeviceRequirements))
-               : FunctionalEngineInitPolicy(fun, std::move(startupDeviceRequirements));
-}
 
 int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
 {
@@ -39,22 +24,26 @@ int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
     using exit = EngineExitOnFlag;
     std::shared_ptr<bool> controllerSequenceDone = std::make_shared<bool>(false);
 
-    Application application =
-        cfg->enableDistanceMarkers
-            ? Application(&loader::DebugSceneLoader, cfg->terrainDir, cfg->volumeName,
-                          {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
-                           cfg->aggressiveTerrainTextureLoading})
-            : Application(&loader::ReleaseSceneLoader, cfg->terrainDir, cfg->volumeName,
-                          {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
-                           cfg->aggressiveTerrainTextureLoading});
+    Application application = cfg->enableDistanceMarkers
+                                  ? Application(&loader::DebugSceneLoader, cfg->terrainDir, cfg->volumeName,
+                                                {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
+                                                 cfg->aggressiveTerrainTextureLoading})
+                                  : Application(&loader::ReleaseSceneLoader, cfg->terrainDir, cfg->volumeName,
+                                                {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
+                                                 cfg->aggressiveTerrainTextureLoading});
 
-    auto startupDeviceRequirements =
-        std::make_unique<VolumetricsDeviceRequirementsProvider>();
+    auto startupDeviceRequirements = std::make_unique<VolumetricsDeviceRequirementsProvider>();
 
-    auto engine = star::StarEngine<FunctionalEngineInitPolicy, loop, exit>(
-        CreateInit(controllerSequenceDone, cfg->simControllerPath, cfg->overrideRenderingDevice,
-                   std::move(startupDeviceRequirements)),
-        loop{}, exit{controllerSequenceDone}, application);
+    auto engineServices = star::service::EngineServicesFactory::createDefault(true);
+    engineServices.add(star::service::Service{service::ImageMetricManager{}});
+    engineServices.add(
+        star::service::Service{SimulationControllerService(std::move(cfg->simControllerPath), controllerSequenceDone)});
+
+    auto init = star::policy::DefaultEngineInitPolicy{engineServices, std::move(startupDeviceRequirements),
+                                                      cfg->overrideRenderingDevice};
+
+    auto engine = star::StarEngine<star::policy::DefaultEngineInitPolicy, loop, exit>(
+        std::move(init), loop{}, exit{controllerSequenceDone}, application);
 
     config::AppConfigLoader::LogConfig(*cfg);
     cfg = nullptr;
