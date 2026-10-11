@@ -1,0 +1,7 @@
+vulkan is an overlay stub that reuses the Vulkan SDK installed on the system.
+
+It is compatible with the built-in CMake targets:
+
+    # https://cmake.org/cmake/help/latest/module/FindVulkan.html
+    find_package(Vulkan REQUIRED)
+    target_link_libraries(main PRIVATE Vulkan::Vulkan)

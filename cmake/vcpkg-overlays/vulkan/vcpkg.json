@@ -1,0 +1,18 @@
+{
+  "name": "vulkan",
+  "version-date": "2024-01-01",
+  "description": [
+    "Stub package that reuses a locally installed Vulkan SDK.",
+    "Unlike the vcpkg registry port this overlay has no dependency on",
+    "vulkan-headers/vulkan-loader, so nothing is downloaded when the",
+    "Vulkan SDK is already present on the machine."
+  ],
+  "license": null,
+  "supports": "!uwp & !xbox",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    }
+  ]
+}
