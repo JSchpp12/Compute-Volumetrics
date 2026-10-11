@@ -37,6 +37,7 @@
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 #include <starlight/core/renderer/RenderPhase.hpp>
 #include <starlight/event/DescriptorPoolReady.hpp>
+#include <starlight/maker/texture/MakeTexture.hpp>
 
 #include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
@@ -55,7 +56,7 @@ static std::vector<std::shared_ptr<star::StarTextures::Texture>> CreateComputeWr
     auto textures = std::vector<std::shared_ptr<star::StarTextures::Texture>>(numToCreate);
 
     auto builder =
-        star::StarTextures::Texture::Builder(context.getDevice())
+        star::maker::texture::MakeTexture(context.getDevice())
             .setCreateInfo(star::Allocator::AllocationBuilder()
                                .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
                                .setUsage(VMA_MEMORY_USAGE_AUTO)
@@ -104,9 +105,15 @@ static std::vector<std::shared_ptr<star::StarTextures::Texture>> CreateComputeWr
                                 .setMinLod(0.0f)
                                 .setMaxLod(0.0f));
 
+    std::vector<star::StarTextures::Texture> madeTextures(numToCreate);
+    const auto makeResult = builder.make(madeTextures.data(), numToCreate);
+    if (!makeResult)
+    {
+        STAR_THROW("Failed to create compute write images: " + makeResult.error().detail);
+    }
     for (size_t i{0}; i < numToCreate; i++)
     {
-        textures[i] = builder.buildShared();
+        textures[i] = std::make_shared<star::StarTextures::Texture>(std::move(madeTextures[i]));
     }
 
     return textures;

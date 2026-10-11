@@ -62,12 +62,12 @@ class ShadowDispatchResourceProvider
     /// @param frameData
     /// @return true if success, false on failure
     AdditionalResourcesInfo addResourcesTo(star::core::device::DeviceContext &c,
-                                           star::core::renderer::FrameData &frameData) const noexcept;
+                                           star::core::renderer::FrameData &frameData) const;
 
   private:
     policies::ShadowResourceResolutionPolicy m_resPolicy;
 
     std::pair<star::Handle, ShadowDispatchResourceProvider::AdditionalResourcesInfo::Info> addTransmittanceMaps(
-        star::core::device::DeviceContext &c, star::core::renderer::FrameData &frameData) const noexcept;
+        star::core::device::DeviceContext &c, star::core::renderer::FrameData &frameData) const;
 };
 } // namespace render_system::fog

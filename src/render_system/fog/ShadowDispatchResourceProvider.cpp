@@ -3,9 +3,11 @@
 #include "render_system/fog/DataRoles.hpp"
 #include "render_system/fog/policies/ShadowResourceResolutionPolicy.hpp"
 
+#include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
 #include <starlight/core/helper/command_buffer/CommandBufferHelpers.hpp>
 #include <starlight/core/renderer/FrameData.hpp>
+#include <starlight/maker/texture/MakeTexture.hpp>
 #include <starlight/wrappers/graphics/StarTextures/Texture.hpp>
 
 #include <vector>
@@ -14,14 +16,14 @@ namespace render_system::fog
 {
 
 static std::pair<std::vector<star::StarTextures::Texture>, vk::Format> CreateTransmittanceMaps(
-    star::core::device::DeviceContext &context, int height, int width, int depth, const size_t &numToCreate) noexcept
+    star::core::device::DeviceContext &context, int height, int width, int depth, const size_t &numToCreate)
 {
     std::vector<star::StarTextures::Texture> textures{numToCreate};
 
     const vk::Format imageFormat = vk::Format::eR8Unorm;
 
     auto builder =
-        star::StarTextures::Texture::Builder(context.getDevice())
+        star::maker::texture::MakeTexture(context.getDevice())
             .setCreateInfo(star::Allocator::AllocationBuilder()
                                .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
                                .setUsage(VMA_MEMORY_USAGE_AUTO)
@@ -63,10 +65,15 @@ static std::pair<std::vector<star::StarTextures::Texture>, vk::Format> CreateTra
                                                       .setBaseMipLevel(0)
                                                       .setLevelCount(1)));
 
+    const auto makeResult = builder.make(textures.data(), numToCreate);
+    if (!makeResult)
+    {
+        STAR_THROW("Failed to create transmittance maps: " + makeResult.error().detail);
+    }
+
     std::vector<vk::ImageMemoryBarrier2> barriers{numToCreate};
     for (size_t i = 0; i < numToCreate; i++)
     {
-        textures[i] = builder.build();
         barriers[i] = vk::ImageMemoryBarrier2()
                           .setOldLayout(vk::ImageLayout::eUndefined)
                           .setNewLayout(vk::ImageLayout::eGeneral)
@@ -98,7 +105,7 @@ ShadowDispatchResourceProvider::ShadowDispatchResourceProvider(policies::ShadowR
 }
 
 ShadowDispatchResourceProvider::AdditionalResourcesInfo ShadowDispatchResourceProvider::addResourcesTo(
-    star::core::device::DeviceContext &context, star::core::renderer::FrameData &frameData) const noexcept
+    star::core::device::DeviceContext &context, star::core::renderer::FrameData &frameData) const
 {
     std::vector<std::pair<star::Handle, ShadowDispatchResourceProvider::AdditionalResourcesInfo::Info>> addResources{1};
 
@@ -108,7 +115,7 @@ ShadowDispatchResourceProvider::AdditionalResourcesInfo ShadowDispatchResourcePr
 }
 
 std::pair<star::Handle, ShadowDispatchResourceProvider::AdditionalResourcesInfo::Info> ShadowDispatchResourceProvider::
-    addTransmittanceMaps(star::core::device::DeviceContext &context, star::core::renderer::FrameData &fd) const noexcept
+    addTransmittanceMaps(star::core::device::DeviceContext &context, star::core::renderer::FrameData &fd) const
 {
     const size_t &fi = static_cast<const size_t &>(context.frameTracker().getSetup().getNumFramesInFlight());
 
