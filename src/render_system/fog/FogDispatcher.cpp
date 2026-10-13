@@ -50,19 +50,10 @@ static ChunkOrchestrator CreateTransmittancePrecomputePass(star::core::device::D
         GetQueueFamilyIndices(ctx);
     (void)transferQueueFamilyIndex;
 
-    std::vector<commands::Pass> pass{1};
-
-    // The transmittance pass is a single direct 2D dispatch over the 3D transmittance map's columns -- no
-    // rayInit/active-ray compaction and no indirect dispatch. When it runs it is the first shadow-depth
-    // consumer, so it records the shadow-depth acquire and flips info.imageReady.shadowDepth. The
-    // frame-input image/queue-ownership transitions (offscreen color/depth and the volume output) are
-    // recorded by the always-dispatched color pass's Init prep, so they are not skipped when this pass
-    // is (linear/exponential fog) -- and in that case the color pass also takes over the shadow-depth
-    // acquire via the same ImageReady latch.
-    pass[0] = Pass{
+    std::vector<commands::Pass> pass{Pass{
         ComputeContributor{TransmittancePrecompute{transmittanceMapResolution}},
         PreMemoryBarrierContributor{transmittance::PreMemoryBarrierRecorder{transmittance::ShadowDepthAcquire{
-            render_system::fog::makeShadowDepthAcquirePolicy(graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
+            render_system::fog::makeShadowDepthAcquirePolicy(graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}}};
 
     return ChunkOrchestrator{std::move(pass), false, &isReady};
 }
@@ -72,24 +63,20 @@ static ChunkOrchestrator CreateColorPass(star::core::device::DeviceContext &ctx,
     const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
         GetQueueFamilyIndices(ctx);
 
-    std::vector<commands::Pass> pass;
-    pass.resize(3);
-
     QueueFamilyIndices info{
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
 
-    pass[0] = Pass{ComputeContributor{Init{ctx.getEngineResolution()}},
-                   PreMemoryBarrierContributor{color::PreMemoryBarrierRecorder{},
-                                               color::FrameInputPreMemoryBarrierRecorder{color::PreDifferentFamilies{
-                                                   info, render_system::fog::makeShadowDepthAcquirePolicy(
-                                                             graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
-
-    pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
-
-    pass[2] = Pass{ComputeContributor{Color{}},
-                   PostMemoryBarrierContributor{color::PostMemoryBarrierRecorder{
-                       color::PostDifferentFamilies{info, render_system::fog::makeShadowDepthReleaseBackPolicy(
-                                                              graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
+    std::vector<commands::Pass> pass{
+        Pass{ComputeContributor{Init{ctx.getEngineResolution()}},
+             PreMemoryBarrierContributor{color::PreMemoryBarrierRecorder{},
+                                         color::FrameInputPreMemoryBarrierRecorder{color::PreDifferentFamilies{
+                                             info, render_system::fog::makeShadowDepthAcquirePolicy(
+                                                       graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}},
+        Pass{ComputeContributor{IndirectDispatch{}}},
+        Pass{ComputeContributor{Color{}},
+             PostMemoryBarrierContributor{color::PostMemoryBarrierRecorder{
+                 color::PostDifferentFamilies{info, render_system::fog::makeShadowDepthReleaseBackPolicy(
+                                                        graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}}};
 
     return ChunkOrchestrator{std::move(pass), false, &isReady};
 }
@@ -99,21 +86,17 @@ static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx,
     const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
         GetQueueFamilyIndices(ctx);
 
-    std::vector<commands::Pass> pass{3};
-
     QueueFamilyIndices info{
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
 
-    pass[0] =
+    std::vector<commands::Pass> pass{
         Pass{ComputeContributor{Init{ctx.getEngineResolution(), InitPassType::Camera, true}},
-             PreMemoryBarrierContributor{distance::PreMemoryBarrierRecorder{distance::PreDifferentFamilies{info}}}};
-
-    pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
-
-    pass[2] = Pass{ComputeContributor{Distance{}},
-                   PostMemoryBarrierContributor{distance::PostMemoryBarrierRecorder{
-                       distance::PostDifferentFamilies{info, render_system::fog::makeShadowDepthReleaseBackPolicy(
-                                                                 graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
+             PreMemoryBarrierContributor{distance::PreMemoryBarrierRecorder{distance::PreDifferentFamilies{info}}}},
+        Pass{ComputeContributor{IndirectDispatch{}}},
+        Pass{ComputeContributor{Distance{}},
+             PostMemoryBarrierContributor{distance::PostMemoryBarrierRecorder{
+                 distance::PostDifferentFamilies{info, render_system::fog::makeShadowDepthReleaseBackPolicy(
+                                                           graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}}};
 
     return ChunkOrchestrator{std::move(pass), true, &isReady};
 }
