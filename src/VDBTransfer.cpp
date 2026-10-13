@@ -2,6 +2,9 @@
 
 #include "FileHelpers.hpp"
 
+#include <starlight/core/Exceptions.hpp>
+#include <starlight/maker/buffer/MakeBuffer.hpp>
+
 void VDBTransfer::prep()
 {
     m_volumeData->prep();
@@ -10,20 +13,27 @@ void VDBTransfer::prep()
 std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createStagingBuffer(
     star::core::device::StarDevice &device) const
 {
-    return star::StarBuffers::Buffer::Builder(device.getAllocator().get())
-        .setAllocationCreateInfo(
-            star::Allocator::AllocationBuilder()
-                .setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)
-                .setUsage(VMA_MEMORY_USAGE_AUTO)
-                .build(),
-            vk::BufferCreateInfo()
-                .setSharingMode(vk::SharingMode::eExclusive)
-                .setSize(m_volumeData->getSize())
-                .setUsage(vk::BufferUsageFlagBits::eTransferSrc),
-            "VDBInfo_SRC")
-        .setInstanceCount(1)
-        .setInstanceSize(m_volumeData->getSize())
-        .buildUnique();
+    star::StarBuffers::Buffer builtBuffer;
+    const auto makeResult = star::maker::buffer::MakeBuffer(device)
+                                .setCreateInfo(star::Allocator::AllocationBuilder()
+                                                   .setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                                             VMA_ALLOCATION_CREATE_MAPPED_BIT)
+                                                   .setUsage(VMA_MEMORY_USAGE_AUTO)
+                                                   .build(),
+                                               vk::BufferCreateInfo()
+                                                   .setSharingMode(vk::SharingMode::eExclusive)
+                                                   .setSize(m_volumeData->getSize())
+                                                   .setUsage(vk::BufferUsageFlagBits::eTransferSrc),
+                                               "VDBInfo_SRC")
+                                .setInstanceCount(1)
+                                .setInstanceSize(m_volumeData->getSize())
+                                .make(&builtBuffer, 1);
+    if (!makeResult)
+    {
+        STAR_THROW("Failed to create staging buffer for VDB info: " + makeResult.error().detail);
+    }
+
+    return std::make_unique<star::StarBuffers::Buffer>(std::move(builtBuffer));
 }
 
 std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createFinal(
@@ -37,22 +47,29 @@ std::unique_ptr<star::StarBuffers::Buffer> VDBTransfer::createFinal(
         numInds++;
     }
 
-    return star::StarBuffers::Buffer::Builder(device.getAllocator().get())
-        .setAllocationCreateInfo(
-            star::Allocator::AllocationBuilder()
-                .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
-                .setUsage(VMA_MEMORY_USAGE_AUTO)
-                .build(),
-            vk::BufferCreateInfo()
-                .setSharingMode(vk::SharingMode::eConcurrent)
-                .setQueueFamilyIndexCount(numInds)
-                .setPQueueFamilyIndices(indices.data())
-                .setSize(m_volumeData->getSize())
-                .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eStorageBuffer),
-            "VDBInfo")
-        .setInstanceCount(1)
-        .setInstanceSize(m_volumeData->getSize())
-        .buildUnique();
+    star::StarBuffers::Buffer builtBuffer;
+    const auto makeResult = star::maker::buffer::MakeBuffer(device)
+                                .setCreateInfo(star::Allocator::AllocationBuilder()
+                                                   .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                                                   .setUsage(VMA_MEMORY_USAGE_AUTO)
+                                                   .build(),
+                                               vk::BufferCreateInfo()
+                                                   .setSharingMode(vk::SharingMode::eConcurrent)
+                                                   .setQueueFamilyIndexCount(numInds)
+                                                   .setPQueueFamilyIndices(indices.data())
+                                                   .setSize(m_volumeData->getSize())
+                                                   .setUsage(vk::BufferUsageFlagBits::eTransferDst |
+                                                             vk::BufferUsageFlagBits::eStorageBuffer),
+                                               "VDBInfo")
+                                .setInstanceCount(1)
+                                .setInstanceSize(m_volumeData->getSize())
+                                .make(&builtBuffer, 1);
+    if (!makeResult)
+    {
+        STAR_THROW("Failed to create final buffer for VDB info: " + makeResult.error().detail);
+    }
+
+    return std::make_unique<star::StarBuffers::Buffer>(std::move(builtBuffer));
 }
 
 void VDBTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const

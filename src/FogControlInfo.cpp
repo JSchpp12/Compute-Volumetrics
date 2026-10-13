@@ -1,26 +1,35 @@
 #include "FogControlInfo.hpp"
 
+#include <starlight/core/Exceptions.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
+#include <starlight/maker/buffer/MakeBuffer.hpp>
 
 std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createStagingBuffer(
     star::core::device::StarDevice &device) const
 {
     const vk::DeviceSize size = sizeof(FogInfo::FinalizedInfo);
 
-    return star::StarBuffers::Buffer::Builder(device.getAllocator().get())
-        .setAllocationCreateInfo(
-            star::Allocator::AllocationBuilder()
-                .setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT)
-                .setUsage(VMA_MEMORY_USAGE_AUTO)
-                .build(),
-            vk::BufferCreateInfo()
-                .setSharingMode(vk::SharingMode::eExclusive)
-                .setSize(size)
-                .setUsage(vk::BufferUsageFlagBits::eTransferSrc),
-            "FogControlInfo_Src")
-        .setInstanceCount(1)
-        .setInstanceSize(size)
-        .buildUnique();
+    star::StarBuffers::Buffer builtBuffer;
+    const auto makeResult = star::maker::buffer::MakeBuffer(device)
+                                .setCreateInfo(star::Allocator::AllocationBuilder()
+                                                   .setFlags(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                                                             VMA_ALLOCATION_CREATE_MAPPED_BIT)
+                                                   .setUsage(VMA_MEMORY_USAGE_AUTO)
+                                                   .build(),
+                                               vk::BufferCreateInfo()
+                                                   .setSharingMode(vk::SharingMode::eExclusive)
+                                                   .setSize(size)
+                                                   .setUsage(vk::BufferUsageFlagBits::eTransferSrc),
+                                               "FogControlInfo_Src")
+                                .setInstanceCount(1)
+                                .setInstanceSize(size)
+                                .make(&builtBuffer, 1);
+    if (!makeResult)
+    {
+        STAR_THROW("Failed to create staging buffer for fog control info: " + makeResult.error().detail);
+    }
+
+    return std::make_unique<star::StarBuffers::Buffer>(std::move(builtBuffer));
 }
 
 std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createFinal(
@@ -32,22 +41,29 @@ std::unique_ptr<star::StarBuffers::Buffer> FogControlInfoTransfer::createFinal(
 
     const vk::DeviceSize size = sizeof(FogInfo::FinalizedInfo);
 
-    return star::StarBuffers::Buffer::Builder(device.getAllocator().get())
-        .setAllocationCreateInfo(
-            star::Allocator::AllocationBuilder()
-                .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
-                .setUsage(VMA_MEMORY_USAGE_AUTO)
-                .build(),
-            vk::BufferCreateInfo()
-                .setSharingMode(vk::SharingMode::eConcurrent)
-                .setQueueFamilyIndexCount(indices.size())
-                .setPQueueFamilyIndices(indices.data())
-                .setSize(size)
-                .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer),
-            "FogControlInfo")
-        .setInstanceCount(1)
-        .setInstanceSize(size)
-        .buildUnique();
+    star::StarBuffers::Buffer builtBuffer;
+    const auto makeResult = star::maker::buffer::MakeBuffer(device)
+                                .setCreateInfo(star::Allocator::AllocationBuilder()
+                                                   .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                                                   .setUsage(VMA_MEMORY_USAGE_AUTO)
+                                                   .build(),
+                                               vk::BufferCreateInfo()
+                                                   .setSharingMode(vk::SharingMode::eConcurrent)
+                                                   .setQueueFamilyIndexCount(indices.size())
+                                                   .setPQueueFamilyIndices(indices.data())
+                                                   .setSize(size)
+                                                   .setUsage(vk::BufferUsageFlagBits::eTransferDst |
+                                                             vk::BufferUsageFlagBits::eUniformBuffer),
+                                               "FogControlInfo")
+                                .setInstanceCount(1)
+                                .setInstanceSize(size)
+                                .make(&builtBuffer, 1);
+    if (!makeResult)
+    {
+        STAR_THROW("Failed to create final buffer for fog control info: " + makeResult.error().detail);
+    }
+
+    return std::make_unique<star::StarBuffers::Buffer>(std::move(builtBuffer));
 }
 
 void FogControlInfoTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const

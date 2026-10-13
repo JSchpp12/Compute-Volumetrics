@@ -4,6 +4,7 @@
 
 #include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/Exceptions.hpp>
+#include <starlight/maker/buffer/MakeBuffer.hpp>
 
 #include <cassert>
 #include <cstdint>
@@ -473,24 +474,25 @@ std::vector<star::StarBuffers::Buffer> VolumeRenderPhase::createComputeWriteToBu
 
     const vk::DeviceSize bufferSize = screenSize.width * screenSize.height * dataTypeSize;
     auto builder =
-        star::StarBuffers::Buffer::Builder(context.getDevice().getAllocator().get())
-            .setAllocationCreateInfo(
-                star::Allocator::AllocationBuilder()
-                    .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
-                    .setUsage(VMA_MEMORY_USAGE_AUTO)
-                    .build(),
-                vk::BufferCreateInfo()
-                    .setSharingMode(vk::SharingMode::eExclusive)
-                    .setSize(bufferSize)
-                    .setUsage(vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eStorageBuffer |
-                              vk::BufferUsageFlagBits::eTransferDst),
-                debugName)
+        star::maker::buffer::MakeBuffer(context.getDevice())
+            .setCreateInfo(star::Allocator::AllocationBuilder()
+                               .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                               .setUsage(VMA_MEMORY_USAGE_AUTO)
+                               .build(),
+                           vk::BufferCreateInfo()
+                               .setSharingMode(vk::SharingMode::eExclusive)
+                               .setSize(bufferSize)
+                               .setUsage(vk::BufferUsageFlagBits::eTransferSrc |
+                                         vk::BufferUsageFlagBits::eStorageBuffer |
+                                         vk::BufferUsageFlagBits::eTransferDst),
+                           debugName)
             .setInstanceCount(1)
             .setInstanceSize(bufferSize);
 
-    for (size_t i{0}; i < numToCreate; i++)
+    const auto makeResult = builder.make(buffers.data(), numToCreate);
+    if (!makeResult)
     {
-        buffers[i] = builder.build();
+        STAR_THROW("Failed to create compute write to buffers: " + makeResult.error().detail);
     }
 
     return buffers;
