@@ -10,8 +10,8 @@ namespace render_system::fog
 // Acquires: graphics -> compute
 // ---------------------------------------------------------------------------------------------
 
-/// @brief Builds an ownership acquire for the offscreen color attachment (color attachment
-///        optimal -> general), released by graphics and acquired by compute for shader reads.
+/// @brief Builds an ownership acquire for the offscreen color attachment (color attachment optimal -> general),
+/// released by graphics and acquired by compute for shader reads.
 /// @param image The offscreen color image to acquire.
 /// @param graphicsQueue Queue family index releasing ownership (graphics).
 /// @param computeQueue Queue family index acquiring ownership (compute).
@@ -37,8 +37,8 @@ inline vk::ImageMemoryBarrier2 MakeOffscreenColorAcquireBarrier(vk::Image image,
                                  .setLayerCount(1));
 }
 
-/// @brief Builds an ownership acquire for the offscreen depth attachment (depth attachment
-///        optimal -> shader read only), released by graphics and acquired by compute.
+/// @brief Builds an ownership acquire for the offscreen depth attachment (depth attachment optimal -> shader read
+/// only), released by graphics and acquired by compute.
 /// @param image The offscreen depth image to acquire.
 /// @param graphicsQueue Queue family index releasing ownership (graphics).
 /// @param computeQueue Queue family index acquiring ownership (compute).
@@ -64,10 +64,8 @@ inline vk::ImageMemoryBarrier2 MakeOffscreenDepthAcquireBarrier(vk::Image image,
                                  .setLayerCount(1));
 }
 
-/// @brief Builds an ownership acquire for the volume output image (shader read only -> general),
-///        released by graphics and acquired by compute for shader writes. This is the steady-state
-///        transition; the first-frame undefined -> general transition uses VK_QUEUE_FAMILY_IGNORED
-///        and is therefore not an ownership barrier.
+/// @brief Builds an ownership acquire for the volume output image (shader read only -> general), released by graphics
+/// and acquired by compute for shader writes.
 /// @param image The volume output image to acquire.
 /// @param graphicsQueue Queue family index releasing ownership (graphics).
 /// @param computeQueue Queue family index acquiring ownership (compute).
@@ -93,10 +91,9 @@ inline vk::ImageMemoryBarrier2 MakeVolumeOutputAcquireBarrier(vk::Image image, u
                                  .setLayerCount(1));
 }
 
-/// @brief Builds an ownership acquire for the terrain shadow depth image (depth attachment
-///        optimal -> shader read only), released by graphics and acquired by compute. Identical in
-///        shape to the offscreen depth acquire; kept separate so call sites remain explicit about
-///        the resource they acquire.
+/// @brief Builds an ownership acquire for the terrain shadow depth image (depth attachment optimal -> shader read
+/// only), released by graphics and acquired by compute. Identical in shape to the offscreen depth acquire; kept
+/// separate so call sites remain explicit about the resource they acquire.
 /// @param image The terrain shadow depth image to acquire.
 /// @param graphicsQueue Queue family index releasing ownership (graphics).
 /// @param computeQueue Queue family index acquiring ownership (compute).
@@ -126,8 +123,8 @@ inline vk::ImageMemoryBarrier2 MakeShadowDepthAcquireBarrier(vk::Image image, ui
 // Releases: compute -> graphics
 // ---------------------------------------------------------------------------------------------
 
-/// @brief Builds an ownership release for the offscreen color attachment (general -> color
-///        attachment optimal), released by compute and acquired back by graphics.
+/// @brief Builds an ownership release for the offscreen color attachment (general -> color attachment optimal),
+/// released by compute and acquired back by graphics.
 /// @param image The offscreen color image to release.
 /// @param computeQueue Queue family index releasing ownership (compute).
 /// @param graphicsQueue Queue family index acquiring ownership back (graphics).
@@ -153,8 +150,8 @@ inline vk::ImageMemoryBarrier2 MakeOffscreenColorReleaseBarrier(vk::Image image,
                                  .setLayerCount(1));
 }
 
-/// @brief Builds an ownership release for the offscreen depth image (shader read only -> depth
-///        attachment optimal), released by compute and acquired back by graphics.
+/// @brief Builds an ownership release for the offscreen depth image (shader read only -> depth attachment optimal),
+/// released by compute and acquired back by graphics.
 /// @param image The offscreen depth image to release.
 /// @param computeQueue Queue family index releasing ownership (compute).
 /// @param graphicsQueue Queue family index acquiring ownership back (graphics).
@@ -180,14 +177,13 @@ inline vk::ImageMemoryBarrier2 MakeOffscreenDepthReleaseBarrier(vk::Image image,
                                  .setLayerCount(1));
 }
 
-/// @brief Builds an ownership release for the volume output image (general -> shader read only),
-///        released by compute and acquired back by graphics.
+/// @brief Builds an ownership release for the volume output image (general -> shader read only), released by compute
+/// and acquired back by graphics.
 /// @param image The volume output image to release.
 /// @param computeQueue Queue family index releasing ownership (compute).
 /// @param graphicsQueue Queue family index acquiring ownership back (graphics).
-/// @param computeAccess Which compute accesses are released: the color pass only wrote the image
-///        (eShaderWrite), while the depth/visibility pass also read it during Init
-///        (eShaderRead | eShaderWrite).
+/// @param computeAccess Which compute accesses are released: the color pass only wrote the image (eShaderWrite), while
+/// the depth/visibility pass also read it during Init (eShaderRead | eShaderWrite).
 /// @return The configured image memory barrier.
 inline vk::ImageMemoryBarrier2 MakeVolumeOutputReleaseBarrier(
     vk::Image image, uint32_t computeQueue, uint32_t graphicsQueue,
@@ -211,10 +207,9 @@ inline vk::ImageMemoryBarrier2 MakeVolumeOutputReleaseBarrier(
                                  .setLayerCount(vk::RemainingArrayLayers));
 }
 
-/// @brief Builds an ownership release for the terrain shadow depth image (shader read only ->
-///        depth attachment optimal), released by compute and acquired back by graphics. Identical
-///        in shape to the offscreen depth release; kept separate so call sites remain explicit
-///        about the resource they release.
+/// @brief Builds an ownership release for the terrain shadow depth image (shader read only -> depth attachment
+/// optimal), released by compute and acquired back by graphics. Identical in shape to the offscreen depth release; kept
+/// separate so call sites remain explicit about the resource they release.
 /// @param image The terrain shadow depth image to release.
 /// @param computeQueue Queue family index releasing ownership (compute).
 /// @param graphicsQueue Queue family index acquiring ownership back (graphics).
@@ -244,11 +239,8 @@ inline vk::ImageMemoryBarrier2 MakeShadowDepthReleaseBarrier(vk::Image image, ui
 // Same-queue transitions
 // ---------------------------------------------------------------------------------------------
 
-/// @brief Builds a same-queue transition for the terrain shadow depth image (depth attachment
-///        optimal -> shader read only) on a single queue family. Unlike the ownership variants
-///        above, both queue family indices are VK_QUEUE_FAMILY_IGNORED so no queue family
-///        ownership transfer occurs; only the layout and the source write visibility are
-///        transitioned before compute reads the depth image.
+/// @brief Builds a same-queue transition for the terrain shadow depth image (depth attachment optimal -> shader read
+/// only) on a single queue family.
 /// @param image The terrain shadow depth image to transition.
 /// @return The configured image memory barrier.
 inline vk::ImageMemoryBarrier2 MakeShadowDepthSameQueueAcquireBarrier(vk::Image image) noexcept
@@ -272,8 +264,8 @@ inline vk::ImageMemoryBarrier2 MakeShadowDepthSameQueueAcquireBarrier(vk::Image 
                                  .setLayerCount(1));
 }
 
-/// @brief Builds a same-queue transition for the transmittance map (general -> transfer
-///        destination), so the reset clear / upload can write to it.
+/// @brief Builds a same-queue transition for the transmittance map (general -> transfer destination), so the reset
+/// clear / upload can write to it.
 /// @param image The transmittance map image to transition.
 /// @return The configured image memory barrier.
 inline vk::ImageMemoryBarrier2 MakeTransmittanceMapToTransferDstBarrier(vk::Image image) noexcept
@@ -296,8 +288,8 @@ inline vk::ImageMemoryBarrier2 MakeTransmittanceMapToTransferDstBarrier(vk::Imag
                                  .setLayerCount(vk::RemainingArrayLayers));
 }
 
-/// @brief Builds a same-queue transition for the transmittance map (transfer destination ->
-///        general), performed after the reset clear so compute can write the map again.
+/// @brief Builds a same-queue transition for the transmittance map (transfer destination ->general), performed after
+/// the reset clear so compute can write the map again.
 /// @param image The transmittance map image to transition.
 /// @return The configured image memory barrier.
 inline vk::ImageMemoryBarrier2 MakeTransmittanceMapToGeneralBarrier(vk::Image image) noexcept
