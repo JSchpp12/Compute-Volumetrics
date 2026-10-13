@@ -4,7 +4,7 @@
 
 namespace render_system::fog::commands::color
 {
-void FrameInputPreMemoryBarrierRecorder::recordCommands(const PassInfo &vInfo, const star::common::FrameTracker &ft,
+void FrameInputPreMemoryBarrierRecorder::recordCommands(PassInfo &vInfo, const star::common::FrameTracker &ft,
                                                         vk::CommandBuffer cmdBuf) const noexcept
 {
     BarrierBatch batch;

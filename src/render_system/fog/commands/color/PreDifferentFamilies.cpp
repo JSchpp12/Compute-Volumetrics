@@ -1,5 +1,7 @@
 ﻿#include "render_system/fog/commands/color/PreDifferentFamilies.hpp"
 
+#include "render_system/fog/BarrierFactory.hpp"
+
 #include <variant>
 
 namespace render_system::fog::commands::color
@@ -62,38 +64,8 @@ static std::pair<std::array<vk::ImageMemoryBarrier2, 3>, uint32_t> GetImageMemor
     uint32_t transferIndex, uint32_t computeIndex)
 {
     std::array<vk::ImageMemoryBarrier2, 3> barriers{
-        vk::ImageMemoryBarrier2()
-            .setImage(vInfo.terrainPassInfo.renderToColor)
-            .setOldLayout(vk::ImageLayout::eColorAttachmentOptimal)
-            .setNewLayout(vk::ImageLayout::eGeneral)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setSrcQueueFamilyIndex(graphicsIndex)
-            .setDstQueueFamilyIndex(computeIndex)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1)
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)),
-        vk::ImageMemoryBarrier2()
-            .setImage(vInfo.terrainPassInfo.renderToDepth)
-            .setOldLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-            .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setSrcQueueFamilyIndex(graphicsIndex)
-            .setDstQueueFamilyIndex(computeIndex)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1)
-                                     .setAspectMask(vk::ImageAspectFlagBits::eDepth)),
+        MakeOffscreenColorAcquireBarrier(vInfo.terrainPassInfo.renderToColor, graphicsIndex, computeIndex),
+        MakeOffscreenDepthAcquireBarrier(vInfo.terrainPassInfo.renderToDepth, graphicsIndex, computeIndex),
         ft.getCurrent().getNumTimesFrameProcessed() == 0
             ? vk::ImageMemoryBarrier2()
                   .setImage(vInfo.computeWriteToImage)
@@ -111,36 +83,32 @@ static std::pair<std::array<vk::ImageMemoryBarrier2, 3>, uint32_t> GetImageMemor
                                            .setLevelCount(1)
                                            .setBaseArrayLayer(0)
                                            .setLayerCount(1))
-            : vk::ImageMemoryBarrier2()
-                  .setImage(vInfo.computeWriteToImage)
-                  .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                  .setNewLayout(vk::ImageLayout::eGeneral)
-                  .setSrcQueueFamilyIndex(graphicsIndex)
-                  .setDstQueueFamilyIndex(computeIndex)
-                  .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-                  .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-                  .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                  .setDstAccessMask(vk::AccessFlagBits2::eShaderWrite)
-                  .setSubresourceRange(vk::ImageSubresourceRange()
-                                           .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                           .setBaseMipLevel(0)
-                                           .setLevelCount(1)
-                                           .setBaseArrayLayer(0)
-                                           .setLayerCount(1))};
+            : MakeVolumeOutputAcquireBarrier(vInfo.computeWriteToImage, graphicsIndex, computeIndex)};
 
     return std::make_pair(barriers, 3);
 }
 
-void PreDifferentFamilies::build(const PassInfo &info, const star::common::FrameTracker &ft,
+void PreDifferentFamilies::build(PassInfo &info, const star::common::FrameTracker &ft,
                                  BarrierBatch &batch) const noexcept
 {
     {
         const auto [imageBarriers, barrierCountImage] =
             GetImageMemoryBarriers(info, ft, queueInfo.graphics, queueInfo.transfer, queueInfo.compute);
 
-        for (uint8_t i{0}; i < barrierCountImage; i++)
+        if (!info.imageReady.offscreenColor)
         {
-            batch.addImage(imageBarriers[i]);
+            batch.addImage(imageBarriers[0]);
+            info.imageReady.offscreenColor = true;
+        }
+        if (!info.imageReady.offscreenDepth)
+        {
+            batch.addImage(imageBarriers[1]);
+            info.imageReady.offscreenDepth = true;
+        }
+        if (!info.imageReady.volumeOutput)
+        {
+            batch.addImage(imageBarriers[2]);
+            info.imageReady.volumeOutput = true;
         }
     }
 
@@ -154,7 +122,14 @@ void PreDifferentFamilies::build(const PassInfo &info, const star::common::Frame
         }
     }
 
+    // The transmittance precompute chunk normally records the shadow-depth acquire first (it runs
+    // before the color chunk in this shared command buffer). When it was skipped (linear/exponential
+    // fog) the latch is still false and the color pass acquires instead
+    if (info.terrainPassInfo.renderToShadowDepth != VK_NULL_HANDLE && !info.imageReady.shadowDepth)
+    {
+        info.imageReady.shadowDepth = true;
+        std::visit([&](const auto &p) { p.build(info.terrainPassInfo.renderToShadowDepth, batch); },
+                   shadowDepthAcquire);
+    }
 }
 } // namespace render_system::fog::commands::color
-
-

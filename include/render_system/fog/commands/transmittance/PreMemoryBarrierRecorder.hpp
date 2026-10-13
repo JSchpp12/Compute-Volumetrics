@@ -12,11 +12,12 @@
 
 namespace render_system::fog::commands::transmittance
 {
-/// Acquires the shadow depth image (graphics -> compute, depth attachment -> shader read)
+/// Acquires the shadow depth image (graphics -> compute, depth attachment -> shader read) when no
+/// earlier chunk has acquired it yet, flipping the PassInfo ImageReady latch.
 struct ShadowDepthAcquire
 {
     ShadowDepthAcquirePolicy policy;
-    void build(const PassInfo &info, BarrierBatch &batch) const noexcept;
+    void build(PassInfo &info, BarrierBatch &batch) const noexcept;
 };
 
 using PreMemoryPolicy = std::variant<ShadowDepthAcquire>;
@@ -25,7 +26,7 @@ class PreMemoryBarrierRecorder
 {
     PreMemoryPolicy m_policy;
 
-    void recordPrepMemoryBarriers(const PassInfo &vInfo, const star::common::FrameTracker &ft,
+    void recordPrepMemoryBarriers(PassInfo &vInfo, const star::common::FrameTracker &ft,
                                   vk::CommandBuffer cmdBuf) const noexcept;
     void recordTransmittanceMapReset(const PassInfo &vInfo, vk::CommandBuffer cmdBuf) const noexcept;
 
@@ -34,7 +35,7 @@ class PreMemoryBarrierRecorder
     {
     }
 
-    void recordCommands(const PassInfo &vInfo, const star::common::FrameTracker &ft,
+    void recordCommands(PassInfo &vInfo, const star::common::FrameTracker &ft,
                         vk::CommandBuffer cmdBuf) const noexcept;
 };
 } // namespace render_system::fog::commands::transmittance

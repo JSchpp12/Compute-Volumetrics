@@ -31,6 +31,6 @@ class PreMemoryBarrierContributor
     {
     }
 
-    void recordPreCommands(const PassInfo &vInfo, vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
+    void recordPreCommands(PassInfo &vInfo, vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
 };
 } // namespace render_system::fog::commands

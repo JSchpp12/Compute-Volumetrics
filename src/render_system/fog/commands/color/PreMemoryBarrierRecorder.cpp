@@ -4,7 +4,7 @@
 
 namespace render_system::fog::commands::color
 {
-void PreMemoryBarrierRecorder::recordCommands(const PassInfo &vInfo, const star::common::FrameTracker &ft,
+void PreMemoryBarrierRecorder::recordCommands(PassInfo &vInfo, const star::common::FrameTracker &ft,
                                               vk::CommandBuffer cmdBuf) const noexcept
 {
     (void)ft;

@@ -1,5 +1,7 @@
 #include "render_system/fog/commands/color/PostDifferentFamilies.hpp"
 
+#include "render_system/fog/BarrierFactory.hpp"
+
 namespace render_system::fog::commands::color
 {
 
@@ -20,56 +22,9 @@ static std::pair<std::array<vk::ImageMemoryBarrier2, 3>, uint32_t> GetImageMemor
     const render_system::fog::PassInfo &vInfo, uint32_t graphicsIndex, uint32_t computeIndex) noexcept
 {
     std::array<vk::ImageMemoryBarrier2, 3> barriers{
-        vk::ImageMemoryBarrier2()
-            .setImage(vInfo.terrainPassInfo.renderToColor)
-            .setOldLayout(vk::ImageLayout::eGeneral)
-            .setNewLayout(vk::ImageLayout::eColorAttachmentOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setDstAccessMask(vk::AccessFlagBits2::eNone)
-            .setSrcQueueFamilyIndex(computeIndex)
-            .setDstQueueFamilyIndex(graphicsIndex)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1)),
-        vk::ImageMemoryBarrier2()
-            .setImage(vInfo.terrainPassInfo.renderToDepth)
-            .setOldLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setSrcAccessMask(vk::AccessFlagBits2::eShaderRead)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setDstAccessMask(vk::AccessFlagBits2::eNone)
-            .setSrcQueueFamilyIndex(computeIndex)
-            .setDstQueueFamilyIndex(graphicsIndex)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eDepth)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(1)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(1)),
-        vk::ImageMemoryBarrier2()
-            .setImage(vInfo.computeWriteToImage)
-            .setOldLayout(vk::ImageLayout::eGeneral)
-            .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-            .setSrcQueueFamilyIndex(computeIndex)
-            .setDstQueueFamilyIndex(graphicsIndex)
-            .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-            .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eNone)
-            .setDstAccessMask(vk::AccessFlagBits2::eNone)
-            .setSubresourceRange(vk::ImageSubresourceRange()
-                                     .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                     .setBaseMipLevel(0)
-                                     .setLevelCount(vk::RemainingMipLevels)
-                                     .setBaseArrayLayer(0)
-                                     .setLayerCount(vk::RemainingArrayLayers))
-
-    };
+        MakeOffscreenColorReleaseBarrier(vInfo.terrainPassInfo.renderToColor, computeIndex, graphicsIndex),
+        MakeOffscreenDepthReleaseBarrier(vInfo.terrainPassInfo.renderToDepth, computeIndex, graphicsIndex),
+        MakeVolumeOutputReleaseBarrier(vInfo.computeWriteToImage, computeIndex, graphicsIndex)};
 
     return std::make_pair(barriers, 3);
 }

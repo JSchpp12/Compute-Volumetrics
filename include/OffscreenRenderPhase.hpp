@@ -33,7 +33,7 @@ class OffscreenRenderPhase : public star::core::renderer::DefaultRenderPhase
                                      const star::common::FrameTracker &frameInFlightIndex,
                                      const uint64_t &frameIndex) override;
 
-    const std::vector<star::Handle> getTimelineSemaphroes() const
+    const std::vector<star::Handle> getTimelineSemaphores() const
     {
         return m_timelineSemaphores;
     }

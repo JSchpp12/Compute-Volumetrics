@@ -49,12 +49,12 @@ class ChunkOrchestrator
     {
     }
 
-    void recordCommands(const DispatchInfo &dInfo, const PassInfo &vInfo, const PassPipelineInfo &pipeInfo,
+    void recordCommands(const DispatchInfo &dInfo, PassInfo &vInfo, const PassPipelineInfo &pipeInfo,
                         const star::common::FrameTracker &ft);
 
     // Records this orchestrator's passes (push constants + pre/main/post) into the provided command
     // buffer without begin/end, so several orchestrators can share a single command buffer.
-    void recordInto(const DispatchInfo &dInfo, const PassInfo &vInfo, const PassPipelineInfo &pipeInfo,
+    void recordInto(const DispatchInfo &dInfo, PassInfo &vInfo, const PassPipelineInfo &pipeInfo,
                     const star::common::FrameTracker &ft, vk::CommandBuffer cmdBuf);
 
     void cleanupRender(star::core::device::DeviceContext &ctx);

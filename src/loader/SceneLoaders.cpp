@@ -6,8 +6,8 @@
 
 #include <array>
 
-#include <star_terrain/rendering/FromTerrainDirLoader.hpp>
-#include <star_terrain/rendering/TerrainObject.hpp>
+#include <star_terrain/TerrainFactory.hpp>
+#include <star_terrain/rendering/TerrainGeometryDefinition.hpp>
 
 #include <starlight/ShaderResolver.hpp>
 #include <starlight/command/CreateObject.hpp>
@@ -19,61 +19,26 @@
 namespace loader
 {
 
-static std::shared_ptr<star::StarObject> SubmitInitTerrain(star::core::device::DeviceContext &ctx,
-                                                           star::terrain::TerrainGeometryDefinition geomDef,
-                                                           std::filesystem::path vertShader,
-                                                           std::filesystem::path fragShader, std::string name,
-                                                           bool useGreyscale, bool aggressiveTerrainTextureLoading)
-{
-    star::terrain::TerrainObjectDefinition def{
-        .geometry = std::move(geomDef),
-        .vertShaderPath = std::move(vertShader),
-        .fragShaderPath = std::move(fragShader),
-        .colorMode = useGreyscale ? star::terrain::ColoringMode::greyscale : star::terrain::ColoringMode::color,
-        .textures = aggressiveTerrainTextureLoading ? star::terrain::TerrainTextureLoaderPlan::Aggressive()
-                                                    : star::terrain::TerrainTextureLoaderPlan::Lazy()};
-
-    star::ShaderResolver terrainResolver = star::ShaderResolver::Builder{ctx.getCmdBus()}
-                                               .setShader(star::Shader_Stage::vertex, def.vertShaderPath.string())
-                                               .setShader(star::Shader_Stage::fragment, def.fragShaderPath.string())
-                                               .build();
-
-    auto cmd = star::command::CreateObject::Builder()
-                   .setLoader(std::make_unique<star::terrain::FromTerrainDirLoader>(ctx, std::move(def)))
-                   .setShaderResolver(std::move(terrainResolver))
-                   .setUniqueName(std::move(name))
-                   .build();
-    ctx.begin().set(cmd).submit();
-    cmd.getReply().get()->init(ctx);
-    return cmd.getReply().get();
-}
-
 static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarObject>> LoadTerrain(
     star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
     const std::filesystem::path &terrainPath, bool aggressiveTerrainTextureLoading)
 {
-    // create terrain geometry definition
-    auto geometry = star::terrain::TerrainGeometryDefinition::Builder(ctx)
+    const std::filesystem::path terrainShaderDir = mediaDirPath / "shaders" / "terrain";
+
+    auto geometry = star::terrain::rendering::TerrainGeometryDefinition::Builder(ctx)
                         .setTerrainDir(terrainPath)
-                        .setRenderType(star::terrain::rendering::Type::Real)
+                        .setDefaultRenderType(star::terrain::rendering::Type::Real)
                         .build();
 
-    const std::filesystem::path terrainShaderDir = mediaDirPath / "shaders" / "terrain";
-    // share between them
-    auto colorTerrain =
-        SubmitInitTerrain(ctx, geometry, terrainShaderDir / "color.vert", terrainShaderDir / "color.frag",
-                          "terrain_color", false, aggressiveTerrainTextureLoading);
-    auto shadowTerrain =
-        SubmitInitTerrain(ctx, geometry, terrainShaderDir / "shadow_cast.vert", terrainShaderDir / "shadow_cast.frag",
-                          "terrain_depth", true, aggressiveTerrainTextureLoading);
+    auto terrains = star::terrain::TerrainFactory::buildTerrains(ctx, geometry, terrainShaderDir,
+                                                                 aggressiveTerrainTextureLoading);
 
     // register the terrain information with the image metric manager for cache
-    const auto *terrain = static_cast<const star::terrain::TerrainObject *>(colorTerrain.get());
     ctx.getCmdBus().submit(image_metrics::RegisterTerrainRecordInfo{}
-                               .setTerrainHeightFilePath(terrain->getShapeFilePath())
-                               .setTerrainRenderingType(terrain->getRenderingType()));
+                               .setTerrainHeightFilePath(terrains.shapeFilePath)
+                               .setTerrainRenderingType(terrains.defaultRenderingType));
 
-    return std::make_pair(std::move(colorTerrain), std::move(shadowTerrain));
+     return std::make_pair(std::move(terrains.colorTerrain), std::move(terrains.greyscaleTerrain));
 }
 
 static std::vector<star::Color> CreateNeonColors(std::size_t count)

@@ -1,6 +1,6 @@
 #include "render_system/fog/commands/PreMemoryBarrierContributor.hpp"
 
-void render_system::fog::commands::PreMemoryBarrierContributor::recordPreCommands(const PassInfo &tInfo,
+void render_system::fog::commands::PreMemoryBarrierContributor::recordPreCommands(PassInfo &tInfo,
                                                                                   vk::CommandBuffer cmdBuf,
                                                                                   const star::common::FrameTracker &ft)
 {

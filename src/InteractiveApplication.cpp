@@ -31,7 +31,7 @@ static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerC
     const auto &c = offscreenRenderer.getCommandBuffer();
 
     cmdBus.submit(star::command_order::TriggerPass()
-                      .setTimelineSemaphore(offscreenRenderer.getTimelineSemaphroes()[ii])
+                      .setTimelineSemaphore(offscreenRenderer.getTimelineSemaphores()[ii])
                       .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
                       .setPass(c));
 };

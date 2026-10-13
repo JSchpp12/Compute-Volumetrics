@@ -204,6 +204,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/AABBTransfer.hpp"
 	"include/Volume.hpp"
 	"include/TransmittanceCellPlanner.hpp"
+	"include/render_system/fog/BarrierFactory.hpp"
 	"include/render_system/fog/ShadowDispatchResourceProvider.hpp"
 	"include/render_system/fog/TransmittanceMapConfig.hpp"
  	"include/renderer/volume/ContainerRenderResourceData.hpp"
@@ -366,22 +367,16 @@ set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
 find_package(Git REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-# StarlightAppBuilder provides the star_app_builder command. Keep a single
-# shared checkout/install so every build configuration (Debug/Release/etc.)
-# reuses it instead of cloning its own copy. If the command is already
-# available (for example from StarlightAppBuilder's init script), skip the
-# fetch entirely.
 set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_SOURCE_DIR}/out/extern/StarlightAppBuilder" CACHE PATH "Shared StarlightAppBuilder install directory")
 set(STARLIGHT_APP_BUILDER_BIN "${STARLIGHT_APP_BUILDER_DIR}/bin")
 set(STARLIGHT_APP_BUILDER_SRC "${STARLIGHT_APP_BUILDER_DIR}/src")
-
 find_program(STAR_APP_BUILDER_COMMAND
 	NAMES star_app_builder
 	PATHS "${STARLIGHT_APP_BUILDER_BIN}"
 )
 
 if (STAR_APP_BUILDER_COMMAND)
-	message(STATUS "Found star_app_builder: ${STAR_APP_BUILDER_COMMAND} (skipping fetch/install)")
+	message(STATUS "Found star_app_builder: ${STAR_APP_BUILDER_COMMAND}")
 else()
 	message(STATUS "star_app_builder not found; fetching and installing into ${STARLIGHT_APP_BUILDER_DIR}")
 	file(REMOVE_RECURSE

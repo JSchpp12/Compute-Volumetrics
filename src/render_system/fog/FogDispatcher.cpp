@@ -1,5 +1,6 @@
 #include "render_system/fog/FogDispatcher.hpp"
 
+#include "FogType.hpp"
 #include "render_system/fog/commands/Distance.hpp"
 #include "render_system/fog/commands/Pass.hpp"
 #include "render_system/fog/commands/PostMemoryBarrierContributor.hpp"
@@ -40,18 +41,6 @@ static std::tuple<uint32_t, uint32_t, uint32_t> GetQueueFamilyIndices(star::core
     return std::make_tuple(graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex);
 }
 
-static bool NeedsTransmittancePrecompute(const Fog::Type fogType) noexcept
-{
-    switch (fogType)
-    {
-    case (Fog::Type::sLinear):
-    case (Fog::Type::sExponential):
-        return false;
-    default:
-        return true;
-    }
-}
-
 static ChunkOrchestrator CreateTransmittancePrecomputePass(star::core::device::DeviceContext &ctx,
                                                            star::Handle &passReg,
                                                            const vk::Extent2D &transmittanceMapResolution,
@@ -59,20 +48,21 @@ static ChunkOrchestrator CreateTransmittancePrecomputePass(star::core::device::D
 {
     const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
         GetQueueFamilyIndices(ctx);
-
-    QueueFamilyIndices info{
-        .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
+    (void)transferQueueFamilyIndex;
 
     std::vector<commands::Pass> pass{1};
 
     // The transmittance pass is a single direct 2D dispatch over the 3D transmittance map's columns -- no
-    // rayInit/active-ray compaction and no indirect dispatch.
+    // rayInit/active-ray compaction and no indirect dispatch. When it runs it is the first shadow-depth
+    // consumer, so it records the shadow-depth acquire and flips info.imageReady.shadowDepth. The
+    // frame-input image/queue-ownership transitions (offscreen color/depth and the volume output) are
+    // recorded by the always-dispatched color pass's Init prep, so they are not skipped when this pass
+    // is (linear/exponential fog) -- and in that case the color pass also takes over the shadow-depth
+    // acquire via the same ImageReady latch.
     pass[0] = Pass{
         ComputeContributor{TransmittancePrecompute{transmittanceMapResolution}},
-        PreMemoryBarrierContributor{
-            color::FrameInputPreMemoryBarrierRecorder{color::PreDifferentFamilies{info}},
-            transmittance::PreMemoryBarrierRecorder{transmittance::ShadowDepthAcquire{
-                render_system::fog::makeShadowDepthAcquirePolicy(graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
+        PreMemoryBarrierContributor{transmittance::PreMemoryBarrierRecorder{transmittance::ShadowDepthAcquire{
+            render_system::fog::makeShadowDepthAcquirePolicy(graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
 
     return ChunkOrchestrator{std::move(pass), false, &isReady};
 }
@@ -89,7 +79,10 @@ static ChunkOrchestrator CreateColorPass(star::core::device::DeviceContext &ctx,
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
 
     pass[0] = Pass{ComputeContributor{Init{ctx.getEngineResolution()}},
-                   PreMemoryBarrierContributor{color::PreMemoryBarrierRecorder{}}};
+                   PreMemoryBarrierContributor{color::PreMemoryBarrierRecorder{},
+                                               color::FrameInputPreMemoryBarrierRecorder{color::PreDifferentFamilies{
+                                                   info, render_system::fog::makeShadowDepthAcquirePolicy(
+                                                             graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}};
 
     pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
 
@@ -203,7 +196,7 @@ void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk:
     }
 }
 
-void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::FrameTracker &ft, const PassInfo &pInfo,
+void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::FrameTracker &ft, PassInfo &pInfo,
                                    const PassPipelineInfo &pipeInfo)
 {
     assert(m_passes.size() > 0);
@@ -255,7 +248,10 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
 
         // Linear and exponential fog do not sample the precomputed transmittance map. Skip the entire
         // transmittance chunk, including its pre-pass barriers and map clear, for those fog types.
-        const bool dispatch = (i == 0 && NeedsTransmittancePrecompute(pipeInfo.fogType)) || (i == 1) ||
+        // The acquire side needs no matching flag here: whichever chunk runs first records each
+        // acquire and flips the PassInfo::imageReady latch, so later chunks (and skipped ones) stay
+        // in sync automatically.
+        const bool dispatch = (i == 0 && Fog::NeedsTransmittancePrecompute(pipeInfo.fogType)) || (i == 1) ||
                               (i == 2 && pipeInfo.fogType == Fog::Type::sMarched);
         if (dispatch)
         {

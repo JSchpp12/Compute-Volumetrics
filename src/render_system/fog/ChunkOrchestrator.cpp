@@ -36,7 +36,7 @@ std::optional<render_system::fog::WaitInfo> render_system::fog::ChunkOrchestrato
     return std::nullopt;
 }
 
-void render_system::fog::ChunkOrchestrator::recordInto(const DispatchInfo &dInfo, const PassInfo &vInfo,
+void render_system::fog::ChunkOrchestrator::recordInto(const DispatchInfo &dInfo, PassInfo &vInfo,
                                                        const PassPipelineInfo &pipeInfo,
                                                        const star::common::FrameTracker &ft,
                                                        vk::CommandBuffer cmdBuf)
@@ -71,7 +71,7 @@ void render_system::fog::ChunkOrchestrator::recordInto(const DispatchInfo &dInfo
     }
 }
 
-void render_system::fog::ChunkOrchestrator::recordCommands(const DispatchInfo &dInfo, const PassInfo &vInfo,
+void render_system::fog::ChunkOrchestrator::recordCommands(const DispatchInfo &dInfo, PassInfo &vInfo,
                                                            const PassPipelineInfo &pipeInfo,
                                                            const star::common::FrameTracker &ft)
 {

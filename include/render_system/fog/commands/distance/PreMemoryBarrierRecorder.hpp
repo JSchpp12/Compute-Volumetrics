@@ -16,7 +16,7 @@ class PreMemoryBarrierRecorder
     {
     }
 
-    void recordCommands(const PassInfo &info, const star::common::FrameTracker &ft,
+    void recordCommands(PassInfo &info, const star::common::FrameTracker &ft,
                         vk::CommandBuffer cmdBuf) const noexcept;
 };
 } // namespace render_system::fog::commands::distance

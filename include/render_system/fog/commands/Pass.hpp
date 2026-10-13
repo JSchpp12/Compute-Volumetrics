@@ -38,7 +38,7 @@ class Pass
     {
     }
 
-    void recordPreCommands(const PassInfo &tInfo, vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
+    void recordPreCommands(PassInfo &tInfo, vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
 
     void recordPostCommands(const PassInfo &tInfo, vk::CommandBuffer cmdBuf,
                             const star::common::FrameTracker &ft);

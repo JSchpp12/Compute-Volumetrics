@@ -21,7 +21,7 @@ class FrameInputPreMemoryBarrierRecorder
     {
     }
 
-    void recordCommands(const PassInfo &vInfo, const star::common::FrameTracker &ft,
+    void recordCommands(PassInfo &vInfo, const star::common::FrameTracker &ft,
                         vk::CommandBuffer cmdBuf) const noexcept;
 };
 } // namespace render_system::fog::commands::color
