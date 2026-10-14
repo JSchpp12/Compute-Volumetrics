@@ -1,7 +1,6 @@
 #include "ScreenMaterial.hpp"
 
-std::vector<std::pair<vk::DescriptorType, const int>> ScreenMaterial::getDescriptorRequests(
-    const int &numFramesInFlight) const
+std::vector<std::pair<vk::DescriptorType, const int>> ScreenMaterial::getDescriptorRequests(int numFramesInFlight) const
 {
     return std::vector<std::pair<vk::DescriptorType, const int>>{std::make_pair<vk::DescriptorType, const int>(
         vk::DescriptorType::eCombinedImageSampler, int(numFramesInFlight))};
@@ -19,7 +18,7 @@ void ScreenMaterial::addComputeWriteToImage(std::shared_ptr<star::StarTextures::
 }
 
 std::unique_ptr<star::StarShaderInfo> ScreenMaterial::buildShaderInfo(star::core::device::DeviceContext &context,
-                                                                      const uint8_t &numFramesInFlight,
+                                                                      uint8_t numFramesInFlight,
                                                                       star::StarShaderInfo::Builder builder)
 {
     assert(m_computeOutputImages.size() > 0 && "Compute images need to be assigned before shader infos be built");
@@ -28,8 +27,8 @@ std::unique_ptr<star::StarShaderInfo> ScreenMaterial::buildShaderInfo(star::core
     {
         builder.startOnFrameIndex(i);
         builder.startSet();
-        builder.add(
-            star::StarShaderInfo::TextureInfo{m_computeOutputImages.at(i).get(), vk::ImageLayout::eShaderReadOnlyOptimal});
+        builder.add(star::StarShaderInfo::TextureInfo{m_computeOutputImages.at(i).get(),
+                                                      vk::ImageLayout::eShaderReadOnlyOptimal});
     }
 
     return builder.build();

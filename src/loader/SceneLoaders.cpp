@@ -23,22 +23,22 @@ static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarOb
     star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
     const std::filesystem::path &terrainPath, bool aggressiveTerrainTextureLoading)
 {
-    const std::filesystem::path terrainShaderDir = mediaDirPath / "shaders" / "terrain";
+    const std::filesystem::path terrainShaderDir = mediaDirPath / "shaders" / "terrain" / "standard_geometry";
 
     auto geometry = star::terrain::rendering::TerrainGeometryDefinition::Builder(ctx)
                         .setTerrainDir(terrainPath)
                         .setDefaultRenderType(star::terrain::rendering::Type::Real)
                         .build();
 
-    auto terrains = star::terrain::TerrainFactory::buildTerrains(ctx, geometry, terrainShaderDir,
-                                                                 aggressiveTerrainTextureLoading);
+    auto terrains =
+        star::terrain::TerrainFactory::buildTerrains(ctx, geometry, terrainShaderDir, aggressiveTerrainTextureLoading);
 
     // register the terrain information with the image metric manager for cache
     ctx.getCmdBus().submit(image_metrics::RegisterTerrainRecordInfo{}
                                .setTerrainHeightFilePath(terrains.shapeFilePath)
                                .setTerrainRenderingType(terrains.defaultRenderingType));
 
-     return std::make_pair(std::move(terrains.colorTerrain), std::move(terrains.greyscaleTerrain));
+    return std::make_pair(std::move(terrains.colorTerrain), std::move(terrains.greyscaleTerrain));
 }
 
 static std::vector<star::Color> CreateNeonColors(std::size_t count)
