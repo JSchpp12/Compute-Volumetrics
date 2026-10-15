@@ -71,8 +71,8 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
     grid->setGridClass(openvdb::GridClass::GRID_FOG_VOLUME);
 }
 
-void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer,
-                                         const star::common::FrameTracker &frameTracker, const uint64_t &frameIndex)
+void Volume::recordPreRenderPassCommands(vk::CommandBuffer commandBuffer,
+                                         const star::common::FrameTracker &frameTracker, uint64_t frameIndex)
 {
     const uint8_t frameInFlightIndex = frameTracker.getCurrent().getFrameInFlightIndex();
     vk::Image cImage = this->getVolumePhase()->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
@@ -97,7 +97,7 @@ void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer,
         vk::DependencyInfo().setPImageMemoryBarriers(imgBarriers).setImageMemoryBarrierCount(1));
 }
 
-void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
+void Volume::recordPostRenderPassCommands(vk::CommandBuffer commandBuffer, int frameInFlightIndex)
 {
     vk::Image cImage = this->getVolumePhase()->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
     vk::ImageMemoryBarrier2 imgBarrier[1]{vk::ImageMemoryBarrier2()
@@ -119,16 +119,6 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
 
     commandBuffer.pipelineBarrier2(
         vk::DependencyInfo().setPImageMemoryBarriers(imgBarrier).setImageMemoryBarrierCount(1));
-}
-
-void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
-                         const star::Handle &targetCommandBuffer,
-                         const star::core::graphics::SemaphoreInfo &transferRequestSync)
-{
-    star::StarObject::frameUpdate(context, frameInFlightIndex, targetCommandBuffer, transferRequestSync);
-
-    // the volume render phase is driven by the scene (m_phases); the StarObject
-    // half (instance updates) is driven here via the finalization render group.
 }
 
 void Volume::prepRender(star::core::device::DeviceContext &context)

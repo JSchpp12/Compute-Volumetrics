@@ -101,15 +101,11 @@ class Volume : public star::StarObject
 
     virtual bool isRenderReady(star::core::device::DeviceContext &context) override;
 
-    virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer,
+    virtual void recordPreRenderPassCommands(vk::CommandBuffer commandBuffer,
                                              const star::common::FrameTracker &frameTracker,
-                                             const uint64_t &frameIndex) override;
+                                             uint64_t frameIndex) override;
 
-    virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
-
-    virtual void frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
-                             const star::Handle &targetCommandBuffer,
-                             const star::core::graphics::SemaphoreInfo &transferRequestSync) override;
+    virtual void recordPostRenderPassCommands(vk::CommandBuffer commandBuffer, int frameInFlightIndex) override;
 
     glm::vec3 getCenterOfVDB() const
     {
