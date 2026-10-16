@@ -41,6 +41,10 @@ cmake_policy(SET CMP0071 NEW)
 cmake_policy(SET CMP0076 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0079 NEW)
+# Normalize runtime-dependency paths before regex matching (CMake 4.3+).
+if(POLICY CMP0207)
+	cmake_policy(SET CMP0207 NEW)
+endif()
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -55,6 +59,12 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(zstd CONFIG REQUIRED)
 find_package(TBB CONFIG REQUIRED)
 set(starlight_common_DIR "${CMAKE_BINARY_DIR}/extern/Starlight-Common" CACHE PATH "")
+
+# Starlight-Terrain installs its runtime data (PROJ) into this component so it
+# ships with the app's Runtime component; its dev artifacts stay in
+# "Unspecified" and are excluded from the distributable.
+set(STARLIGHT_TERRAIN_RUNTIME_COMPONENT Runtime)
+
 add_subdirectory("extern/Starlight-Common")
 add_subdirectory("extern/starlight")
 add_subdirectory("extern/Starlight-Terrain")
@@ -271,7 +281,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/renderer/finalization/HeadlessPhaseProvider.hpp"
 )
 
-add_library(${PROJECT_NAME}_lib 
+add_library(${PROJECT_NAME}_lib STATIC
     ${${PROJECT_NAME}_SOURCES}
     ${${PROJECT_NAME}_HEADERS}
 )
@@ -330,12 +340,18 @@ else()
 	endif()
 endif()
 
-set(FINAL_APPLICATION_DIR "")
 if (MSVC)
-    set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
 	target_compile_options(${PROJECT_NAME}_lib PUBLIC 
 		$<$<CXX_COMPILER_ID:MSVC>:/bigobj /MP /EHsc /Zc:__cplusplus> 
 	)
+endif()
+
+# Directory that holds the built executable together with the generated media
+# and configuration.  Multi-config generators (Visual Studio) place each
+# configuration in its own subdirectory, while single-config generators
+# (Ninja, Makefiles) build directly in the binary directory.
+if (CMAKE_CONFIGURATION_TYPES)
+	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
 else()
 	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 endif()
@@ -353,6 +369,12 @@ if (NOT ${HEADLESS})
 endif()
 
 add_executable(${PROJECT_NAME} "src/main.cpp")
+
+# Keep the executable in the same directory as the generated media/config so
+# the build tree mirrors the packaged layout and CPack can find everything.
+set_target_properties(${PROJECT_NAME} PROPERTIES
+	RUNTIME_OUTPUT_DIRECTORY "${FINAL_APPLICATION_DIR}"
+)
 
 target_include_directories(${PROJECT_NAME}
 	PRIVATE "include"
@@ -503,35 +525,70 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)          # use build rpath for build t
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)        # also add rpaths to where linked libs live at install time
 set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")             # runtime: relative to the executable's directory
 
+# System libraries that must never be copied into the package.  vcpkg has
+# already deployed the app's DLLs/SOs next to the executable at build time;
+# these filters only stop CMake's dependency resolver from also pulling in
+# the operating system's own runtime (and, on Windows, from choking on API-set
+# forwarders such as api-ms-win-*, which have no file on disk).
+set(_STAR_RUNTIME_PRE_EXCLUDE)
+set(_STAR_RUNTIME_POST_EXCLUDE)
+if (WIN32)
+    # DLL names are matched lowercased, so plain lowercase patterns suffice.
+    list(APPEND _STAR_RUNTIME_PRE_EXCLUDE "^api-ms-.*" "^ext-ms-.*")
+    # CMP0207 normalizes separators to '/'; the directory keeps its case.
+    list(APPEND _STAR_RUNTIME_POST_EXCLUDE ".*[Ww]indows/system32/.*")
+else()
+    set(_STAR_RUNTIME_PRE_EXCLUDE
+        ".*libc\\.so\\..*" ".*libm\\.so\\..*" ".*libpthread\\.so\\..*"
+        ".*librt\\.so\\..*" ".*libdl\\.so\\..*" ".*libresolv\\.so\\..*"
+        ".*ld-linux-.*\\.so\\..*" ".*libnss_.*\\.so\\..*"
+        ".*libgcc_s\\.so\\..*" ".*libvulkan\\.so.*")
+    set(_STAR_RUNTIME_POST_EXCLUDE ${_STAR_RUNTIME_PRE_EXCLUDE})
+endif()
+
 install(TARGETS ${PROJECT_NAME}
     RUNTIME_DEPENDENCIES
-       PRE_EXCLUDE_REGEXES
-            # Exclude glibc core + loader
-            ".*libc\\.so\\..*" ".*libm\\.so\\..*" ".*libpthread\\.so\\..*"
-            ".*librt\\.so\\..*" ".*libdl\\.so\\..*" ".*libresolv\\.so\\..*"
-            ".*ld-linux-.*\\.so\\..*" ".*libnss_.*\\.so\\..*"
-            # (Optional) exclude libgcc_s
-            ".*libgcc_s\\.so\\..*"
-            ".*libvulkan\\.so.*"
-        POST_EXCLUDE_REGEXES
-            # Same as above to be safe
-            ".*libc\\.so\\..*" ".*libm\\.so\\..*" ".*libpthread\\.so\\..*"
-            ".*librt\\.so\\..*" ".*libdl\\.so\\..*" ".*libresolv\\.so\\..*"
-            ".*ld-linux-.*\\.so\\..*" ".*libnss_.*\\.so\\..*"
-            ".*libgcc_s\\.so\\..*"
-            ".*libvulkan\\.so.*"
-    RUNTIME DESTINATION .
-	LIBRARY DESTINATION lib
-	ARCHIVE DESTINATION lib
+        PRE_EXCLUDE_REGEXES ${_STAR_RUNTIME_PRE_EXCLUDE}
+        POST_EXCLUDE_REGEXES ${_STAR_RUNTIME_POST_EXCLUDE}
+    RUNTIME DESTINATION . COMPONENT Runtime
+	LIBRARY DESTINATION lib COMPONENT Runtime
+	ARCHIVE DESTINATION lib COMPONENT Runtime
 )
 install(
-    DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/media
+    DIRECTORY "${FINAL_APPLICATION_DIR}/media"
     DESTINATION .
+    COMPONENT Runtime
 )
 install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/StarEngine.cfg
+    FILES "${FINAL_APPLICATION_DIR}/StarEngine.cfg"
     DESTINATION .
+    COMPONENT Runtime
 )
+
+# ---------------------------------------------------------------------------
+# Packaging (CPack)
+# ---------------------------------------------------------------------------
+set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_VENDOR "Compute Volumetrics")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "${PROJECT_NAME} ${PROJECT_VERSION}")
+if (WIN32)
+	set(_STAR_PACKAGE_SYSTEM "win64")
+else()
+	set(_STAR_PACKAGE_SYSTEM "${CMAKE_SYSTEM_NAME}")
+endif()
+set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-${_STAR_PACKAGE_SYSTEM}")
+
+# Only the runtime component is shipped.  This keeps the vendored projects'
+# static libraries, headers and CMake export files (which live in the
+# "Unspecified" component) out of the distributable.
+set(CPACK_COMPONENTS_ALL Runtime)
+set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
+set(CPACK_ARCHIVE_RUNTIME_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}")
+
+# Portable ZIP only.
+set(CPACK_GENERATOR "ZIP")
 
 include(CPack)
 
