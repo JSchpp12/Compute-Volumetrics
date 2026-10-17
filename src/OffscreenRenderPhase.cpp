@@ -9,7 +9,7 @@ OffscreenRenderPhase::OffscreenRenderPhase(const star::core::CommandBus &cmdBus,
 {
 }
 
-void OffscreenRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft)
+void OffscreenRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer buffer, const star::common::FrameTracker &ft)
 {
     const size_t index = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
     star::StarTextures::Texture *colorTex =
@@ -71,7 +71,7 @@ void OffscreenRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer &buffer
     }
 }
 
-void OffscreenRenderPhase::recordPostRenderingCalls(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft)
+void OffscreenRenderPhase::recordPostRenderingCalls(vk::CommandBuffer buffer, const star::common::FrameTracker &ft)
 {
     size_t index = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
     star::StarTextures::Texture *colorTex =

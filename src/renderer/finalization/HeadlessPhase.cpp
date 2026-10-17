@@ -11,14 +11,14 @@ void HeadlessPhase::addMemoryBarriersPost(vk::CommandBuffer cmdBuff, const star:
 {
 }
 
-void HeadlessPhase::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &ft)
+void HeadlessPhase::recordPreRenderPassCommands(vk::CommandBuffer commandBuffer, const star::common::FrameTracker &ft)
 {
     addMemoryBarriersPre(commandBuffer, ft);
 
     this->star::core::renderer::HeadlessRenderPhase::recordPreRenderPassCommands(commandBuffer, ft);
 }
 
-void HeadlessPhase::recordPostRenderingCalls(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &ft)
+void HeadlessPhase::recordPostRenderingCalls(vk::CommandBuffer commandBuffer, const star::common::FrameTracker &ft)
 {
     addMemoryBarriersPost(commandBuffer, ft);
 

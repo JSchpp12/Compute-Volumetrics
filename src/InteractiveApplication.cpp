@@ -3,7 +3,6 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "OffscreenRenderPhase.hpp"
-#include "render_system/fog/struct/ShaderFlags.hpp"
 
 #include <star_windowing/SwapChainRenderPhaseProvider.hpp>
 #include <star_windowing/command/CreateGui.hpp>
@@ -11,17 +10,13 @@
 #include <starlight/core/json/glm_json.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
 
-#include <imgui.h>
-
 #include <star_common/helper/StringHelpers.hpp>
 
 #include <star_windowing/InteractivityBus.hpp>
 #include <star_windowing/event/RequestSwapChainFromService.hpp>
 
 #include <iostream>
-#include <optional>
 #include <string>
-#include <variant>
 
 static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerCommandBuffer &mgrCmdBuff,
                                            const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
@@ -35,77 +30,6 @@ static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerC
                       .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
                       .setPass(c));
 };
-
-using DebugShaderFlag =
-    std::variant<render_system::fog::PrecomputeLightTransmittanceShaderFlags, render_system::fog::MarchShaderFlags>;
-
-static std::optional<DebugShaderFlag> PromptForShaderDebugFlag()
-{
-    using render_system::fog::MarchShaderFlags;
-    using render_system::fog::PrecomputeLightTransmittanceShaderFlags;
-
-    std::cout << "Select shader debug flag to toggle" << std::endl;
-    std::cout << "1 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugHighlightCutoffValue)
-              << std::endl;
-    std::cout << "2 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugHighlightShadows) << std::endl;
-    std::cout << "3 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugTransmittanceMap) << std::endl;
-    std::cout << "4 - " << render_system::fog::to_string(MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance)
-              << std::endl;
-    std::cout << "5 - "
-              << render_system::fog::to_string(PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow)
-              << std::endl;
-    std::cout << "6 - "
-              << render_system::fog::to_string(PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest)
-              << std::endl;
-    std::cout << "7 - "
-              << render_system::fog::to_string(PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest)
-              << std::endl;
-
-    std::string inputOption;
-    std::getline(std::cin, inputOption);
-
-    try
-    {
-        switch (std::stoi(inputOption))
-        {
-        case (1):
-            return DebugShaderFlag{MarchShaderFlags::EnableDebugHighlightCutoffValue};
-        case (2):
-            return DebugShaderFlag{MarchShaderFlags::EnableDebugHighlightShadows};
-        case (3):
-            return DebugShaderFlag{MarchShaderFlags::EnableDebugTransmittanceMap};
-        case (4):
-            return DebugShaderFlag{MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance};
-        case (5):
-            return DebugShaderFlag{PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow};
-        case (6):
-            return DebugShaderFlag{PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest};
-        case (7):
-            return DebugShaderFlag{PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest};
-        default:
-            break;
-        }
-    }
-    catch (const std::exception &)
-    {
-    }
-
-    std::cout << "Unknown option" << std::endl;
-    return std::nullopt;
-}
-
-/// <summary>
-/// Draw an ImGui checkbox which reflects -- and when clicked, toggles -- one of
-/// the volume's dynamic shader debug flags.
-/// </summary>
-template <typename FlagType> static void DrawShaderFlagToggle(Volume &volume, const FlagType flag)
-{
-    bool state = volume.isShaderDebugEnabled(flag);
-    if (ImGui::Checkbox(render_system::fog::to_string(flag).data(), &state))
-    {
-        volume.setShaderDebug(flag, state);
-    }
-}
 
 static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
                                        star::core::device::manager::Semaphore &mgrSemaphore,
@@ -273,43 +197,12 @@ void InteractiveApplication::initListeners(star::core::device::DeviceContext &co
 
 void InteractiveApplication::addPresentationFinalizationPhases(star::core::device::DeviceContext &context)
 {
-    auto draw = [this]() {
-        if (ImGui::Begin("Volumetrics"))
-        {
-            if (m_mainScene && m_mainScene->getCamera())
-            {
-                const auto position = m_mainScene->getCamera()->getPosition();
-                ImGui::Text("Camera: %.2f, %.2f, %.2f", position.x, position.y, position.z);
-            }
+    // The overlay borrows, but never owns, the scene and volume it draws; both
+    // outlive the overlay and are kept by the application.
+    m_guiController.setScene(m_mainScene.get());
+    m_guiController.setVolume(m_volume.get());
 
-            if (m_volume)
-            {
-                using render_system::fog::MarchShaderFlags;
-                using render_system::fog::PrecomputeLightTransmittanceShaderFlags;
-
-                const auto &fog = m_volume->getRenderer().getFogInfo();
-                ImGui::SeparatorText("Fog");
-                ImGui::Text("Linear near/far: %.3f / %.3f", fog.linearInfo.nearDist, fog.linearInfo.farDist);
-                ImGui::Text("Exponential density: %.3f", fog.expFogInfo.density);
-                ImGui::Text("Marched default density: %.4f", fog.marchedInfo.defaultDensity);
-
-                ImGui::SeparatorText("March Shader Flags");
-                DrawShaderFlagToggle(*m_volume, MarchShaderFlags::EnableDebugHighlightCutoffValue);
-                DrawShaderFlagToggle(*m_volume, MarchShaderFlags::EnableDebugHighlightShadows);
-                DrawShaderFlagToggle(*m_volume, MarchShaderFlags::EnableDebugTransmittanceMap);
-                DrawShaderFlagToggle(*m_volume, MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance);
-
-                ImGui::SeparatorText("Precompute Light Transmittance Shader Flags");
-                DrawShaderFlagToggle(*m_volume, PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow);
-                DrawShaderFlagToggle(*m_volume, PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest);
-                DrawShaderFlagToggle(*m_volume,
-                                     PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest);
-            }
-        }
-        ImGui::End();
-    };
-
-    star::windowing::CreateGui createGui{*m_mainScene, std::move(draw)};
+    star::windowing::CreateGui createGui{*m_mainScene, [this]() { m_guiController.draw(); }};
     context.getCmdBus().submit(createGui);
 }
 
@@ -367,98 +260,6 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         m_mainScene->getCamera()->rotateRelative(star::Type::Axis::y, -1.0);
     }
 
-    if (key == GLFW_KEY_B)
-    {
-        std::cout << "Select fog property to change" << std::endl;
-        std::cout << "1 - LinearFog: Fog Near Distance" << std::endl;
-        std::cout << "2 - LinearFog: Fog Far Distance" << std::endl;
-        std::cout << "3 - ExpFog: Fog Density" << std::endl;
-        std::cout << "4 - MarchedFog: Default Density" << std::endl;
-        std::cout << "5 - MarchedFog: Sigma Absorption" << std::endl;
-        std::cout << "6 - MarchedFog: Sigma Scattering" << std::endl;
-        std::cout << "7 - MarchedFog: Light PropertyDirG" << std::endl;
-        std::cout << "8 - MarchedFog: Step Size" << std::endl;
-        std::cout << "9 - MarchedFog: Step Size Light" << std::endl;
-        std::cout << "11 - MarchedFog: VDB Density Multiplier" << std::endl;
-
-        int selectedMode;
-
-        {
-            std::string inputOption = std::string();
-            std::getline(std::cin, inputOption);
-            try
-            {
-                selectedMode = std::stoi(inputOption);
-            }
-            catch (const std::exception &ex)
-            {
-                std::cout << "Invalid option" << std::endl;
-                return;
-            }
-        }
-
-        std::ostringstream oss;
-        oss << "Current value: ";
-
-        switch (selectedMode)
-        {
-        case (1):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().linearInfo.nearDist);
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().linearInfo.nearDist = PromptForFloat("Select visibility");
-            break;
-        case (2):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().linearInfo.farDist);
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().linearInfo.farDist = PromptForFloat("Select distance");
-            break;
-        case (3):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().expFogInfo.density);
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().expFogInfo.density = PromptForFloat("Select density");
-            break;
-        case (4):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity);
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = PromptForFloat("Select density");
-            break;
-        case (5):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.getSigmaAbsorption());
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(PromptForFloat("Select sigma"));
-            break;
-        case (6):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.getSigmaScattering());
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(PromptForFloat("Select sigma"));
-            break;
-        case (7):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.getLightPropertyDirG());
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(
-                PromptForFloat("Select light prop", true));
-            break;
-        case (8):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist);
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size");
-            break;
-        case (9):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light);
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light =
-                PromptForFloat("Select step size light");
-            break;
-        case (11):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.getDensityMultiplier());
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(PromptForFloat("Select multipler"));
-            break;
-        default:
-            std::cout << "Unknown option" << std::endl;
-        }
-    }
-
     if (key == GLFW_KEY_L)
     {
         std::cout << "Setting fog type to: Linear" << std::endl;
@@ -487,25 +288,6 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     {
         std::cout << "Setting fog type to: NANO Surface" << std::endl;
         m_volume->setFogType(Fog::Type::sNanoSurface);
-    }
-
-    if (key == GLFW_KEY_LEFT_ALT)
-    {
-        const auto selectedFlag = PromptForShaderDebugFlag();
-        if (!selectedFlag)
-        {
-            return;
-        }
-
-        const bool enabled = std::visit(
-            [this](const auto &flag) {
-                using FlagType = std::decay_t<decltype(flag)>;
-
-                return m_volume->toggleShaderDebug(flag);
-            },
-            *selectedFlag);
-        std::cout << std::visit([](const auto &flag) { return render_system::fog::to_string(flag); }, *selectedFlag)
-                  << ": " << (enabled ? "ON" : "OFF") << std::endl;
     }
 
     if (key == GLFW_KEY_O)

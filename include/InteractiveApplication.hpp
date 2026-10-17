@@ -3,6 +3,7 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "Application.hpp"
+#include "GUIController.hpp"
 #include "config/InteractiveConfigInfo.hpp"
 
 #include <star_windowing/BasicCamera.hpp>
@@ -45,6 +46,7 @@ class InteractiveApplication : public Application,
     friend class star::windowing::HandleKeyPressPolicy<InteractiveApplication>;
     star::windowing::WindowingContext *m_winContext = nullptr;
     config::InteractiveConfigInfo m_interactiveConfig{};
+    GUIController m_guiController;
     ModifyMode m_mode{ModifyMode::movement};
     std::chrono::time_point<std::chrono::steady_clock> m_timeLastFrame;
 

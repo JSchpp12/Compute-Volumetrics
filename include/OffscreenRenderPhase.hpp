@@ -1,7 +1,7 @@
 #pragma once
 
-#include <starlight/core/renderer/DefaultRenderPhase.hpp>
 #include <starlight/core/CommandBus.hpp>
+#include <starlight/core/renderer/DefaultRenderPhase.hpp>
 
 class OffscreenRenderPhaseProvider;
 
@@ -22,9 +22,9 @@ class OffscreenRenderPhase : public star::core::renderer::DefaultRenderPhase
     OffscreenRenderPhase(OffscreenRenderPhase &&) = delete;
     OffscreenRenderPhase &operator=(OffscreenRenderPhase &&) = delete;
 
-    virtual void recordPreRenderPassCommands(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft) override;
+    virtual void recordPreRenderPassCommands(vk::CommandBuffer buffer, const star::common::FrameTracker &ft) override;
 
-    virtual void recordPostRenderingCalls(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft) override;
+    virtual void recordPostRenderingCalls(vk::CommandBuffer buffer, const star::common::FrameTracker &ft) override;
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoColorAttachment(
         const star::common::FrameTracker &frameTracker) override;

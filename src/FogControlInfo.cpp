@@ -80,7 +80,7 @@ void FogControlInfoTransfer::writeDataToStageBuffer(star::StarBuffers::Buffer &b
     buffer.unmap();
 }
 
-void FogInfoController::prepRender(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight)
+void FogInfoController::prepRender(star::core::device::DeviceContext &context, uint8_t numFramesInFlight)
 {
     star::ManagerController::RenderResource::Buffer::prepRender(context, numFramesInFlight);
 

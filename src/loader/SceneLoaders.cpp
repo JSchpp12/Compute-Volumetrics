@@ -29,7 +29,8 @@ static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarOb
 
     auto geometry = star::terrain::rendering::TerrainGeometryDefinition::Builder(ctx)
                         .setTerrainDir(terrainPath)
-                        .setDefaultRenderType(star::terrain::rendering::Type::Real)
+                        .setShapeRepresentation(star::terrain::rendering::Representation::Geometry)
+                        .setDefaultRenderType(star::terrain::rendering::Type::Flat)
                         .build();
 
     auto terrains =

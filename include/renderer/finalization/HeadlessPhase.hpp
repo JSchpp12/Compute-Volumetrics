@@ -16,10 +16,10 @@ class HeadlessPhase : public star::core::renderer::HeadlessRenderPhase
     HeadlessPhase(HeadlessPhase &&) = delete;
     HeadlessPhase &operator=(HeadlessPhase &&) = delete;
 
-    virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer,
+    virtual void recordPreRenderPassCommands(vk::CommandBuffer commandBuffer,
                                              const star::common::FrameTracker &ft) override;
 
-    virtual void recordPostRenderingCalls(vk::CommandBuffer &commandBuffer,
+    virtual void recordPostRenderingCalls(vk::CommandBuffer commandBuffer,
                                           const star::common::FrameTracker &ft) override;
 
   private:

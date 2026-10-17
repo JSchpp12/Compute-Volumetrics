@@ -39,7 +39,7 @@ class FogInfoController : public star::ManagerController::RenderResource::Buffer
     {
     }
 
-    void prepRender(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight) override;
+    void prepRender(star::core::device::DeviceContext &context, uint8_t numFramesInFlight) override;
 
     vk::PipelineStageFlags waitStage() const override
     {
