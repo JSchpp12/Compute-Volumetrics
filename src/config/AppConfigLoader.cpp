@@ -1,11 +1,12 @@
 #include "config/AppConfigLoader.hpp"
-#include "config/AppConfigValidator.hpp"
 #include "config/AppConfigInfo_json.hpp"
+#include "config/AppConfigValidator.hpp"
 #include "util/CmdLine.hpp"
 
 #include <starlight/common/ConfigFile.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
+#include <starlight/util/io/SearchPolicy.hpp>
 
 #include <algorithm>
 #include <filesystem>
@@ -15,6 +16,20 @@
 
 namespace config
 {
+static void ResolveFieldIfPresent(std::string &field, star::io::PathKind kind)
+{
+    if (field.empty())
+        return;
+
+    namespace io = star::io;
+
+    auto resolved = io::resolvePath(std::filesystem::path{field}, kind);
+    if (resolved)
+    {
+        field = resolved.value().string();
+    }
+}
+
 std::pair<std::unique_ptr<AppConfigInfo>, LoadStatus> AppConfigLoader::LoadFromArgs(int argc, char **argv)
 {
     auto cfg = std::make_unique<AppConfigInfo>();
@@ -22,7 +37,15 @@ std::pair<std::unique_ptr<AppConfigInfo>, LoadStatus> AppConfigLoader::LoadFromA
     auto appConfigPath = util::CmdLine::TryGetAppConfigFilePath(argc, argv);
     if (appConfigPath.has_value())
     {
-        const std::filesystem::path path{*appConfigPath};
+        const std::filesystem::path providedPath{*appConfigPath};
+
+        // Resolve the appConfig path before the existence check: probe as-is,
+        // then relative to the media directory, then relative to the
+        // executable directory. On failure keep the original candidate and let
+        // the default-file flow below handle it.
+        auto resolvedAppConfig = star::io::resolvePath(providedPath, star::io::PathKind::file);
+        const std::filesystem::path path = resolvedAppConfig.value_or(providedPath);
+
         if (std::filesystem::exists(path))
         {
             std::ifstream file(path);
@@ -49,9 +72,9 @@ std::pair<std::unique_ptr<AppConfigInfo>, LoadStatus> AppConfigLoader::LoadFromA
         }
         else
         {
-            CreateDefaultFile(path, *cfg);
+            CreateDefaultFile(providedPath, *cfg);
             std::ostringstream oss;
-            oss << "AppConfig file not found at " << path.string()
+            oss << "AppConfig file not found at " << providedPath.string()
                 << "; created one with default values. Edit it and re-run.";
             star::core::logging::error(oss.str());
             return {std::move(cfg), LoadStatus::CreatedDefault};
@@ -59,6 +82,14 @@ std::pair<std::unique_ptr<AppConfigInfo>, LoadStatus> AppConfigLoader::LoadFromA
     }
 
     cfg = ApplyCliOverrides(argc, argv, std::move(cfg));
+
+    // Resolve every config-provided path before the engine config is loaded
+    // and validated: probe as-is -> media-relative -> exe-relative; winners
+    // are rewritten into the fields (absolute, canonical). The media dir is
+    // exe-relative now, so no engine-config dependency exists at this point.
+    ResolveFieldIfPresent(cfg->engineConfigPath, star::io::PathKind::file);
+    ResolveFieldIfPresent(cfg->terrainDir, star::io::PathKind::directory);
+    ResolveFieldIfPresent(cfg->simControllerPath, star::io::PathKind::file);
 
     try
     {
@@ -105,7 +136,7 @@ void AppConfigLoader::LogConfig(const AppConfigInfo &cfg)
 }
 
 std::unique_ptr<AppConfigInfo> AppConfigLoader::ApplyCliOverrides(int argc, char **argv,
-                                                                      std::unique_ptr<AppConfigInfo> cfg)
+                                                                  std::unique_ptr<AppConfigInfo> cfg)
 {
     if (auto v = util::CmdLine::TryGetArgValue(argc, argv, "--volume"))
         cfg->volumeName = std::move(*v);

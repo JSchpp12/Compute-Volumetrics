@@ -23,7 +23,9 @@ static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarOb
     star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
     const std::filesystem::path &terrainPath, bool aggressiveTerrainTextureLoading)
 {
-    const std::filesystem::path terrainShaderDir = mediaDirPath / "shaders" / "terrain" / "standard_geometry";
+    // Media-relative candidate: resolution happens in ShaderService when
+    // TerrainFactory builds resolvers with shaderDir / "color.vert" etc.
+    const std::filesystem::path terrainShaderDir = std::filesystem::path{"shaders"} / "terrain" / "standard_geometry";
 
     auto geometry = star::terrain::rendering::TerrainGeometryDefinition::Builder(ctx)
                         .setTerrainDir(terrainPath)

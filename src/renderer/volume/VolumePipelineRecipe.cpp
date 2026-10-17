@@ -1,7 +1,5 @@
 #include "renderer/volume/VolumePipelineRecipe.hpp"
 
-#include "ConfigFile.hpp"
-
 #include <Compiler.hpp>
 #include <Enums.hpp>
 #include <StarPipeline.hpp>
@@ -9,11 +7,14 @@
 #include <device/managers/Pipeline.hpp>
 #include <device/managers/Shader.hpp>
 #include <starlight/command/pipeline/CreatePipeline.hpp>
+#include <starlight/core/CommandBus.hpp>
+#include <starlight/core/Exceptions.hpp>
 #include <starlight/core/waiter/one_shot/WaiterFactory.hpp>
 
 #include <vulkan/vulkan.hpp>
 
 #include <filesystem>
+#include <sstream>
 #include <string>
 
 namespace renderer::volume
@@ -30,13 +31,24 @@ static star::Handle BuildPipeline(const std::filesystem::path &shaderDir, const 
         .setPipelineLayout(computePipelineLayout);
 
     context->getCmdBus().submit(cmd);
-    return cmd.getReply().get();
+    const auto reply = cmd.getReply().get();
+    if (!reply)
+    {
+        // The service reports resolution failures through the reply; a
+        // pipeline that failed to build would otherwise stall the renderer
+        // waiting for a pipeline-ready event that never fires.
+        std::ostringstream oss;
+        oss << "Failed to create volume pipeline for shader '" << fPath.string() << "':\n" << reply.error().toString();
+        STAR_THROW(oss.str());
+    }
+    return reply.value();
 }
 
 static std::filesystem::path VolumeShaderDir()
 {
-    return std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) / "shaders" /
-           "volumeRenderer";
+    // Media-relative candidate: the PipelineCommandService resolves it through
+    // the IOService (as-is -> media-relative -> exe-relative).
+    return std::filesystem::path{"shaders"} / "volumeRenderer";
 }
 
 int VolumePipelineRecipe::operator()()

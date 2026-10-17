@@ -22,10 +22,13 @@
 #include <starlight/command/headless_render_result_write/GetFileNameForFrame.hpp>
 #include <starlight/command/headless_render_result_write/GetSetOutputDir.hpp>
 #include <starlight/common/ConfigFile.hpp>
+#include <starlight/core/Exceptions.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/debug/DebugPrimitives.hpp>
 #include <starlight/primitive/CubeObject.hpp>
 #include <starlight/virtual/StarCamera.hpp>
+
+#include "util/VolumePath.hpp"
 
 #include <star_common/helper/StringHelpers.hpp>
 
@@ -90,7 +93,9 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
         }
         else if (transmittanceVizComponent != nullptr)
         {
-            const std::filesystem::path vizShaderDir = mediaPath / "shaders" / "transmittanceViz";
+            // Media-relative candidates: resolution happens in ShaderService
+            // (as-is -> media-relative -> exe-relative).
+            const std::filesystem::path vizShaderDir = std::filesystem::path{"shaders"} / "transmittanceViz";
 
             star::ShaderResolver cellResolver =
                 star::ShaderResolver::Builder{context.getCmdBus()}
@@ -118,7 +123,7 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
                 cubeInfos.push_back(cubeInfos[i]);
             }
 
-            const std::filesystem::path cubeShaderDir = mediaPath / "shaders" / "debugCube";
+            const std::filesystem::path cubeShaderDir = std::filesystem::path{"shaders"} / "debugCube";
             star::ShaderResolver cubeResolver =
                 star::ShaderResolver::Builder{context.getCmdBus()}
                     .setShader(star::Shader_Stage::vertex, (cubeShaderDir / "debugCube.vert").string())
@@ -155,8 +160,6 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     auto camera = createMainCamera(context);
 
     std::vector<std::shared_ptr<star::StarObject>> allObjects;
-
-    auto mediaDirectoryPath = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
 
     {
         star::command::CreateLight lCmd = star::command::CreateLight().setName("sun");
@@ -200,17 +203,27 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
             static_cast<const size_t &>(context.frameTracker().getSetup().getNumFramesInFlight());
 
         {
-            auto vdbPath = std::filesystem::path(mediaDirectoryPath) / "volumes" / m_volumeName;
-            std::string vdbPathString = vdbPath.string();
+            // The volume NAME stays the user-provided identity string (unique
+            // name, metrics); only the directory is resolved.
+            auto resolvedVolumeDir = util::ResolveVolumeDirectory(context.getCmdBus(), m_volumeName);
+            if (!resolvedVolumeDir)
+            {
+                std::ostringstream oss;
+                oss << "Failed to resolve volume directory for volume name '" << m_volumeName
+                    << "': " << resolvedVolumeDir.error().toString();
+                star::core::logging::error(oss.str());
+                STAR_THROW(oss.str());
+            }
+            const std::string vdbPathString = resolvedVolumeDir.value().string();
+
+            // Media-relative candidates: resolution happens in ShaderService
+            // (as-is -> media-relative -> exe-relative).
+            const std::filesystem::path screenShaderDir = std::filesystem::path{"shaders"} / "screenWithTexture";
 
             star::ShaderResolver volumeResolver =
                 star::ShaderResolver::Builder{context.getCmdBus()}
-                    .setShader(star::Shader_Stage::vertex, (std::filesystem::path(mediaDirectoryPath) / "shaders" /
-                                                            "screenWithTexture" / "screenWithTexture.vert")
-                                                               .string())
-                    .setShader(star::Shader_Stage::fragment, (std::filesystem::path(mediaDirectoryPath) / "shaders" /
-                                                              "screenWithTexture" / "screenWithTexture.frag")
-                                                                 .string())
+                    .setShader(star::Shader_Stage::vertex, (screenShaderDir / "screenWithTexture.vert").string())
+                    .setShader(star::Shader_Stage::fragment, (screenShaderDir / "screenWithTexture.frag").string())
                     .build();
 
             auto cmd =
@@ -320,7 +333,10 @@ void Application::submitPasses(star::core::device::DeviceContext &context)
 void Application::initImageOutputDir(star::core::CommandBus &bus)
 {
     m_imageOutputDir = std::filesystem::path(star::common::strings::GetStartTime());
-    bus.submit(star::headless_render_result_write::GetSetOutputDir::Builder().setSetDir(m_imageOutputDir).build());
+    // Submit by lvalue: the rvalue overload is rejected for reply-carrying
+    // commands (the reply would be destroyed with the temporary).
+    auto cmd = star::headless_render_result_write::GetSetOutputDir::Builder().setSetDir(m_imageOutputDir).build();
+    bus.submit(cmd);
 }
 
 void Application::frameUpdate(star::core::SystemContext &context)

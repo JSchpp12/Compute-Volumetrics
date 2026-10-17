@@ -2,7 +2,6 @@
 
 #include "renderer/PipelineLayoutAssembler.hpp"
 
-#include <ConfigFile.hpp>
 #include <Compiler.hpp>
 #include <Enums.hpp>
 #include <StarDescriptorBuilders.hpp>
@@ -17,14 +16,17 @@
 #include <device/managers/Shader.hpp>
 #include <filesystem>
 #include <memory>
+#include <sstream>
 #include <star_common/Handle.hpp>
 #include <star_common/HandleTypeRegistry.hpp>
 #include <starlight/command/pipeline/CreatePipeline.hpp>
+#include <starlight/core/Exceptions.hpp>
 #include <string>
 #include <utility>
 #include <vector>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_handles.hpp>
+
 
 #include "render_system/fog/struct/ShaderPushInfo.hpp"
 
@@ -67,7 +69,7 @@ std::unique_ptr<star::StarShaderInfo> CreatePipelines::buildShaderInfo() const
 static star::Handle BuildPipeline(vk::PipelineLayout computePipelineLayout,
                                   renderer::distance::CreatePipelines::DeviceContext &context)
 {
-    const auto shaderPath = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) / "shaders" / "volumeRenderer" / "volume_distance.comp";
+    const auto shaderPath = std::filesystem::path{"shaders"} / "volumeRenderer" / "volume_distance.comp";
 
     assert(context.commandBus != nullptr && "Command bus required to build the distance pipeline");
 
@@ -77,7 +79,18 @@ static star::Handle BuildPipeline(vk::PipelineLayout computePipelineLayout,
         .setPipelineLayout(computePipelineLayout);
 
     context.commandBus->submit(cmd);
-    return cmd.getReply().get();
+    const auto reply = cmd.getReply().get();
+    if (!reply)
+    {
+        // The service reports resolution failures through the reply; a
+        // pipeline that failed to build would otherwise stall the renderer
+        // waiting for a pipeline-ready event that never fires.
+        std::ostringstream oss;
+        oss << "Failed to create distance pipeline for shader '" << shaderPath.string() << "':\n"
+            << reply.error().toString();
+        STAR_THROW(oss.str());
+    }
+    return reply.value();
 }
 
 void CreatePipelines::create()
@@ -87,14 +100,16 @@ void CreatePipelines::create()
 
     assert(outputs.pipelineLayout != nullptr);
     assert(inputs.staticComputeShaderInfo != nullptr);
-    assert(inputs.staticComputeShaderInfo->get() && "shared static compute shader info must be built before distance pipelines");
+    assert(inputs.staticComputeShaderInfo->get() &&
+           "shared static compute shader info must be built before distance pipelines");
 
     // The distance pipeline layout reuses the volume's shared static sets (0,1)
     // from staticComputeShaderInfo and appends the distance pass's own dynamic
     // set right after them. The dynamic set's baseSet is therefore the shared
     // static baseSet + the shared static set count -- derived, not hard-coded.
     star::StarShaderInfo *staticInfo = inputs.staticComputeShaderInfo->get();
-    const uint32_t dynamicBaseSet = staticInfo->getBaseSet() + static_cast<uint32_t>(staticInfo->getDescriptorSetLayouts().size());
+    const uint32_t dynamicBaseSet =
+        staticInfo->getBaseSet() + static_cast<uint32_t>(staticInfo->getDescriptorSetLayouts().size());
     outputs.dynamicShaderInfo->get()->setBaseSet(dynamicBaseSet);
 
     // Assembly goes through the shared PipelineLayoutAssembler; baseSet for each
