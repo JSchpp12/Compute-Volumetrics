@@ -586,6 +586,13 @@ else()
 endif()
 set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-${_STAR_PACKAGE_SYSTEM}")
 
+# Suffix the archive with the build variant.
+if (HEADLESS)
+	set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-headless")
+else()
+	set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-windowed")
+endif()
+
 # Only the runtime component is shipped.  This keeps the vendored projects'
 # static libraries, headers and CMake export files (which live in the
 # "Unspecified" component) out of the distributable.
