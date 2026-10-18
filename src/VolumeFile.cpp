@@ -68,11 +68,11 @@ bool VolumeFile::doesDataFileExist() const
 void VolumeFile::decompressDataFile() const
 {
     std::vector<char> compressedData = readFile(m_compressedSrcFile.string());
-     size_t compressedSize = compressedData.size();
+    size_t compressedSize = compressedData.size();
     unsigned long long const decompressedSize = ZSTD_getFrameContentSize(compressedData.data(), compressedSize);
     if (decompressedSize == ZSTD_CONTENTSIZE_ERROR || decompressedSize == ZSTD_CONTENTSIZE_UNKNOWN)
     {
-        STAR_THROW("Can't know the original size. Use streaming decompression instead.");
+        STAR_THROW("Cannot determine origional size. Use streaming decompression instead.");
     }
 
     std::vector<char> decompressedData(decompressedSize);
@@ -83,7 +83,6 @@ void VolumeFile::decompressDataFile() const
     {
         throw std::runtime_error(ZSTD_getErrorName(actualDecompressedSize));
     }
-
 
     auto outFilePath = std::filesystem::path(m_dataFilePath);
     outFilePath.replace_extension(".nvdb");

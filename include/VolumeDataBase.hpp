@@ -38,6 +38,10 @@ class VolumeDataBase
 
     std::array<glm::vec3, 2> getAABB() const;
 
+    /// The grid's WORLD-space AABB (voxel size applied). This is the volume's bounds in the object's
+    /// local space; the world bounds come from transforming it by the instance display matrix.
+    std::array<glm::vec3, 2> getWorldAABB() const;
+
     static openvdb::GridBase::Ptr LoadVDBBaseGrid(const std::string &pathToVDBFile);
 
   protected:

@@ -267,6 +267,13 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
             m_volume->getProvider().getFogInfo().marchedInfo.setDensityMultiplier(0.1f);
         }
 
+        // Fit the sun shadow window to the fog volume's world AABB instead of the main camera's view
+        {
+            uint8_t numFramesInFlightForVolumeInfo = 0;
+            star::common::casts::SafeCast<size_t, uint8_t>(fNumFramesInFlight, numFramesInFlightForVolumeInfo);
+            m_fogVolumeInfo = std::make_shared<FogVolumeInfoController>(*m_volume, numFramesInFlightForVolumeInfo);
+        }
+
         std::vector<std::shared_ptr<star::StarObject>> objects{m_volume};
 
         auto mainRendererProvider = createMainRenderer(context, objects, camera);
@@ -277,7 +284,7 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
         auto terrainShadowProvider = std::make_unique<star::terrain::TerrainShadowRenderPhaseProvider>(
             context, m_mainLight, std::vector<std::shared_ptr<star::StarObject>>{m_shadowTerrain},
-            m_offscreenPhaseHandle, true, star::Command_Buffer_Order_Index::second);
+            m_offscreenPhaseHandle, true, star::Command_Buffer_Order_Index::second, m_fogVolumeInfo.get());
         m_terrainShadowPhaseHandle = m_mainScene->addProvider(std::move(terrainShadowProvider));
         DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
             .setConsumer(

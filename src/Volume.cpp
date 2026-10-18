@@ -40,6 +40,10 @@ void Volume::loadModel(star::core::device::DeviceContext &context, const std::st
 
     this->aabbBounds[0] = glm::vec4(aabb[0], 1.0f);
     this->aabbBounds[1] = glm::vec4(aabb[1], 1.0f);
+
+    const auto worldAabb = fileData.getWorldAABB();
+    this->gridWorldAABB[0] = glm::vec4(worldAabb[0], 1.0f);
+    this->gridWorldAABB[1] = glm::vec4(worldAabb[1], 1.0f);
 }
 
 void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)

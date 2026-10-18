@@ -11,7 +11,9 @@
 
 #include <starlight/ShaderResolver.hpp>
 #include <starlight/command/CreateObject.hpp>
+#include <starlight/command/FileIO/GetPath.hpp>
 #include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
+#include <starlight/core/Exceptions.hpp>
 #include <starlight/debug/DebugPrimitives.hpp>
 #include <starlight/object/BasicObject.hpp>
 #include <starlight/primitive/SquareObject.hpp>
@@ -23,12 +25,21 @@ static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarOb
     star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
     const std::filesystem::path &terrainPath, bool aggressiveTerrainTextureLoading)
 {
-    // Media-relative candidate: resolution happens in ShaderService when
-    // TerrainFactory builds resolvers with shaderDir / "color.vert" etc.
+    // Media-relative candidates: TerrainFactory resolves the shader and terrain
+    // directories through the IOService (GetPath command) before building anything.
     const std::filesystem::path terrainShaderDir = std::filesystem::path{"shaders"} / "terrain" / "standard_geometry";
 
+    star::command::file_io::GetPath terrainPathCmd;
+    terrainPathCmd.setCandidate(terrainPath).setKind(star::io::PathKind::directory);
+    ctx.getCmdBus().submit(terrainPathCmd);
+    const auto resolvedTerrainPath = terrainPathCmd.getReply().get();
+    if (!resolvedTerrainPath)
+    {
+        STAR_THROW("Failed to resolve terrain directory: " + resolvedTerrainPath.error().toString());
+    }
+
     auto geometry = star::terrain::rendering::TerrainGeometryDefinition::Builder(ctx)
-                        .setTerrainDir(terrainPath)
+                        .setTerrainDir(resolvedTerrainPath.value())
                         .setShapeRepresentation(star::terrain::rendering::Representation::Geometry)
                         .setDefaultRenderType(star::terrain::rendering::Type::Flat)
                         .build();

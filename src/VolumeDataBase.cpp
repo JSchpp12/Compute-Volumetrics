@@ -62,6 +62,18 @@ std::array<glm::vec3, 2> VolumeDataBase::getAABB() const
             glm::vec3{indexBBox.max().x(), indexBBox.max().y(), indexBBox.max().z()}};
 }
 
+std::array<glm::vec3, 2> VolumeDataBase::getWorldAABB() const
+{
+    assert(m_nanoVDB && "NanoVDB structure was never prepared");
+
+    const auto worldBBox = m_nanoVDB->grid<float>()->worldBBox();
+
+    return {glm::vec3{static_cast<float>(worldBBox.min()[0]), static_cast<float>(worldBBox.min()[1]),
+                      static_cast<float>(worldBBox.min()[2])},
+            glm::vec3{static_cast<float>(worldBBox.max()[0]), static_cast<float>(worldBBox.max()[1]),
+                      static_cast<float>(worldBBox.max()[2])}};
+}
+
 openvdb::GridBase::Ptr VolumeDataBase::LoadVDBBaseGrid(const std::string &pathToFile)
 {
     if (!star::file_helpers::FileExists(pathToFile))

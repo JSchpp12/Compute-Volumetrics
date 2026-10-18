@@ -1,6 +1,7 @@
 #pragma once
 
 #include "OffscreenRenderPhaseProvider.hpp"
+#include "FogVolumeInfo.hpp"
 #include "StarApplication.hpp"
 #include "Volume.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
@@ -64,6 +65,7 @@ class Application : public star::StarApplication
     std::optional<std::pair<glm::vec3, glm::vec3>> m_transmittanceVizLastCamera{std::nullopt};
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
     std::shared_ptr<Volume> m_volume;
+    std::shared_ptr<FogVolumeInfoController> m_fogVolumeInfo;
     star::Handle m_offscreenPhaseHandle;
     std::shared_ptr<star::core::renderer::FrameData> m_offscreenFrameData;
     std::shared_ptr<std::vector<star::Light>> m_mainLight;

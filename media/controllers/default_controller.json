@@ -1,0 +1,68 @@
+{
+  "numSteps": 3,
+  "initial_camera_height_above_ground": 10,
+  "enabled_fog_types": {
+    "linear": true,
+    "exponential": false,
+    "marched_homogenous": false,
+    "marched": true
+  },
+  "camera_controller_type": "circle",
+  "circle_controller_settings": {
+    "num_camera_positions": 1,
+    "rotation_degree_per_tick": 1.0,
+    "start_camera_direction": {
+      "x": 0.0872,
+      "y": 0,
+      "z": 0.9962
+    }
+  },
+  "startData": {
+    "expFogInfo": {
+      "density": 0.000001
+    },
+    "homogenousInfo": {
+      "maxNumSteps": 256000
+    },
+    "linearInfo": {
+      "farDist": 1000.0,
+      "nearDist": 1.0
+    },
+    "marchedInfo": {
+      "defaultDensity": 0,
+      "lightPropertyDirG": 0.8,
+      "sigmaAbsorption": 0.00001,
+      "sigmaScattering": 0.001,
+      "stepSizeDist": 300,
+      "stepSizeDist_light": 500,
+      "densityMultiplier": 0.01,
+      "distanceTransparencyCutoff": 0.99,
+      "colorTransparencyCutoff": 0.01,
+      "lightExtinctionScale": 0.05
+    }
+  },
+  "stopData": {
+    "expFogInfo": {
+      "density": 0.005
+    },
+    "homogenousInfo": {
+      "maxNumSteps": 256000
+    },
+    "linearInfo": {
+      "farDist": 16000.0,
+      "nearDist": 1.0
+    },
+    "marchedInfo": {
+      "defaultDensity": 0,
+      "lightPropertyDirG": 0.8,
+      "sigmaAbsorption": 0.00001,
+      "sigmaScattering": 0.0001,
+      "stepSizeDist": 300,
+      "stepSizeDist_light": 500,
+      "densityMultiplier": 10.0,
+      "distanceTransparencyCutoff": 0.99,
+      "colorTransparencyCutoff": 0.01,
+      "lightExtinctionScale": 0.05
+    }
+  }
+}

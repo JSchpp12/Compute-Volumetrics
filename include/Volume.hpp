@@ -112,6 +112,14 @@ class Volume : public star::StarObject
         const auto middle = (aabbBounds[1] + aabbBounds[0]) * 0.5f;
         return middle;
     }
+
+    /// The grid's world-space AABB (voxel size applied), captured at load time. The volume's
+    /// object-local space IS the NanoVDB grid world space, so this is the volume's local-space
+    /// bounds; world bounds come from transforming it by the instance display matrix.
+    const std::array<glm::vec4, 2> &getGridWorldAABB() const
+    {
+        return gridWorldAABB;
+    }
     void setFogType(const Fog::Type &fogType)
     {
         this->getVolumePhase()->setFogType(fogType);
@@ -176,6 +184,7 @@ class Volume : public star::StarObject
     VolumeRenderPhase *getVolumePhase();
     const VolumeRenderPhase *getVolumePhase() const;
     std::array<glm::vec4, 2> aabbBounds;
+    std::array<glm::vec4, 2> gridWorldAABB;
     glm::vec2 screenDimensions{};
     openvdb::FloatGrid::Ptr grid{};
     uint32_t computeQueueFamily = 0;

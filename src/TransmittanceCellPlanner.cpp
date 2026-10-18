@@ -23,7 +23,8 @@ std::array<int, 3> WindowOffsetAt(const size_t index, const std::array<int, 3> &
 }
 
 WindowPlacements ComputeWindowPlacements(const star::StarCamera &camera, const glm::vec3 &lightDirection,
-                                         const std::array<uint32_t, 3> &mapResolution, const std::array<int, 3> &windowSize)
+                                         const std::array<uint32_t, 3> &mapResolution,
+                                         const std::array<int, 3> &windowSize)
 {
     for (int axis = 0; axis < 3; ++axis)
     {
@@ -31,11 +32,12 @@ WindowPlacements ComputeWindowPlacements(const star::StarCamera &camera, const g
         assert(windowSize[axis] <= mapResolution[axis] && "Window cannot be larger than the map");
     }
 
-    // Same math the terrain shadow camera runs (ShadowCameraTransfer builds its
-    // GPU buffer from this projection), recomputed on the CPU for the viz.
-    const star::terrain::rendering::ShadowCasterInfo shadowCaster{camera, lightDirection};
+    const auto fitTarget =
+        star::terrain::rendering::BoundsDefinition::Builder().asCameraFrustumSphere(camera, lightDirection).build();
+    const star::terrain::rendering::ShadowFrustumCalculator shadowFrustumCalculator{camera, lightDirection};
 
-    const glm::mat4 worldToLightViewProj = shadowCaster.getShadowLightProjectionWithTexelSnapping({.resolution = render_system::fog::kTransmittanceMapResolution, });
+    const glm::mat4 worldToLightViewProj = shadowFrustumCalculator.getShadowLightProjectionForBounds(
+        fitTarget, {.resolution = render_system::fog::kTransmittanceMapResolution});
     const glm::mat4 lightViewProjToWorld = glm::inverse(worldToLightViewProj);
 
     // Where the camera sits in the map's texel space.

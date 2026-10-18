@@ -16,6 +16,9 @@
 
 namespace config
 {
+/// File name probed when no --appConfig path is given on the command line.
+static constexpr const char *DefaultAppConfigFileName = "appConfig.json";
+
 static void ResolveFieldIfPresent(std::string &field, star::io::PathKind kind)
 {
     if (field.empty())
@@ -34,8 +37,7 @@ std::pair<std::unique_ptr<AppConfigInfo>, LoadStatus> AppConfigLoader::LoadFromA
 {
     auto cfg = std::make_unique<AppConfigInfo>();
 
-    auto appConfigPath = util::CmdLine::TryGetAppConfigFilePath(argc, argv);
-    if (appConfigPath.has_value())
+    if (auto appConfigPath = util::CmdLine::TryGetAppConfigFilePath(argc, argv))
     {
         const std::filesystem::path providedPath{*appConfigPath};
 
@@ -48,27 +50,7 @@ std::pair<std::unique_ptr<AppConfigInfo>, LoadStatus> AppConfigLoader::LoadFromA
 
         if (std::filesystem::exists(path))
         {
-            std::ifstream file(path);
-            nlohmann::json j;
-            file >> j;
-            file.close();
-
-            if (auto missing = PatchMissingFields(j, path); !missing.empty())
-            {
-                std::ostringstream oss;
-                oss << "AppConfig file at " << path.string()
-                    << " is missing required field(s); wrote them with default values: ";
-                for (std::size_t i = 0; i < missing.size(); ++i)
-                {
-                    if (i)
-                        oss << ", ";
-                    oss << missing[i];
-                }
-                oss << ". Edit the file and re-run.";
-                STAR_THROW(oss.str());
-            }
-
-            from_json(j, *cfg);
+            LoadFromDisk(path, *cfg);
         }
         else
         {
@@ -78,6 +60,24 @@ std::pair<std::unique_ptr<AppConfigInfo>, LoadStatus> AppConfigLoader::LoadFromA
                 << "; created one with default values. Edit it and re-run.";
             star::core::logging::error(oss.str());
             return {std::move(cfg), LoadStatus::CreatedDefault};
+        }
+    }
+    else
+    {
+        // No --appConfig given: fall back to a default appConfig.json
+        if (auto resolvedMedia =
+                star::io::resolvePath(std::filesystem::path{DefaultAppConfigFileName}, star::io::PathKind::file))
+        {
+            std::ostringstream oss;
+            oss << "No --appConfig provided; loading default config found at " << resolvedMedia.value().string();
+            star::core::logging::info(oss.str());
+
+            LoadFromDisk(resolvedMedia.value(), *cfg);
+        }
+        else
+        {
+            star::core::logging::info("No --appConfig provided and no default appConfig.json found; "
+                                      "using built-in defaults with any CLI overrides");
         }
     }
 
@@ -110,6 +110,32 @@ std::pair<std::unique_ptr<AppConfigInfo>, LoadStatus> AppConfigLoader::LoadFromA
     }
 
     return {std::move(cfg), LoadStatus::Loaded};
+}
+
+void AppConfigLoader::LoadFromDisk(const std::filesystem::path &path, AppConfigInfo &cfg)
+{
+    std::ifstream file(path);
+    nlohmann::json j;
+    file >> j;
+    file.close();
+
+    // Patch missing fields with defaults, loudly, before validating.
+    if (auto missing = PatchMissingFields(j, path); !missing.empty())
+    {
+        std::ostringstream oss;
+        oss << "AppConfig file at " << path.string()
+            << " is missing required field(s); wrote them with default values: ";
+        for (std::size_t i = 0; i < missing.size(); ++i)
+        {
+            if (i)
+                oss << ", ";
+            oss << missing[i];
+        }
+        oss << ". Edit the file and re-run.";
+        STAR_THROW(oss.str());
+    }
+
+    from_json(j, cfg);
 }
 
 void AppConfigLoader::LogConfig(const AppConfigInfo &cfg)

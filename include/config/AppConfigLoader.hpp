@@ -26,8 +26,8 @@ class AppConfigLoader
 
   private:
     static std::unique_ptr<AppConfigInfo> ApplyCliOverrides(int argc, char **argv, std::unique_ptr<AppConfigInfo> cfg);
+    static void LoadFromDisk(const std::filesystem::path &path, AppConfigInfo &cfg);
     static void CreateDefaultFile(const std::filesystem::path &path, const AppConfigInfo &cfg);
-    //Checks if the 
     static std::vector<std::string> PatchMissingFields(nlohmann::json &j, const std::filesystem::path &path);
 };
 } // namespace config

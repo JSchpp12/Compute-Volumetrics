@@ -1,6 +1,6 @@
 #include "render_system/fog/policies/ShadowResourceResolutionPolicy.hpp"
 
-#include <star_terrain/rendering/ShadowCasterInfo.hpp>
+#include <star_terrain/rendering/ShadowFrustumCalculator.hpp>
 
 #include <glm/glm.hpp>
 #include <starlight/core/json/glm_json.hpp>
@@ -14,7 +14,7 @@ namespace render_system::fog::policies
 
 #pragma region Builder
 
-static void LogTransmittanceMapCoverage(const star::terrain::rendering::ShadowCasterInfo &shadowCalculator,
+static void LogTransmittanceMapCoverage(const star::terrain::rendering::ShadowFrustumCalculator &shadowCalculator,
                                         const std::array<uint32_t, 3> &targetResolution) noexcept
 {
 
@@ -44,8 +44,9 @@ ShadowResourceResolutionPolicy ShadowResourceResolutionPolicy::Builder::build()
 {
     // add optional logging information
     assert(m_mainWorldCamera != nullptr && m_shadowCastLightDir != nullptr);
-    LogTransmittanceMapCoverage(star::terrain::rendering::ShadowCasterInfo{*m_mainWorldCamera, *m_shadowCastLightDir},
-                                m_resolution.value());
+    LogTransmittanceMapCoverage(
+        star::terrain::rendering::ShadowFrustumCalculator{*m_mainWorldCamera, *m_shadowCastLightDir},
+        m_resolution.value());
 
     return ShadowResourceResolutionPolicy{m_resolution.value()};
 }
