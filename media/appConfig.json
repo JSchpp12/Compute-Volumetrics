@@ -10,6 +10,6 @@
         "objectMovementSpeed": 300.0
     },
     "simControllerPath": "controllers/default_controller.json",
-    "terrainDir": "terrains/446",
+    "terrainDir": "terrains/159_mini",
     "volumeName": "demo_1"
 }
