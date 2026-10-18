@@ -165,7 +165,7 @@ const float EPSILON_DENSITY = 0.000001;
 
 // march from [startTexel, stopTexel)
 void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims, const in ivec2 columnPixel,
-                          const in int startTexel, const in int stopTexel)
+                          const in int startTexel, const in int stopTexel, const in int surfaceSlice)
 {
     pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
     pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
@@ -176,20 +176,21 @@ void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims,
     vec3 vol_startPos = vec3(0);
     vec3 vol_step = vec3(0);
     setupMarchInfo(columnPixel, vec3(mapDims), vol_startPos, vol_step);
+    vol_startPos = vol_startPos + vol_step * float(startTexel);
 
     const float vol_stepSize = length(vol_step) * extractUniformVolumeScale(instanceModelMatrix[0]);
     const float sigmaExtinction = fogInfo.marchedFog_sigmaScattering + fogInfo.marchedFog_sigmaAbsorption;
 
     float tau = 0.0;
-    for (int z = startTexel; z < stopTexel; ++z)
+    for (int z = startTexel; z <= stopTexel; ++z)
     {
-        // start and stop vectors primed already use them directly then increment distances
         float density = gridReadAt(grid, acc, gType, vol_startPos, true);
         if (density < EPSILON_DENSITY)
             density = fogInfo.marchedFog_defaultDensity;
 
         // calculate contribution of the individual slice as a whole value for tau summation
-        const float sliceContribution = (density * fogInfo.marchedFog_densityMultiplier) * sigmaExtinction * vol_stepSize;
+        const float sliceContribution =
+            (density * fogInfo.marchedFog_densityMultiplier) * sigmaExtinction * vol_stepSize;
 
         // only want half of the whole slice contribution since we are only stepping half way through
         const float transmittance = exp(-(tau + 0.5 * sliceContribution));
@@ -249,8 +250,10 @@ void calculateInAndOutTexelsFromAABB(in pnanovdb_grid_handle_t grid, const in Ma
     }
     else
     {
-        inTexel = 0;
-        outTexel = 1;
+        // column ray misses the volume: no medium anywhere along the column, so the whole span up to the surface is
+        // fully transmissive.
+        inTexel = surfaceSlice;
+        outTexel = surfaceSlice;
     }
 }
 
@@ -272,16 +275,16 @@ void main()
 
         // do a ray cast through the grid and get where the surface is or where the ray enters/leaves the volume
         int startTexel = 0;
-        int stopTexel = 0;
+        int surfaceSlice = 0;
         ivec3 mapDims = ivec3(0.0);
-        getShadowMapInfoFromTexture(surfaceDepth, mapDims, stopTexel);
+        getShadowMapInfoFromTexture(surfaceDepth, mapDims, surfaceSlice);
         // if (!hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_TRANSMITTANCE_PRECOMPUTE_DISABLE_AABB_RAY_TEST))
         // {
         int AABBExitTexel = 0;
         calculateInAndOutTexelsFromAABB(grid, info, surfaceDepth, startTexel, AABBExitTexel);
-        stopTexel = min(stopTexel, AABBExitTexel);
+        const int stopTexel = min(surfaceSlice, AABBExitTexel);
         // }
 
-        computeTransmittance(grid, mapDims, info.px, startTexel, stopTexel);
+        computeTransmittance(grid, mapDims, info.px, startTexel, stopTexel, surfaceSlice);
     }
 }
