@@ -10,7 +10,6 @@ CMakeSettings.json
 *.continueignore
 build_vs/*
 CMakeUserPresets.json
-media/terrains/*
 terrains/*
 outTerrains/*
 volumes/*
