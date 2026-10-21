@@ -531,11 +531,7 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)          # use build rpath for build t
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)        # also add rpaths to where linked libs live at install time
 set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")             # runtime: relative to the executable's directory
 
-# System libraries that must never be copied into the package.  vcpkg has
-# already deployed the app's DLLs/SOs next to the executable at build time;
-# these filters only stop CMake's dependency resolver from also pulling in
-# the operating system's own runtime (and, on Windows, from choking on API-set
-# forwarders such as api-ms-win-*, which have no file on disk).
+# Prevent System libraries from being copied into the package.
 set(_STAR_RUNTIME_PRE_EXCLUDE)
 set(_STAR_RUNTIME_POST_EXCLUDE)
 if (WIN32)
