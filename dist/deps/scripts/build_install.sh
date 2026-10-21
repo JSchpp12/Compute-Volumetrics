@@ -16,7 +16,8 @@ cd "${ROOT_DIR}/dist/docker_working"
 echo "USING $VCPKG_ROOT"
 cmake -S "${ROOT_DIR}" -B ./build -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DVCPKG_TARGET_TRIPLET=x64-linux-dynamic \
+    -DVCPKG_TARGET_TRIPLET=x64-linux-dynamic-release \
+    -DVCPKG_OVERLAY_TRIPLETS="${ROOT_DIR}/dist/deps/triplets" \
     -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
     -DHEADLESS=ON \
     -DCMAKE_C_COMPILER=gcc \

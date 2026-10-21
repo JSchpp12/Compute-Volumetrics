@@ -69,5 +69,11 @@ ENV LD_LIBRARY_PATH=$VULKAN_SDK/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 WORKDIR /vcpkg_working
 ENV VCPKG_ROOT=/vcpkg_working
 
+# vcpkg builds release dependencies only.  The release-only triplet lives in
+# the repository, which the packaging scripts mount at /app (see
+# dist/deps/triplets/x64-linux-dynamic-release.cmake).
+ENV VCPKG_OVERLAY_TRIPLETS=/app/dist/deps/triplets
+ENV VCPKG_DEFAULT_TRIPLET=x64-linux-dynamic-release
+
 RUN git clone https://github.com/microsoft/vcpkg.git . \
     && /bin/bash /vcpkg_working/bootstrap-vcpkg.sh

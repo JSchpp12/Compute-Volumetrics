@@ -390,6 +390,14 @@ target_link_libraries(${PROJECT_NAME}
 )
 star_enable_warnings(${PROJECT_NAME})
 
+option(BUILD_UNIT_TESTS "Build unit tests" ON)
+
+if (BUILD_UNIT_TESTS)
+	add_subdirectory(tests)
+	star_enable_warnings(unit_tests)
+endif()
+
+
 set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
 
 find_package(Git REQUIRED)
@@ -606,11 +614,3 @@ include(CPack)
 include(CTest)
 enable_testing()
 find_package(GTest CONFIG REQUIRED)
-
-# Optional: make a toggle to build tests
-option(BUILD_UNIT_TESTS "Build unit tests" ON)
-
-if (BUILD_UNIT_TESTS)
-	add_subdirectory(tests)
-	star_enable_warnings(unit_tests)
-endif()
