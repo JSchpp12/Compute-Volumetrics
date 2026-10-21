@@ -154,6 +154,7 @@ void AppConfigLoader::LogConfig(const AppConfigInfo &cfg)
         << "  enableCutoffHighlighting: " << (cfg.enableCutoffHighlighting ? "true" : "false") << "\n"
         << "  enableTransmittanceMapDebug: " << (cfg.enableTransmittanceMapDebug ? "true" : "false") << "\n"
         << "  aggressiveTerrainTextureLoading: " << (cfg.aggressiveTerrainTextureLoading ? "true" : "false") << "\n"
+        << "  forceFlatTerrains:       " << (cfg.forceFlatTerrains ? "true" : "false") << "\n"
         << "  interactiveConfig:\n"
         << "    cameraMovementSpeed:   " << cfg.interactiveConfig.cameraMovementSpeed << "\n"
         << "    cameraSensitivity:     " << cfg.interactiveConfig.cameraSensitivity << "\n"
@@ -182,6 +183,8 @@ std::unique_ptr<AppConfigInfo> AppConfigLoader::ApplyCliOverrides(int argc, char
         cfg->enableTransmittanceMapDebug = true;
     if (util::CmdLine::DoesContainOption(argc, argv, "--aggressiveTerrainTextureLoading"))
         cfg->aggressiveTerrainTextureLoading = true;
+    if (util::CmdLine::DoesContainOption(argc, argv, "--forceFlatTerrains"))
+        cfg->forceFlatTerrains = true;
 
     return cfg;
 }

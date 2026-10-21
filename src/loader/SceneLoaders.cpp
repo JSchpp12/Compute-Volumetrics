@@ -23,7 +23,7 @@ namespace loader
 
 static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarObject>> LoadTerrain(
     star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
-    const std::filesystem::path &terrainPath, bool aggressiveTerrainTextureLoading)
+    const std::filesystem::path &terrainPath, bool aggressiveTerrainTextureLoading, bool forceFlatTerrains)
 {
     // Media-relative candidates: TerrainFactory resolves the shader and terrain
     // directories through the IOService (GetPath command) before building anything.
@@ -41,7 +41,8 @@ static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarOb
     auto geometry = star::terrain::rendering::TerrainGeometryDefinition::Builder(ctx)
                         .setTerrainDir(resolvedTerrainPath.value())
                         .setShapeRepresentation(star::terrain::rendering::Representation::Geometry)
-                        .setDefaultRenderType(star::terrain::rendering::Type::Flat)
+                        .setDefaultRenderType(forceFlatTerrains ? star::terrain::rendering::ElevationType::Flat
+                                                                : star::terrain::rendering::ElevationType::Real)
                         .build();
 
     auto terrains =
@@ -126,13 +127,13 @@ static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceCon
 
 SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
                                   const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug,
-                                  bool aggressiveTerrainTextureLoading)
+                                  bool aggressiveTerrainTextureLoading, bool forceFlatTerrains)
 {
     constexpr uint8_t numCubes{15};
 
     SceneDescription desc;
     auto [colorTerrain, shadowMapTerrain] =
-        LoadTerrain(ctx, mediaDirPath, terrainPath, aggressiveTerrainTextureLoading);
+        LoadTerrain(ctx, mediaDirPath, terrainPath, aggressiveTerrainTextureLoading, forceFlatTerrains);
     desc.addObject(std::move(colorTerrain));
     // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));
@@ -146,11 +147,11 @@ SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const 
 
 SceneDescription ReleaseSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
                                     const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug,
-                                    bool aggressiveTerrainTextureLoading)
+                                    bool aggressiveTerrainTextureLoading, bool forceFlatTerrains)
 {
     SceneDescription desc;
     auto [colorTerrain, shadowMapTerrain] =
-        LoadTerrain(ctx, mediaDirPath, terrainPath, aggressiveTerrainTextureLoading);
+        LoadTerrain(ctx, mediaDirPath, terrainPath, aggressiveTerrainTextureLoading, forceFlatTerrains);
     desc.addObject(std::move(colorTerrain));
     // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));

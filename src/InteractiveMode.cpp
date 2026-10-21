@@ -45,11 +45,11 @@ int InteractiveMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
         cfg->enableDistanceMarkers
             ? InteractiveApplication(&loader::DebugSceneLoader, cfg->terrainDir, cfg->volumeName, &winContext,
                                      {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
-                                      cfg->aggressiveTerrainTextureLoading},
+                                      cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains},
                                      cfg->interactiveConfig)
             : InteractiveApplication(&loader::ReleaseSceneLoader, cfg->terrainDir, cfg->volumeName, &winContext,
                                      {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
-                                      cfg->aggressiveTerrainTextureLoading},
+                                      cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains},
                                      cfg->interactiveConfig);
 
     auto engine = star::StarEngine<star::windowing::EngineInitPolicy, win_loop, win_exit>(

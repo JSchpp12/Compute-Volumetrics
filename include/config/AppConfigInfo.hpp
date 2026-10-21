@@ -19,5 +19,6 @@ struct AppConfigInfo
     bool enableCutoffHighlighting{false};
     bool enableTransmittanceMapDebug{false};
     bool aggressiveTerrainTextureLoading{false};
+    bool forceFlatTerrains{false};
 };
 } // namespace config

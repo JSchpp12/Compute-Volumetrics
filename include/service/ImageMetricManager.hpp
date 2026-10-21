@@ -86,12 +86,12 @@ class ImageMetricManager
         std::optional<star::terrain::CoverageInfo> m_cachedTerrainShapeInfo{std::nullopt};
         std::future<star::terrain::CoverageInfo> m_inProgressLoadingShapeInfo;
         std::string m_terrainName;
-        star::terrain::rendering::Type m_terrainRenderingType;
+        star::terrain::rendering::ElevationType m_terrainRenderingType;
 
       public:
         LoadingShapeInfo() = default;
         explicit LoadingShapeInfo(std::future<star::terrain::CoverageInfo> future, std::string terrainName,
-                                  star::terrain::rendering::Type terrainRenderingType)
+                                  star::terrain::rendering::ElevationType terrainRenderingType)
             : m_cachedTerrainShapeInfo{std::nullopt}, m_inProgressLoadingShapeInfo(std::move(future)),
               m_terrainName(std::move(terrainName)), m_terrainRenderingType(terrainRenderingType)
         {
@@ -109,7 +109,7 @@ class ImageMetricManager
         {
             return m_terrainName;
         }
-        star::terrain::rendering::Type getTerrainRenderingType() const noexcept
+        star::terrain::rendering::ElevationType getTerrainRenderingType() const noexcept
         {
             return m_terrainRenderingType;
         }
@@ -136,6 +136,6 @@ class ImageMetricManager
     void initListeners(star::core::CommandBus &cmdBus);
     void cleanupListeners(star::core::CommandBus &cmdBus);
     void submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath,
-                                           star::terrain::rendering::Type renderingType);
+                                           star::terrain::rendering::ElevationType renderingType);
 };
 } // namespace service
