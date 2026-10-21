@@ -39,7 +39,7 @@
 #include <starlight/event/DescriptorPoolReady.hpp>
 #include <starlight/maker/texture/MakeTexture.hpp>
 
-#include <vma/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 
 #include <cassert>

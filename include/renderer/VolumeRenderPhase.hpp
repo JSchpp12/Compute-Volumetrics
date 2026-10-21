@@ -20,7 +20,7 @@
 #include <star_common/Handle.hpp>
 #include <star_common/IDeviceContext.hpp>
 
-#include <vma/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 
 #include <memory>
