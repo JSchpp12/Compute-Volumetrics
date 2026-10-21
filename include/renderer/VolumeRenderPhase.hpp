@@ -29,14 +29,7 @@
 
 class VolumeRenderPhaseProvider;
 
-/// Runtime half of the volume (compute) renderer. Extends RenderPhase but
-/// records a compute pass (no render targets/groups): it holds the fog
-/// pipelines, the fog controller, the compute write-images it produces, the
-/// timeline semaphores, and the offscreen render-to images it samples. All
-/// one-shot setup -- queue-family lookup, DeclarePass, descriptor builder,
-/// compute write images/buffers, command-buffer request -- lives on
-/// VolumeRenderPhaseProvider::build. Per-frame recording, frameUpdate,
-/// cleanup, and the submission override (FogDispatcher submit) live here.
+/// @brief Runtime half of the volume (compute) renderer.
 class VolumeRenderPhase : public star::core::renderer::RenderPhase
 {
   public:
