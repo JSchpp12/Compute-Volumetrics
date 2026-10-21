@@ -128,7 +128,8 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "HEADLESS": "OFF",
-                "VCPKG_MANIFEST_FEATURES": "windowed"
+                "VCPKG_MANIFEST_FEATURES": "windowed",
+                "BUILD_UNIT_TESTS": "OFF"
             }
         },
         {
@@ -136,7 +137,8 @@
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
-                "HEADLESS": "ON"
+                "HEADLESS": "ON",
+                "BUILD_UNIT_TESTS": "OFF"
             }
         },
         {
