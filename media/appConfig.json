@@ -4,6 +4,7 @@
     "enableDistanceMarkers": false,
     "enableTransmittanceMapDebug": false,
     "engineConfigPath": "default_Star.cfg",
+    "forceFlatTerrains": false,
     "interactiveConfig": {
         "cameraMovementSpeed": 50.0,
         "cameraSensitivity": 0.10000000149011612,

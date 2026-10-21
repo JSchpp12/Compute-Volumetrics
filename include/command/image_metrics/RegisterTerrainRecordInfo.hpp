@@ -29,13 +29,13 @@ struct RegisterTerrainRecordInfo : star::common::IServiceCommand
         terrainHeightFilePath = std::move(path);
         return *this;
     }
-    RegisterTerrainRecordInfo &setTerrainRenderingType(star::terrain::rendering::Type type)
+    RegisterTerrainRecordInfo &setTerrainRenderingType(star::terrain::rendering::ElevationType type)
     {
         terrainRenderingType = type;
         return *this;
     }
 
     std::filesystem::path terrainHeightFilePath;
-    star::terrain::rendering::Type terrainRenderingType;
+    star::terrain::rendering::ElevationType terrainRenderingType;
 };
 } // namespace image_metrics

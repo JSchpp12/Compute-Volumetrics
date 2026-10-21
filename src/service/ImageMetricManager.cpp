@@ -253,7 +253,7 @@ void ImageMetricManager::cleanupListeners(star::core::CommandBus &cmdBus)
 }
 
 void ImageMetricManager::submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath,
-                                                           star::terrain::rendering::Type renderingType)
+                                                           star::terrain::rendering::ElevationType renderingType)
 {
     assert(m_cmdBus != nullptr);
     std::string terrainName = terrainShapeFilePath.parent_path().filename().string();

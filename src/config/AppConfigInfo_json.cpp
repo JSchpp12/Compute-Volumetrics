@@ -14,7 +14,8 @@ void to_json(nlohmann::json &j, const AppConfigInfo &v)
                        {"enableDistanceMarkers", v.enableDistanceMarkers},
                        {"enableCutoffHighlighting", v.enableCutoffHighlighting},
                        {"enableTransmittanceMapDebug", v.enableTransmittanceMapDebug},
-                       {"aggressiveTerrainTextureLoading", v.aggressiveTerrainTextureLoading}};
+                       {"aggressiveTerrainTextureLoading", v.aggressiveTerrainTextureLoading},
+                       {"forceFlatTerrains", v.forceFlatTerrains}};
 
     if (v.overrideRenderingDevice.has_value())
         j["overrideRenderingDevice"] = *v.overrideRenderingDevice;
@@ -33,8 +34,8 @@ void from_json(const nlohmann::json &j, AppConfigInfo &v)
     v.enableDistanceMarkers = j.value("enableDistanceMarkers", v.enableDistanceMarkers);
     v.enableCutoffHighlighting = j.value("enableCutoffHighlighting", v.enableCutoffHighlighting);
     v.enableTransmittanceMapDebug = j.value("enableTransmittanceMapDebug", v.enableTransmittanceMapDebug);
-    v.aggressiveTerrainTextureLoading =
-        j.value("aggressiveTerrainTextureLoading", v.aggressiveTerrainTextureLoading);
+    v.aggressiveTerrainTextureLoading = j.value("aggressiveTerrainTextureLoading", v.aggressiveTerrainTextureLoading);
+    v.forceFlatTerrains = j.value("forceFlatTerrains", v.forceFlatTerrains);
 
     if (j.contains("overrideRenderingDevice"))
         v.overrideRenderingDevice = j["overrideRenderingDevice"].get<int>();
