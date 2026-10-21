@@ -195,7 +195,7 @@
             }
         },
         {
-            "name": "x64-26-Debug",
+            "name": "x64-26-debug",
             "displayName": "VS 26 - Debug",
             "inherits": [
                 "x64-vs2026",
@@ -203,7 +203,7 @@
             ]
         },
         {
-            "name": "x64-26-Debug-H",
+            "name": "x64-26-debug-h",
             "displayName": "VS 26 - Debug Headless",
             "inherits": [
                 "x64-vs2026",
@@ -211,7 +211,7 @@
             ]
         },
         {
-            "name": "x64-26-Release",
+            "name": "x64-26-release",
             "displayName": "VS 26 - Release",
             "inherits": [
                 "x64-vs2026",
@@ -219,7 +219,7 @@
             ]
         },
         {
-            "name": "x64-26-RelWithDebInfo",
+            "name": "x64-26-relwithdebinfo",
             "displayName": "VS 26 - RelWithDebInfo",
             "inherits": [
                 "x64-vs2026",
@@ -227,7 +227,7 @@
             ]
         },
         {
-            "name": "x64-26-Release-H",
+            "name": "x64-26-release-h",
             "displayName": "VS 26 - Release Headless",
             "inherits": [
                 "x64-vs2026",
@@ -235,7 +235,7 @@
             ]
         },
         {
-            "name": "x64-26-Debug-Ninja",
+            "name": "x64-26-debug-ninja",
             "displayName": "Windows Ninja - Debug",
             "inherits": [
                 "ninja-msvc-base",
@@ -243,7 +243,7 @@
             ]
         },
         {
-            "name": "x64-26-Debug-H-Ninja",
+            "name": "x64-26-debug-h-ninja",
             "displayName": "Windows Ninja - Debug Headless",
             "inherits": [
                 "ninja-msvc-base",
@@ -251,7 +251,7 @@
             ]
         },
         {
-            "name": "x64-26-Release-Ninja",
+            "name": "x64-26-release-ninja",
             "displayName": "Windows Ninja - Release",
             "inherits": [
                 "ninja-msvc-base",
@@ -259,7 +259,7 @@
             ]
         },
         {
-            "name": "x64-26-RelWithDebInfo-Ninja",
+            "name": "x64-26-relwithdebinfo-ninja",
             "displayName": "Windows Ninja - RelWithDebInfo",
             "inherits": [
                 "ninja-msvc-base",
@@ -267,7 +267,7 @@
             ]
         },
         {
-            "name": "x64-26-Release-H-Ninja",
+            "name": "x64-26-release-h-ninja",
             "displayName": "Windows Ninja - Release Headless",
             "inherits": [
                 "ninja-msvc-base",
@@ -275,7 +275,7 @@
             ]
         },
         {
-            "name": "linux-Debug-Ninja",
+            "name": "linux-debug-ninja",
             "displayName": "Linux Ninja (gcc) - Debug",
             "inherits": [
                 "ninja-linux-base",
@@ -283,7 +283,7 @@
             ]
         },
         {
-            "name": "linux-Debug-H-Ninja",
+            "name": "linux-debug-h-ninja",
             "displayName": "Linux Ninja (gcc) - Debug Headless",
             "inherits": [
                 "ninja-linux-base",
@@ -291,7 +291,7 @@
             ]
         },
         {
-            "name": "linux-Release-Ninja",
+            "name": "linux-release-ninja",
             "displayName": "Linux Ninja (gcc) - Release",
             "inherits": [
                 "ninja-linux-base",
@@ -299,7 +299,7 @@
             ]
         },
         {
-            "name": "linux-RelWithDebInfo-Ninja",
+            "name": "linux-relwithdebinfo-ninja",
             "displayName": "Linux Ninja (gcc) - RelWithDebInfo",
             "inherits": [
                 "ninja-linux-base",
@@ -307,7 +307,7 @@
             ]
         },
         {
-            "name": "linux-Release-H-Ninja",
+            "name": "linux-release-h-ninja",
             "displayName": "Linux Ninja (gcc) - Release Headless",
             "inherits": [
                 "ninja-linux-base",
@@ -315,7 +315,7 @@
             ]
         },
         {
-            "name": "linux-clang-Debug-Ninja",
+            "name": "linux-clang-debug-ninja",
             "displayName": "Linux Ninja (clang) - Debug",
             "inherits": [
                 "ninja-linux-clang-base",
@@ -324,7 +324,7 @@
             ]
         },
         {
-            "name": "linux-clang-Debug-H-Ninja",
+            "name": "linux-clang-debug-h-ninja",
             "displayName": "Linux Ninja (clang) - Debug Headless",
             "inherits": [
                 "ninja-linux-clang-base",
@@ -333,7 +333,7 @@
             ]
         },
         {
-            "name": "linux-clang-Release-Ninja",
+            "name": "linux-clang-release-ninja",
             "displayName": "Linux Ninja (clang) - Release",
             "inherits": [
                 "ninja-linux-clang-base",
@@ -341,7 +341,7 @@
             ]
         },
         {
-            "name": "linux-clang-Release-H-Ninja",
+            "name": "linux-clang-release-h-ninja",
             "displayName": "Linux Ninja (clang) - Release Headless",
             "inherits": [
                 "ninja-linux-clang-base",
@@ -349,7 +349,7 @@
             ]
         },
         {
-            "name": "linux-Debug-UBSan-Ninja",
+            "name": "linux-debug-ubsan-ninja",
             "displayName": "Linux Ninja (gcc) - Debug UBSan",
             "inherits": [
                 "ninja-linux-base",
@@ -357,7 +357,7 @@
             ]
         },
         {
-            "name": "linux-clang-Debug-UBSan-Ninja",
+            "name": "linux-clang-debug-ubsan-ninja",
             "displayName": "Linux Ninja (clang) - Debug UBSan",
             "inherits": [
                 "ninja-linux-clang-base",
@@ -366,7 +366,7 @@
             ]
         },
         {
-            "name": "linux-Debug-ASan-UBSan-Ninja",
+            "name": "linux-debug-asan-ubsan-ninja",
             "displayName": "Linux Ninja (gcc) - Debug ASan+UBSan",
             "inherits": [
                 "ninja-linux-base",
@@ -374,7 +374,7 @@
             ]
         },
         {
-            "name": "linux-clang-Debug-ASan-UBSan-Ninja",
+            "name": "linux-clang-debug-asan-ubsan-ninja",
             "displayName": "Linux Ninja (clang) - Debug ASan+UBSan",
             "inherits": [
                 "ninja-linux-clang-base",
@@ -383,7 +383,7 @@
             ]
         },
         {
-            "name": "linux-Debug-TSan-Ninja",
+            "name": "linux-debug-tsan-ninja",
             "displayName": "Linux Ninja (gcc) - Debug TSan",
             "inherits": [
                 "ninja-linux-base",
@@ -391,7 +391,7 @@
             ]
         },
         {
-            "name": "linux-clang-Debug-TSan-Ninja",
+            "name": "linux-clang-debug-tsan-ninja",
             "displayName": "Linux Ninja (clang) - Debug TSan",
             "inherits": [
                 "ninja-linux-clang-base",
@@ -403,108 +403,108 @@
     "buildPresets": [
         {
             "name": "x64-26-debug",
-            "configurePreset": "x64-26-Debug",
+            "configurePreset": "x64-26-debug",
             "configuration": "Debug"
         },
         {
             "name": "x64-26-debug-h",
-            "configurePreset": "x64-26-Debug-H",
+            "configurePreset": "x64-26-debug-h",
             "configuration": "Debug"
         },
         {
             "name": "x64-26-release",
-            "configurePreset": "x64-26-Release",
+            "configurePreset": "x64-26-release",
             "configuration": "Release"
         },
         {
-            "name": "x64-26-RelWithDebInfo",
-            "configurePreset": "x64-26-RelWithDebInfo",
+            "name": "x64-26-relwithdebinfo",
+            "configurePreset": "x64-26-relwithdebinfo",
             "configuration": "RelWithDebInfo"
         },
         {
             "name": "x64-26-release-h",
-            "configurePreset": "x64-26-Release-H",
+            "configurePreset": "x64-26-release-h",
             "configuration": "Release"
         },
         {
             "name": "x64-26-debug-ninja",
-            "configurePreset": "x64-26-Debug-Ninja"
+            "configurePreset": "x64-26-debug-ninja"
         },
         {
             "name": "x64-26-debug-h-ninja",
-            "configurePreset": "x64-26-Debug-H-Ninja"
+            "configurePreset": "x64-26-debug-h-ninja"
         },
         {
             "name": "x64-26-release-ninja",
-            "configurePreset": "x64-26-Release-Ninja"
+            "configurePreset": "x64-26-release-ninja"
         },
         {
-            "name": "x64-26-RelWithDebInfo-ninja",
-            "configurePreset": "x64-26-RelWithDebInfo-Ninja"
+            "name": "x64-26-relwithdebinfo-ninja",
+            "configurePreset": "x64-26-relwithdebinfo-ninja"
         },
         {
             "name": "x64-26-release-h-ninja",
-            "configurePreset": "x64-26-Release-H-Ninja"
+            "configurePreset": "x64-26-release-h-ninja"
         },
         {
             "name": "linux-debug-ninja",
-            "configurePreset": "linux-Debug-Ninja"
+            "configurePreset": "linux-debug-ninja"
         },
         {
             "name": "linux-debug-h-ninja",
-            "configurePreset": "linux-Debug-H-Ninja"
+            "configurePreset": "linux-debug-h-ninja"
         },
         {
             "name": "linux-release-ninja",
-            "configurePreset": "linux-Release-Ninja"
+            "configurePreset": "linux-release-ninja"
         },
         {
-            "name": "linux-RelWithDebInfo-ninja",
-            "configurePreset": "linux-RelWithDebInfo-Ninja"
+            "name": "linux-relwithdebinfo-ninja",
+            "configurePreset": "linux-relwithdebinfo-ninja"
         },
         {
             "name": "linux-release-h-ninja",
-            "configurePreset": "linux-Release-H-Ninja"
+            "configurePreset": "linux-release-h-ninja"
         },
         {
             "name": "linux-clang-debug-ninja",
-            "configurePreset": "linux-clang-Debug-Ninja"
+            "configurePreset": "linux-clang-debug-ninja"
         },
         {
             "name": "linux-clang-debug-h-ninja",
-            "configurePreset": "linux-clang-Debug-H-Ninja"
+            "configurePreset": "linux-clang-debug-h-ninja"
         },
         {
             "name": "linux-clang-release-ninja",
-            "configurePreset": "linux-clang-Release-Ninja"
+            "configurePreset": "linux-clang-release-ninja"
         },
         {
             "name": "linux-clang-release-h-ninja",
-            "configurePreset": "linux-clang-Release-H-Ninja"
+            "configurePreset": "linux-clang-release-h-ninja"
         },
         {
             "name": "linux-debug-ubsan-ninja",
-            "configurePreset": "linux-Debug-UBSan-Ninja"
+            "configurePreset": "linux-debug-ubsan-ninja"
         },
         {
             "name": "linux-clang-debug-ubsan-ninja",
-            "configurePreset": "linux-clang-Debug-UBSan-Ninja"
+            "configurePreset": "linux-clang-debug-ubsan-ninja"
         },
         {
             "name": "linux-debug-asan-ubsan-ninja",
-            "configurePreset": "linux-Debug-ASan-UBSan-Ninja"
+            "configurePreset": "linux-debug-asan-ubsan-ninja"
         },
         {
             "name": "linux-clang-debug-asan-ubsan-ninja",
-            "configurePreset": "linux-clang-Debug-ASan-UBSan-Ninja"
+            "configurePreset": "linux-clang-debug-asan-ubsan-ninja"
         },
         {
             "name": "linux-debug-tsan-ninja",
-            "configurePreset": "linux-Debug-TSan-Ninja"
+            "configurePreset": "linux-debug-tsan-ninja"
         },
         {
             "name": "linux-clang-debug-tsan-ninja",
-            "configurePreset": "linux-clang-Debug-TSan-Ninja"
+            "configurePreset": "linux-clang-debug-tsan-ninja"
         }
     ]
 }
