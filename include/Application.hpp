@@ -112,19 +112,9 @@ class Application : public star::StarApplication
     static sim_controller::UpdateStatus TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume,
                                                          star::StarCamera &camera);
 
-    static float PromptForFloat(const std::string &prompt, const bool &allowNegative = false);
-
-    static int PromptForInt(const std::string &prompt);
-
-    static float ProcessFloatInput(const bool &allowNegatives);
-
-    static int ProcessIntInput();
-
     std::vector<std::shared_ptr<star::StarObject>> parseSceneObjects(star::core::device::DeviceContext &context,
                                                                      std::shared_ptr<star::StarCamera> camera,
                                                                      const std::string &terrainPath);
 
     static star::Light CreateMainLight(glm::vec3 position);
-
-    static void SetVolumeToCamera(Volume &volume, star::StarCamera &camera);
 };

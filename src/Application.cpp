@@ -420,56 +420,6 @@ void Application::setHeadlessServiceOutputDir(star::core::device::DeviceContext 
     context.getCmdBus().submit(cmd);
 }
 
-float Application::PromptForFloat(const std::string &prompt, const bool &allowNegatives)
-{
-    std::cout << prompt.c_str() << std::endl;
-    return ProcessFloatInput(allowNegatives);
-}
-
-int Application::PromptForInt(const std::string &prompt)
-{
-    std::cout << prompt.c_str() << std::endl;
-    return ProcessIntInput();
-}
-
-float Application::ProcessFloatInput(const bool &allowNegatives)
-{
-    float selectedDistance = 0.0f;
-
-    {
-        std::string inputOption;
-        std::getline(std::cin, inputOption);
-        selectedDistance = std::stof(inputOption);
-    }
-
-    if (!allowNegatives && selectedDistance < 0.0)
-    {
-        std::cout << "Invalid value provided. Defaulting to 0.0" << std::endl;
-        selectedDistance = 0.0f;
-    }
-
-    return selectedDistance;
-}
-
-int Application::ProcessIntInput()
-{
-    int selectedValue = 0;
-
-    {
-        std::string inputOption = std::string();
-        std::getline(std::cin, inputOption);
-        selectedValue = std::stoi(inputOption);
-    }
-
-    if (selectedValue < 0)
-    {
-        std::cout << "Invalid value provided. Defaulting to 0" << std::endl;
-        selectedValue = 0;
-    }
-
-    return selectedValue;
-}
-
 std::unique_ptr<star::core::renderer::IRenderPhaseProvider> Application::createMainRenderer(
     star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
     std::shared_ptr<star::StarCamera> camera)
@@ -512,10 +462,6 @@ bool Application::CheckIfControllerIsDone(star::core::CommandBus &cmd)
     sim_controller::CheckIfDone check;
     cmd.submit(check);
     return check.getReply().get();
-}
-
-void Application::SetVolumeToCamera(Volume &volume, star::StarCamera &camera)
-{
 }
 
 star::Light Application::CreateMainLight(glm::vec3 position)
