@@ -274,6 +274,8 @@ float marchLightTransmittance(in pnanovdb_grid_handle_t grid, in pnanovdb_readac
     return tau;
 }
 
+#include "const_volume.comp"
+
 ForwardMarchDebugMarchResult forwardMarch(in pnanovdb_grid_handle_t grid, const uvec2 pixelCoord,
                                           const vec3 backgroundColor, const Ray ray, const float t0, const float t1,
                                           const mat4 inverseModelMatrix, float sigmaAbsorption, float sigmaScattering,
@@ -318,7 +320,7 @@ ForwardMarchDebugMarchResult forwardMarch(in pnanovdb_grid_handle_t grid, const 
             break;
         }
 
-        const uint stepSeed = hash_u32(seed + uint(i)); // ← unique per step
+        const uint stepSeed = hash_u32(seed + uint(i));
         const float stepJitter = rand01(stepSeed);
         const float t = stepStart + stepJitter * ds;
         const vec3 marchPos = ray.origin.xyz + (t * ray.direction.xyz);
@@ -331,7 +333,7 @@ ForwardMarchDebugMarchResult forwardMarch(in pnanovdb_grid_handle_t grid, const 
             break;
         }
 
-        if (pDensity == 0.0f)
+        if (pDensity < EMPTY_DENSITY_VALUE)
             pDensity = defaultDensity * densityMultiplier;
 
         if (pDensity > 0.0f)

@@ -161,7 +161,7 @@ void setupMarchInfo(const in ivec2 columnPixel, const in vec3 mapDims, out vec3 
     vol_step = computeSingleStepFromLightOrtho(ndcXY, float(mapDims.z));
 }
 
-const float EPSILON_DENSITY = 0.000001;
+#include "const_volume.comp"
 
 // march from [startTexel, stopTexel)
 void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims, const in ivec2 columnPixel,
@@ -179,13 +179,14 @@ void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims,
     vol_startPos = vol_startPos + vol_step * float(startTexel);
 
     const float vol_stepSize = length(vol_step) * extractUniformVolumeScale(instanceModelMatrix[0]);
-    const float sigmaExtinction = fogInfo.marchedFog_sigmaScattering + fogInfo.marchedFog_sigmaAbsorption;
+    const float sigmaExtinction = (fogInfo.marchedFog_sigmaScattering + fogInfo.marchedFog_sigmaAbsorption) *
+                                  fogInfo.marchedFog_lightExtinctionScale;
 
     float tau = 0.0;
     for (int z = startTexel; z <= stopTexel; ++z)
     {
         float density = gridReadAt(grid, acc, gType, vol_startPos, true);
-        if (density < EPSILON_DENSITY)
+        if (density < EMPTY_DENSITY_VALUE)
             density = fogInfo.marchedFog_defaultDensity;
 
         // calculate contribution of the individual slice as a whole value for tau summation
