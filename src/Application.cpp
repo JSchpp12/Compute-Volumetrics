@@ -3,12 +3,10 @@
 #include "DeclareDependentPasses.hpp"
 #include "OffscreenRenderPhase.hpp"
 #include "OffscreenRenderPhaseProvider.hpp"
-#include "TransmittanceCellPlanner.hpp"
 #include "command/image_metrics/GetTransferCopyPass.hpp"
 #include "command/image_metrics/RegisterVolumeRecordInfo.hpp"
 #include "command/image_metrics/TriggerCapture.hpp"
 #include "command/sim_controller/CheckIfDone.hpp"
-#include "render_system/fog/TransmittanceMapConfig.hpp"
 #include "renderer/finalization/HeadlessPhaseProvider.hpp"
 #include "util/Distance.hpp"
 
@@ -107,8 +105,9 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
             auto cells = star::debug::CreateCube(std::move(transmittanceVizComponent->cubeInfos), cellResolver,
                                                  star::primitive::CubeObject::RenderMode::lines);
 
-            m_transmittanceVizInfo = TransmittanceVizInfo{.cells = cells, .windowSize = windowSize};
-            placeTransmittanceCells(*camera);
+            // The first placement happens on the first updateTransmittanceViz(), once the fog
+            // volume bounds (the fit target) are available.
+            m_transmittanceViz.emplace(cells, windowSize);
             objects.push_back(std::move(cells));
         }
         else if (sqComponent != nullptr)
@@ -399,41 +398,19 @@ void Application::placeDebugCubes(const glm::vec3 &direction, const glm::vec3 &s
 
 void Application::updateTransmittanceViz(const star::StarCamera &camera)
 {
-    if (!m_transmittanceVizInfo.has_value())
+    if (!m_transmittanceViz.has_value() || m_fogVolumeInfo == nullptr)
         return;
 
-    const std::pair<glm::vec3, glm::vec3> cameraState{camera.getPosition(), glm::vec3{camera.getForwardVector()}};
+    const star::terrain::rendering::BoundsDefinition volumeBounds = m_fogVolumeInfo->getShadowWindowBounds();
 
-    if (m_transmittanceVizLastCamera.has_value() && m_transmittanceVizLastCamera.value() == cameraState)
-        return;
-
-    placeTransmittanceCells(camera);
-    m_transmittanceVizLastCamera = cameraState;
-}
-
-void Application::placeTransmittanceCells(const star::StarCamera &camera)
-{
-    if (!m_transmittanceVizInfo.has_value())
-        return;
-
-    const auto &vizInfo = m_transmittanceVizInfo.value();
-
-    // The terrain shadow camera is driven by the first scene light
-    // (ShadowCameraController), so use the same direction to keep the
-    // visualization in sync with the precompute it mirrors.
+    // The terrain shadow camera is driven by the first scene light (ShadowCameraController), so
+    // use the same direction to keep the visualization in sync with the precompute it mirrors.
     glm::vec3 lightDirection{0.0f, -1.0f, 0.0f};
     if (m_mainLight != nullptr && !m_mainLight->empty())
         lightDirection = m_mainLight->front().getDirection();
 
-    const auto placements = transmittance_viz::ComputeWindowPlacements(
-        camera, lightDirection, render_system::fog::kTransmittanceMapResolution, vizInfo.windowSize);
-
-    for (size_t i = 0; i < placements.cells.size(); ++i)
-    {
-        auto &instance = vizInfo.cells->getInstance(i);
-        instance.setPosition(placements.cells[i].position);
-        instance.setScale(placements.cells[i].size);
-    }
+    m_transmittanceViz->update(camera, TransmittanceMapVisualDebugController::PlacementInputs::FromCamera(
+                                           camera, lightDirection, volumeBounds));
 }
 
 void Application::setHeadlessServiceOutputDir(star::core::device::DeviceContext &context) const

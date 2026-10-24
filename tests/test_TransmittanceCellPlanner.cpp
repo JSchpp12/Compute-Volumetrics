@@ -12,10 +12,27 @@ namespace
 {
 constexpr float kRelativeTolerance = 1.0e-4f;
 
-transmittance_viz::WindowPlacements MakePlacements()
+/// Axis-aligned volume bounds of the given half extent, as FogVolumeInfoController reports.
+star::terrain::rendering::BoundsDefinition MakeBounds(const float halfExtent)
+{
+    return star::terrain::rendering::BoundsDefinition::Builder()
+        .asBox(glm::vec3{-halfExtent, -halfExtent, -halfExtent}, glm::vec3{halfExtent, halfExtent, halfExtent})
+        .build();
+}
+
+transmittance_viz::WindowPlacements MakePlacementsFor(const float halfExtent)
 {
     star::StarCamera camera(1920, 1080, 90.0f, 1.0f, 25000.0f);
-    return transmittance_viz::ComputeWindowPlacements(camera, glm::vec3{0.0f, -1.0f, 0.0f}, {64, 64, 32}, {4, 4, 4});
+    const glm::mat4 worldToLightViewProj = transmittance_viz::ComputeLightViewProj(
+        camera, glm::vec3{0.0f, -1.0f, 0.0f}, MakeBounds(halfExtent));
+
+    return transmittance_viz::ComputeWindowPlacements(worldToLightViewProj, camera.getPosition(), {64, 64, 32},
+                                                       {4, 4, 4});
+}
+
+transmittance_viz::WindowPlacements MakePlacements()
+{
+    return MakePlacementsFor(1000.0f);
 }
 
 /// Expect `actual` to be zero, within a tolerance scaled to the cell size
@@ -43,6 +60,18 @@ TEST(TransmittanceCellPlanner, EveryCellSharesTheGridSize)
         EXPECT_NEAR(cell.size.y, placements.cellWorldSize.y, placements.cellWorldSize.y * kRelativeTolerance);
         EXPECT_NEAR(cell.size.z, placements.cellWorldSize.z, placements.cellWorldSize.z * kRelativeTolerance);
     }
+}
+
+/// The map's world extent is fitted to the volume's world bounds, so the texel cells have to
+/// grow with the volume -- this is the behaviour the precompute actually has.
+TEST(TransmittanceCellPlanner, CellSizeFollowsTheVolumeBounds)
+{
+    const auto small = MakePlacementsFor(500.0f);
+    const auto large = MakePlacementsFor(1000.0f);
+
+    EXPECT_GT(large.cellWorldSize.x, small.cellWorldSize.x);
+    EXPECT_GT(large.cellWorldSize.y, small.cellWorldSize.y);
+    EXPECT_GT(large.cellWorldSize.z, small.cellWorldSize.z);
 }
 
 TEST(TransmittanceCellPlanner, AdjacentCellsAreExactlyOneCellApart)

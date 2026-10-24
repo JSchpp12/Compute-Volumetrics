@@ -1,17 +1,16 @@
 #pragma once
 
-#include "OffscreenRenderPhaseProvider.hpp"
 #include "FogVolumeInfo.hpp"
+#include "OffscreenRenderPhaseProvider.hpp"
 #include "StarApplication.hpp"
+#include "TransmittanceMapVisualDebugController.hpp"
 #include "Volume.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
 #include "loader/SceneDescription.hpp"
 #include <starlight/core/renderer/IRenderPhaseProvider.hpp>
 
-#include <array>
 #include <functional>
 #include <memory>
-#include <utility>
 #include <vector>
 
 class Application : public star::StarApplication
@@ -47,23 +46,15 @@ class Application : public star::StarApplication
         uint8_t numUniqueCubes{0};
     };
 
-    /// Debug visualization of the precomputed transmittance map: a window of
-    /// wireframe cells, one per map texel, following the camera in texel steps.
-    struct TransmittanceVizInfo
-    {
-        std::shared_ptr<star::StarObject> cells;
-        std::array<int, 3> windowSize{};
-    };
-
     LoaderFn m_loaderFn;
     std::filesystem::path m_imageOutputDir;
     std::string m_terrainDir;
     std::string m_volumeName;
     std::vector<star::Handle> m_screenshotRegistrations;
     std::optional<DebugCubeInfo> m_debugCubeInfo{std::nullopt};
-    std::optional<TransmittanceVizInfo> m_transmittanceVizInfo{std::nullopt};
-    /// Camera state (position, forward) at the last transmittance viz placement.
-    std::optional<std::pair<glm::vec3, glm::vec3>> m_transmittanceVizLastCamera{std::nullopt};
+    /// Transmittance map debug visualization; present only when the scene provides one. Owns the
+    /// cell object and the input state that decides when the cells need to be re-placed.
+    std::optional<TransmittanceMapVisualDebugController> m_transmittanceViz{std::nullopt};
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
     std::shared_ptr<Volume> m_volume;
     std::shared_ptr<FogVolumeInfoController> m_fogVolumeInfo;
@@ -87,12 +78,9 @@ class Application : public star::StarApplication
 
     void placeDebugCubes(const glm::vec3 &direction, const glm::vec3 &startPosition);
 
-    /// Re-place the transmittance visualization window around the camera.
-    void placeTransmittanceCells(const star::StarCamera &camera);
-
-    /// Re-place the transmittance visualization window, but only when the
-    /// camera has moved or rotated since the last placement. Cheap enough to
-    /// call every frame from either the headless or interactive loop.
+    /// Feed the current camera/light/volume state to the transmittance debug visualization, which
+    /// re-places its cells only when that state changed. Cheap enough to call every frame from
+    /// either the headless or interactive loop.
     void updateTransmittanceViz(const star::StarCamera &camera);
 
     void setHeadlessServiceOutputDir(star::core::device::DeviceContext &context) const;

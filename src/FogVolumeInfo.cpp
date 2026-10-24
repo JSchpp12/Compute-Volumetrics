@@ -8,10 +8,9 @@ FogVolumeInfoController::FogVolumeInfoController(const Volume &volume, uint8_t n
 {
 }
 
-bool FogVolumeInfoController::getShadowWindowBounds(star::terrain::rendering::BoundsDefinition &out) const
+star::terrain::rendering::BoundsDefinition FogVolumeInfoController::getShadowWindowBounds() const
 {
-    out = calculateCurrentBounds();
-    return true;
+    return calculateCurrentBounds();
 }
 
 bool FogVolumeInfoController::willShadowWindowBoundsUpdate(const star::common::FrameTracker &frameTracker) const

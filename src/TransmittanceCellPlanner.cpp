@@ -8,6 +8,18 @@
 
 namespace transmittance_viz
 {
+glm::mat4 ComputeLightViewProj(const star::StarCamera &camera, const glm::vec3 &lightDirection,
+                               const star::terrain::rendering::BoundsDefinition &volumeWorldBounds)
+{
+    const star::terrain::rendering::ShadowFrustumCalculator shadowFrustumCalculator{camera, lightDirection};
+
+    const std::array<uint32_t, 3> shadowResolution{render_system::fog::kShadowMapResolution[0],
+                                                   render_system::fog::kShadowMapResolution[1], 0};
+
+    return shadowFrustumCalculator.getShadowLightProjectionForBounds(
+        volumeWorldBounds, {.resolution = shadowResolution, .casterPadding = render_system::fog::kShadowCasterPadding});
+}
+
 std::array<int, 3> WindowOffsetAt(const size_t index, const std::array<int, 3> &windowSize)
 {
     assert(index < WindowCellCount(windowSize) && "Window index is out of range");
@@ -22,7 +34,7 @@ std::array<int, 3> WindowOffsetAt(const size_t index, const std::array<int, 3> &
     };
 }
 
-WindowPlacements ComputeWindowPlacements(const star::StarCamera &camera, const glm::vec3 &lightDirection,
+WindowPlacements ComputeWindowPlacements(const glm::mat4 &worldToLightViewProj, const glm::vec3 &anchorWorldPosition,
                                          const std::array<uint32_t, 3> &mapResolution,
                                          const std::array<int, 3> &windowSize)
 {
@@ -32,21 +44,15 @@ WindowPlacements ComputeWindowPlacements(const star::StarCamera &camera, const g
         assert(windowSize[axis] <= mapResolution[axis] && "Window cannot be larger than the map");
     }
 
-    const auto fitTarget =
-        star::terrain::rendering::BoundsDefinition::Builder().asCameraFrustumSphere(camera, lightDirection).build();
-    const star::terrain::rendering::ShadowFrustumCalculator shadowFrustumCalculator{camera, lightDirection};
-
-    const glm::mat4 worldToLightViewProj = shadowFrustumCalculator.getShadowLightProjectionForBounds(
-        fitTarget, {.resolution = render_system::fog::kTransmittanceMapResolution});
     const glm::mat4 lightViewProjToWorld = glm::inverse(worldToLightViewProj);
 
-    // Where the camera sits in the map's texel space.
-    const glm::vec4 cameraClip = worldToLightViewProj * glm::vec4{camera.getPosition(), 1.0f};
-    const glm::vec3 cameraNdc{cameraClip.x / cameraClip.w, cameraClip.y / cameraClip.w, cameraClip.z / cameraClip.w};
-    const glm::vec3 cameraTexel{
-        (cameraNdc.x * 0.5f + 0.5f) * static_cast<float>(mapResolution[0]),
-        (cameraNdc.y * 0.5f + 0.5f) * static_cast<float>(mapResolution[1]),
-        cameraNdc.z * static_cast<float>(mapResolution[2]),
+    // Where the anchor (normally the camera) sits in the map's texel space.
+    const glm::vec4 anchorClip = worldToLightViewProj * glm::vec4{anchorWorldPosition, 1.0f};
+    const glm::vec3 anchorNdc{anchorClip.x / anchorClip.w, anchorClip.y / anchorClip.w, anchorClip.z / anchorClip.w};
+    const glm::vec3 anchorTexel{
+        (anchorNdc.x * 0.5f + 0.5f) * static_cast<float>(mapResolution[0]),
+        (anchorNdc.y * 0.5f + 0.5f) * static_cast<float>(mapResolution[1]),
+        anchorNdc.z * static_cast<float>(mapResolution[2]),
     };
 
     // Clamp the window center so the whole window stays inside the map. For
@@ -59,15 +65,12 @@ WindowPlacements ComputeWindowPlacements(const star::StarCamera &camera, const g
         const int lowestCenter = half;
         const int highestCenter = mapResolution[axis] - windowSize[axis] + half;
 
-        center[axis] = std::clamp(static_cast<int>(std::floor(cameraTexel[axis])), lowestCenter,
+        center[axis] = std::clamp(static_cast<int>(std::floor(anchorTexel[axis])), lowestCenter,
                                   std::max(lowestCenter, highestCenter));
     }
 
-    // The orthographic projection makes NDC -> world affine, so the linear part
-    // of the inverse maps NDC extents directly to world extents. Summing the
-    // absolute per-axis contributions gives the world AABB half size of one
-    // cell: exact for the current axis-aligned light basis, conservative if the
-    // light direction is ever tilted.
+    // The orthographic projection makes NDC -> world affine, so the linear part of the inverse maps NDC extents
+    // directly to world extents.
     const glm::mat3 lightToWorldLinear{lightViewProjToWorld};
     const glm::vec3 cellHalfSize =
         glm::abs(lightToWorldLinear * glm::vec3{1.0f / static_cast<float>(mapResolution[0]), 0.0f, 0.0f}) +

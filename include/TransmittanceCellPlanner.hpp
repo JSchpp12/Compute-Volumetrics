@@ -47,14 +47,10 @@ inline size_t WindowCellCount(const std::array<int, 3> &windowSize)
 /// lowest corner.
 std::array<int, 3> WindowOffsetAt(size_t index, const std::array<int, 3> &windowSize);
 
-/// Compute world-space placements for the window of map texels around the
-/// camera. The window follows the camera in whole texel steps and is clamped
-/// so it always stays fully inside the map.
-///
-/// The texel <-> NDC mapping mirrors volume_precomputeLightTransmittance.comp:
-/// x/y NDC spans [-1, 1] over the map extents and z NDC spans [0, 1] over the
-/// light frustum depth (GLM_FORCE_DEPTH_ZERO_TO_ONE is enabled project-wide).
-WindowPlacements ComputeWindowPlacements(const star::StarCamera &camera, const glm::vec3 &lightDirection,
+glm::mat4 ComputeLightViewProj(const star::StarCamera &camera, const glm::vec3 &lightDirection,
+                               const star::terrain::rendering::BoundsDefinition &volumeWorldBounds);
+
+WindowPlacements ComputeWindowPlacements(const glm::mat4 &worldToLightViewProj, const glm::vec3 &anchorWorldPosition,
                                          const std::array<uint32_t, 3> &mapResolution,
                                          const std::array<int, 3> &windowSize);
 } // namespace transmittance_viz

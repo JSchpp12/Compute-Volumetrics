@@ -17,7 +17,7 @@ class FogVolumeInfoController : public star::terrain::rendering::ShadowWindowBou
 
     virtual ~FogVolumeInfoController() = default;
 
-    virtual bool getShadowWindowBounds(star::terrain::rendering::BoundsDefinition &out) const override;
+    virtual star::terrain::rendering::BoundsDefinition getShadowWindowBounds() const override;
 
     virtual bool willShadowWindowBoundsUpdate(const star::common::FrameTracker &frameTracker) const override;
 
