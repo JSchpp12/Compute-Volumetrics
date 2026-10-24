@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 struct MarchedFogInfo
 {
     float defaultDensity = 0.0f, stepSizeDist = 0.0f, stepSizeDist_light = 0.0f;
@@ -139,7 +141,8 @@ struct MarchedFogInfo
 
     void setLightExtinctionScale(float value)
     {
-        lightExtinctionScale = std::move(value);
+        // percentage: 0 = no light extinction, 1 = full extinction
+        lightExtinctionScale = std::clamp(value, 0.0f, 1.0f);
     }
 
     float getLightExtinctionScale() const

@@ -131,7 +131,7 @@ static void DrawMarchedFogControls(MarchedFogInfo &marched)
     }
 
     float lightExtinctionScale = marched.getLightExtinctionScale();
-    if (ImGui::DragFloat("Light Extinction Scale", &lightExtinctionScale, 0.01f, 0.0f, FLT_MAX, "%.4f"))
+    if (ImGui::DragFloat("Light Extinction Scale", &lightExtinctionScale, 0.01f, 0.0f, 1.0f, "%.4f"))
     {
         marched.setLightExtinctionScale(lightExtinctionScale);
     }
