@@ -177,11 +177,8 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     if (m_updateDebugCubes)
     {
         placeDebugCubes(m_mainScene->getCamera()->getForwardVector(), m_mainScene->getCamera()->getPosition());
-        // m_updateDebugCubes = false;
     }
 
-    // the BasicCamera is moved by the windowing layer; re-place the
-    // transmittance texel window whenever the camera has actually changed
     updateTransmittanceViz(*m_mainScene->getCamera());
 }
 

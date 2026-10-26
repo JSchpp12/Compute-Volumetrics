@@ -1,8 +1,8 @@
 #include "renderer/distance/CreatePipelines.hpp"
 
+#include "render_system/fog/VolumeShaderFactory.hpp"
 #include "renderer/PipelineLayoutAssembler.hpp"
 
-#include <Compiler.hpp>
 #include <Enums.hpp>
 #include <StarDescriptorBuilders.hpp>
 #include <StarPipeline.hpp>
@@ -16,17 +16,13 @@
 #include <device/managers/Shader.hpp>
 #include <filesystem>
 #include <memory>
-#include <sstream>
 #include <star_common/Handle.hpp>
 #include <star_common/HandleTypeRegistry.hpp>
 #include <starlight/command/pipeline/CreatePipeline.hpp>
-#include <starlight/core/Exceptions.hpp>
 #include <string>
-#include <utility>
 #include <vector>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_handles.hpp>
-
 
 #include "render_system/fog/struct/ShaderPushInfo.hpp"
 
@@ -73,24 +69,14 @@ static star::Handle BuildPipeline(vk::PipelineLayout computePipelineLayout,
 
     assert(context.commandBus != nullptr && "Command bus required to build the distance pipeline");
 
+    const star::Handle shaderHandle =
+        render_system::fog::CreateVolumeComputeShader(shaderPath.string(), *context.commandBus);
+
     star::command::pipeline::CreatePipeline cmd;
-    cmd.setComputePipeline()
-        .addShaderRequest({star::Shader_Stage::compute, shaderPath, star::Compiler("PNANOVDB_GLSL")})
-        .setPipelineLayout(computePipelineLayout);
+    cmd.setComputePipeline().addShaderHandle(shaderHandle).setPipelineLayout(computePipelineLayout);
 
     context.commandBus->submit(cmd);
-    const auto reply = cmd.getReply().get();
-    if (!reply)
-    {
-        // The service reports resolution failures through the reply; a
-        // pipeline that failed to build would otherwise stall the renderer
-        // waiting for a pipeline-ready event that never fires.
-        std::ostringstream oss;
-        oss << "Failed to create distance pipeline for shader '" << shaderPath.string() << "':\n"
-            << reply.error().toString();
-        STAR_THROW(oss.str());
-    }
-    return reply.value();
+    return cmd.getReply().get();
 }
 
 void CreatePipelines::create()

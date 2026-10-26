@@ -91,8 +91,6 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
         }
         else if (transmittanceVizComponent != nullptr)
         {
-            // Media-relative candidates: resolution happens in ShaderService
-            // (as-is -> media-relative -> exe-relative).
             const std::filesystem::path vizShaderDir = std::filesystem::path{"shaders"} / "transmittanceViz";
 
             star::ShaderResolver cellResolver =
@@ -215,8 +213,8 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
             }
             const std::string vdbPathString = resolvedVolumeDir.value().string();
 
-            // Media-relative candidates: resolution happens in ShaderService
-            // (as-is -> media-relative -> exe-relative).
+            // Media-relative candidates: the shader compile worker resolves
+            // them (as-is -> media-relative -> exe-relative).
             const std::filesystem::path screenShaderDir = std::filesystem::path{"shaders"} / "screenWithTexture";
 
             star::ShaderResolver volumeResolver =

@@ -10,9 +10,9 @@
 
 #include <starlight/command/FileIO/WriteToFile.hpp>
 #include <starlight/command/GetScreenCaptureSyncInfo.hpp>
-#include <starlight/command/TaskScheduler/SubmitTask.hpp>
 #include <starlight/command/command_order/DeclareDependency.hpp>
 #include <starlight/command/frames/GetFrameTracker.hpp>
+#include <starlight/command/task_scheduler/SubmitTask.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/job/tasks/WriteImageToDisk.hpp>
 

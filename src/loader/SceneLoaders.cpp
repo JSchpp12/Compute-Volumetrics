@@ -25,8 +25,6 @@ static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarOb
     star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
     const std::filesystem::path &terrainPath, bool aggressiveTerrainTextureLoading, bool forceFlatTerrains)
 {
-    // Media-relative candidates: TerrainFactory resolves the shader and terrain
-    // directories through the IOService (GetPath command) before building anything.
     const std::filesystem::path terrainShaderDir = std::filesystem::path{"shaders"} / "terrain" / "standard_geometry";
 
     star::command::file_io::GetPath terrainPathCmd;

@@ -11,7 +11,7 @@
 #include "service/detail/image_metric_manager/SharedBufferHandle.hpp"
 
 #include <star_terrain/file_data/CoverageInfo.hpp>
-#include <starlight/command/TaskScheduler/SubmitTask.hpp>
+#include <starlight/command/task_scheduler/SubmitTask.hpp>
 #include <starlight/core/device/managers/GraphicsContainer.hpp>
 #include <starlight/job/tasks/Task.hpp>
 #include <starlight/policy/command/ListenFor.hpp>
