@@ -15,7 +15,9 @@
 #include "core/device/managers/DescriptorPool.hpp"
 #include "core/device/managers/Image.hpp"
 #include "core/renderer/DescriptorRecipe.hpp"
+#include "render_system/fog/ConstantsFactory.hpp"
 #include "render_system/fog/DataRoles.hpp"
+#include "render_system/fog/ShaderFactory.hpp"
 #include "render_system/fog/ShadowDispatchResourceProvider.hpp"
 #include "render_system/fog/util/CreateBuffers.hpp"
 #include "renderer/volume/ComputePipelineLayout.hpp"
@@ -383,6 +385,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     }
 
     phase->m_volumeFrameData->prepRender(c, numFramesInFlight);
+    const star::Handle colorMarchShaderHandle =
+        render_system::fog::CreateVolumeComputeShader("volume_color.comp", c.getCmdBus());
 
     // staticInfo owns pipeline sets 0-1 (baseSet 0, declared above). Set/binding
     // numbers below match layout(set = N, binding = M) in the volume shaders.
@@ -441,48 +445,73 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(phase->m_volumeFrameData, 3, 2, transmittanceMapSampledRole,
                     vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
-        .setOnShaderInfoReady(
-            [layoutRecipe =
-                 renderer::volume::ComputePipelineLayoutRecipe{
-                     .context = &c,
-                     .shaderInfos = {.staticInfo = {&phase->m_staticShaderInfo},
-                                     .dynamicInfo = {&phase->m_dynamicShaderInfo},
-                                     .depthInfo = {&phase->m_sceneDepthShaderInfo}},
-                     .validationInfos = {{&phase->m_shadowShaderInfo}, {&phase->m_shadowDepthShaderInfo}},
-                     .out = &phase->computePipelineLayout},
-             recipes =
-                 std::vector<renderer::volume::VolumePipelineRecipe>{
-                     {.context = &c,
-                      .shaderFile = "volume_debugColorRedActiveRays.comp",
-                      .outHandle = &phase->nanoVDBPipeline_hitBoundingBox},
-                     {.context = &c,
-                      .shaderFile = "volume_nanoVDBSurface.comp",
-                      .outHandle = &phase->nanoVDBPipeline_surface},
-                     {.context = &c, .shaderFile = "volume_color.comp", .outHandle = &phase->marchedPipeline},
-                     {.context = &c, .shaderFile = "volume_linear.comp", .outHandle = &phase->linearPipeline},
-                     {.context = &c, .shaderFile = "volume_exp.comp", .outHandle = &phase->expPipeline},
-                     {.context = &c,
-                      .shaderFile = "volume_rayInit.comp",
-                      .outHandle = &phase->m_initPipe,
-                      .outCachedPipeline = &phase->m_pipeInfo.initPipeline},
-                     {.context = &c,
-                      .shaderFile = "volume_calcIndirectDispatch.comp",
-                      .outHandle = &phase->m_indirectDispatchPipe,
-                      .outCachedPipeline = &phase->m_pipeInfo.indirectDispatchPipeline},
-                     {.context = &c,
-                      .shaderFile = "volume_precomputeLightTransmittance.comp",
-                      .outHandle = &phase->m_precomputeLightTransmittancePipe,
-                      .outCachedPipeline = &phase->m_pipeInfo.transmittancePipe.pipeline}}](
-                star::core::device::DeviceContext &) mutable {
-                layoutRecipe();
+        .setOnShaderInfoReady([layoutRecipe =
+                                   renderer::volume::ComputePipelineLayoutRecipe{
+                                       .context = &c,
+                                       .shaderInfos = {.staticInfo = {&phase->m_staticShaderInfo},
+                                                       .dynamicInfo = {&phase->m_dynamicShaderInfo},
+                                                       .depthInfo = {&phase->m_sceneDepthShaderInfo}},
+                                       .validationInfos = {{&phase->m_shadowShaderInfo},
+                                                           {&phase->m_shadowDepthShaderInfo}},
+                                       .out = &phase->computePipelineLayout},
+                               recipes =
+                                   std::vector<renderer::volume::VolumePipelineRecipe>{
+                                       {.context = &c,
+                                        .shader = render_system::fog::CreateVolumeComputeShader(
+                                            "volume_debugColorRedActiveRays.comp", c.getCmdBus()),
+                                        .outHandle = &phase->m_pipelines.fog.nanoBoundingBox.handles[0]},
+                                       {.context = &c,
+                                        .shader = render_system::fog::CreateVolumeComputeShader(
+                                            "volume_nanoVDBSurface.comp", c.getCmdBus()),
+                                        .outHandle = &phase->m_pipelines.fog.nanoSurface.handles[0]},
+                                       {.context = &c,
+                                        .shader = colorMarchShaderHandle,
+                                        .outHandle = &phase->m_pipelines.fog.marched.handles[0],
+                                        .pipelineConstantsProvider =
+                                            [](star::command::pipeline::CreatePipeline &cmd) {
+                                                constexpr render_system::fog::ColorConstants kConstants{
+                                                    .enableTrilinearInterpolationGridLookups = true};
+                                                render_system::fog::GetPipelineConstantsForColorMarch(cmd, kConstants);
+                                            }},
+                                       {.context = &c,
+                                        .shader = render_system::fog::CreateVolumeComputeShader("volume_linear.comp",
+                                                                                                c.getCmdBus()),
+                                        .outHandle = &phase->m_pipelines.fog.linear.handles[0]},
+                                       {.context = &c,
+                                        .shader = render_system::fog::CreateVolumeComputeShader("volume_exp.comp",
+                                                                                                c.getCmdBus()),
+                                        .outHandle = &phase->m_pipelines.fog.exponential.handles[0]},
+                                       {.context = &c,
+                                        .shader = render_system::fog::CreateVolumeComputeShader("volume_rayInit.comp",
+                                                                                                c.getCmdBus()),
+                                        .outHandle = &phase->m_pipelines.init},
+                                       {.context = &c,
+                                        .shader = render_system::fog::CreateVolumeComputeShader(
+                                            "volume_calcIndirectDispatch.comp", c.getCmdBus()),
+                                        .outHandle = &phase->m_pipelines.indirectDispatch},
+                                       {.context = &c,
+                                        .shader = render_system::fog::CreateVolumeComputeShader(
+                                            "volume_precomputeLightTransmittance.comp", c.getCmdBus()),
+                                        .outHandle = &phase->m_pipelines.transmittance,
+                                        .pipelineConstantsProvider =
+                                            [](star::command::pipeline::CreatePipeline &cmd) {
+                                                constexpr render_system::fog::TransmittanceConstants kConstants{
+                                                    .numRaySamples = 1};
+                                                render_system::fog::GetPipelineConstantsForPrecomputeTransmittance(
+                                                    cmd, kConstants);
+                                            }},
+                                   }](star::core::device::DeviceContext &) mutable {
+            // build all layouts
+            layoutRecipe();
 
-                const vk::PipelineLayout &layout = *layoutRecipe.out->get();
-                for (auto &recipe : recipes)
-                {
-                    recipe.layout = &layout;
-                    recipe();
-                }
-            })
+            // apply shared layout across all recipes provided
+            const vk::PipelineLayout &layout = *layoutRecipe.out->get();
+            for (auto &recipe : recipes)
+            {
+                recipe.layout = &layout;
+                recipe();
+            }
+        })
         .build();
 
     renderer::volume::ContainerRenderResourceData pipelineData{

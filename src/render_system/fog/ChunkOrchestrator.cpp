@@ -43,7 +43,7 @@ void render_system::fog::ChunkOrchestrator::recordInto(const DispatchInfo &dInfo
 {
     if (m_isReady)
     {
-        RecPushConsts(cmdBuf, dInfo, pipeInfo.colorPipe.layout, dInfo.shaderOptionFlags);
+        RecPushConsts(cmdBuf, dInfo, pipeInfo.layout, dInfo.shaderOptionFlags);
     }
 
     for (auto &app : m_cmdApproaches)

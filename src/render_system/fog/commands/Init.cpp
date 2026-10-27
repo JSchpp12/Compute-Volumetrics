@@ -61,7 +61,7 @@ Init::Init(const vk::Extent2D &targetDispatchResolution, InitPassType passType,
 void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuffer,
                           const star::common::FrameTracker &ft, std::span<OptionalClearBuffer> optionalClears)
 {
-    assert(pipeInfo.colorPipe.layout != VK_NULL_HANDLE);
+    assert(pipeInfo.layout != VK_NULL_HANDLE);
 
     AddBarrierDepPreviousIndirectRead(pipeInfo, cmdBuffer, m_needsMemoryBarrierProtectFromPreviousDispatch);
 
@@ -76,10 +76,9 @@ void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pip
     AddBarrierDepCompute(pipeInfo, cmdBuffer);
 
     const bool isLightCamera = (m_passType == InitPassType::LightCamera);
-    const vk::Pipeline initPipeline = isLightCamera ? pipeInfo.initLightCameraPipeline : pipeInfo.initPipeline;
-    assert(initPipeline && "Init pipeline should have been provided in PassPipelineInfo");
+    assert(pipeInfo.initPipeline && "Init pipeline should have been provided in PassPipelineInfo");
 
-    cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, initPipeline);
+    cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.initPipeline);
     size_t numWritten{0};
     const auto frameInFlight = ft.getCurrent().getFrameInFlightIndex();
     assert(pipeInfo.staticShaderInfo != nullptr);
@@ -108,7 +107,7 @@ void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pip
                                         numWritten);
     }
 
-    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, firstSet, numWritten,
+    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.layout, firstSet, numWritten,
                                  m_descriptors.data(), 0, VK_NULL_HANDLE);
 
     cmdBuffer.dispatch(m_workgroupSize[0], m_workgroupSize[1], 1);

@@ -70,6 +70,15 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
         return this->currentFogType;
     }
 
+    void setActiveVariant(Fog::Type type, std::uint32_t variantIndex)
+    {
+        m_pipelines.fog.setActiveVariant(type, variantIndex);
+    }
+    std::uint32_t getActiveVariant(Fog::Type type) const
+    {
+        return m_pipelines.fog.getActiveVariant(type);
+    }
+
     const star::StarBuffers::Buffer &getRayDistanceBufferAt(const size_t &index) const
     {
         assert(index < computeRayDistanceBuffers.size() && "Requested index out of range for getRayDistanceBuffers");
@@ -82,11 +91,6 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
         assert(index < computeRayAtCutoffDistanceBuffers.size());
 
         return computeRayAtCutoffDistanceBuffers[index];
-    }
-
-    void setTransferTriggered(bool value)
-    {
-        transferTriggeredThisFrame = value;
     }
 
     void setTransferNeighborHandle(star::Handle handle)
@@ -125,13 +129,9 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
 
   private:
     render_system::fog::PassPipelineInfo m_pipeInfo;
-    star::Handle m_indirectDispatchPipe;
-    star::Handle m_initPipe;
-    star::Handle m_precomputeLightTransmittancePipe;
+    render_system::fog::VolumePipelineSet m_pipelines;
     std::shared_ptr<star::core::renderer::FrameData> m_frameData;
     std::shared_ptr<star::core::renderer::FrameData> m_volumeFrameData;
-    /// Cached role handle for the shared camera controller (looked up from the
-    /// offscreen phase's FrameData). Avoids a per-frame registry lookup.
     star::Handle m_cameraRole{};
     star::core::renderer::RenderPhase *m_offscreenPhase = nullptr;
     star::core::renderer::RenderPhase *m_terrainShadowPhase = nullptr;
@@ -147,7 +147,6 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
 
     std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages;
     std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers, computeRayAtCutoffDistanceBuffers;
-    star::Handle marchedPipeline, nanoVDBPipeline_hitBoundingBox, nanoVDBPipeline_surface, linearPipeline, expPipeline;
     std::vector<star::Handle> m_timelineSemaphores;
     VisibilityDistanceCompute m_distanceComputer;
     render_system::fog::FogDispatcher m_chunkHandler;
@@ -164,8 +163,6 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     bool m_enableTransmittancePrecomputeDisableAabbRayTest{false};
     bool m_enableTransmittancePrecomputeSetTexelsOfInterest{false};
     bool isReady{false};
-    bool isFirstPass{true};
-    bool transferTriggeredThisFrame{false};
     star::core::CommandBus *m_cmdBus{nullptr};
     vk::Device m_device{VK_NULL_HANDLE};
 

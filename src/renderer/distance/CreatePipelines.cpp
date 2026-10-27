@@ -1,6 +1,6 @@
 #include "renderer/distance/CreatePipelines.hpp"
 
-#include "render_system/fog/VolumeShaderFactory.hpp"
+#include "render_system/fog/ShaderFactory.hpp"
 #include "renderer/PipelineLayoutAssembler.hpp"
 
 #include <Enums.hpp>
@@ -14,7 +14,6 @@
 #include <device/managers/GraphicsContainer.hpp>
 #include <device/managers/Pipeline.hpp>
 #include <device/managers/Shader.hpp>
-#include <filesystem>
 #include <memory>
 #include <star_common/Handle.hpp>
 #include <star_common/HandleTypeRegistry.hpp>
@@ -65,12 +64,10 @@ std::unique_ptr<star::StarShaderInfo> CreatePipelines::buildShaderInfo() const
 static star::Handle BuildPipeline(vk::PipelineLayout computePipelineLayout,
                                   renderer::distance::CreatePipelines::DeviceContext &context)
 {
-    const auto shaderPath = std::filesystem::path{"shaders"} / "volumeRenderer" / "volume_distance.comp";
-
     assert(context.commandBus != nullptr && "Command bus required to build the distance pipeline");
 
     const star::Handle shaderHandle =
-        render_system::fog::CreateVolumeComputeShader(shaderPath.string(), *context.commandBus);
+        render_system::fog::CreateVolumeComputeShader("volume_distance.comp", *context.commandBus);
 
     star::command::pipeline::CreatePipeline cmd;
     cmd.setComputePipeline().addShaderHandle(shaderHandle).setPipelineLayout(computePipelineLayout);

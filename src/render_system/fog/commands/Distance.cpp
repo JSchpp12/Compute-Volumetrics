@@ -25,8 +25,8 @@ void render_system::fog::commands::Distance::recordCommands(const DispatchInfo &
                                                             vk::CommandBuffer cmdBuf,
                                                             const star::common::FrameTracker &ft)
 {
-    assert(pipeInfo.distancePipe.pipeline);
-    cmdBuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.distancePipe.pipeline);
+    assert(pipeInfo.distancePipeline);
+    cmdBuf.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.distancePipeline);
 
     AddMemoryBarrier(pipeInfo, cmdBuf);
 
@@ -48,7 +48,7 @@ void render_system::fog::commands::Distance::recordCommands(const DispatchInfo &
     pipeInfo.distanceOnlyShaderInfo->getDescriptors(frameInFlight, &m_descriptors[numWritten], numWritten);
     assert(numWritten <= m_descriptors.size());
 
-    cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.distancePipe.layout, firstSet, numWritten,
+    cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.distanceLayout, firstSet, numWritten,
                               m_descriptors.data(), 0, VK_NULL_HANDLE);
 
     assert(dInfo.indirectBuffer);

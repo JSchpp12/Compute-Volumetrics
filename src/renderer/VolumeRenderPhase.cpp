@@ -52,8 +52,6 @@ void VolumeRenderPhase::frameUpdate(star::common::IDeviceContext &context)
     auto &c = static_cast<star::core::device::DeviceContext &>(context);
     const uint8_t frameInFlightIndex = c.frameTracker().getCurrent().getFrameInFlightIndex();
 
-    updateRenderingContext(c, frameInFlightIndex);
-
     if (isRenderReady(c))
     {
         updateDependentData(c, frameInFlightIndex);
@@ -61,6 +59,8 @@ void VolumeRenderPhase::frameUpdate(star::common::IDeviceContext &context)
 
         m_distanceComputer.frameUpdate(c);
     }
+
+    updateRenderingContext(c, frameInFlightIndex);
 }
 
 bool VolumeRenderPhase::isRenderReady(star::core::device::DeviceContext &context)
@@ -70,13 +70,32 @@ bool VolumeRenderPhase::isRenderReady(star::core::device::DeviceContext &context
         return true;
     }
 
-    if (context.getPipelineManager().get(marchedPipeline)->isReady() &&
-        context.getPipelineManager().get(linearPipeline)->isReady() &&
-        context.getPipelineManager().get(expPipeline)->isReady() &&
-        context.getPipelineManager().get(nanoVDBPipeline_hitBoundingBox)->isReady() &&
-        context.getPipelineManager().get(nanoVDBPipeline_surface)->isReady() && m_distanceComputer.isReady(context) &&
-        context.getPipelineManager().get(m_indirectDispatchPipe)->isReady() &&
-        context.getPipelineManager().get(m_initPipe)->isReady())
+    auto &pipelines = context.getPipelineManager();
+    const auto ready = [&pipelines](const star::Handle &handle) {
+        // Variant slots with no recipe are still default-constructed; nothing can bind them.
+        if (handle.isInitialized() && pipelines.get(handle)->isReady())
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    };
+
+    bool allReady = ready(m_pipelines.init) && ready(m_pipelines.indirectDispatch) &&
+                    ready(m_pipelines.transmittance) && m_distanceComputer.isReady(context);
+
+    for (const auto type : {Fog::Type::sMarched, Fog::Type::sLinear, Fog::Type::sExponential,
+                            Fog::Type::sNanoBoundingBox, Fog::Type::sNanoSurface})
+    {
+        for (const auto &handle : m_pipelines.fog.handles(type))
+        {
+            allReady = allReady && ready(handle);
+        }
+    }
+
+    if (allReady)
     {
         isReady = true;
     }
@@ -137,9 +156,8 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
                                                           ft.getCurrent().getFrameInFlightIndex())
                                                     : false,
         .transferWillBeRunThisFrame = tNeighbor.has_value() ? tNeighbor.value().isTriggeredThisFrame : false};
-    tInfo.depthPassWillRun = (this->currentFogType == Fog::Type::sMarched);
+    tInfo.depthPassWillRun = (m_pipeInfo.fogType == Fog::Type::sMarched);
 
-    m_pipeInfo.distancePipe = {.layout = m_distanceComputer.getLayout(), .pipeline = m_distanceComputer.getPipeline()};
     m_pipeInfo.staticShaderInfo = m_staticShaderInfo.get();
     m_pipeInfo.colorOnlyShaderInfo = m_dynamicShaderInfo.get();
     m_pipeInfo.distanceOnlyShaderInfo = m_distanceComputer.getDynamicShaderInfo();
@@ -147,10 +165,8 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
     m_pipeInfo.sceneDepthShaderInfo = m_sceneDepthShaderInfo.get();
     m_pipeInfo.shadowDepthShaderInfo = m_shadowDepthShaderInfo.get();
     m_pipeInfo.indirectDispatchBuffer = m_activeRayStorage[ii]->getVulkanBuffer();
-    m_pipeInfo.colorPipe.layout = *this->computePipelineLayout;
-    m_pipeInfo.colorPipe.pipeline = this->m_renderingContext.pipeline->getVulkanPipeline();
-    m_pipeInfo.transmittancePipe.layout = *this->computePipelineLayout;
-    m_pipeInfo.fogType = this->currentFogType;
+    m_pipeInfo.layout = *this->computePipelineLayout;
+    m_pipeInfo.distanceLayout = m_distanceComputer.getLayout();
 
     vk::Semaphore workingSemaphore{VK_NULL_HANDLE};
     {
@@ -440,30 +456,31 @@ void VolumeRenderPhase::updateDependentData(star::core::device::DeviceContext &c
     }
 }
 
-void VolumeRenderPhase::updateRenderingContext(star::core::device::DeviceContext &context,
-                                               const uint8_t &frameInFlightIndex)
+void VolumeRenderPhase::updateRenderingContext(star::core::device::DeviceContext &context, const uint8_t &)
 {
-    switch (this->currentFogType)
-    {
-    case (Fog::Type::sMarched):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->marchedPipeline)->builtPipeline;
-        break;
-    case (Fog::Type::sLinear):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->linearPipeline)->builtPipeline;
-        break;
-    case (Fog::Type::sExponential):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->expPipeline)->builtPipeline;
-        break;
-    case (Fog::Type::sNanoBoundingBox):
-        m_renderingContext.pipeline =
-            &context.getPipelineManager().get(this->nanoVDBPipeline_hitBoundingBox)->builtPipeline;
-        break;
-    case (Fog::Type::sNanoSurface):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->nanoVDBPipeline_surface)->builtPipeline;
-        break;
-    default:
-        throw std::runtime_error("Unsupported type");
-    }
+    m_pipeInfo.fogType = currentFogType;
+
+    // Resolve only what this frame records. The handle is what stays stable (the manager's record storage
+    // can reallocate), and reading through the live StarPipeline means a rebuilt pipeline is picked up.
+    auto &pipelines = context.getPipelineManager();
+    const auto resolve = [&pipelines](const star::Handle &handle) {
+        if (!handle.isInitialized())
+        {
+            STAR_THROW("Invalid handle: not initialized.");
+        }
+
+        return pipelines.get(handle)->builtPipeline.getVulkanPipeline();
+    };
+
+    // The color pass always runs, and it records init and the indirect dispatch ahead of the march.
+    m_pipeInfo.initPipeline = resolve(m_pipelines.init);
+    m_pipeInfo.indirectDispatchPipeline = resolve(m_pipelines.indirectDispatch);
+    m_pipeInfo.colorPipeline = resolve(m_pipelines.fog.activeHandle(m_pipeInfo.fogType));
+
+    m_pipeInfo.transmittancePipeline =
+        Fog::NeedsTransmittancePrecompute(m_pipeInfo.fogType) ? resolve(m_pipelines.transmittance) : vk::Pipeline{};
+    m_pipeInfo.distancePipeline =
+        m_pipeInfo.fogType == Fog::Type::sMarched ? m_distanceComputer.getPipeline() : vk::Pipeline{};
 }
 
 std::vector<star::StarBuffers::Buffer> VolumeRenderPhase::createComputeWriteToBuffers(

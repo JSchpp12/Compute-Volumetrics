@@ -23,11 +23,11 @@ static void AddMemoryBarrier(const PassPipelineInfo &pipeInfo, vk::CommandBuffer
 void Color::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuffer,
                            const star::common::FrameTracker &ft)
 {
-    assert(pipeInfo.colorPipe.pipeline);
+    assert(pipeInfo.colorPipeline);
 
     AddMemoryBarrier(pipeInfo, cmdBuffer);
 
-    cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.pipeline);
+    cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipeline);
 
     std::array<vk::DescriptorSet, 2> descriptors{};
     size_t numWritten = 0;
@@ -49,7 +49,7 @@ void Color::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pi
         assert(numWritten == 2 && "color pass expected one dynamic and one depth descriptor set");
     }
 
-    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, firstSet,
+    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.layout, firstSet,
                                  static_cast<uint32_t>(numWritten), descriptors.data(), 0, VK_NULL_HANDLE);
 
     assert(dInfo.indirectBuffer);

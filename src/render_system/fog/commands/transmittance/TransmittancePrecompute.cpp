@@ -25,9 +25,9 @@ void TransmittancePrecompute::recordCommands(const DispatchInfo &dInfo, const Pa
                                              vk::CommandBuffer cmdBuffer, const star::common::FrameTracker &ft)
 {
     (void)dInfo; // no indirect dispatch in the direct 2D march
-    assert(pipeInfo.transmittancePipe.pipeline);
+    assert(pipeInfo.transmittancePipeline);
 
-    cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.transmittancePipe.pipeline);
+    cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.transmittancePipeline);
 
     // static sets (0,1) + the transmittance per-draw set (2) + the sun depth
     // depth-test set (3). The march samples the non-compare sun depth at set 3
@@ -56,7 +56,7 @@ void TransmittancePrecompute::recordCommands(const DispatchInfo &dInfo, const Pa
         assert(numWritten == 4 && "transmittance pass expected one dynamic and one depth descriptor set");
     }
 
-    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.transmittancePipe.layout, 0,
+    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.layout, 0,
                                  static_cast<uint32_t>(numWritten), descriptors.data(), 0, VK_NULL_HANDLE);
 
     // direct 2D dispatch: one workgroup per 8x8 block of transmittance-map columns

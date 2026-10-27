@@ -124,6 +124,14 @@ class Volume : public star::StarObject
     {
         this->getVolumePhase()->setFogType(fogType);
     }
+    void setActiveVariant(Fog::Type fogType, uint32_t variantIndex)
+    {
+        this->getVolumePhase()->setActiveVariant(fogType, variantIndex);
+    }
+    uint32_t getActiveVariant(Fog::Type fogType) const
+    {
+        return this->getVolumePhase()->getActiveVariant(fogType);
+    }
     void setShaderDebug(render_system::fog::MarchShaderFlags flag, bool state)
     {
         this->getVolumePhase()->setShaderFlag(flag, state);

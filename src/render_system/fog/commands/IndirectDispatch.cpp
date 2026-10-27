@@ -39,7 +39,7 @@ void IndirectDispatch::recordCommands(const DispatchInfo &dInfo, const PassPipel
     pipeInfo.staticShaderInfo->getDescriptors(frameInFlight, descriptors.data(), numWritten);
 
     const uint32_t firstSet = pipeInfo.staticShaderInfo->getBaseSet();
-    cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, firstSet,
+    cmdBuf.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.layout, firstSet,
                               static_cast<uint32_t>(numWritten), descriptors.data(), 0, VK_NULL_HANDLE);
 
     cmdBuf.dispatch(1, 1, 1);
