@@ -50,7 +50,8 @@ std::pair<std::unique_ptr<AppConfigInfo>, LoadStatus> AppConfigLoader::LoadFromA
 
         if (std::filesystem::exists(path))
         {
-            LoadFromDisk(path, *cfg);
+            if (!LoadFromDisk(path, *cfg))
+                return {std::move(cfg), LoadStatus::ValidationError};
         }
         else
         {
@@ -72,7 +73,8 @@ std::pair<std::unique_ptr<AppConfigInfo>, LoadStatus> AppConfigLoader::LoadFromA
             oss << "No --appConfig provided; loading default config found at " << resolvedMedia.value().string();
             star::core::logging::info(oss.str());
 
-            LoadFromDisk(resolvedMedia.value(), *cfg);
+            if (!LoadFromDisk(resolvedMedia.value(), *cfg))
+                return {std::move(cfg), LoadStatus::ValidationError};
         }
         else
         {
@@ -112,30 +114,44 @@ std::pair<std::unique_ptr<AppConfigInfo>, LoadStatus> AppConfigLoader::LoadFromA
     return {std::move(cfg), LoadStatus::Loaded};
 }
 
-void AppConfigLoader::LoadFromDisk(const std::filesystem::path &path, AppConfigInfo &cfg)
+bool AppConfigLoader::LoadFromDisk(const std::filesystem::path &path, AppConfigInfo &cfg)
 {
-    std::ifstream file(path);
-    nlohmann::json j;
-    file >> j;
-    file.close();
+    try
+    {
+        std::ifstream file(path);
+        if (!file)
+            throw std::runtime_error("failed to open the file");
 
-    // Patch missing fields with defaults, loudly, before validating.
-    if (auto missing = PatchMissingFields(j, path); !missing.empty())
+        nlohmann::json j;
+        file >> j;
+        file.close();
+
+        // Patch missing fields with defaults, loudly, before validating.
+        if (auto missing = PatchMissingFields(j, path); !missing.empty())
+        {
+            std::ostringstream oss;
+            oss << "AppConfig file at " << path.string()
+                << " is missing required field(s); wrote them with default values: ";
+            for (std::size_t i = 0; i < missing.size(); ++i)
+            {
+                if (i)
+                    oss << ", ";
+                oss << missing[i];
+            }
+            oss << ". Edit the file and re-run.";
+            throw std::runtime_error(oss.str());
+        }
+
+        from_json(j, cfg);
+        return true;
+    }
+    catch (const std::exception &ex)
     {
         std::ostringstream oss;
-        oss << "AppConfig file at " << path.string()
-            << " is missing required field(s); wrote them with default values: ";
-        for (std::size_t i = 0; i < missing.size(); ++i)
-        {
-            if (i)
-                oss << ", ";
-            oss << missing[i];
-        }
-        oss << ". Edit the file and re-run.";
-        STAR_THROW(oss.str());
+        oss << "Failed to load app config file " << path.string() << ": " << ex.what();
+        star::core::logging::error(oss.str());
+        return false;
     }
-
-    from_json(j, cfg);
 }
 
 void AppConfigLoader::LogConfig(const AppConfigInfo &cfg)

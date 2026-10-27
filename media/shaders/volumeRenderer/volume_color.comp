@@ -10,6 +10,8 @@ const uint FLAG_ENABLE_DEBUG_FORCE_MARCH_CALCULATE_TRANSMITTANCE = 1u << 19u;
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
+layout(constant_id = 0) const bool USE_TRILINEAR_INTERPOLATION_GRID_LOOKUPS = false;
+
 #include "layout_pushConstants.comp"
 
 struct Light_Type
@@ -263,7 +265,8 @@ float marchLightTransmittance(in pnanovdb_grid_handle_t grid, in pnanovdb_readac
         const float t = stepStart + stepJitter * ds;
 
         const vec3 lightMarchPos = rayToLight.origin.xyz + (t * rayToLight.direction.xyz);
-        float density = gridReadAt(grid, acc, gridType, lightMarchPos, true) * densityMultiplier;
+        float density = gridReadAt(grid, acc, gridType, lightMarchPos, USE_TRILINEAR_INTERPOLATION_GRID_LOOKUPS) *
+                        densityMultiplier;
         if (density == 0.0f)
             density = defaultDensity;
 
@@ -324,7 +327,8 @@ ForwardMarchDebugMarchResult forwardMarch(in pnanovdb_grid_handle_t grid, const 
         const float stepJitter = rand01(stepSeed);
         const float t = stepStart + stepJitter * ds;
         const vec3 marchPos = ray.origin.xyz + (t * ray.direction.xyz);
-        float pDensity = gridReadAt(grid, acc, gType, marchPos, true) * densityMultiplier;
+        float pDensity =
+            gridReadAt(grid, acc, gType, marchPos, USE_TRILINEAR_INTERPOLATION_GRID_LOOKUPS) * densityMultiplier;
 
         const bool inShadow = isInShadow(marchPos);
         if (inShadow && options.stopAtShadowRange)

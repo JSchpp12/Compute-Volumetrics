@@ -1,7 +1,11 @@
 #version 450
 
 #include "struct_DispatchIndirectCommand.comp"
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(constant_id = 0) const uint SIZE_LOCAL_X = 8;
+layout(constant_id = 1) const uint SIZE_LOCAL_Y = 8;
+layout(constant_id = 2) const uint SIZE_LOCAL_Z = 1;
+layout(constant_id = 3) const uint NUM_SAMPLES = 1;
+layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;
 
 const uint FLAG_ENABLE_DEBUG_TRANSMITTANCE_PRECOMPUTE_SET_AREAS_IN_SHADOW = 1u << 8u;
 const uint FLAG_ENABLE_DEBUG_TRANSMITTANCE_PRECOMPUTE_DISABLE_AABB_RAY_TEST = 1u << 9u;
@@ -153,14 +157,6 @@ vec2 fromPixelIndexToNDCXY(const in vec2 columnPixel, const in vec2 mapDims)
     return ndcXY;
 }
 
-void setupMarchInfo(const in ivec2 columnPixel, const in vec3 mapDims, out vec3 vol_startPos, out vec3 vol_step)
-{
-    const vec2 ndcXY = fromPixelIndexToNDCXY(vec2(columnPixel), vec2(mapDims.xy));
-
-    vol_startPos = lightSpaceToVolume(vec3(ndcXY, (float(0) + 0.5) / float(mapDims.z)));
-    vol_step = computeSingleStepFromLightOrtho(ndcXY, float(mapDims.z));
-}
-
 #include "const_volume.comp"
 
 // march from [startTexel, stopTexel)
@@ -172,37 +168,51 @@ void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims,
     pnanovdb_readaccessor_t acc;
     pnanovdb_readaccessor_init(acc, root);
     pnanovdb_grid_type_t gType = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid);
+    vec3 vol_pos[NUM_SAMPLES];
+    float tau[NUM_SAMPLES];
 
-    vec3 vol_startPos = vec3(0);
-    vec3 vol_step = vec3(0);
-    setupMarchInfo(columnPixel, vec3(mapDims), vol_startPos, vol_step);
-    vol_startPos = vol_startPos + vol_step * float(startTexel);
+    const vec2 ndcXY = fromPixelIndexToNDCXY(vec2(columnPixel), vec2(mapDims.xy));
+    const vec3 vol_step = computeSingleStepFromLightOrtho(ndcXY, float(mapDims.z));
+
+    // Starting on a texel's top face
+    const vec3 firstTexelTop = lightSpaceToVolume(vec3(ndcXY, 0.0));
+    for (uint i = 0; i < NUM_SAMPLES; ++i)
+    {
+        tau[i] = 0.0;
+        // start at the light-facing top corner of the first texel this column marches through
+        vol_pos[i] = firstTexelTop + vol_step * float(startTexel);
+    }
 
     const float vol_stepSize = length(vol_step) * extractUniformVolumeScale(instanceModelMatrix[0]);
     const float sigmaExtinction = (fogInfo.marchedFog_sigmaScattering + fogInfo.marchedFog_sigmaAbsorption) *
                                   fogInfo.marchedFog_lightExtinctionScale;
 
-    float tau = 0.0;
     for (int z = startTexel; z <= stopTexel; ++z)
     {
-        float density = gridReadAt(grid, acc, gType, vol_startPos, true);
-        if (density < EMPTY_DENSITY_VALUE)
-            density = fogInfo.marchedFog_defaultDensity;
+        float transmittanceSum = 0.0f;
 
-        // calculate contribution of the individual slice as a whole value for tau summation
-        const float sliceContribution =
-            (density * fogInfo.marchedFog_densityMultiplier) * sigmaExtinction * vol_stepSize;
+        for (uint i = 0; i < NUM_SAMPLES; i++)
+        {
+            float density = gridReadAt(grid, acc, gType, vol_pos[i], true);
+            if (density < EMPTY_DENSITY_VALUE)
+                density = fogInfo.marchedFog_defaultDensity;
 
-        // only want half of the whole slice contribution since we are only stepping half way through
-        const float transmittance = exp(-(tau + 0.5 * sliceContribution));
+            // calculate contribution of the individual slice as a whole value for tau summation
+            const float sliceContribution =
+                (density * fogInfo.marchedFog_densityMultiplier) * sigmaExtinction * vol_stepSize;
+
+            // only want half of the whole slice contribution since we are only stepping half way through
+            transmittanceSum += exp(-(tau[i] + 0.5 * sliceContribution));
+
+            // increment tau
+            tau[i] += sliceContribution;
+
+            // setup for next loop
+            vol_pos[i] = vol_pos[i] + vol_step * float(1);
+        }
+
         // store to texture
-        imageStore(transmittanceMap, ivec3(columnPixel, z), vec4(transmittance, 0.0, 0.0, 0.0));
-
-        // increment tau
-        tau += sliceContribution;
-
-        // setup for next loop
-        vol_startPos = vol_startPos + vol_step * float(1);
+        imageStore(transmittanceMap, ivec3(columnPixel, z), vec4(transmittanceSum / float(NUM_SAMPLES), 0.0, 0.0, 0.0));
     }
 }
 
@@ -220,6 +230,14 @@ float calculateSurfaceShadowDepth(const MapInfo info)
     // need to add bias to shadow. Otherwise on terrains the light can bleed through the surface and parts of the area
     // near the terrain which should be in shadow, appear to not be in shadow. A small bias corrects this
     return texture(sunDepth, uv).r + fogInfo.marchedFog_shadowBias;
+}
+
+void setupMarchInfo(const in ivec2 columnPixel, const in vec3 mapDims, out vec3 vol_startPos, out vec3 vol_step)
+{
+    const vec2 ndcXY = fromPixelIndexToNDCXY(vec2(columnPixel), vec2(mapDims.xy));
+
+    vol_startPos = lightSpaceToVolume(vec3(ndcXY, (float(0) + 0.5) / float(mapDims.z)));
+    vol_step = computeSingleStepFromLightOrtho(ndcXY, float(mapDims.z));
 }
 
 void buildVolumeRay(const in ivec2 columnPixel, const in float surfaceDepth, out int surfaceSlice, out Ray volumeRay)
