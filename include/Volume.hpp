@@ -125,10 +125,7 @@ class Volume : public star::StarObject
     {
         this->getVolumePhase()->setFogType(fogType);
     }
-    void setActiveVariant(Fog::Type fogType, uint32_t variantIndex)
-    {
-        this->getVolumePhase()->setActiveVariant(fogType, variantIndex);
-    }
+    void setActiveVariant(Fog::Type fogType, uint32_t variantIndex);
     uint32_t getActiveVariant(Fog::Type fogType) const
     {
         return this->getVolumePhase()->getActiveVariant(fogType);
@@ -147,15 +144,9 @@ class Volume : public star::StarObject
     }
     /// @brief Selects the transmittance precompute variant by name; unknown names are ignored (asserted in debug
     /// builds). No resource is rebuilt, only the pipeline bound from the next frame's resolve changes.
-    void setTransmittanceVariant(std::string_view name)
-    {
-        this->getVolumePhase()->setTransmittanceVariant(name);
-    }
+    void setTransmittanceVariant(std::string_view name);
     /// @brief Index-based form of setTransmittanceVariant; matches the order of getTransmittanceVariantNames().
-    void setTransmittanceVariant(uint32_t variantIndex)
-    {
-        this->getVolumePhase()->setTransmittanceVariant(variantIndex);
-    }
+    void setTransmittanceVariant(uint32_t variantIndex);
     /// @brief Name of the currently selected transmittance variant, for GUI round-tripping.
     std::string_view activeTransmittanceVariant() const
     {

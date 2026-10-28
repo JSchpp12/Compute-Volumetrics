@@ -1,11 +1,13 @@
 #include "render_system/fog/ConstantsFactory.hpp"
 
 #include <starlight/command/pipeline/CreatePipeline.hpp>
+#include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/enums/Enums.hpp>
 #include <starlight/wrappers/graphics/StarPipelineConstants.hpp>
 
 #include <cstdint>
 #include <optional>
+#include <sstream>
 
 namespace render_system::fog
 {
@@ -37,6 +39,21 @@ star::StarPipelineConstants MakePrecomputeTransmittanceConstants(const Transmitt
     pipelineConstants.addConstant(kRandTextureBreathId, overrides.randTextureBreath);
 
     return pipelineConstants;
+}
+
+void LogDetails(const TransmittanceConstants &constants)
+{
+    std::ostringstream oss;
+    oss << "Transmittance precompute constants:" << std::endl;
+    oss << "\tnumRaySamples: " << constants.numRaySamples.value_or(kNumRaySamples);
+    if (!constants.numRaySamples.has_value())
+    {
+        oss << " (default)";
+    }
+    oss << std::endl;
+    oss << "\trandTextureBreath: " << constants.randTextureBreath << std::endl;
+
+    star::core::logging::debug(oss.str());
 }
 
 void GetPipelineConstantsForColorMarch(star::command::pipeline::CreatePipeline &cmd,

@@ -29,6 +29,51 @@ Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePa
     initVolume(context, std::move(vdbFilePath), std::move(frameData));
 }
 
+void Volume::setActiveVariant(Fog::Type fogType, uint32_t variantIndex)
+{
+    VolumeRenderPhase *phase = this->getVolumePhase();
+    phase->setActiveVariant(fogType, variantIndex);
+
+    star::core::logging::debug("Active fog pipeline variant set to index ", phase->getActiveVariant(fogType),
+                               " for fog type '", Fog::TypeToString(fogType), "' (requested index ", variantIndex, ")");
+}
+
+void Volume::setTransmittanceVariant(std::string_view name)
+{
+    VolumeRenderPhase *phase = this->getVolumePhase();
+    phase->setTransmittanceVariant(name);
+
+    const std::optional<uint32_t> activeIndex = phase->activeTransmittanceVariantIndex();
+    if (activeIndex.has_value())
+    {
+        star::core::logging::debug("Active transmittance variant set to index ", *activeIndex, " (name: '",
+                                   phase->activeTransmittanceVariant(), "'); requested by name '", name, "'");
+    }
+    else
+    {
+        star::core::logging::debug("Transmittance variant request for name '", name,
+                                   "' did not change the active variant");
+    }
+}
+
+void Volume::setTransmittanceVariant(uint32_t variantIndex)
+{
+    VolumeRenderPhase *phase = this->getVolumePhase();
+    phase->setTransmittanceVariant(variantIndex);
+
+    const std::optional<uint32_t> activeIndex = phase->activeTransmittanceVariantIndex();
+    if (activeIndex.has_value())
+    {
+        star::core::logging::debug("Active transmittance variant set to index ", *activeIndex, " (name: '",
+                                   phase->activeTransmittanceVariant(), "'); requested index ", variantIndex);
+    }
+    else
+    {
+        star::core::logging::debug("Transmittance variant request for index ", variantIndex,
+                                   " did not change the active variant");
+    }
+}
+
 void Volume::loadModel(star::core::device::DeviceContext &context, const std::string &filePath)
 {
     VolumeDirectoryProcessor contentProcessor(filePath,

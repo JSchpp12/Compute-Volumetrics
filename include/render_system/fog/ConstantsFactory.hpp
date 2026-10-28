@@ -22,6 +22,10 @@ struct TransmittanceConstants
 /// @brief Builds the specialization constants for the transmittance precompute pipeline.
 star::StarPipelineConstants MakePrecomputeTransmittanceConstants(const TransmittanceConstants &overrides);
 
+/// @brief Writes a debug log entry describing the values a transmittance precompute pipeline will be built with.
+/// Defaulted values are resolved here so the log reflects what pipeline is used and under what conditions.
+void LogDetails(const TransmittanceConstants &constants);
+
 struct ColorConstants
 {
     std::optional<bool> enableTrilinearInterpolationGridLookups{std::nullopt};

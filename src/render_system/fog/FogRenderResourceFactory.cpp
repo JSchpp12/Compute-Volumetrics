@@ -12,6 +12,7 @@
 #include <starlight/core/device/DeviceContext.hpp>
 #include <starlight/core/helper/command_buffer/CommandBufferHelpers.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
+#include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/core/renderer/FrameData.hpp>
 #include <starlight/maker/texture/MakeTexture.hpp>
 #include <starlight/wrappers/graphics/StarTextures/Texture.hpp>
@@ -19,6 +20,7 @@
 #include <vk_mem_alloc.h>
 
 #include <memory>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -111,6 +113,20 @@ static std::pair<std::vector<star::StarTextures::Texture>, vk::Format> CreateTra
     return std::make_pair(textures, imageFormat);
 }
 
+static void LogTransmittanceResourceDetails(const policies::TransmittancePlan &plan, const size_t framesInFlight,
+                                            const vk::Format format)
+{
+    std::ostringstream oss;
+    oss << "Transmittance resources:" << std::endl;
+    oss << "\tmap resolution: " << plan.transmittanceMapResolution[0] << " x " << plan.transmittanceMapResolution[1]
+        << " x " << plan.transmittanceMapResolution[2] << std::endl;
+    oss << "\tnoise resolution: " << plan.noiseResolution[0] << " x " << plan.noiseResolution[1] << std::endl;
+    oss << "\tnoise breadth (max ray samples): " << plan.maxSamples << std::endl;
+    oss << "\tmap format: " << vk::to_string(format) << std::endl;
+
+    star::core::logging::debug(oss.str());
+}
+
 FogRenderResourceFactory::TransmittanceResources FogRenderResourceFactory::createTransmittanceResources(
     star::core::device::DeviceContext &context, star::core::renderer::FrameData &frameData) const
 {
@@ -121,6 +137,8 @@ FogRenderResourceFactory::TransmittanceResources FogRenderResourceFactory::creat
     auto [transmittanceMaps, format] = CreateTransmittanceMaps(
         context, transmittance.transmittanceMapResolution[0], transmittance.transmittanceMapResolution[1],
         transmittance.transmittanceMapResolution[2], framesInFlight);
+
+    LogTransmittanceResourceDetails(transmittance, framesInFlight, format);
 
     std::vector<star::Handle> handles{framesInFlight};
     for (size_t i = 0; i < framesInFlight; i++)
@@ -176,10 +194,22 @@ std::vector<PipelineVariant> FogRenderResourceFactory::transmittancePipelineVari
     const auto &variants = resourcePolicies.transmittance.variants;
     std::vector<PipelineVariant> pipelineVariants;
     pipelineVariants.reserve(variants.size());
-    for (const auto &variant : variants)
+
+    star::core::logging::debug("Preparing ", variants.size(),
+                               " transmittance pipeline variants from shader "
+                               "'volume_precomputeLightTransmittance.comp'");
+
+    // Log every variant's position and constants: headless runs bind the first variant by default, so the index is
+    // what makes the pipeline actually used verifiable from the log files after a run.
+    for (std::size_t i = 0; i < variants.size(); i++)
     {
+        const TransmittanceVariant &variant = variants[i];
         const TransmittanceConstants constants{.numRaySamples = variant.samples,
                                                .randTextureBreath = resourcePolicies.transmittance.maxSamples};
+
+        star::core::logging::debug("Transmittance pipeline variant index ", i, " of ", variants.size(), " (name: '",
+                                   variant.name, "'", i == 0 ? ", default" : "", ")");
+        LogDetails(constants);
 
         pipelineVariants.push_back(PipelineVariant{
             .name = variant.name, .shader = shader, .constants = MakePrecomputeTransmittanceConstants(constants)});

@@ -136,33 +136,8 @@ layout(set = 3, binding = 2) uniform sampler3D precomputedTransmittance;
 
 #include "func_reconstructDepthDistanceInObjectLocalSpace.comp"
 
+#include "func_random.comp"
 #include "volume_helpers.comp"
-
-uint hash_u32(uint x)
-{
-    x ^= x >> 16;
-    x *= 0x7feb352du;
-    x ^= x >> 15;
-    x *= 0x846ca68bu;
-    x ^= x >> 16;
-    return x;
-}
-
-uint makeSeed(uvec2 pixel, uint frame, uint sampleIndex, uint dimension)
-{
-    uint seed = 0u;
-    seed ^= pixel.x * 1973u;
-    seed ^= pixel.y * 9277u;
-    seed ^= frame * 26699u;
-    seed ^= sampleIndex * 911u;
-    seed ^= dimension * 3571u;
-    return hash_u32(seed);
-}
-
-float rand01(uint seed)
-{
-    return float(hash_u32(seed)) * (1.0 / 4294967296.0);
-}
 
 const float PI = 3.1415926535897932384626433832795;
 

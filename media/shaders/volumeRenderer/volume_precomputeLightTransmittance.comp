@@ -113,6 +113,7 @@ layout(set = 3, binding = 0) uniform sampler2D sunDepth;
 #include "func_reconstructDepthDistanceInObjectLocalSpace.comp"
 
 #include "const_volume.comp"
+#include "func_random.comp"
 #include "volume_helpers.comp"
 
 void getShadowMapInfoFromTexture(const in float surfaceDepth, out ivec3 mapDims, out int surfaceSlice)
@@ -167,16 +168,16 @@ vec3 loadRandomValue(const in ivec2 columnPixel, const in uint sampleIndex)
     return imageLoad(randomTexture, texel).rgb;
 }
 
-/// calculates the directions for each edge of the transmittance map texel for a given column. Used in applying random
-/// jitter
-void calculateTexelEdges(const in vec2 columnPixel, out vec3 xDir, out vec3 yDir, out vec3 zDir)
+/// Calculates the sampling basis for a column's texel: the light-facing top corner of the texel and its
+/// width/breadth edge vectors, for applying random jitter within the texel cross-section.
+void calculateTexelEdges(const in vec2 columnPixel, out vec3 texelCorner, out vec3 xEdge, out vec3 yEdge)
 {
     const vec2 mapDims = imageSize(transmittanceMap).xy;
     const vec2 ndcXY = fromPixelIndexToNDCXY(columnPixel, mapDims.xy, vec2(0.0));
 
-    zDir = lightSpaceToVolume(vec3(ndcXY, 0.0));
-    xDir = lightSpaceToVolume(vec3(ndcXY + vec2(2.0 / mapDims.x, 0.0), 0.0)) - zDir;
-    yDir = lightSpaceToVolume(vec3(ndcXY + vec2(0.0, 2.0 / mapDims.y), 0.0)) - zDir;
+    texelCorner = lightSpaceToVolume(vec3(ndcXY, 0.0));
+    xEdge = lightSpaceToVolume(vec3(ndcXY + vec2(2.0 / mapDims.x, 0.0), 0.0)) - texelCorner;
+    yEdge = lightSpaceToVolume(vec3(ndcXY + vec2(0.0, 2.0 / mapDims.y), 0.0)) - texelCorner;
 }
 
 // march from [startTexel, stopTexel)
@@ -190,26 +191,27 @@ void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims,
     pnanovdb_grid_type_t gType = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid);
     vec3 vol_pos[NUM_SAMPLES];
     float tau[NUM_SAMPLES];
+    float seeds[NUM_SAMPLES];
 
-    const vec2 ndcXY = fromPixelIndexToNDCXY(vec2(columnPixel), vec2(mapDims.xy), vec2(0.5));
+    // The step only depends on the slice spacing under the ortho light projection (the xy offset cancels in
+    // computeSingleStepFromLightOrtho's difference), so the texel corner basis is used here for consistency.
+    const vec2 ndcXY = fromPixelIndexToNDCXY(vec2(columnPixel), vec2(mapDims.xy), vec2(0.0));
     const vec3 vol_step = computeSingleStepFromLightOrtho(ndcXY, float(mapDims.z));
 
-    // Starting on a texel's top face
+    // Starting on the light-facing top face of the first texel this column marches through
     {
+        vec3 texelCorner;
         vec3 x_dir;
         vec3 y_dir;
-        vec3 z_dir;
-        calculateTexelEdges(columnPixel, x_dir, y_dir, z_dir);
+        calculateTexelEdges(columnPixel, texelCorner, x_dir, y_dir);
 
-        const vec3 firstTexelTop = lightSpaceToVolume(vec3(ndcXY, 0.0));
         for (uint i = 0; i < NUM_SAMPLES; ++i)
         {
             const vec3 randomValue = loadRandomValue(columnPixel, i);
 
             tau[i] = 0.0;
-            // start at the light-facing top corner of the first texel this column marches through
-            vol_pos[i] = firstTexelTop + vol_step * float(startTexel) + x_dir * randomValue.x + y_dir * randomValue.y +
-                         z_dir * vol_step;
+
+            vol_pos[i] = texelCorner + vol_step * float(startTexel) + x_dir * randomValue.x + y_dir * randomValue.y;
         }
     }
 
@@ -233,13 +235,13 @@ void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims,
 
             // downstream samples will be expecting this tau to be at the "center" of the texel
             // so despite some samples being in this texel, map them to the center value. Why the 0.5 is here.
-            transmittanceSum += exp(-(tau[i] + 0.5 * sliceContribution));
+            transmittanceSum += (exp(-(tau[i] + 0.5 * sliceContribution)));
 
             // increment tau
             tau[i] += sliceContribution;
 
             // setup for next loop
-            vol_pos[i] = vol_pos[i] + vol_step * float(1);
+            vol_pos[i] = vol_pos[i] + vol_step;
         }
 
         transmittanceSum /= NUM_SAMPLES;
