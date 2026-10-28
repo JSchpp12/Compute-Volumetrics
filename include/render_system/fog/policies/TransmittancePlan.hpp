@@ -1,6 +1,7 @@
 #pragma once
 
-#include "render_system/fog/PipelineVariantNames.hpp"
+#include "render_system/fog/const/PipelineVariantNames.hpp"
+#include "render_system/fog/struct/TransmittanceVariant.hpp"
 
 #include <algorithm>
 #include <array>
@@ -17,14 +18,6 @@ namespace render_system::fog::policies
 /// @brief Minimum maxImageDimension2D every Vulkan implementation must support. Used to bound the noise layout when
 /// the real device limit is not available while the plan is being built.
 inline constexpr uint32_t kGuaranteedMaxImageDimension2D = 16384u;
-
-/// @brief One transmittance precompute pipeline variant: the name that identifies and selects it, and the number of
-/// samples it marches per column.
-struct TransmittanceVariant
-{
-    std::string_view name;
-    uint32_t samples;
-};
 
 /// @brief Immutable description of the precomputed transmittance resources and the pipeline variants which consume
 /// them.

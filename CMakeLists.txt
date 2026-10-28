@@ -226,7 +226,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/render_system/fog/TransmittanceMapConfig.hpp"
 	"include/render_system/fog/FogRenderResourceFactory.hpp"
 	"include/render_system/fog/PipelineVariant.hpp"
-	"include/render_system/fog/PipelineVariantNames.hpp"
+	"include/render_system/fog/const/PipelineVariantNames.hpp"
 	"include/render_system/fog/PipelineVariantSet.hpp"
 	"include/render_system/fog/policies/TransmittancePlan.hpp"
  	"include/renderer/volume/ContainerRenderResourceData.hpp"

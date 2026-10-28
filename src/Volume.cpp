@@ -7,8 +7,8 @@
 #include "TransferRequest_IndicesInfo.hpp"
 #include "TransferRequest_VertInfo.hpp"
 #include "VolumeFile.hpp"
-#include "render_system/fog/PipelineVariantNames.hpp"
 #include "render_system/fog/TransmittanceMapConfig.hpp"
+#include "render_system/fog/const/PipelineVariantNames.hpp"
 
 #include <cassert>
 
@@ -164,19 +164,29 @@ const VolumeRenderPhase *Volume::getVolumePhase() const
     return static_cast<const VolumeRenderPhase *>(m_scene->getPhase(m_volumePhaseHandle));
 }
 
+/// @brief The variance control system defaults to the first provided variant when rendering. For headless runs, make
+/// sure the highest quality is first in the list as it cannot be changed later.
+inline static std::vector<render_system::fog::TransmittanceVariant> GetDefaultTransmittanceVariants()
+{
+    return {
+        {render_system::fog::variant_names::transmittance::High, 8u},
+        {render_system::fog::variant_names::transmittance::Low, 1u},
+    };
+}
+
 void Volume::initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
                         std::shared_ptr<star::core::renderer::FrameData> frameData)
 {
     loadModel(context, vdbFilePath);
 
+    // make the
     this->m_phaseProvider = std::make_unique<VolumeRenderPhaseProvider>(
         render_system::fog::FogRenderResourceFactory{
             render_system::fog::policies::TransmittanceResourceResolutionPolicy::Builder()
                 .setMainWorldCamera(*camera)
                 .setShadowCastLightDir(glm::vec3{0, -1, 0})
                 .setTransmittanceMapResolution(render_system::fog::kTransmittanceMapResolution)
-                .setTransmittanceVariants({{render_system::fog::variant_names::transmittance::Low, 1u},
-                                           {render_system::fog::variant_names::transmittance::High, 8u}})
+                .setTransmittanceVariants({GetDefaultTransmittanceVariants()})
                 .build()},
         &m_instanceInfo.getControllerModel(), &m_instanceInfo.getControllerNormal(), std::move(frameData),
         star::Handle{}, std::move(vdbFilePath), this->camera, this->aabbBounds);
