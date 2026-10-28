@@ -70,6 +70,41 @@ static void DrawFogTypeSelector(Volume &volume)
     }
 }
 
+/// Variant names are string_views, not guaranteed null-terminated on their own — draw them through
+/// std::string copies, which ImGui requires.
+static void DrawTransmittanceVariantSelector(Volume &volume)
+{
+    const auto names = volume.getTransmittanceVariantNames();
+    const auto activeIndex = volume.activeTransmittanceVariantIndex();
+
+    // Variant info only exists once the phase has built its transmittance pipeline set; skip until then.
+    if (names.empty() || !activeIndex.has_value() || *activeIndex >= names.size())
+    {
+        return;
+    }
+
+    const std::string active = std::string(names[*activeIndex]);
+    ImGui::SeparatorText("Transmittance Variant");
+    if (ImGui::BeginCombo("##transmittanceVariant", active.c_str()))
+    {
+        for (std::size_t i = 0; i < names.size(); i++)
+        {
+            const std::string item = std::string(names[i]);
+            const bool selected = i == *activeIndex;
+            if (ImGui::Selectable(item.c_str(), selected))
+            {
+                volume.setTransmittanceVariant(static_cast<uint32_t>(i));
+            }
+
+            if (selected)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+    }
+}
+
 static void DrawLinearFogControls(LinearFogInfo &linear)
 {
     ImGui::SeparatorText("Linear Fog");
@@ -153,6 +188,7 @@ static void DrawFogSection(Volume &volume)
     ImGui::Indent();
 
     DrawFogTypeSelector(volume);
+    DrawTransmittanceVariantSelector(volume);
 
     auto &fog = volume.getRenderer().getFogInfo();
     DrawLinearFogControls(fog.linearInfo);

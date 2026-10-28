@@ -1,11 +1,10 @@
 #version 450
 
 #include "struct_DispatchIndirectCommand.comp"
-layout(constant_id = 0) const uint SIZE_LOCAL_X = 8;
-layout(constant_id = 1) const uint SIZE_LOCAL_Y = 8;
-layout(constant_id = 2) const uint SIZE_LOCAL_Z = 1;
-layout(constant_id = 3) const uint NUM_SAMPLES = 1;
-layout(local_size_x_id = 0, local_size_y_id = 1, local_size_z_id = 2) in;
+layout(constant_id = 0) const uint NUM_SAMPLES = 1;
+layout(constant_id = 1) const uint RAND_TEXTURE_BREATH = 1;
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 const uint FLAG_ENABLE_DEBUG_TRANSMITTANCE_PRECOMPUTE_SET_AREAS_IN_SHADOW = 1u << 8u;
 const uint FLAG_ENABLE_DEBUG_TRANSMITTANCE_PRECOMPUTE_DISABLE_AABB_RAY_TEST = 1u << 9u;
@@ -32,7 +31,7 @@ struct Light
     uint luminance;
 };
 
-layout(rgba32f, set = 0, binding = 0) uniform readonly image2D randomTexture;
+layout(rgba32f, set = 0, binding = 0) uniform readonly image2D screenSizedRandomTexture;
 layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer
 {
     uint pnanovdb_buf_data[];
@@ -47,6 +46,7 @@ layout(set = 0, binding = 2) uniform AdditionalTransformInfo
     float scale;
 }
 addCamInfo;
+layout(rgba32f, set = 0, binding = 4) uniform readonly image2D randomTexture;
 
 layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
 {
@@ -112,6 +112,7 @@ layout(set = 3, binding = 0) uniform sampler2D sunDepth;
 
 #include "func_reconstructDepthDistanceInObjectLocalSpace.comp"
 
+#include "const_volume.comp"
 #include "volume_helpers.comp"
 
 void getShadowMapInfoFromTexture(const in float surfaceDepth, out ivec3 mapDims, out int surfaceSlice)
@@ -150,14 +151,33 @@ vec3 computeSingleStepFromLightOrtho(const vec2 ndcXY, const in float mapDimsZ)
     return secondStepPosition - initPosition;
 }
 
-vec2 fromPixelIndexToNDCXY(const in vec2 columnPixel, const in vec2 mapDims)
+vec2 fromPixelIndexToNDCXY(const in vec2 columnPixel, const in vec2 mapDims, const in vec2 offsetInTexel)
 {
-    const vec2 uv = (columnPixel + 0.5) / mapDims;
+    const vec2 uv = (columnPixel + offsetInTexel) / mapDims;
     const vec2 ndcXY = uv * 2.0 - 1.0;
     return ndcXY;
 }
 
-#include "const_volume.comp"
+// One random value per column per sub-ray: each column owns RAND_TEXTURE_BREATH consecutive texels along X, so any
+// variant can index the shared noise image with the family-wide stride even when NUM_SAMPLES is smaller.
+// `sampleIndex` must be < RAND_TEXTURE_BREATH (guaranteed host-side: NUM_SAMPLES <= RAND_TEXTURE_BREATH).
+vec3 loadRandomValue(const in ivec2 columnPixel, const in uint sampleIndex)
+{
+    const ivec2 texel = ivec2(columnPixel.x * int(RAND_TEXTURE_BREATH) + int(sampleIndex), columnPixel.y);
+    return imageLoad(randomTexture, texel).rgb;
+}
+
+/// calculates the directions for each edge of the transmittance map texel for a given column. Used in applying random
+/// jitter
+void calculateTexelEdges(const in vec2 columnPixel, out vec3 xDir, out vec3 yDir, out vec3 zDir)
+{
+    const vec2 mapDims = imageSize(transmittanceMap).xy;
+    const vec2 ndcXY = fromPixelIndexToNDCXY(columnPixel, mapDims.xy, vec2(0.0));
+
+    zDir = lightSpaceToVolume(vec3(ndcXY, 0.0));
+    xDir = lightSpaceToVolume(vec3(ndcXY + vec2(2.0 / mapDims.x, 0.0), 0.0)) - zDir;
+    yDir = lightSpaceToVolume(vec3(ndcXY + vec2(0.0, 2.0 / mapDims.y), 0.0)) - zDir;
+}
 
 // march from [startTexel, stopTexel)
 void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims, const in ivec2 columnPixel,
@@ -171,23 +191,33 @@ void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims,
     vec3 vol_pos[NUM_SAMPLES];
     float tau[NUM_SAMPLES];
 
-    const vec2 ndcXY = fromPixelIndexToNDCXY(vec2(columnPixel), vec2(mapDims.xy));
+    const vec2 ndcXY = fromPixelIndexToNDCXY(vec2(columnPixel), vec2(mapDims.xy), vec2(0.5));
     const vec3 vol_step = computeSingleStepFromLightOrtho(ndcXY, float(mapDims.z));
 
     // Starting on a texel's top face
-    const vec3 firstTexelTop = lightSpaceToVolume(vec3(ndcXY, 0.0));
-    for (uint i = 0; i < NUM_SAMPLES; ++i)
     {
-        tau[i] = 0.0;
-        // start at the light-facing top corner of the first texel this column marches through
-        vol_pos[i] = firstTexelTop + vol_step * float(startTexel);
+        vec3 x_dir;
+        vec3 y_dir;
+        vec3 z_dir;
+        calculateTexelEdges(columnPixel, x_dir, y_dir, z_dir);
+
+        const vec3 firstTexelTop = lightSpaceToVolume(vec3(ndcXY, 0.0));
+        for (uint i = 0; i < NUM_SAMPLES; ++i)
+        {
+            const vec3 randomValue = loadRandomValue(columnPixel, i);
+
+            tau[i] = 0.0;
+            // start at the light-facing top corner of the first texel this column marches through
+            vol_pos[i] = firstTexelTop + vol_step * float(startTexel) + x_dir * randomValue.x + y_dir * randomValue.y +
+                         z_dir * vol_step;
+        }
     }
 
     const float vol_stepSize = length(vol_step) * extractUniformVolumeScale(instanceModelMatrix[0]);
     const float sigmaExtinction = (fogInfo.marchedFog_sigmaScattering + fogInfo.marchedFog_sigmaAbsorption) *
                                   fogInfo.marchedFog_lightExtinctionScale;
 
-    for (int z = startTexel; z <= stopTexel; ++z)
+    for (int z = startTexel; z < stopTexel; ++z)
     {
         float transmittanceSum = 0.0f;
 
@@ -201,7 +231,8 @@ void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims,
             const float sliceContribution =
                 (density * fogInfo.marchedFog_densityMultiplier) * sigmaExtinction * vol_stepSize;
 
-            // only want half of the whole slice contribution since we are only stepping half way through
+            // downstream samples will be expecting this tau to be at the "center" of the texel
+            // so despite some samples being in this texel, map them to the center value. Why the 0.5 is here.
             transmittanceSum += exp(-(tau[i] + 0.5 * sliceContribution));
 
             // increment tau
@@ -211,8 +242,10 @@ void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims,
             vol_pos[i] = vol_pos[i] + vol_step * float(1);
         }
 
+        transmittanceSum /= NUM_SAMPLES;
+
         // store to texture
-        imageStore(transmittanceMap, ivec3(columnPixel, z), vec4(transmittanceSum / float(NUM_SAMPLES), 0.0, 0.0, 0.0));
+        imageStore(transmittanceMap, ivec3(columnPixel, z), vec4(transmittanceSum, 0.0, 0.0, 0.0));
     }
 }
 
@@ -234,9 +267,11 @@ float calculateSurfaceShadowDepth(const MapInfo info)
 
 void setupMarchInfo(const in ivec2 columnPixel, const in vec3 mapDims, out vec3 vol_startPos, out vec3 vol_step)
 {
-    const vec2 ndcXY = fromPixelIndexToNDCXY(vec2(columnPixel), vec2(mapDims.xy));
+    const vec2 ndcXY = fromPixelIndexToNDCXY(vec2(columnPixel), vec2(mapDims.xy), vec2(0.5));
 
-    vol_startPos = lightSpaceToVolume(vec3(ndcXY, (float(0) + 0.5) / float(mapDims.z)));
+    // measure from top of texel NOT center
+    vol_startPos = lightSpaceToVolume(vec3(ndcXY, 0.0));
+
     vol_step = computeSingleStepFromLightOrtho(ndcXY, float(mapDims.z));
 }
 
@@ -265,7 +300,8 @@ void calculateInAndOutTexelsFromAABB(in pnanovdb_grid_handle_t grid, const in Ma
     {
         // can use the result of the ray
         inTexel = clamp(int(ceil(volume_t0)), 0, surfaceSlice);
-        outTexel = min(int(floor(volume_t1)), surfaceSlice);
+        // need exclusive stop for the march function
+        outTexel = clamp(int(floor(volume_t1)) + 1, 0, surfaceSlice);
     }
     else
     {

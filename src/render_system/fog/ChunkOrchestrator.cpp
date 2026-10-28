@@ -38,10 +38,9 @@ std::optional<render_system::fog::WaitInfo> render_system::fog::ChunkOrchestrato
 
 void render_system::fog::ChunkOrchestrator::recordInto(const DispatchInfo &dInfo, PassInfo &vInfo,
                                                        const PassPipelineInfo &pipeInfo,
-                                                       const star::common::FrameTracker &ft,
-                                                       vk::CommandBuffer cmdBuf)
+                                                       const star::common::FrameTracker &ft, vk::CommandBuffer cmdBuf)
 {
-    if (m_isReady)
+    if (*m_isReady)
     {
         RecPushConsts(cmdBuf, dInfo, pipeInfo.layout, dInfo.shaderOptionFlags);
     }
@@ -51,7 +50,7 @@ void render_system::fog::ChunkOrchestrator::recordInto(const DispatchInfo &dInfo
         // need to wait for last submission to finish before calling begin
         app.recordPreCommands(vInfo, cmdBuf, ft);
 
-        if (m_isReady)
+        if (*m_isReady)
         {
             if (m_isDistance)
             {
@@ -62,10 +61,8 @@ void render_system::fog::ChunkOrchestrator::recordInto(const DispatchInfo &dInfo
                 app.setAdditionalClears(clears);
             }
 
-
             app.recordCommands(dInfo, pipeInfo, cmdBuf, ft);
         }
-
 
         app.recordPostCommands(vInfo, cmdBuf, ft);
     }

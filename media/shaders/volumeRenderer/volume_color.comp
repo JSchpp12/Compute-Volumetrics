@@ -119,7 +119,7 @@ fogInfo;
 layout(set = 1, binding = 6) uniform ShadowCalculationData
 {
     mat4 worldToLightViewProj;
-    mat4 worldToShadowMapProj;
+    mat4 invWorldToLightViewProj;
 }
 shadowLight;
 

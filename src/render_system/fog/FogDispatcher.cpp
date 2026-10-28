@@ -127,6 +127,10 @@ void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk:
                            const star::Handle &registration)
 {
     assert(m_passes.size() > 0);
+    if (m_numCbRecorded == 0)
+    {
+        return;
+    }
 
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
 
@@ -138,8 +142,8 @@ void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk:
     }
 
     // Single shared command buffer for all compute passes.
-    if (m_numCbRecorded > 0)
-        m_cbSubmitInfo[0] = vk::CommandBufferSubmitInfo().setCommandBuffer(m_sharedCmdBuf.buffer(ii));
+    vk::CommandBufferSubmitInfo m_cbSubmitInfo =
+        vk::CommandBufferSubmitInfo().setCommandBuffer(m_sharedCmdBuf.buffer(ii));
 
     assert(dataSemaphores.size() == dataWaitPoints.size());
 
@@ -170,8 +174,8 @@ void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk:
         vk::SubmitInfo2 submitInfo = vk::SubmitInfo2()
                                          .setPSignalSemaphoreInfos(&signalInfo)
                                          .setSignalSemaphoreInfoCount(1)
-                                         .setPCommandBufferInfos(m_cbSubmitInfo.data())
-                                         .setCommandBufferInfoCount(m_numCbRecorded)
+                                         .setPCommandBufferInfos(&m_cbSubmitInfo)
+                                         .setCommandBufferInfoCount(1)
                                          .setPWaitSemaphoreInfos(m_cbSubmitWait.data())
                                          .setWaitSemaphoreInfoCount(waitInfoCount);
 
@@ -206,8 +210,8 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
         case 0: // transmittance precompute pass
             // rayInit gates against the sun (orthographic) shadow depth
             // (set 3 binds the non-compare sun depth) instead of the camera depth.
-            dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableAabbTest | InitShaderFlags::EnableShadowDepthTest,
-                                           precomputeLightTransmittanceDebugFlags, MarchShaderFlags::None);
+            dInfo.shaderOptionFlags =
+                Pack(InitShaderFlags::None, precomputeLightTransmittanceDebugFlags, MarchShaderFlags::None);
             break;
         case 1: // color pass
             switch (pipeInfo.fogType)
@@ -229,11 +233,8 @@ void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::Fram
             break;
         }
 
-        // Linear and exponential fog do not sample the precomputed transmittance map. Skip the entire
-        // transmittance chunk, including its pre-pass barriers and map clear, for those fog types.
-        // The acquire side needs no matching flag here: whichever chunk runs first records each
-        // acquire and flips the PassInfo::imageReady latch, so later chunks (and skipped ones) stay
-        // in sync automatically.
+        // Linear and exponential fog do not sample the precomputed transmittance map. Skip the entire transmittance
+        // chunk,
         const bool dispatch = (i == 0 && Fog::NeedsTransmittancePrecompute(pipeInfo.fogType)) || (i == 1) ||
                               (i == 2 && pipeInfo.fogType == Fog::Type::sMarched);
         if (dispatch)
@@ -271,8 +272,6 @@ void FogDispatcher::createChunks(star::core::device::DeviceContext &ctx, star::H
     m_sharedCmdBuf = star::StarCommandBuffer(ctx.getDevice().getVulkanDevice(),
                                              static_cast<int>(ctx.frameTracker().getSetup().getNumFramesInFlight()),
                                              &queueInfo->pool, star::Queue_Type::Tcompute, false, false);
-
-    m_cbSubmitInfo.resize(3);
     m_numCbRecorded = 0;
 }
 } // namespace render_system::fog

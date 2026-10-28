@@ -3,7 +3,7 @@
 #include "FogType.hpp"
 #include "StarCamera.hpp"
 #include "core/renderer/FrameData.hpp"
-#include "render_system/fog/ShadowDispatchResourceProvider.hpp"
+#include "render_system/fog/FogRenderResourceFactory.hpp"
 #include "structs/FogInfo.hpp"
 
 #include <starlight/core/renderer/IRenderPhaseProvider.hpp>
@@ -22,7 +22,7 @@ class Buffer;
 class VolumeRenderPhaseProvider : public star::core::renderer::IRenderPhaseProvider
 {
   public:
-    VolumeRenderPhaseProvider(render_system::fog::policies::ShadowResourceResolutionPolicy resPolicy,
+    VolumeRenderPhaseProvider(render_system::fog::FogRenderResourceFactory fogResources,
                               star::ManagerController::RenderResource::Buffer *instanceManagerInfo,
                               star::ManagerController::RenderResource::Buffer *instanceNormalInfo,
                               std::shared_ptr<star::core::renderer::FrameData> frameData,
@@ -62,7 +62,7 @@ class VolumeRenderPhaseProvider : public star::core::renderer::IRenderPhaseProvi
         star::core::device::DeviceContext &context, star::core::renderer::RenderPhaseRegistry &phases) override;
 
   private:
-    render_system::fog::ShadowDispatchResourceProvider m_shadowResourceProvider;
+    render_system::fog::FogRenderResourceFactory m_fogResources;
     star::ManagerController::RenderResource::Buffer *m_infoManagerInstanceModel{nullptr};
     star::ManagerController::RenderResource::Buffer *m_infoManagerInstanceNormal{nullptr};
     std::shared_ptr<star::core::renderer::FrameData> m_frameData;

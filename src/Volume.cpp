@@ -7,6 +7,7 @@
 #include "TransferRequest_IndicesInfo.hpp"
 #include "TransferRequest_VertInfo.hpp"
 #include "VolumeFile.hpp"
+#include "render_system/fog/PipelineVariantNames.hpp"
 #include "render_system/fog/TransmittanceMapConfig.hpp"
 
 #include <cassert>
@@ -169,11 +170,14 @@ void Volume::initVolume(star::core::device::DeviceContext &context, std::string 
     loadModel(context, vdbFilePath);
 
     this->m_phaseProvider = std::make_unique<VolumeRenderPhaseProvider>(
-        render_system::fog::policies::ShadowResourceResolutionPolicy::Builder()
-            .setMainWorldCamera(*camera)
-            .setShadowCastLightDir(glm::vec3{0, -1, 0})
-            .setResolution(render_system::fog::kTransmittanceMapResolution)
-            .build(),
+        render_system::fog::FogRenderResourceFactory{
+            render_system::fog::policies::TransmittanceResourceResolutionPolicy::Builder()
+                .setMainWorldCamera(*camera)
+                .setShadowCastLightDir(glm::vec3{0, -1, 0})
+                .setTransmittanceMapResolution(render_system::fog::kTransmittanceMapResolution)
+                .setTransmittanceVariants({{render_system::fog::variant_names::transmittance::Low, 1u},
+                                           {render_system::fog::variant_names::transmittance::High, 8u}})
+                .build()},
         &m_instanceInfo.getControllerModel(), &m_instanceInfo.getControllerNormal(), std::move(frameData),
         star::Handle{}, std::move(vdbFilePath), this->camera, this->aabbBounds);
 }

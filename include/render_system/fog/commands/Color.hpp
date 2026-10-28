@@ -1,7 +1,7 @@
 #pragma once
 
-#include "render_system/fog/DispatchInfo.hpp"
-#include "render_system/fog/PassInfo.hpp"
+#include "render_system/fog/struct/DispatchInfo.hpp"
+#include "render_system/fog/struct/PassInfo.hpp"
 
 #include <star_common/FrameTracker.hpp>
 
@@ -12,7 +12,7 @@ namespace render_system::fog::commands
 class Color
 {
   public:
-    void recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo,
-                        vk::CommandBuffer cmdBuffer, const star::common::FrameTracker &ft);
+    void recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuffer,
+                        const star::common::FrameTracker &ft);
 };
 } // namespace render_system::fog::commands

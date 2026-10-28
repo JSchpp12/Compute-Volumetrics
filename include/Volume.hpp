@@ -35,10 +35,11 @@ class StarScene;
 #include <glm/ext.hpp>
 #include <glm/gtx/string_cast.hpp>
 
+#include <optional>
 #include <random>
-#include <stdio.h>
+#include <span>
 #include <string>
-#include <thread>
+#include <string_view>
 
 constexpr auto NUM_THREADS = 20;
 
@@ -131,6 +132,39 @@ class Volume : public star::StarObject
     uint32_t getActiveVariant(Fog::Type fogType) const
     {
         return this->getVolumePhase()->getActiveVariant(fogType);
+    }
+    /// @brief The transmittance precompute variants built for this volume, in plan order; the first entry is the
+    /// default.
+    std::span<const std::string_view> getTransmittanceVariantNames() const
+    {
+        return this->getVolumePhase()->transmittanceVariantNames();
+    }
+    /// @brief Index of the transmittance variant registered under `name` (same order as
+    /// getTransmittanceVariantNames()), or nullopt when the name is unknown.
+    std::optional<uint32_t> getTransmittanceVariantIndex(std::string_view name) const
+    {
+        return this->getVolumePhase()->getTransmittanceVariantIndex(name);
+    }
+    /// @brief Selects the transmittance precompute variant by name; unknown names are ignored (asserted in debug
+    /// builds). No resource is rebuilt, only the pipeline bound from the next frame's resolve changes.
+    void setTransmittanceVariant(std::string_view name)
+    {
+        this->getVolumePhase()->setTransmittanceVariant(name);
+    }
+    /// @brief Index-based form of setTransmittanceVariant; matches the order of getTransmittanceVariantNames().
+    void setTransmittanceVariant(uint32_t variantIndex)
+    {
+        this->getVolumePhase()->setTransmittanceVariant(variantIndex);
+    }
+    /// @brief Name of the currently selected transmittance variant, for GUI round-tripping.
+    std::string_view activeTransmittanceVariant() const
+    {
+        return this->getVolumePhase()->activeTransmittanceVariant();
+    }
+    /// @brief Index of the currently selected transmittance variant, or nullopt before the variant set is prepared.
+    std::optional<uint32_t> activeTransmittanceVariantIndex() const
+    {
+        return this->getVolumePhase()->activeTransmittanceVariantIndex();
     }
     void setShaderDebug(render_system::fog::MarchShaderFlags flag, bool state)
     {

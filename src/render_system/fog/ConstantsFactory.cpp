@@ -12,15 +12,11 @@ namespace render_system::fog
 namespace
 {
 // Precompute Transmittance Constants
-constexpr int kSizeLocalXId = 0;
-constexpr int kSizeLocalYId = 1;
-constexpr int kSizeLocalZId = 2;
-constexpr int kNumRaySamplesId = 3;
+constexpr int kNumRaySamplesId = 0;
 
-constexpr std::uint32_t kSizeLocalX = 8u;
-constexpr std::uint32_t kSizeLocalY = 8u;
-constexpr std::uint32_t kSizeLocalZ = 1u;
 constexpr std::uint32_t kNumRaySamples = 1u;
+
+constexpr int kRandTextureBreathId = 1;
 
 constexpr int kEnableTrilinearInterpolationGridLookupsId = 0;
 constexpr bool kEnableTrilinearInterpolationGridLookups = false;
@@ -33,17 +29,14 @@ static void AddConstantOrDefault(star::StarPipelineConstants &constants, int id,
     constants.addConstant(id, overrideValue.value_or(defaultValue));
 }
 
-void GetPipelineConstantsForPrecomputeTransmittance(star::command::pipeline::CreatePipeline &cmd,
-                                                    const TransmittanceConstants &overrideDefaults)
+star::StarPipelineConstants MakePrecomputeTransmittanceConstants(const TransmittanceConstants &overrides)
 {
     star::StarPipelineConstants pipelineConstants{};
 
-    AddConstantOrDefault(pipelineConstants, kSizeLocalXId, overrideDefaults.sizeLocalX, kSizeLocalX);
-    AddConstantOrDefault(pipelineConstants, kSizeLocalYId, overrideDefaults.sizeLocalY, kSizeLocalY);
-    AddConstantOrDefault(pipelineConstants, kSizeLocalZId, overrideDefaults.sizeLocalZ, kSizeLocalZ);
-    AddConstantOrDefault(pipelineConstants, kNumRaySamplesId, overrideDefaults.numRaySamples, kNumRaySamples);
+    AddConstantOrDefault(pipelineConstants, kNumRaySamplesId, overrides.numRaySamples, kNumRaySamples);
+    pipelineConstants.addConstant(kRandTextureBreathId, overrides.randTextureBreath);
 
-    cmd.setPipelineConstantForStage(star::Shader_Stage::compute, std::move(pipelineConstants));
+    return pipelineConstants;
 }
 
 void GetPipelineConstantsForColorMarch(star::command::pipeline::CreatePipeline &cmd,

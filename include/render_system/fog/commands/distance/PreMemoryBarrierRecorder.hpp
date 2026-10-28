@@ -1,7 +1,7 @@
 #pragma once
 
-#include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/commands/distance/PreDifferentFamilies.hpp"
+#include "render_system/fog/struct/PassInfo.hpp"
 
 namespace render_system::fog::commands::distance
 {
@@ -16,7 +16,6 @@ class PreMemoryBarrierRecorder
     {
     }
 
-    void recordCommands(PassInfo &info, const star::common::FrameTracker &ft,
-                        vk::CommandBuffer cmdBuf) const noexcept;
+    void recordCommands(PassInfo &info, const star::common::FrameTracker &ft, vk::CommandBuffer cmdBuf) const noexcept;
 };
 } // namespace render_system::fog::commands::distance

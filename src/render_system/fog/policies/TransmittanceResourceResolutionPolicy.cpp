@@ -1,4 +1,4 @@
-#include "render_system/fog/policies/ShadowResourceResolutionPolicy.hpp"
+#include "render_system/fog/policies/TransmittanceResourceResolutionPolicy.hpp"
 
 #include <star_terrain/rendering/ShadowFrustumCalculator.hpp>
 
@@ -11,9 +11,6 @@
 
 namespace render_system::fog::policies
 {
-
-#pragma region Builder
-
 static void LogTransmittanceMapCoverage(const star::terrain::rendering::ShadowFrustumCalculator &shadowCalculator,
                                         const std::array<uint32_t, 3> &targetResolution) noexcept
 {
@@ -40,19 +37,19 @@ static void LogTransmittanceMapCoverage(const star::terrain::rendering::ShadowFr
     star::core::logging::info(oss.str());
 }
 
-ShadowResourceResolutionPolicy ShadowResourceResolutionPolicy::Builder::build()
+TransmittanceResourceResolutionPolicy TransmittanceResourceResolutionPolicy::Builder::build()
 {
     // add optional logging information
     assert(m_mainWorldCamera != nullptr && m_shadowCastLightDir != nullptr);
+    assert(m_transmittanceMapResolution.has_value() && "The transmittance map resolution must be provided");
+    assert(m_transmittanceVariants.has_value() && "The transmittance variant table must be provided");
     LogTransmittanceMapCoverage(
         star::terrain::rendering::ShadowFrustumCalculator{*m_mainWorldCamera, *m_shadowCastLightDir},
-        m_resolution.value());
+        m_transmittanceMapResolution.value());
 
-    return ShadowResourceResolutionPolicy{m_resolution.value()};
+    return TransmittanceResourceResolutionPolicy{TransmittancePlan::Builder()
+                                              .setTransmittanceMapResolution(m_transmittanceMapResolution.value())
+                                              .setVariants(std::move(m_transmittanceVariants.value()))
+                                              .build()};
 }
-#pragma endregion
-
-#pragma region ShadowResourceResolutionPolicy
-
-#pragma endregion
 } // namespace render_system::fog::policies

@@ -1,9 +1,9 @@
 #pragma once
 
 #include "FogType.hpp"
-#include "render_system/fog/DispatchInfo.hpp"
-#include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/commands/Pass.hpp"
+#include "render_system/fog/struct/DispatchInfo.hpp"
+#include "render_system/fog/struct/PassInfo.hpp"
 #include "render_system/fog/sync/SyncProvider.hpp"
 
 #include <starlight/core/device/DeviceContext.hpp>
@@ -42,10 +42,9 @@ class ChunkOrchestrator
           m_isReady(isReady)
     {
     }
-    ChunkOrchestrator(std::vector<commands::Pass> cmdApproaches, sync::SyncProvider syncApproach,
-                      const bool *isReady)
-        : m_cmdApproaches(std::move(cmdApproaches)), m_syncApproach(std::move(syncApproach)),
-          m_isDistance(false), m_isReady(isReady)
+    ChunkOrchestrator(std::vector<commands::Pass> cmdApproaches, sync::SyncProvider syncApproach, const bool *isReady)
+        : m_cmdApproaches(std::move(cmdApproaches)), m_syncApproach(std::move(syncApproach)), m_isDistance(false),
+          m_isReady(isReady)
     {
     }
 

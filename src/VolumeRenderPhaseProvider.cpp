@@ -16,9 +16,10 @@
 #include "core/device/managers/Image.hpp"
 #include "core/renderer/DescriptorRecipe.hpp"
 #include "render_system/fog/ConstantsFactory.hpp"
-#include "render_system/fog/DataRoles.hpp"
+#include "render_system/fog/PipelineVariant.hpp"
+#include "render_system/fog/PipelineVariantSet.hpp"
 #include "render_system/fog/ShaderFactory.hpp"
-#include "render_system/fog/ShadowDispatchResourceProvider.hpp"
+#include "render_system/fog/TransmittanceMapConfig.hpp"
 #include "render_system/fog/util/CreateBuffers.hpp"
 #include "renderer/volume/ComputePipelineLayout.hpp"
 #include "renderer/volume/ContainerRenderResourceData.hpp"
@@ -38,6 +39,7 @@
 #include <starlight/core/device/system/event/ManagerRequest.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 #include <starlight/core/renderer/RenderPhase.hpp>
+#include <starlight/enums/Enums.hpp>
 #include <starlight/event/DescriptorPoolReady.hpp>
 #include <starlight/maker/texture/MakeTexture.hpp>
 
@@ -48,7 +50,9 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 static std::vector<std::shared_ptr<star::StarTextures::Texture>> CreateComputeWriteToImages(
@@ -144,16 +148,50 @@ static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus
     return handles;
 }
 
+/// @brief Prepares `outHandles` for the given variant table and returns one pipeline recipe per variant, in table
+/// order. Each recipe captures its variant's specialization constants, so adding a variant is a table entry rather
+/// than new plumbing.
+static std::vector<renderer::volume::VolumePipelineRecipe> MakeVariantPipelineRecipes(
+    star::core::device::DeviceContext &context, const std::span<const render_system::fog::PipelineVariant> variants,
+    render_system::fog::PipelineVariantSet &outHandles)
+{
+    std::vector<std::string_view> names;
+    names.reserve(variants.size());
+    for (const auto &variant : variants)
+    {
+        names.push_back(variant.name);
+    }
+
+    // The handles must exist before the recipes can point at them.
+    outHandles.prepare(names);
+
+    std::vector<renderer::volume::VolumePipelineRecipe> recipes;
+    recipes.reserve(variants.size());
+    for (std::size_t i = 0; i < variants.size(); i++)
+    {
+        recipes.push_back(renderer::volume::VolumePipelineRecipe{
+            .context = &context,
+            .shader = variants[i].shader,
+            .outHandle = &outHandles.handleAt(i),
+            .pipelineConstantsProvider = [constants =
+                                              variants[i].constants](star::command::pipeline::CreatePipeline &cmd) {
+                cmd.setPipelineConstantForStage(star::Shader_Stage::compute, constants);
+            }});
+    }
+
+    return recipes;
+}
+
 VolumeRenderPhaseProvider::VolumeRenderPhaseProvider(
-    render_system::fog::policies::ShadowResourceResolutionPolicy resPolicy,
+    render_system::fog::FogRenderResourceFactory fogResources,
     star::ManagerController::RenderResource::Buffer *instanceManagerInfo,
     star::ManagerController::RenderResource::Buffer *instanceNormalInfo,
     std::shared_ptr<star::core::renderer::FrameData> frameData, star::Handle offscreenPhaseHandle,
     std::string vdbFilePath, std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds)
-    : m_shadowResourceProvider(std::move(resPolicy)), m_infoManagerInstanceModel(instanceManagerInfo),
-      m_infoManagerInstanceNormal(instanceNormalInfo), m_frameData(std::move(frameData)),
-      m_offscreenPhaseHandle(std::move(offscreenPhaseHandle)), m_vdbFilePath(std::move(vdbFilePath)),
-      m_camera(std::move(camera)), m_aabbBounds(aabbBounds)
+    : m_fogResources(std::move(fogResources)),
+      m_infoManagerInstanceModel(instanceManagerInfo), m_infoManagerInstanceNormal(instanceNormalInfo),
+      m_frameData(std::move(frameData)), m_offscreenPhaseHandle(std::move(offscreenPhaseHandle)),
+      m_vdbFilePath(std::move(vdbFilePath)), m_camera(std::move(camera)), m_aabbBounds(aabbBounds)
 {
 }
 
@@ -171,11 +209,24 @@ static VolumeDirectoryProcessor GetVolumeProcessor(std::string vdbFilePath) noex
 std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::build(
     star::core::device::DeviceContext &c, star::core::renderer::RenderPhaseRegistry &phases)
 {
+    const uint32_t computeQueueFamilyIndex =
+        star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
+                                                  star::Queue_Type::Tcompute)
+            ->getParentQueueFamilyIndex();
+    const uint32_t graphicsQueueFamilyIndex =
+        star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
+                                                  star::Queue_Type::Tgraphics)
+            ->getParentQueueFamilyIndex();
+    const uint32_t transferQueueFamilyIndex =
+        star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
+                                                  star::Queue_Type::Ttransfer)
+            ->getParentQueueFamilyIndex();
+
     const vk::Extent2D screensize = c.getEngineResolution();
     const uint8_t numFramesInFlight = c.frameTracker().getSetup().getNumFramesInFlight();
     const size_t n = static_cast<size_t>(numFramesInFlight);
 
-    const auto randomTexRole = star::core::renderer::roleHandle("RandomTex");
+    const auto screenRandomTexRole = star::core::renderer::roleHandle("ScRandTex");
     const auto vdbRole = star::core::renderer::roleHandle("Vdb");
     const auto cameraExtraRole = star::core::renderer::roleHandle("CameraExtra");
     const auto activeRayRole = star::core::renderer::roleHandle("ActiveRay");
@@ -184,10 +235,6 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     const auto outputRole = star::core::renderer::roleHandle("Output");
     const auto shadowMapRole = star::core::renderer::roleHandle(data_roles::TerrainShadowMap);
     const auto shadowDepthRole = star::core::renderer::roleHandle(data_roles::TerrainShadowDepthRaw);
-    const auto transmittanceMapShadowRole =
-        star::core::renderer::roleHandle(render_system::fog::data_roles::LightTransmittanceMap);
-    const auto transmittanceMapSampledRole =
-        star::core::renderer::roleHandle(render_system::fog::data_roles::LightTransmittanceMapSampled);
 
     const auto staticInfo = star::core::renderer::shaderInfoHandle("Static");
     const auto dynamicInfo = star::core::renderer::shaderInfoHandle("Dynamic");
@@ -226,28 +273,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     phase->m_volumeFrameData->add(star::core::renderer::FrameData::BorrowedBuffer{m_infoManagerInstanceNormal},
                                   star::core::renderer::roleHandle(renderer::volume::frame_roles::InstanceNormal));
 
-    std::array<uint32_t, 3> transmittanceMapResolution{0, 0, 0};
-    {
-        const auto shadowResources = m_shadowResourceProvider.addResourcesTo(c, *phase->m_volumeFrameData);
-        const auto &addedInfo = shadowResources.getInfoForType(transmittanceMapShadowRole);
-        transmittanceMapResolution = addedInfo.resolution;
-    }
-
-    const uint32_t computeQueueFamilyIndex =
-        star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
-                                                  star::Queue_Type::Tcompute)
-            ->getParentQueueFamilyIndex();
-
-    const uint32_t graphicsQueueFamilyIndex =
-        star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
-                                                  star::Queue_Type::Tgraphics)
-            ->getParentQueueFamilyIndex();
-    phase->transferQueueFamilyIndex =
-        star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
-                                                  star::Queue_Type::Ttransfer)
-            ->getParentQueueFamilyIndex();
-
-    phase->m_timelineSemaphores = CreateSemaphores(c.getEventBus(), c.frameTracker());
+    const auto transmittanceResources = m_fogResources.createTransmittanceResources(c, *phase->m_volumeFrameData);
+    phase->transferQueueFamilyIndex = transferQueueFamilyIndex;
 
     phase->cameraShaderInfo = star::ManagerRenderResource::addRequest(
         c.getDeviceID(),
@@ -266,17 +293,16 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
             std::make_unique<FogData>(frontPath.string(), openvdb::GridClass::GRID_FOG_VOLUME)),
         nullptr, true);
 
-    phase->randomValueTexture = star::ManagerRenderResource::addRequest(
+    phase->screenSizedRandomTexture = star::ManagerRenderResource::addRequest(
         c.getDeviceID(),
-        std::make_unique<RandomValueTexture>(screensize.width, screensize.height, computeQueueFamilyIndex,
-                                             c.getDevice().getPhysicalDevice().getProperties()));
-
+        std::make_unique<RandomValueTexture<4>>(screensize.width, screensize.height, computeQueueFamilyIndex,
+                                                c.getDevice().getPhysicalDevice().getProperties()));
     {
         std::vector<uint32_t> inds{graphicsQueueFamilyIndex};
         if (graphicsQueueFamilyIndex != computeQueueFamilyIndex)
         {
             inds.push_back(computeQueueFamilyIndex);
-            inds.push_back(phase->transferQueueFamilyIndex);
+            inds.push_back(transferQueueFamilyIndex);
         }
 
         phase->computeWriteToImages = CreateComputeWriteToImages(c, screensize, n, inds);
@@ -298,10 +324,10 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     }
 
     phase->m_volumeFrameData->add(
-        star::core::renderer::FrameData::FixedTextureHandle{.handle = phase->randomValueTexture,
+        star::core::renderer::FrameData::FixedTextureHandle{.handle = phase->screenSizedRandomTexture,
                                                             .layout = vk::ImageLayout::eGeneral,
-                                                            .format = vk::Format::eR32G32B32A32Sfloat},
-        randomTexRole);
+                                                            .format = RandomValueTexture<4>::SelectFormat()},
+        screenRandomTexRole);
     phase->m_volumeFrameData->add(star::core::renderer::FrameData::FixedBufferHandle{.handle = phase->vdbInfoFog},
                                   vdbRole);
     phase->m_volumeFrameData->add(star::core::renderer::FrameData::FixedBufferHandle{.handle = phase->cameraShaderInfo},
@@ -388,16 +414,24 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     const star::Handle colorMarchShaderHandle =
         render_system::fog::CreateVolumeComputeShader("volume_color.comp", c.getCmdBus());
 
+    // One pipeline per transmittance variant the plan describes; the variant set owns the out handles.
+    const std::vector<render_system::fog::PipelineVariant> transmittanceVariants =
+        m_fogResources.transmittancePipelineVariants(c.getCmdBus());
+    auto transmittancePipelineRecipes =
+        MakeVariantPipelineRecipes(c, transmittanceVariants, phase->m_pipelines.transmittance);
+
     // staticInfo owns pipeline sets 0-1 (baseSet 0, declared above). Set/binding
     // numbers below match layout(set = N, binding = M) in the volume shaders.
     builder
-        .addBinding(phase->m_volumeFrameData, 0, 0, randomTexRole, vk::DescriptorType::eStorageImage,
+        .addBinding(phase->m_volumeFrameData, 0, 0, screenRandomTexRole, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(phase->m_volumeFrameData, 0, 1, vdbRole, vk::DescriptorType::eStorageBuffer,
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(phase->m_volumeFrameData, 0, 2, cameraExtraRole, vk::DescriptorType::eUniformBuffer,
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(phase->m_volumeFrameData, 0, 3, activeRayRole, vk::DescriptorType::eStorageBuffer,
+                    vk::ShaderStageFlagBits::eCompute)
+        .addBinding(phase->m_volumeFrameData, 0, 4, transmittanceResources.noiseRole, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(phase->m_frameData, 1, 0,
                     star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera),
@@ -422,96 +456,87 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(phase->m_volumeFrameData, 2, 1, outputRole, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
-        .addBinding(phase->m_volumeFrameData, 2, 2, transmittanceMapShadowRole, vk::DescriptorType::eStorageImage,
+        .addBinding(phase->m_volumeFrameData, 2, 2, transmittanceResources.mapRole, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
         .setShaderInfoOut(shadowInfo, &phase->m_shadowShaderInfo, /*baseSet=*/2)
         .addBinding(phase->m_volumeFrameData, 2, 0, colorRole, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(phase->m_volumeFrameData, 2, 1, outputRole, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
-        .addBinding(phase->m_volumeFrameData, 2, 2, transmittanceMapShadowRole, vk::DescriptorType::eStorageImage,
+        .addBinding(phase->m_volumeFrameData, 2, 2, transmittanceResources.mapRole, vk::DescriptorType::eStorageImage,
                     vk::ShaderStageFlagBits::eCompute)
         .setShaderInfoOut(depthSceneInfo, &phase->m_sceneDepthShaderInfo, /*baseSet=*/3)
         .addBinding(phase->m_volumeFrameData, 3, 0, depthRole, vk::DescriptorType::eCombinedImageSampler,
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(phase->m_volumeFrameData, 3, 1, shadowMapRole, vk::DescriptorType::eCombinedImageSampler,
                     vk::ShaderStageFlagBits::eCompute)
-        .addBinding(phase->m_volumeFrameData, 3, 2, transmittanceMapSampledRole,
+        .addBinding(phase->m_volumeFrameData, 3, 2, transmittanceResources.mapSampledRole,
                     vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
         .setShaderInfoOut(depthShadowInfo, &phase->m_shadowDepthShaderInfo, /*baseSet=*/3)
         .addBinding(phase->m_volumeFrameData, 3, 0, shadowDepthRole, vk::DescriptorType::eCombinedImageSampler,
                     vk::ShaderStageFlagBits::eCompute)
         .addBinding(phase->m_volumeFrameData, 3, 1, shadowMapRole, vk::DescriptorType::eCombinedImageSampler,
                     vk::ShaderStageFlagBits::eCompute)
-        .addBinding(phase->m_volumeFrameData, 3, 2, transmittanceMapSampledRole,
+        .addBinding(phase->m_volumeFrameData, 3, 2, transmittanceResources.mapSampledRole,
                     vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute)
-        .setOnShaderInfoReady([layoutRecipe =
-                                   renderer::volume::ComputePipelineLayoutRecipe{
-                                       .context = &c,
-                                       .shaderInfos = {.staticInfo = {&phase->m_staticShaderInfo},
-                                                       .dynamicInfo = {&phase->m_dynamicShaderInfo},
-                                                       .depthInfo = {&phase->m_sceneDepthShaderInfo}},
-                                       .validationInfos = {{&phase->m_shadowShaderInfo},
-                                                           {&phase->m_shadowDepthShaderInfo}},
-                                       .out = &phase->computePipelineLayout},
-                               recipes =
-                                   std::vector<renderer::volume::VolumePipelineRecipe>{
-                                       {.context = &c,
-                                        .shader = render_system::fog::CreateVolumeComputeShader(
-                                            "volume_debugColorRedActiveRays.comp", c.getCmdBus()),
-                                        .outHandle = &phase->m_pipelines.fog.nanoBoundingBox.handles[0]},
-                                       {.context = &c,
-                                        .shader = render_system::fog::CreateVolumeComputeShader(
-                                            "volume_nanoVDBSurface.comp", c.getCmdBus()),
-                                        .outHandle = &phase->m_pipelines.fog.nanoSurface.handles[0]},
-                                       {.context = &c,
-                                        .shader = colorMarchShaderHandle,
-                                        .outHandle = &phase->m_pipelines.fog.marched.handles[0],
-                                        .pipelineConstantsProvider =
-                                            [](star::command::pipeline::CreatePipeline &cmd) {
-                                                constexpr render_system::fog::ColorConstants kConstants{
-                                                    .enableTrilinearInterpolationGridLookups = true};
-                                                render_system::fog::GetPipelineConstantsForColorMarch(cmd, kConstants);
-                                            }},
-                                       {.context = &c,
-                                        .shader = render_system::fog::CreateVolumeComputeShader("volume_linear.comp",
-                                                                                                c.getCmdBus()),
-                                        .outHandle = &phase->m_pipelines.fog.linear.handles[0]},
-                                       {.context = &c,
-                                        .shader = render_system::fog::CreateVolumeComputeShader("volume_exp.comp",
-                                                                                                c.getCmdBus()),
-                                        .outHandle = &phase->m_pipelines.fog.exponential.handles[0]},
-                                       {.context = &c,
-                                        .shader = render_system::fog::CreateVolumeComputeShader("volume_rayInit.comp",
-                                                                                                c.getCmdBus()),
-                                        .outHandle = &phase->m_pipelines.init},
-                                       {.context = &c,
-                                        .shader = render_system::fog::CreateVolumeComputeShader(
-                                            "volume_calcIndirectDispatch.comp", c.getCmdBus()),
-                                        .outHandle = &phase->m_pipelines.indirectDispatch},
-                                       {.context = &c,
-                                        .shader = render_system::fog::CreateVolumeComputeShader(
-                                            "volume_precomputeLightTransmittance.comp", c.getCmdBus()),
-                                        .outHandle = &phase->m_pipelines.transmittance,
-                                        .pipelineConstantsProvider =
-                                            [](star::command::pipeline::CreatePipeline &cmd) {
-                                                constexpr render_system::fog::TransmittanceConstants kConstants{
-                                                    .numRaySamples = 1};
-                                                render_system::fog::GetPipelineConstantsForPrecomputeTransmittance(
-                                                    cmd, kConstants);
-                                            }},
-                                   }](star::core::device::DeviceContext &) mutable {
-            // build all layouts
-            layoutRecipe();
+        .setOnShaderInfoReady(
+            [layoutRecipe =
+                 renderer::volume::ComputePipelineLayoutRecipe{
+                     .context = &c,
+                     .shaderInfos = {.staticInfo = {&phase->m_staticShaderInfo},
+                                     .dynamicInfo = {&phase->m_dynamicShaderInfo},
+                                     .depthInfo = {&phase->m_sceneDepthShaderInfo}},
+                     .validationInfos = {{&phase->m_shadowShaderInfo}, {&phase->m_shadowDepthShaderInfo}},
+                     .out = &phase->computePipelineLayout},
+             recipes =
+                 std::vector<renderer::volume::VolumePipelineRecipe>{
+                     {.context = &c,
+                      .shader = render_system::fog::CreateVolumeComputeShader("volume_debugColorRedActiveRays.comp",
+                                                                              c.getCmdBus()),
+                      .outHandle = &phase->m_pipelines.fog.nanoBoundingBox.handles[0]},
+                     {.context = &c,
+                      .shader =
+                          render_system::fog::CreateVolumeComputeShader("volume_nanoVDBSurface.comp", c.getCmdBus()),
+                      .outHandle = &phase->m_pipelines.fog.nanoSurface.handles[0]},
+                     {.context = &c,
+                      .shader = colorMarchShaderHandle,
+                      .outHandle = &phase->m_pipelines.fog.marched.handles[0],
+                      .pipelineConstantsProvider =
+                          [](star::command::pipeline::CreatePipeline &cmd) {
+                              constexpr render_system::fog::ColorConstants kConstants{
+                                  .enableTrilinearInterpolationGridLookups = true};
+                              render_system::fog::GetPipelineConstantsForColorMarch(cmd, kConstants);
+                          }},
+                     {.context = &c,
+                      .shader = render_system::fog::CreateVolumeComputeShader("volume_linear.comp", c.getCmdBus()),
+                      .outHandle = &phase->m_pipelines.fog.linear.handles[0]},
+                     {.context = &c,
+                      .shader = render_system::fog::CreateVolumeComputeShader("volume_exp.comp", c.getCmdBus()),
+                      .outHandle = &phase->m_pipelines.fog.exponential.handles[0]},
+                     {.context = &c,
+                      .shader = render_system::fog::CreateVolumeComputeShader("volume_rayInit.comp", c.getCmdBus()),
+                      .outHandle = &phase->m_pipelines.init},
+                     {.context = &c,
+                      .shader = render_system::fog::CreateVolumeComputeShader("volume_calcIndirectDispatch.comp",
+                                                                              c.getCmdBus()),
+                      .outHandle = &phase->m_pipelines.indirectDispatch},
+                 },
+             variantRecipes = std::move(transmittancePipelineRecipes)](star::core::device::DeviceContext &) mutable {
+                // build all layouts
+                layoutRecipe();
 
-            // apply shared layout across all recipes provided
-            const vk::PipelineLayout &layout = *layoutRecipe.out->get();
-            for (auto &recipe : recipes)
-            {
-                recipe.layout = &layout;
-                recipe();
-            }
-        })
+                // apply shared layout across all recipes provided
+                const vk::PipelineLayout &layout = *layoutRecipe.out->get();
+                for (auto &variantRecipe : variantRecipes)
+                {
+                    recipes.push_back(std::move(variantRecipe));
+                }
+                for (auto &recipe : recipes)
+                {
+                    recipe.layout = &layout;
+                    recipe();
+                }
+            })
         .build();
 
     renderer::volume::ContainerRenderResourceData pipelineData{
@@ -531,7 +556,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                     star::core::renderer::roleHandle(star::core::renderer::frame_roles::LightList)),
                 .cameraShaderInfo = &phase->cameraShaderInfo,
                 .vdbInfoFog = &phase->vdbInfoFog,
-                .randomValueTexture = &phase->randomValueTexture},
+                .randomValueTexture = &phase->screenSizedRandomTexture},
         .outputs{.computeWriteToImages = &phase->computeWriteToImages,
                  .computeRayDistBuffers = &phase->computeRayDistanceBuffers,
                  .computeRayAtCutoffBuffer = &phase->computeRayAtCutoffDistanceBuffers}};
@@ -570,6 +595,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
         }
     }
 
+    const auto &transmittanceMapResolution = m_fogResources.resourcePolicies.transmittance.transmittanceMapResolution;
     phase->m_chunkHandler.prepRender(c, phase->m_commandBuffer,
                                      render_system::fog::FogDispatcher::DispatchContextInfo{
                                          .engineResolution = c.getEngineResolution(),

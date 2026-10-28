@@ -1,22 +1,34 @@
-﻿#include "render_system/fog/ShadowDispatchResourceProvider.hpp"
+#include "render_system/fog/FogRenderResourceFactory.hpp"
 
+#include "ManagerRenderResource.hpp"
+#include "RandomValueTexture.hpp"
+
+#include "Allocator.hpp"
+#include "render_system/fog/ConstantsFactory.hpp"
 #include "render_system/fog/DataRoles.hpp"
-#include "render_system/fog/policies/ShadowResourceResolutionPolicy.hpp"
+#include "render_system/fog/ShaderFactory.hpp"
 
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
 #include <starlight/core/helper/command_buffer/CommandBufferHelpers.hpp>
+#include <starlight/core/helper/queue/QueueHelpers.hpp>
 #include <starlight/core/renderer/FrameData.hpp>
 #include <starlight/maker/texture/MakeTexture.hpp>
 #include <starlight/wrappers/graphics/StarTextures/Texture.hpp>
 
+#include <vk_mem_alloc.h>
+
+#include <memory>
+#include <utility>
 #include <vector>
+
+#include <cassert>
 
 namespace render_system::fog
 {
 
 static std::pair<std::vector<star::StarTextures::Texture>, vk::Format> CreateTransmittanceMaps(
-    star::core::device::DeviceContext &context, int height, int width, int depth, const size_t &numToCreate)
+    star::core::device::DeviceContext &context, int width, int height, int depth, const size_t &numToCreate)
 {
     std::vector<star::StarTextures::Texture> textures{numToCreate};
 
@@ -42,8 +54,8 @@ static std::pair<std::vector<star::StarTextures::Texture>, vk::Format> CreateTra
                            "TransmittanceMap")
             .setBaseFormat(imageFormat)
             .setSamplerInfo(vk::SamplerCreateInfo()
-                                .setMagFilter(vk::Filter::eNearest)
-                                .setMinFilter(vk::Filter::eNearest)
+                                .setMagFilter(vk::Filter::eLinear)
+                                .setMinFilter(vk::Filter::eLinear)
                                 .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
                                 .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
                                 .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
@@ -99,62 +111,80 @@ static std::pair<std::vector<star::StarTextures::Texture>, vk::Format> CreateTra
     return std::make_pair(textures, imageFormat);
 }
 
-ShadowDispatchResourceProvider::ShadowDispatchResourceProvider(policies::ShadowResourceResolutionPolicy resPolicy)
-    : m_resPolicy(std::move(resPolicy))
-{
-}
-
-ShadowDispatchResourceProvider::AdditionalResourcesInfo ShadowDispatchResourceProvider::addResourcesTo(
+FogRenderResourceFactory::TransmittanceResources FogRenderResourceFactory::createTransmittanceResources(
     star::core::device::DeviceContext &context, star::core::renderer::FrameData &frameData) const
 {
-    std::vector<std::pair<star::Handle, ShadowDispatchResourceProvider::AdditionalResourcesInfo::Info>> addResources{1};
+    const auto &transmittance = resourcePolicies.transmittance;
+    const size_t framesInFlight = static_cast<size_t>(context.frameTracker().getSetup().getNumFramesInFlight());
 
-    addResources[0] = addTransmittanceMaps(context, frameData);
+    // storage view for the precompute pass, sampled view for the color pass
+    auto [transmittanceMaps, format] = CreateTransmittanceMaps(
+        context, transmittance.transmittanceMapResolution[0], transmittance.transmittanceMapResolution[1],
+        transmittance.transmittanceMapResolution[2], framesInFlight);
 
-    return ShadowDispatchResourceProvider::AdditionalResourcesInfo(addResources);
-}
-
-std::pair<star::Handle, ShadowDispatchResourceProvider::AdditionalResourcesInfo::Info> ShadowDispatchResourceProvider::
-    addTransmittanceMaps(star::core::device::DeviceContext &context, star::core::renderer::FrameData &fd) const
-{
-    const size_t &fi = static_cast<const size_t &>(context.frameTracker().getSetup().getNumFramesInFlight());
-
-    auto res = m_resPolicy.getTransmittanceResolution();
-    auto [transmittanceMaps, format] = CreateTransmittanceMaps(context, res[0], res[1], res[2], fi);
-
-    std::vector<star::Handle> handles{fi};
-    for (size_t i = 0; i < fi; i++)
+    std::vector<star::Handle> handles{framesInFlight};
+    for (size_t i = 0; i < framesInFlight; i++)
     {
         handles[i] = context.getGraphicsManagers().imageManager.submit(
             star::core::device::manager::ImageRequest{std::move(transmittanceMaps[i])});
     }
 
-    // borrow textures for different view
-    std::vector<const star::StarTextures::Texture *> textures{fi};
-    for (size_t i = 0; i < fi; i++)
+    std::vector<const star::StarTextures::Texture *> textures{framesInFlight};
+    for (size_t i = 0; i < framesInFlight; i++)
     {
         textures[i] = &context.getGraphicsManagers().imageManager.get(handles[i])->texture;
     }
 
-    const star::Handle transmittanceMapRole = star::core::renderer::roleHandle(data_roles::LightTransmittanceMap);
-    fd.add(star::core::renderer::FrameData::BorrowedTexture{.textures = textures,
-                                                            .layout = vk::ImageLayout::eGeneral,
-                                                            .format = format},
-           transmittanceMapRole);
+    const star::Handle mapRole = star::core::renderer::roleHandle(data_roles::LightTransmittanceMap);
+    frameData.add(star::core::renderer::FrameData::BorrowedTexture{.textures = textures,
+                                                                   .layout = vk::ImageLayout::eGeneral,
+                                                                   .format = format},
+                  mapRole);
 
-    std::vector<const star::StarTextures::Texture *> transmittanceTexturePtrs{fi};
-    for (size_t i = 0; i < fi; i++)
+    const star::Handle mapSampledRole = star::core::renderer::roleHandle(data_roles::LightTransmittanceMapSampled);
+    frameData.add(star::core::renderer::FrameData::BorrowedTexture{.textures = textures,
+                                                                   .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
+                                                                   .format = format},
+                  mapSampledRole);
+
+    // one random value per column per sample, so the precompute can jitter within each transmittance texel
+    const uint32_t computeQueueFamilyIndex =
+        star::core::helper::GetEngineDefaultQueue(context.getEventBus(), context.getGraphicsManagers().queueManager,
+                                                  star::Queue_Type::Tcompute)
+            ->getParentQueueFamilyIndex();
+    const star::Handle noiseRole = star::core::renderer::roleHandle(data_roles::LightTransmittanceNoise);
+    frameData.add(
+        star::core::renderer::FrameData::FixedTextureHandle{
+            .handle = star::ManagerRenderResource::addRequest(
+                context.getDeviceID(),
+                std::make_unique<RandomValueTexture<4>>(transmittance.noiseResolution[0],
+                                                        transmittance.noiseResolution[1], computeQueueFamilyIndex,
+                                                        context.getDevice().getPhysicalDevice().getProperties())),
+            .layout = vk::ImageLayout::eGeneral,
+            .format = RandomValueTexture<4>::SelectFormat()},
+        noiseRole);
+
+    return TransmittanceResources{mapRole, mapSampledRole, noiseRole};
+}
+
+std::vector<PipelineVariant> FogRenderResourceFactory::transmittancePipelineVariants(
+    star::core::CommandBus &commandBus) const
+{
+    const star::Handle shader =
+        render_system::fog::CreateVolumeComputeShader("volume_precomputeLightTransmittance.comp", commandBus);
+
+    const auto &variants = resourcePolicies.transmittance.variants;
+    std::vector<PipelineVariant> pipelineVariants;
+    pipelineVariants.reserve(variants.size());
+    for (const auto &variant : variants)
     {
-        transmittanceTexturePtrs[i] = &context.getGraphicsManagers().imageManager.get(handles[i])->texture;
+        const TransmittanceConstants constants{.numRaySamples = variant.samples,
+                                               .randTextureBreath = resourcePolicies.transmittance.maxSamples};
+
+        pipelineVariants.push_back(PipelineVariant{
+            .name = variant.name, .shader = shader, .constants = MakePrecomputeTransmittanceConstants(constants)});
     }
 
-    const star::Handle sampledUse = star::core::renderer::roleHandle(data_roles::LightTransmittanceMapSampled);
-    fd.add(star::core::renderer::FrameData::BorrowedTexture{.textures = textures,
-                                                            .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
-                                                            .format = format},
-           sampledUse);
-
-    return std::make_pair(transmittanceMapRole,
-                          ShadowDispatchResourceProvider::AdditionalResourcesInfo::Info{.resolution = res});
+    return pipelineVariants;
 }
 } // namespace render_system::fog

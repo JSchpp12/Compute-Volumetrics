@@ -10,9 +10,9 @@ enum class InitShaderFlags : uint8_t
     None = 0,
     EnableAabbTest = 1u << 0,
     EnableDepthtest = 1u << 1,
-    EnableColorOutput = 1u << 2,
-    EnableShadowDepthTest = 1u << 3
+    EnableColorOutput = 1u << 2
 };
+
 enum class MarchShaderFlags : uint16_t
 {
     None = 0,
@@ -21,6 +21,7 @@ enum class MarchShaderFlags : uint16_t
     EnableDebugTransmittanceMap = 1u << 2,
     EnableDebugForceMarchCalculateTransmittance = 1u << 3
 };
+
 enum class PrecomputeLightTransmittanceShaderFlags : uint8_t
 {
     None = 0,
@@ -73,8 +74,7 @@ constexpr uint32_t Pack(InitShaderFlags initFlags,
            (static_cast<uint32_t>(marchFlags) << 16);
 }
 
-constexpr PrecomputeLightTransmittanceShaderFlags GetPrecomputeLightTransmittanceShaderFlags(
-    uint32_t flags) noexcept
+constexpr PrecomputeLightTransmittanceShaderFlags GetPrecomputeLightTransmittanceShaderFlags(uint32_t flags) noexcept
 {
     return static_cast<PrecomputeLightTransmittanceShaderFlags>((flags >> 8) & 0xffu);
 }

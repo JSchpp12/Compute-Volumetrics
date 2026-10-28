@@ -1,5 +1,6 @@
 #include "render_system/fog/commands/color/PreMemoryBarrierRecorder.hpp"
 
+#include "render_system/fog/BarrierFactory.hpp"
 #include "render_system/fog/struct/BarrierBatch.hpp"
 
 namespace render_system::fog::commands::color
@@ -13,22 +14,7 @@ void PreMemoryBarrierRecorder::recordCommands(PassInfo &vInfo, const star::commo
 
     if (vInfo.transmittanceMap != VK_NULL_HANDLE)
     {
-        batch.addImage(vk::ImageMemoryBarrier2()
-                           .setImage(vInfo.transmittanceMap)
-                           .setOldLayout(vk::ImageLayout::eGeneral)
-                           .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-                           .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                           .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
-                           .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
-                           .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
-                           .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                           .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                           .setSubresourceRange(vk::ImageSubresourceRange()
-                                                    .setAspectMask(vk::ImageAspectFlagBits::eColor)
-                                                    .setBaseMipLevel(0)
-                                                    .setLevelCount(vk::RemainingMipLevels)
-                                                    .setBaseArrayLayer(0)
-                                                    .setLayerCount(vk::RemainingArrayLayers)));
+        batch.addImage(MakeTransmittanceMapToShaderReadBarrier(vInfo.transmittanceMap));
     }
 
     if (!batch.empty())

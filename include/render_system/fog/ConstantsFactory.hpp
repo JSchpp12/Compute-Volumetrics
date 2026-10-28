@@ -1,6 +1,7 @@
 #pragma once
 
 #include <star_common/Handle.hpp>
+#include <starlight/wrappers/graphics/StarPipelineConstants.hpp>
 
 #include <optional>
 
@@ -13,17 +14,13 @@ namespace render_system::fog
 {
 struct TransmittanceConstants
 {
-    std::optional<std::uint32_t> sizeLocalX{std::nullopt};
-    std::optional<std::uint32_t> sizeLocalY{std::nullopt};
-    std::optional<std::uint32_t> sizeLocalZ{std::nullopt};
     std::optional<std::uint32_t> numRaySamples{std::nullopt};
+    /// How many random texels each transmittance column spans in the shared noise texture.
+    std::uint32_t randTextureBreath;
 };
 
-/// @brief Function populates the provided CreatePipeline command with the necessary pipeline constants for precomputing
-/// transmittance.
-/// @param cmd The CreatePipeline command to populate with pipeline constants.
-void GetPipelineConstantsForPrecomputeTransmittance(star::command::pipeline::CreatePipeline &cmd,
-                                                    const TransmittanceConstants &overrideDefaults);
+/// @brief Builds the specialization constants for the transmittance precompute pipeline.
+star::StarPipelineConstants MakePrecomputeTransmittanceConstants(const TransmittanceConstants &overrides);
 
 struct ColorConstants
 {

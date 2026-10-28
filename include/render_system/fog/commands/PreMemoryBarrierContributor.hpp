@@ -1,10 +1,10 @@
 #pragma once
 
-#include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/commands/color/FrameInputPreMemoryBarrierRecorder.hpp"
 #include "render_system/fog/commands/color/PreMemoryBarrierRecorder.hpp"
 #include "render_system/fog/commands/distance/PreMemoryBarrierRecorder.hpp"
 #include "render_system/fog/commands/transmittance/PreMemoryBarrierRecorder.hpp"
+#include "render_system/fog/struct/PassInfo.hpp"
 
 #include <star_common/FrameTracker.hpp>
 

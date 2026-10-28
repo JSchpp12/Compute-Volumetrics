@@ -83,8 +83,14 @@ bool VolumeRenderPhase::isRenderReady(star::core::device::DeviceContext &context
         }
     };
 
-    bool allReady = ready(m_pipelines.init) && ready(m_pipelines.indirectDispatch) &&
-                    ready(m_pipelines.transmittance) && m_distanceComputer.isReady(context);
+    bool allReady =
+        ready(m_pipelines.init) && ready(m_pipelines.indirectDispatch) && m_distanceComputer.isReady(context);
+
+    // A switch must never bind an unbuilt pipeline, so every variant in the family has to be ready.
+    for (const auto &handle : m_pipelines.transmittance.handles())
+    {
+        allReady = allReady && ready(handle);
+    }
 
     for (const auto type : {Fog::Type::sMarched, Fog::Type::sLinear, Fog::Type::sExponential,
                             Fog::Type::sNanoBoundingBox, Fog::Type::sNanoSurface})
@@ -477,8 +483,9 @@ void VolumeRenderPhase::updateRenderingContext(star::core::device::DeviceContext
     m_pipeInfo.indirectDispatchPipeline = resolve(m_pipelines.indirectDispatch);
     m_pipeInfo.colorPipeline = resolve(m_pipelines.fog.activeHandle(m_pipeInfo.fogType));
 
-    m_pipeInfo.transmittancePipeline =
-        Fog::NeedsTransmittancePrecompute(m_pipeInfo.fogType) ? resolve(m_pipelines.transmittance) : vk::Pipeline{};
+    m_pipeInfo.transmittancePipeline = Fog::NeedsTransmittancePrecompute(m_pipeInfo.fogType)
+                                           ? resolve(m_pipelines.transmittance.activeHandle())
+                                           : vk::Pipeline{};
     m_pipeInfo.distancePipeline =
         m_pipeInfo.fogType == Fog::Type::sMarched ? m_distanceComputer.getPipeline() : vk::Pipeline{};
 }

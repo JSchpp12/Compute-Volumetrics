@@ -1,7 +1,8 @@
 #pragma once
 
-#include "FogPipelineSet.hpp"
 #include "FogType.hpp"
+#include "render_system/fog/FogPipelineSet.hpp"
+#include "render_system/fog/PipelineVariantSet.hpp"
 
 #include <star_common/Handle.hpp>
 #include <starlight/wrappers/graphics/StarShaderInfo.hpp>
@@ -19,7 +20,7 @@ struct VolumePipelineSet
     FogPipelineSet fog{};
     star::Handle init{};
     star::Handle indirectDispatch{};
-    star::Handle transmittance{};
+    PipelineVariantSet transmittance{};
 };
 
 /// @brief Runtime check container for the graphics -> compute image acquires

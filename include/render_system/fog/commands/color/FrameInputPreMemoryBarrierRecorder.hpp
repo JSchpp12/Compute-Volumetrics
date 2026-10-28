@@ -1,7 +1,7 @@
 #pragma once
 
-#include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/commands/color/PreDifferentFamilies.hpp"
+#include "render_system/fog/struct/PassInfo.hpp"
 
 #include <star_common/FrameTracker.hpp>
 
@@ -9,9 +9,9 @@
 
 namespace render_system::fog::commands::color
 {
-/// Acquires the frame-input images and buffers on the compute queue before the
-/// first compute dispatch. This is the graphics-to-compute ownership transfer
-/// that must happen before any pipeline binds those resources.
+
+/// @brief Acquires the frame-input images and buffers on the compute queue before the first compute dispatch. This is
+/// the graphics-to-compute ownership transfer that must happen before any pipeline binds those resources.
 class FrameInputPreMemoryBarrierRecorder
 {
     PreDifferentFamilies m_policy;
@@ -21,7 +21,6 @@ class FrameInputPreMemoryBarrierRecorder
     {
     }
 
-    void recordCommands(PassInfo &vInfo, const star::common::FrameTracker &ft,
-                        vk::CommandBuffer cmdBuf) const noexcept;
+    void recordCommands(PassInfo &vInfo, const star::common::FrameTracker &ft, vk::CommandBuffer cmdBuf) const noexcept;
 };
 } // namespace render_system::fog::commands::color

@@ -1,11 +1,11 @@
 #pragma once
 
-#include "render_system/fog/DispatchInfo.hpp"
 #include "render_system/fog/commands/Color.hpp"
 #include "render_system/fog/commands/Distance.hpp"
 #include "render_system/fog/commands/IndirectDispatch.hpp"
 #include "render_system/fog/commands/Init.hpp"
 #include "render_system/fog/commands/transmittance/TransmittancePrecompute.hpp"
+#include "render_system/fog/struct/DispatchInfo.hpp"
 
 #include <variant>
 
@@ -35,7 +35,6 @@ class ComputeContributor
     void recordCommands(const render_system::fog::DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo,
                         vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
 
-    void setAdditionalClears(std::span<const Init::OptionalClearBuffer> clears); 
-
+    void setAdditionalClears(std::span<const Init::OptionalClearBuffer> clears);
 };
 } // namespace render_system::fog::commands

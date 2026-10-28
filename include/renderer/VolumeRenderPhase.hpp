@@ -9,8 +9,8 @@
 #include "core/renderer/FrameData.hpp"
 #include "core/renderer/RenderingContext.hpp"
 #include "render_system/fog/FogDispatcher.hpp"
-#include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/commands/Color.hpp"
+#include "render_system/fog/struct/PassInfo.hpp"
 #include "render_system/fog/struct/ShaderFlags.hpp"
 #include "structs/FogInfo.hpp"
 
@@ -25,6 +25,8 @@
 
 #include <memory>
 #include <optional>
+#include <span>
+#include <string_view>
 #include <vector>
 
 class VolumeRenderPhaseProvider;
@@ -77,6 +79,41 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     std::uint32_t getActiveVariant(Fog::Type type) const
     {
         return m_pipelines.fog.getActiveVariant(type);
+    }
+
+    /// @brief Selects the transmittance precompute variant bound from the next frame's resolve. Unknown names are
+    /// ignored (asserted in debug builds); no resource is rebuilt, only the bound pipeline changes.
+    void setTransmittanceVariant(std::string_view name)
+    {
+        m_pipelines.transmittance.setActiveVariant(name);
+    }
+    /// @brief Index-based form of setTransmittanceVariant; matches the order of transmittanceVariantNames().
+    void setTransmittanceVariant(std::uint32_t variantIndex)
+    {
+        m_pipelines.transmittance.setActiveVariant(variantIndex);
+    }
+    /// @brief The transmittance variants this phase built, in plan order; the first entry is the default.
+    std::span<const std::string_view> transmittanceVariantNames() const
+    {
+        return m_pipelines.transmittance.variantNames();
+    }
+    /// @brief Index of the transmittance variant registered under `name` (same order as transmittanceVariantNames()),
+    /// or nullopt when the name is unknown to this set.
+    std::optional<std::uint32_t> getTransmittanceVariantIndex(std::string_view name) const
+    {
+        const std::optional<std::size_t> index = m_pipelines.transmittance.getVariantIndex(name);
+        return index ? std::optional<std::uint32_t>(static_cast<std::uint32_t>(*index)) : std::nullopt;
+    }
+    /// @brief Name of the transmittance variant currently selected, for GUI round-tripping.
+    std::string_view activeTransmittanceVariant() const
+    {
+        return m_pipelines.transmittance.activeVariant();
+    }
+    /// @brief Index of the currently selected transmittance variant, or nullopt before a set is prepared.
+    std::optional<std::uint32_t> activeTransmittanceVariantIndex() const
+    {
+        const std::optional<std::size_t> index = m_pipelines.transmittance.activeVariantIndex();
+        return index ? std::optional<std::uint32_t>(static_cast<std::uint32_t>(*index)) : std::nullopt;
     }
 
     const star::StarBuffers::Buffer &getRayDistanceBufferAt(const size_t &index) const
@@ -136,7 +173,7 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     star::core::renderer::RenderPhase *m_offscreenPhase = nullptr;
     star::core::renderer::RenderPhase *m_terrainShadowPhase = nullptr;
     star::core::renderer::RenderingContext m_renderingContext = star::core::renderer::RenderingContext();
-    star::Handle cameraShaderInfo, vdbInfoFog, randomValueTexture;
+    star::Handle cameraShaderInfo, vdbInfoFog, screenSizedRandomTexture;
     std::shared_ptr<FogInfoController> m_fogController;
     std::unique_ptr<star::StarShaderInfo> m_staticShaderInfo{nullptr}, m_dynamicShaderInfo{nullptr},
         m_shadowShaderInfo{nullptr}, m_sceneDepthShaderInfo{nullptr};

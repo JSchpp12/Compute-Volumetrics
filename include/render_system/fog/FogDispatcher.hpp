@@ -35,7 +35,6 @@ class FogDispatcher
     std::vector<ChunkOrchestrator> m_passes;
     star::StarCommandBuffer m_sharedCmdBuf;
     std::vector<vk::SemaphoreSubmitInfo> m_cbSubmitWait{6};
-    std::vector<vk::CommandBufferSubmitInfo> m_cbSubmitInfo;
     sync::SyncProvider m_syncApproach;
     star::core::CommandBus *m_cmdBus{nullptr};
     uint8_t m_numCbRecorded{0};

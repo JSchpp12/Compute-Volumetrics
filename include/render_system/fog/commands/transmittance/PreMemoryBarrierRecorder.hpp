@@ -1,8 +1,8 @@
 #pragma once
 
-#include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/policies/ShadowDepthAcquirePolicy.hpp"
 #include "render_system/fog/struct/BarrierBatch.hpp"
+#include "render_system/fog/struct/PassInfo.hpp"
 
 #include <variant>
 
@@ -35,7 +35,6 @@ class PreMemoryBarrierRecorder
     {
     }
 
-    void recordCommands(PassInfo &vInfo, const star::common::FrameTracker &ft,
-                        vk::CommandBuffer cmdBuf) const noexcept;
+    void recordCommands(PassInfo &vInfo, const star::common::FrameTracker &ft, vk::CommandBuffer cmdBuf) const noexcept;
 };
 } // namespace render_system::fog::commands::transmittance

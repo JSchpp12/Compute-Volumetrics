@@ -1,7 +1,7 @@
 #pragma once
 
-#include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/struct/BarrierBatch.hpp"
+#include "render_system/fog/struct/PassInfo.hpp"
 #include "render_system/fog/struct/QueueFamilyIndices.hpp"
 
 namespace render_system::fog::commands::distance

@@ -311,4 +311,28 @@ inline vk::ImageMemoryBarrier2 MakeTransmittanceMapToGeneralBarrier(vk::Image im
                                  .setBaseArrayLayer(0)
                                  .setLayerCount(vk::RemainingArrayLayers));
 }
+
+/// @brief Builds a same-queue transition for the transmittance map (compute write -> sampled read), so the color pass
+/// can sample the map written by the transmittance pass. This is not a queue-family transfer.
+/// @param image The transmittance map image to transition.
+/// @return The configured image memory barrier.
+inline vk::ImageMemoryBarrier2 MakeTransmittanceMapToShaderReadBarrier(vk::Image image) noexcept
+{
+    return vk::ImageMemoryBarrier2()
+        .setImage(image)
+        .setOldLayout(vk::ImageLayout::eGeneral)
+        .setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+        .setSrcStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+        .setSrcAccessMask(vk::AccessFlagBits2::eShaderWrite)
+        .setDstStageMask(vk::PipelineStageFlagBits2::eComputeShader)
+        .setDstAccessMask(vk::AccessFlagBits2::eShaderRead)
+        .setSrcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+        .setDstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+        .setSubresourceRange(vk::ImageSubresourceRange()
+                                 .setAspectMask(vk::ImageAspectFlagBits::eColor)
+                                 .setBaseMipLevel(0)
+                                 .setLevelCount(vk::RemainingMipLevels)
+                                 .setBaseArrayLayer(0)
+                                 .setLayerCount(vk::RemainingArrayLayers));
+}
 } // namespace render_system::fog
