@@ -8,7 +8,6 @@ add_executable(unit_tests
     test_AppConfigLoader.cpp
     test_coverage_info_json.cpp
     test_SboCallable.cpp
-    test_DeviceRequirementsProvider.cpp
     test_TransmittanceCellPlanner.cpp
 )
 

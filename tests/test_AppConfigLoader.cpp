@@ -2,6 +2,7 @@
 
 #include "config/AppConfigLoader.hpp"
 #include "config/AppConfigInfo.hpp"
+#include "config/AppConfigInfo_json.hpp"
 
 #include <starlight/core/Exceptions.hpp>
 
@@ -92,6 +93,57 @@ TEST_F(AppConfigLoader_CreateIfMissing, DoesNotCreateFileWhenAppConfigFlagAbsent
 
     EXPECT_NE(status, config::LoadStatus::CreatedDefault);
     EXPECT_FALSE(std::filesystem::exists(cfgPath)) << "No file should be created when --appConfig is absent";
+}
+
+TEST_F(AppConfigLoader_CreateIfMissing, LoadsDefaultAppConfigJsonWhenFlagAbsent)
+{
+    // With --appConfig absent the loader falls back to a default
+    // appConfig.json resolved through the shared probe order (working
+    // directory -> media directory -> executable directory). The test binary
+    // carries no media directory, so park the file in the working directory.
+    const auto originalCwd = std::filesystem::current_path();
+
+    config::AppConfigInfo seed{};
+    seed.volumeName = "from_default_file";
+    seed.terrainDir = "terrain";
+    seed.engineConfigPath = "engineConfig.json";
+
+    nlohmann::json seedJson;
+    config::to_json(seedJson, seed);
+
+    std::ofstream appConfigOut(m_tempDir / "appConfig.json");
+    appConfigOut << seedJson.dump(4);
+    appConfigOut.close();
+
+    // Satisfy validation: terrain must exist and the engine config must load.
+    std::filesystem::create_directories(m_tempDir / "terrain");
+    std::ofstream engineConfigOut(m_tempDir / "engineConfig.json");
+    engineConfigOut << nlohmann::json{{"app_name", "unit_test"}}.dump(4);
+    engineConfigOut.close();
+
+    std::filesystem::current_path(m_tempDir);
+    ArgvBuilder args = {"prog"};
+    auto [cfg, status] = config::AppConfigLoader::LoadFromArgs(args.argc(), args.argv());
+    std::filesystem::current_path(originalCwd);
+
+    EXPECT_EQ(status, config::LoadStatus::Loaded);
+    ASSERT_NE(cfg, nullptr);
+    EXPECT_EQ(cfg->volumeName, "from_default_file");
+    EXPECT_FALSE(cfg->engineConfigPath.empty())
+        << "engineConfigPath should have been resolved from the default config";
+
+    // A scenario with no resolvable default: an empty directory holds no
+    // appConfig.json, so the built-in defaults hold and CLI overrides still
+    // apply.
+    std::filesystem::create_directories(m_tempDir / "empty");
+    ArgvBuilder missingArgs = {"prog", "--volume", "cli_volume"};
+    std::filesystem::current_path(m_tempDir / "empty");
+    auto [cliCfg, cliStatus] = config::AppConfigLoader::LoadFromArgs(missingArgs.argc(), missingArgs.argv());
+    std::filesystem::current_path(originalCwd);
+
+    EXPECT_EQ(cliStatus, config::LoadStatus::ValidationError)
+        << "Without a resolvable default appConfig.json the engine config path stays empty";
+    EXPECT_EQ(cliCfg->volumeName, "cli_volume") << "CLI overrides apply to built-in defaults";
 }
 
 class AppConfigLoader_PatchMissing : public ::testing::Test
