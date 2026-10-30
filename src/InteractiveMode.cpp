@@ -5,7 +5,6 @@
 #include "InteractiveApplication.hpp"
 #include "config/AppConfigLoader.hpp"
 #include "loader/SceneLoaders.hpp"
-#include "policy/VolumetricsDeviceRequirementsProvider.hpp"
 #include "service/ImageMetricManager.hpp"
 #include "service/SimulationController.hpp"
 
@@ -25,19 +24,13 @@ int InteractiveMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
     using win_loop = star::windowing::EngineMainLoopPolicy;
 
     star::windowing::WindowingContext winContext;
-    auto startupDeviceRequirements = std::make_unique<VolumetricsDeviceRequirementsProvider>();
 
     auto engineServices = star::service::EngineServicesFactory::createDefault(false);
     star::windowing::EngineServicesFactory::addDefaultServices(engineServices, winContext);
     engineServices.add(star::service::Service{service::ImageMetricManager{}});
     engineServices.add(star::service::Service{SimulationControllerService(std::move(cfg->simControllerPath))});
 
-    star::windowing::EngineInitPolicy windowInit =
-        cfg->overrideRenderingDevice.has_value()
-            ? star::windowing::EngineInitPolicy{winContext, engineServices, cfg->overrideRenderingDevice.value(),
-                                                std::move(startupDeviceRequirements)}
-            : star::windowing::EngineInitPolicy{winContext, engineServices, std::nullopt,
-                                                std::move(startupDeviceRequirements)};
+    star::windowing::EngineInitPolicy windowInit{winContext, engineServices, cfg->overrideRenderingDevice};
     win_loop windowLoop{winContext};
     win_exit windowExit{winContext};
 

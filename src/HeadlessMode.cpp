@@ -5,7 +5,6 @@
 #include "config/AppConfigLoader.hpp"
 #include "loader/SceneLoaders.hpp"
 #include "policy/EngineExitOnFlag.hpp"
-#include "policy/VolumetricsDeviceRequirementsProvider.hpp"
 #include "service/ImageMetricManager.hpp"
 #include "service/SimulationController.hpp"
 
@@ -32,15 +31,12 @@ int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
                                                 {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
                                                  cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains});
 
-    auto startupDeviceRequirements = std::make_unique<VolumetricsDeviceRequirementsProvider>();
-
     auto engineServices = star::service::EngineServicesFactory::createDefault(true);
     engineServices.add(star::service::Service{service::ImageMetricManager{}});
     engineServices.add(
         star::service::Service{SimulationControllerService(std::move(cfg->simControllerPath), controllerSequenceDone)});
 
-    auto init = star::policy::DefaultEngineInitPolicy{engineServices, std::move(startupDeviceRequirements),
-                                                      cfg->overrideRenderingDevice};
+    auto init = star::policy::DefaultEngineInitPolicy{engineServices, {}, cfg->overrideRenderingDevice};
 
     auto engine = star::StarEngine<star::policy::DefaultEngineInitPolicy, loop, exit>(
         std::move(init), loop{}, exit{controllerSequenceDone}, application);

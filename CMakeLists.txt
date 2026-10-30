@@ -145,7 +145,6 @@ set(${PROJECT_NAME}_SOURCES
 	"src/command/image_metrics/GetTransferCopyPass.cpp"
 	"src/command/sim_controller/TriggerUpdate.cpp"
 	"src/command/sim_controller/CheckIfDone.cpp"
-	"src/policy/VolumetricsDeviceRequirementsProvider.cpp"
 	"src/policy/EngineExitOnFlag.cpp"
 	"src/service/detail/image_metric_manager/CopyDeviceToHostMemory.cpp"
 	"src/service/detail/image_metric_manager/CopyCmds.cpp"
@@ -267,7 +266,6 @@ set(${PROJECT_NAME}_HEADERS
 	"include/VDBFileInfo.hpp"
 	"include/PrepareDistanceBufferInfo.hpp"
 	"include/service/ImageMetricManager.hpp"
-	"include/policy/VolumetricsDeviceRequirementsProvider.hpp"
 	"include/policy/EngineExitOnFlag.hpp"
 	"include/command/image_metrics/TriggerCapture.hpp"
 	"include/command/image_metrics/GetTransferCopyPass.hpp"
@@ -572,6 +570,41 @@ install(TARGETS ${PROJECT_NAME}
 	LIBRARY DESTINATION lib COMPONENT Runtime
 	ARCHIVE DESTINATION lib COMPONENT Runtime
 )
+
+if (NOT WIN32)
+    # RUNTIME_DEPENDENCIES copies the vcpkg libraries together with their
+    # versioned soname links (e.g. "libglfw.so.3 -> libglfw.so.3.5"), and CPack
+    # stores those as actual symlink entries in the portable archive.  Zip
+    # extractors that do not honor Unix symlinks materialize them as 0-byte
+    # regular files and the dynamic loader fails with "file too short".  Keep
+    # the package symlink-free by replacing every link in the staged lib
+    # directory with a real copy of its target.
+    install(CODE [[
+        set(_star_libdir "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib")
+        file(GLOB _star_lib_entries "${_star_libdir}/*")
+        foreach(_entry ${_star_lib_entries})
+            if(IS_SYMLINK "${_entry}")
+                set(_real "${_entry}")
+                while(IS_SYMLINK "${_real}")
+                    file(READ_SYMLINK "${_real}" _link_name)
+                    if(IS_ABSOLUTE "${_link_name}")
+                        set(_real "${_link_name}")
+                    else()
+                        get_filename_component(_dir "${_real}" DIRECTORY)
+                        set(_real "${_dir}/${_link_name}")
+                    endif()
+                endwhile()
+                if(EXISTS "${_real}")
+                    file(REMOVE "${_entry}")
+                    file(COPY_FILE "${_real}" "${_entry}")
+                else()
+                    message(STATUS "Dangling symlink left in place: ${_entry} -> ${_real}")
+                endif()
+            endif()
+        endforeach()
+    ]] COMPONENT Runtime)
+endif()
+
 install(
     DIRECTORY "${FINAL_APPLICATION_DIR}/media"
     DESTINATION .
