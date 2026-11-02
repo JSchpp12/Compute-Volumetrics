@@ -1,7 +1,9 @@
 #pragma once
 
+#include "FogVolumeInfo.hpp"
 #include "OffscreenRenderPhaseProvider.hpp"
 #include "StarApplication.hpp"
+#include "TransmittanceMapVisualDebugController.hpp"
 #include "Volume.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
 #include "loader/SceneDescription.hpp"
@@ -17,9 +19,13 @@ class Application : public star::StarApplication
     struct VolumeRenderingOptions
     {
         bool enableCutoffHighlighting{false};
+        bool enableTransmittanceMapDebug{false};
+        bool aggressiveTerrainTextureLoading{false};
+        bool forceFlatTerrains{false};
     };
     using LoaderFn = std::function<loader::SceneDescription(
-        star::core::device::DeviceContext &, const std::filesystem::path &, const std::filesystem::path &)>;
+        star::core::device::DeviceContext &, const std::filesystem::path &, const std::filesystem::path &,
+        bool enableTransmittanceMapDebug, bool aggressiveTerrainTextureLoading, bool forceFlatTerrains)>;
 
     Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName,
                 VolumeRenderingOptions volumeOptions);
@@ -46,13 +52,20 @@ class Application : public star::StarApplication
     std::string m_volumeName;
     std::vector<star::Handle> m_screenshotRegistrations;
     std::optional<DebugCubeInfo> m_debugCubeInfo{std::nullopt};
+    /// Transmittance map debug visualization; present only when the scene provides one. Owns the
+    /// cell object and the input state that decides when the cells need to be re-placed.
+    std::optional<TransmittanceMapVisualDebugController> m_transmittanceViz{std::nullopt};
     std::shared_ptr<star::StarScene> m_mainScene = nullptr;
     std::shared_ptr<Volume> m_volume;
+    std::shared_ptr<FogVolumeInfoController> m_fogVolumeInfo;
     star::Handle m_offscreenPhaseHandle;
     std::shared_ptr<star::core::renderer::FrameData> m_offscreenFrameData;
     std::shared_ptr<std::vector<star::Light>> m_mainLight;
+    std::shared_ptr<star::StarObject> m_shadowTerrain;
     star::Handle m_finalizationPhaseHandle;
     star::Handle m_volumePhaseHandle;
+    star::Handle m_volumeShadowPhaseHandle;
+    star::Handle m_terrainShadowPhaseHandle;
     VolumeRenderingOptions m_volumeOptions;
 
     bool m_flipScreenshotState = false;
@@ -64,6 +77,11 @@ class Application : public star::StarApplication
     void frameUpdate(star::core::SystemContext &context) override;
 
     void placeDebugCubes(const glm::vec3 &direction, const glm::vec3 &startPosition);
+
+    /// Feed the current camera/light/volume state to the transmittance debug visualization, which
+    /// re-places its cells only when that state changed. Cheap enough to call every frame from
+    /// either the headless or interactive loop.
+    void updateTransmittanceViz(const star::StarCamera &camera);
 
     void setHeadlessServiceOutputDir(star::core::device::DeviceContext &context) const;
 
@@ -81,24 +99,22 @@ class Application : public star::StarApplication
 
     virtual void initListeners(star::core::device::DeviceContext &context) {};
 
+    /// Invoked from loadScene() immediately after the finalization provider has
+    /// been queued, so presentation-only phases (e.g. the ImGui overlay) can
+    /// look up the built finalization phase by its already-assigned handle.
+    /// Default is a no-op so headless builds are unaffected.
+    virtual void addPresentationFinalizationPhases(star::core::device::DeviceContext &context)
+    {
+    }
+
     static bool CheckIfControllerIsDone(star::core::CommandBus &cmd);
 
     static sim_controller::UpdateStatus TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume,
                                                          star::StarCamera &camera);
 
-    static float PromptForFloat(const std::string &prompt, const bool &allowNegative = false);
-
-    static int PromptForInt(const std::string &prompt);
-
-    static float ProcessFloatInput(const bool &allowNegatives);
-
-    static int ProcessIntInput();
-
-    std::vector<std::shared_ptr<star::StarObject>> createOffscreenObjects(star::core::device::DeviceContext &context,
-                                                                          std::shared_ptr<star::StarCamera> camera,
-                                                                          const std::string &terrainPath);
+    std::vector<std::shared_ptr<star::StarObject>> parseSceneObjects(star::core::device::DeviceContext &context,
+                                                                     std::shared_ptr<star::StarCamera> camera,
+                                                                     const std::string &terrainPath);
 
     static star::Light CreateMainLight(glm::vec3 position);
-
-    static void SetVolumeToCamera(Volume &volume, star::StarCamera &camera);
 };

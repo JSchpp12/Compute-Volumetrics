@@ -1,0 +1,16 @@
+{
+    "aggressiveTerrainTextureLoading": true,
+    "enableCutoffHighlighting": false,
+    "enableDistanceMarkers": false,
+    "enableTransmittanceMapDebug": false,
+    "engineConfigPath": "default_Star.cfg",
+    "forceFlatTerrains": false,
+    "interactiveConfig": {
+        "cameraMovementSpeed": 50.0,
+        "cameraSensitivity": 0.10000000149011612,
+        "objectMovementSpeed": 300.0
+    },
+    "simControllerPath": "controllers/default_controller.json",
+    "terrainDir": "terrains/159_mini",
+    "volumeName": "demo_1"
+}

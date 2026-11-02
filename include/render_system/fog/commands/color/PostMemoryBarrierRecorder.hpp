@@ -1,7 +1,7 @@
 #pragma once
 
-#include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/commands/color/PostDifferentFamilies.hpp"
+#include "render_system/fog/struct/PassInfo.hpp"
 
 #include <variant>
 

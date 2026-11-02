@@ -102,14 +102,14 @@ layout(set = 1, binding = 5) uniform FogControllerInfo
     float marchedFog_stepSizeDist;
     float marchedFog_stepSizeDist_light;
     float marchedFog_densityMultiplier;
+    float marchedFog_shadowBias;
     uint marchedFog_uniform_maxNumSteps;
     uint gridType;
 }
 fogInfo;
-// per-draw
-layout(set = 2, binding = 0) uniform sampler2D inputSceneDepth;
-layout(set = 2, binding = 1, rgba8) uniform readonly image2D inputSceneColor;
-layout(set = 2, binding = 2, rgba8) uniform writeonly image2D outputImage;
+// per-draw (depth not needed; matches pipeline set-2 layout)
+layout(set = 2, binding = 0, rgba8) uniform readonly image2D inputSceneColor;
+layout(set = 2, binding = 1, rgba8) uniform writeonly image2D outputImage;
 
 #include "struct_Ray.comp"
 

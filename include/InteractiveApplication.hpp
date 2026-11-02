@@ -3,6 +3,7 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "Application.hpp"
+#include "GUIController.hpp"
 #include "config/InteractiveConfigInfo.hpp"
 
 #include <star_windowing/BasicCamera.hpp>
@@ -31,6 +32,8 @@ class InteractiveApplication : public Application,
   protected:
     virtual void initListeners(star::core::device::DeviceContext &context) override;
 
+    virtual void addPresentationFinalizationPhases(star::core::device::DeviceContext &context) override;
+
   private:
     enum ModifyMode
     {
@@ -43,6 +46,7 @@ class InteractiveApplication : public Application,
     friend class star::windowing::HandleKeyPressPolicy<InteractiveApplication>;
     star::windowing::WindowingContext *m_winContext = nullptr;
     config::InteractiveConfigInfo m_interactiveConfig{};
+    GUIController m_guiController;
     ModifyMode m_mode{ModifyMode::movement};
     std::chrono::time_point<std::chrono::steady_clock> m_timeLastFrame;
 
@@ -62,9 +66,9 @@ class InteractiveApplication : public Application,
 
     virtual std::shared_ptr<star::StarCamera> createMainCamera(star::core::device::DeviceContext &context) override;
 
-    virtual std::unique_ptr<star::core::renderer::IRenderPhaseProvider> createMainRenderer(star::core::device::DeviceContext &context,
-                                                      std::vector<std::shared_ptr<star::StarObject>> objects,
-                                                      std::shared_ptr<star::StarCamera> camera) override;
+    virtual std::unique_ptr<star::core::renderer::IRenderPhaseProvider> createMainRenderer(
+        star::core::device::DeviceContext &context, std::vector<std::shared_ptr<star::StarObject>> objects,
+        std::shared_ptr<star::StarCamera> camera) override;
 
     star::Handle getFinalizationCommandBuffer() override;
 };

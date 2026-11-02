@@ -1,15 +1,26 @@
 #include "render_system/fog/commands/PreMemoryBarrierContributor.hpp"
 
-void render_system::fog::commands::PreMemoryBarrierContributor::recordPreCommands(const PassInfo &tInfo,
+void render_system::fog::commands::PreMemoryBarrierContributor::recordPreCommands(PassInfo &tInfo,
                                                                                   vk::CommandBuffer cmdBuf,
                                                                                   const star::common::FrameTracker &ft)
 {
-    if (std::holds_alternative<color::PreMemoryBarrierRecorder>(m_policy))
+    for (const auto &policy : m_policies)
     {
-        std::get<color::PreMemoryBarrierRecorder>(m_policy).recordCommands(tInfo, ft, cmdBuf);
-    }
-    else if (std::holds_alternative<distance::PreMemoryBarrierRecorder>(m_policy))
-    {
-        std::get<distance::PreMemoryBarrierRecorder>(m_policy).recordCommands(tInfo, ft, cmdBuf);
+        if (std::holds_alternative<color::FrameInputPreMemoryBarrierRecorder>(policy))
+        {
+            std::get<color::FrameInputPreMemoryBarrierRecorder>(policy).recordCommands(tInfo, ft, cmdBuf);
+        }
+        else if (std::holds_alternative<color::PreMemoryBarrierRecorder>(policy))
+        {
+            std::get<color::PreMemoryBarrierRecorder>(policy).recordCommands(tInfo, ft, cmdBuf);
+        }
+        else if (std::holds_alternative<distance::PreMemoryBarrierRecorder>(policy))
+        {
+            std::get<distance::PreMemoryBarrierRecorder>(policy).recordCommands(tInfo, ft, cmdBuf);
+        }
+        else if (std::holds_alternative<transmittance::PreMemoryBarrierRecorder>(policy))
+        {
+            std::get<transmittance::PreMemoryBarrierRecorder>(policy).recordCommands(tInfo, ft, cmdBuf);
+        }
     }
 }

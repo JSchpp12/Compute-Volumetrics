@@ -12,8 +12,8 @@
 #include "VertColorMaterial.hpp"
 #include "Vertex.hpp"
 #include "VolumeDirectoryProcessor.hpp"
-#include "renderer/VolumeRenderPhase.hpp"
 #include "VolumeRenderPhaseProvider.hpp"
+#include "renderer/VolumeRenderPhase.hpp"
 
 namespace star
 {
@@ -35,10 +35,11 @@ class StarScene;
 #include <glm/ext.hpp>
 #include <glm/gtx/string_cast.hpp>
 
+#include <optional>
 #include <random>
-#include <stdio.h>
+#include <span>
 #include <string>
-#include <thread>
+#include <string_view>
 
 constexpr auto NUM_THREADS = 20;
 
@@ -88,8 +89,7 @@ class Volume : public star::StarObject
     virtual ~Volume() = default;
     Volume(star::core::device::DeviceContext &context, std::string vdbPath, const size_t &numFramesInFlight,
            std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
-           std::shared_ptr<star::core::renderer::FrameData> frameData, bool enableCutoffHighlighting,
-           star::ShaderResolver &shaderResolver);
+           std::shared_ptr<star::core::renderer::FrameData> frameData, star::ShaderResolver &shaderResolver);
 
     /// <summary>
     /// Expensive, only call when necessary.
@@ -102,23 +102,84 @@ class Volume : public star::StarObject
 
     virtual bool isRenderReady(star::core::device::DeviceContext &context) override;
 
-    virtual void recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
-                                             const uint64_t &frameIndex) override;
+    virtual void recordPreRenderPassCommands(vk::CommandBuffer commandBuffer,
+                                             const star::common::FrameTracker &frameTracker,
+                                             uint64_t frameIndex) override;
 
-    virtual void recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex) override;
-
-    virtual void frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
-                             const star::Handle &targetCommandBuffer,
-                             const star::core::graphics::SemaphoreInfo &transferRequestSync) override;
+    virtual void recordPostRenderPassCommands(vk::CommandBuffer commandBuffer, int frameInFlightIndex) override;
 
     glm::vec3 getCenterOfVDB() const
     {
         const auto middle = (aabbBounds[1] + aabbBounds[0]) * 0.5f;
         return middle;
     }
+
+    /// The grid's world-space AABB (voxel size applied), captured at load time. The volume's
+    /// object-local space IS the NanoVDB grid world space, so this is the volume's local-space
+    /// bounds; world bounds come from transforming it by the instance display matrix.
+    const std::array<glm::vec4, 2> &getGridWorldAABB() const
+    {
+        return gridWorldAABB;
+    }
     void setFogType(const Fog::Type &fogType)
     {
         this->getVolumePhase()->setFogType(fogType);
+    }
+    void setActiveVariant(Fog::Type fogType, uint32_t variantIndex);
+    uint32_t getActiveVariant(Fog::Type fogType) const
+    {
+        return this->getVolumePhase()->getActiveVariant(fogType);
+    }
+    /// @brief The transmittance precompute variants built for this volume, in plan order; the first entry is the
+    /// default.
+    std::span<const std::string_view> getTransmittanceVariantNames() const
+    {
+        return this->getVolumePhase()->transmittanceVariantNames();
+    }
+    /// @brief Index of the transmittance variant registered under `name` (same order as
+    /// getTransmittanceVariantNames()), or nullopt when the name is unknown.
+    std::optional<uint32_t> getTransmittanceVariantIndex(std::string_view name) const
+    {
+        return this->getVolumePhase()->getTransmittanceVariantIndex(name);
+    }
+    /// @brief Selects the transmittance precompute variant by name; unknown names are ignored (asserted in debug
+    /// builds). No resource is rebuilt, only the pipeline bound from the next frame's resolve changes.
+    void setTransmittanceVariant(std::string_view name);
+    /// @brief Index-based form of setTransmittanceVariant; matches the order of getTransmittanceVariantNames().
+    void setTransmittanceVariant(uint32_t variantIndex);
+    /// @brief Name of the currently selected transmittance variant, for GUI round-tripping.
+    std::string_view activeTransmittanceVariant() const
+    {
+        return this->getVolumePhase()->activeTransmittanceVariant();
+    }
+    /// @brief Index of the currently selected transmittance variant, or nullopt before the variant set is prepared.
+    std::optional<uint32_t> activeTransmittanceVariantIndex() const
+    {
+        return this->getVolumePhase()->activeTransmittanceVariantIndex();
+    }
+    void setShaderDebug(render_system::fog::MarchShaderFlags flag, bool state)
+    {
+        this->getVolumePhase()->setShaderFlag(flag, state);
+    }
+    void setShaderDebug(render_system::fog::PrecomputeLightTransmittanceShaderFlags flag, bool state)
+    {
+        this->getVolumePhase()->setShaderFlag(flag, state);
+    }
+    bool isShaderDebugEnabled(render_system::fog::MarchShaderFlags flag) const
+    {
+        return this->getVolumePhase()->isShaderFlagEnabled(flag);
+    }
+    bool isShaderDebugEnabled(render_system::fog::PrecomputeLightTransmittanceShaderFlags flag) const
+    {
+        return this->getVolumePhase()->isShaderFlagEnabled(flag);
+    }
+    bool toggleShaderDebug(render_system::fog::MarchShaderFlags flag)
+    {
+        return this->getVolumePhase()->toggleShaderFlag(flag);
+    }
+    bool toggleShaderDebug(render_system::fog::PrecomputeLightTransmittanceShaderFlags flag)
+    {
+        return this->getVolumePhase()->toggleShaderFlag(flag);
     }
 
     VolumeRenderPhase &getRenderer()
@@ -156,24 +217,20 @@ class Volume : public star::StarObject
     VolumeRenderPhase *getVolumePhase();
     const VolumeRenderPhase *getVolumePhase() const;
     std::array<glm::vec4, 2> aabbBounds;
+    std::array<glm::vec4, 2> gridWorldAABB;
     glm::vec2 screenDimensions{};
     openvdb::FloatGrid::Ptr grid{};
-
     uint32_t computeQueueFamily = 0;
     uint32_t graphicsQueueFamily = 0;
 
     void initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-                    std::shared_ptr<star::core::renderer::FrameData> frameData,
-                    bool enableCutoffHighlighting);
+                    std::shared_ptr<star::core::renderer::FrameData> frameData);
 
     void loadModel(star::core::device::DeviceContext &context, const std::string &filePath);
 
     void convertToFog(openvdb::FloatGrid::Ptr &grid);
 
     std::vector<star::StarMesh> loadMeshes(star::core::device::DeviceContext &context) override;
-
-    // virtual void recordRenderPassCommands(vk::CommandBuffer &commandBuffer, vk::PipelineLayout &pipelineLayout,
-    //                                       int swapChainIndexNum) override;
 
   private:
     struct RayCamera

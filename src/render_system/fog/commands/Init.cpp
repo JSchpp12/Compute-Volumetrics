@@ -1,7 +1,10 @@
 #include "render_system/fog/commands/Init.hpp"
 
 #include "render_system/fog/struct/DispatchIndirectCommand.hpp"
+#include "render_system/fog/struct/ShaderFlags.hpp"
+
 #include <algorithm>
+#include <cassert>
 
 namespace render_system::fog::commands
 {
@@ -48,8 +51,9 @@ static std::array<uint32_t, 2> CalculateWorkgroupSize(const vk::Extent2D &screen
     return {width, height};
 }
 
-Init::Init(const vk::Extent2D &screenResolution, bool needsMemoryBarrierProtectFromPreviousDispatch)
-    : m_workgroupSize(CalculateWorkgroupSize(screenResolution)),
+Init::Init(const vk::Extent2D &targetDispatchResolution, InitPassType passType,
+           bool needsMemoryBarrierProtectFromPreviousDispatch)
+    : m_workgroupSize(CalculateWorkgroupSize(targetDispatchResolution)), m_passType(passType),
       m_needsMemoryBarrierProtectFromPreviousDispatch(needsMemoryBarrierProtectFromPreviousDispatch)
 {
 }
@@ -57,33 +61,54 @@ Init::Init(const vk::Extent2D &screenResolution, bool needsMemoryBarrierProtectF
 void Init::recordCommands(const DispatchInfo &dInfo, const PassPipelineInfo &pipeInfo, vk::CommandBuffer cmdBuffer,
                           const star::common::FrameTracker &ft, std::span<OptionalClearBuffer> optionalClears)
 {
-    assert(pipeInfo.initPipeline && "Init pipeline should have been provided in PassPipelineInfo");
-    assert(pipeInfo.colorPipe.layout != VK_NULL_HANDLE);
+    assert(pipeInfo.layout != VK_NULL_HANDLE);
 
     AddBarrierDepPreviousIndirectRead(pipeInfo, cmdBuffer, m_needsMemoryBarrierProtectFromPreviousDispatch);
 
     cmdBuffer.fillBuffer(pipeInfo.indirectDispatchBuffer, 0, sizeof(DispatchIndirectCommand), 0);
     cmdBuffer.fillBuffer(pipeInfo.indirectDispatchBuffer, sizeof(DispatchIndirectCommand), sizeof(uint32_t), 0);
 
-    for (uint32_t i{ 0 }; i < m_additionalClearCount; i++)
+    for (uint32_t i{0}; i < m_additionalClearCount; i++)
     {
         cmdBuffer.fillBuffer(m_additionalClears[i].buffer, 0, vk::WholeSize, m_additionalClears[i].fillValue);
     }
 
     AddBarrierDepCompute(pipeInfo, cmdBuffer);
 
+    const bool isLightCamera = (m_passType == InitPassType::LightCamera);
+    assert(pipeInfo.initPipeline && "Init pipeline should have been provided in PassPipelineInfo");
+
     cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeInfo.initPipeline);
+    size_t numWritten{0};
+    const auto frameInFlight = ft.getCurrent().getFrameInFlightIndex();
+    assert(pipeInfo.staticShaderInfo != nullptr);
+    assert(numWritten + pipeInfo.staticShaderInfo->getNumDescriptorSets(frameInFlight) <= m_descriptors.size());
+    pipeInfo.staticShaderInfo->getDescriptors(frameInFlight, m_descriptors.data(), numWritten);
 
-    auto sets = pipeInfo.staticShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
+    const uint32_t firstSet = pipeInfo.staticShaderInfo->getBaseSet();
     {
-        assert(pipeInfo.colorOnlyShaderInfo != nullptr);
+        auto *const dynamicShaderInfo =
+            isLightCamera ? pipeInfo.transmittanceOnlyShaderInfo : pipeInfo.colorOnlyShaderInfo;
+        assert(dynamicShaderInfo != nullptr);
+        assert(numWritten + dynamicShaderInfo->getNumDescriptorSets(frameInFlight) <= m_descriptors.size());
+        dynamicShaderInfo->getDescriptors(frameInFlight, &m_descriptors[numWritten], numWritten);
+        assert(dynamicShaderInfo->getBaseSet() ==
+                   firstSet + pipeInfo.staticShaderInfo->getNumDescriptorSets(frameInFlight) &&
+               "dynamic shader info baseSet does not match concatenation order");
+    }
+    {
+        auto *const depthShaderInfo = isLightCamera ? pipeInfo.shadowDepthShaderInfo : pipeInfo.sceneDepthShaderInfo;
+        assert(depthShaderInfo != nullptr &&
+               "The init stage requires a depth-test shader info for set 3. This must be provided");
 
-        auto dynamicSets = pipeInfo.colorOnlyShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex());
-        sets.insert(sets.end(), dynamicSets.begin(), dynamicSets.end());
+        assert(depthShaderInfo->getBaseSet() == firstSet + numWritten &&
+               "depth shader info baseSet does not match concatenation order");
+        depthShaderInfo->getDescriptors(ft.getCurrent().getFrameInFlightIndex(), &m_descriptors[numWritten],
+                                        numWritten);
     }
 
-    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.colorPipe.layout, 0,
-                                 static_cast<uint32_t>(sets.size()), sets.data(), 0, VK_NULL_HANDLE);
+    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.layout, firstSet, numWritten,
+                                 m_descriptors.data(), 0, VK_NULL_HANDLE);
 
     cmdBuffer.dispatch(m_workgroupSize[0], m_workgroupSize[1], 1);
 

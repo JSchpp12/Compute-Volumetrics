@@ -13,6 +13,7 @@
 #include <device/managers/GraphicsContainer.hpp>
 #include <memory>
 #include <star_common/Handle.hpp>
+#include <starlight/core/CommandBus.hpp>
 #include <vector>
 #include <vulkan/vulkan_handles.hpp>
 
@@ -23,11 +24,11 @@ struct CreatePipelines
 {
     struct Inputs
     {
-        star::ManagerController::RenderResource::Buffer *infoManagerInstanceModel{nullptr};
-        star::ManagerController::RenderResource::Buffer *infoManagerInstanceNormal{nullptr};
-        star::ManagerController::RenderResource::Buffer *infoManagerGlobalCamera{nullptr};
-        star::ManagerController::RenderResource::Buffer *infoManagerSceneLightInfo{nullptr};
-        star::ManagerController::RenderResource::Buffer *infoManagerSceneLightList{nullptr};
+        const star::ManagerController::RenderResource::Buffer *infoManagerInstanceModel{nullptr};
+        const star::ManagerController::RenderResource::Buffer *infoManagerInstanceNormal{nullptr};
+        const star::ManagerController::RenderResource::Buffer *infoManagerGlobalCamera{nullptr};
+        const star::ManagerController::RenderResource::Buffer *infoManagerSceneLightInfo{nullptr};
+        const star::ManagerController::RenderResource::Buffer *infoManagerSceneLightList{nullptr};
         star::Handle *randomValueTexture{nullptr};
         FogInfoController *fogController{nullptr};
         std::vector<star::StarBuffers::Buffer> *computeRayDistBuffers{nullptr};
@@ -50,6 +51,7 @@ struct CreatePipelines
         star::ManagerRenderResource *resourceManger{nullptr};
         const star::Handle *deviceID{nullptr};
         star::core::device::manager::GraphicsContainer *graphicsManagers{nullptr};
+        star::core::CommandBus *commandBus{nullptr};
     };
 
     Inputs inputs;

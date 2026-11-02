@@ -1,0 +1,347 @@
+#version 450
+
+#include "struct_DispatchIndirectCommand.comp"
+layout(constant_id = 0) const uint NUM_SAMPLES = 1;
+layout(constant_id = 1) const uint RAND_TEXTURE_BREATH = 1;
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+const uint FLAG_ENABLE_DEBUG_TRANSMITTANCE_PRECOMPUTE_SET_AREAS_IN_SHADOW = 1u << 8u;
+const uint FLAG_ENABLE_DEBUG_TRANSMITTANCE_PRECOMPUTE_DISABLE_AABB_RAY_TEST = 1u << 9u;
+const uint FLAG_ENABLE_DEBUG_TRANSMITTANCE_PRECOMPUTE_SET_TEXELS_OF_INTEREST = 1u << 10u;
+
+#include "layout_pushConstants.comp"
+
+struct Light_Type
+{
+    uint point;
+    uint directional;
+    uint spot;
+};
+
+struct Light
+{
+    vec4 position;
+    vec4 direction;
+    vec4 ambient;
+    vec4 diffuse;
+    vec4 specular;
+    vec4 controls;
+    uvec4 settings;
+    uint luminance;
+};
+
+layout(rgba32f, set = 0, binding = 0) uniform readonly image2D screenSizedRandomTexture;
+layout(std430, set = 0, binding = 1) buffer PNanoVDBBuffer
+{
+    uint pnanovdb_buf_data[];
+};
+layout(set = 0, binding = 2) uniform AdditionalTransformInfo
+{
+    mat4 invProj;
+    vec2 cameraDimensions;
+    float aspectRatio;
+    float farClipDist;
+    float nearClipDist;
+    float scale;
+}
+addCamInfo;
+layout(rgba32f, set = 0, binding = 4) uniform readonly image2D randomTexture;
+
+layout(set = 1, binding = 0) uniform GlobalUniformBufferObject
+{
+    mat4 proj;
+    mat4 view;
+    mat4 invView;
+}
+globalUbo;
+layout(set = 1, binding = 1) uniform GlobalLightInfo
+{
+    int numLights;
+}
+lightInfo;
+layout(set = 1, binding = 2) readonly buffer GlobalLightBuffer
+{
+    Light lights[];
+}
+lightList;
+layout(set = 1, binding = 3) uniform InstanceModelMatrix
+{
+    mat4 instanceModelMatrix[1024];
+};
+layout(set = 1, binding = 4) uniform InstanceInverseModelMatrix
+{
+    mat4 instanceInverseMatrix[1024];
+};
+layout(set = 1, binding = 5) uniform FogControllerInfo
+{
+    float linearFog_nearDistance;
+    float linearFog_farDistance;
+    float expFog_density;
+    float marchedFog_defaultDensity;
+    float marchedFog_sigmaAbsorption;
+    float marchedFog_sigmaScattering;
+    float marchedFog_lightPropertyDirG;
+    float marchedFog_stepSizeDist;
+    float marchedFog_stepSizeDist_light;
+    float marchedFog_densityMultiplier;
+    float marchedFog_colorTransparencyCutoff;
+    float marchedFog_distanceTransparencyCutoff;
+    float marchedFog_lightExtinctionScale;
+    float marchedFog_shadowBias;
+    uint marchedFog_uniform_maxNumSteps;
+    uint gridType;
+}
+fogInfo;
+layout(set = 1, binding = 6) uniform ShadowCalculationData
+{
+    mat4 worldToLightViewProj;
+    mat4 invWorldToLightViewProj;
+}
+shadowLight;
+
+// per-draw: the 3D transmittance map this pass writes.
+layout(set = 2, binding = 2, r8) uniform writeonly image3D transmittanceMap;
+
+// per-draw depth-test set (set 3)
+layout(set = 3, binding = 0) uniform sampler2D sunDepth;
+
+#include "PNanoVDB.h"
+
+#include "struct_Ray.comp"
+
+#include "func_reconstructDepthDistanceInObjectLocalSpace.comp"
+
+#include "const_volume.comp"
+#include "func_random.comp"
+#include "volume_helpers.comp"
+
+void getShadowMapInfoFromTexture(const in float surfaceDepth, out ivec3 mapDims, out int surfaceSlice)
+{
+    mapDims = imageSize(transmittanceMap);
+    surfaceSlice = clamp(int(surfaceDepth * float(mapDims.z)), 0, mapDims.z);
+}
+
+void recordWhereInShadow(const ivec2 columnPixel, const in float surfaceDepth)
+{
+    ivec3 mapDims = ivec3(0.0);
+    int surfaceSlice = 0;
+    getShadowMapInfoFromTexture(surfaceDepth, mapDims, surfaceSlice);
+
+    for (int z = 0; z < surfaceSlice; z++)
+        imageStore(transmittanceMap, ivec3(columnPixel, z), vec4(1.0, 0.0, 0.0, 0.0));
+}
+
+vec3 lightSpaceToVolume(const in vec3 ndcPos)
+{
+    // go to world space
+    vec4 worldPos = shadowLight.invWorldToLightViewProj * vec4(ndcPos, 1.0);
+    worldPos /= worldPos.w;
+    const vec4 volumePos = inverse(instanceModelMatrix[0]) * worldPos;
+    return volumePos.xyz;
+}
+
+vec3 computeSingleStepFromLightOrtho(const vec2 ndcXY, const in float mapDimsZ)
+{
+    const float z_a = (float(0) + 0.5) / mapDimsZ;
+    const vec3 initPosition = lightSpaceToVolume(vec3(ndcXY, z_a));
+
+    const float z_b = (float(1) + 0.5) / mapDimsZ;
+    const vec3 secondStepPosition = lightSpaceToVolume(vec3(ndcXY, z_b));
+
+    return secondStepPosition - initPosition;
+}
+
+vec2 fromPixelIndexToNDCXY(const in vec2 columnPixel, const in vec2 mapDims, const in vec2 offsetInTexel)
+{
+    const vec2 uv = (columnPixel + offsetInTexel) / mapDims;
+    const vec2 ndcXY = uv * 2.0 - 1.0;
+    return ndcXY;
+}
+
+// One random value per column per sub-ray: each column owns RAND_TEXTURE_BREATH consecutive texels along X, so any
+// variant can index the shared noise image with the family-wide stride even when NUM_SAMPLES is smaller.
+// `sampleIndex` must be < RAND_TEXTURE_BREATH (guaranteed host-side: NUM_SAMPLES <= RAND_TEXTURE_BREATH).
+vec3 loadRandomValue(const in ivec2 columnPixel, const in uint sampleIndex)
+{
+    const ivec2 texel = ivec2(columnPixel.x * int(RAND_TEXTURE_BREATH) + int(sampleIndex), columnPixel.y);
+    return imageLoad(randomTexture, texel).rgb;
+}
+
+/// Calculates the sampling basis for a column's texel: the light-facing top corner of the texel and its
+/// width/breadth edge vectors, for applying random jitter within the texel cross-section.
+void calculateTexelEdges(const in vec2 columnPixel, out vec3 texelCorner, out vec3 xEdge, out vec3 yEdge)
+{
+    const vec2 mapDims = imageSize(transmittanceMap).xy;
+    const vec2 ndcXY = fromPixelIndexToNDCXY(columnPixel, mapDims.xy, vec2(0.0));
+
+    texelCorner = lightSpaceToVolume(vec3(ndcXY, 0.0));
+    xEdge = lightSpaceToVolume(vec3(ndcXY + vec2(2.0 / mapDims.x, 0.0), 0.0)) - texelCorner;
+    yEdge = lightSpaceToVolume(vec3(ndcXY + vec2(0.0, 2.0 / mapDims.y), 0.0)) - texelCorner;
+}
+
+// march from [startTexel, stopTexel)
+void computeTransmittance(in pnanovdb_grid_handle_t grid, const in vec3 mapDims, const in ivec2 columnPixel,
+                          const in int startTexel, const in int stopTexel, const in int surfaceSlice)
+{
+    pnanovdb_tree_handle_t tree = pnanovdb_grid_get_tree(nanoVDBBuffer, grid);
+    pnanovdb_root_handle_t root = pnanovdb_tree_get_root(nanoVDBBuffer, tree);
+    pnanovdb_readaccessor_t acc;
+    pnanovdb_readaccessor_init(acc, root);
+    pnanovdb_grid_type_t gType = pnanovdb_grid_get_grid_type(nanoVDBBuffer, grid);
+    vec3 vol_pos[NUM_SAMPLES];
+    float tau[NUM_SAMPLES];
+    float seeds[NUM_SAMPLES];
+
+    // The step only depends on the slice spacing under the ortho light projection (the xy offset cancels in
+    // computeSingleStepFromLightOrtho's difference), so the texel corner basis is used here for consistency.
+    const vec2 ndcXY = fromPixelIndexToNDCXY(vec2(columnPixel), vec2(mapDims.xy), vec2(0.0));
+    const vec3 vol_step = computeSingleStepFromLightOrtho(ndcXY, float(mapDims.z));
+
+    // Starting on the light-facing top face of the first texel this column marches through
+    {
+        vec3 texelCorner;
+        vec3 x_dir;
+        vec3 y_dir;
+        calculateTexelEdges(columnPixel, texelCorner, x_dir, y_dir);
+
+        for (uint i = 0; i < NUM_SAMPLES; ++i)
+        {
+            const vec3 randomValue = loadRandomValue(columnPixel, i);
+
+            tau[i] = 0.0;
+
+            vol_pos[i] = texelCorner + vol_step * float(startTexel) + x_dir * randomValue.x + y_dir * randomValue.y;
+        }
+    }
+
+    const float vol_stepSize = length(vol_step) * extractUniformVolumeScale(instanceModelMatrix[0]);
+    const float sigmaExtinction = (fogInfo.marchedFog_sigmaScattering + fogInfo.marchedFog_sigmaAbsorption) *
+                                  fogInfo.marchedFog_lightExtinctionScale;
+
+    for (int z = startTexel; z < stopTexel; ++z)
+    {
+        float transmittanceSum = 0.0f;
+
+        for (uint i = 0; i < NUM_SAMPLES; i++)
+        {
+            float density = gridReadAt(grid, acc, gType, vol_pos[i], true);
+            if (density < EMPTY_DENSITY_VALUE)
+                density = fogInfo.marchedFog_defaultDensity;
+
+            // calculate contribution of the individual slice as a whole value for tau summation
+            const float sliceContribution =
+                (density * fogInfo.marchedFog_densityMultiplier) * sigmaExtinction * vol_stepSize;
+
+            // downstream samples will be expecting this tau to be at the "center" of the texel
+            // so despite some samples being in this texel, map them to the center value. Why the 0.5 is here.
+            transmittanceSum += (exp(-(tau[i] + 0.5 * sliceContribution)));
+
+            // increment tau
+            tau[i] += sliceContribution;
+
+            // setup for next loop
+            vol_pos[i] = vol_pos[i] + vol_step;
+        }
+
+        transmittanceSum /= NUM_SAMPLES;
+
+        // store to texture
+        imageStore(transmittanceMap, ivec3(columnPixel, z), vec4(transmittanceSum, 0.0, 0.0, 0.0));
+    }
+}
+
+struct MapInfo
+{
+    ivec3 mapDims;
+    ivec2 px;
+};
+
+float calculateSurfaceShadowDepth(const MapInfo info)
+{
+    // this column's UV in light/shadow-map space -> sampled ground depth (NDC z)
+    const vec2 uv = (vec2(info.px) + 0.5) / vec2(info.mapDims.xy);
+
+    // need to add bias to shadow. Otherwise on terrains the light can bleed through the surface and parts of the area
+    // near the terrain which should be in shadow, appear to not be in shadow. A small bias corrects this
+    return texture(sunDepth, uv).r + fogInfo.marchedFog_shadowBias;
+}
+
+void setupMarchInfo(const in ivec2 columnPixel, const in vec3 mapDims, out vec3 vol_startPos, out vec3 vol_step)
+{
+    const vec2 ndcXY = fromPixelIndexToNDCXY(vec2(columnPixel), vec2(mapDims.xy), vec2(0.5));
+
+    // measure from top of texel NOT center
+    vol_startPos = lightSpaceToVolume(vec3(ndcXY, 0.0));
+
+    vol_step = computeSingleStepFromLightOrtho(ndcXY, float(mapDims.z));
+}
+
+void buildVolumeRay(const in ivec2 columnPixel, const in float surfaceDepth, out int surfaceSlice, out Ray volumeRay)
+{
+    ivec3 mapDims = ivec3(0.0);
+    getShadowMapInfoFromTexture(surfaceDepth, mapDims, surfaceSlice);
+
+    vec3 vol_startPos = vec3(0);
+    vec3 vol_step = vec3(0);
+    setupMarchInfo(columnPixel, mapDims, vol_startPos, vol_step);
+
+    volumeRay = Ray(vec4(vol_startPos, 1.0), vec4(vol_step, 0.0));
+}
+
+void calculateInAndOutTexelsFromAABB(in pnanovdb_grid_handle_t grid, const in MapInfo info, const in float surfaceDepth,
+                                     out int inTexel, out int outTexel)
+{
+    Ray castingRay;
+    int surfaceSlice;
+    buildVolumeRay(info.px, surfaceDepth, surfaceSlice, castingRay);
+
+    float volume_t0 = 0.0;
+    float volume_t1 = 0.0;
+    if (rayBoxIntersect(grid, castingRay, volume_t0, volume_t1))
+    {
+        // can use the result of the ray
+        inTexel = clamp(int(ceil(volume_t0)), 0, surfaceSlice);
+        // need exclusive stop for the march function
+        outTexel = clamp(int(floor(volume_t1)) + 1, 0, surfaceSlice);
+    }
+    else
+    {
+        // column ray misses the volume: no medium anywhere along the column, so the whole span up to the surface is
+        // fully transmissive.
+        inTexel = surfaceSlice;
+        outTexel = surfaceSlice;
+    }
+}
+
+void main()
+{
+    const MapInfo info = MapInfo(imageSize(transmittanceMap), ivec2(gl_GlobalInvocationID.xy));
+    if (any(greaterThanEqual(info.px, info.mapDims.xy)))
+        return;
+
+    const float surfaceDepth = calculateSurfaceShadowDepth(info);
+
+    if (hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_TRANSMITTANCE_PRECOMPUTE_SET_AREAS_IN_SHADOW))
+    {
+        recordWhereInShadow(info.px, surfaceDepth);
+    }
+    else
+    {
+        pnanovdb_grid_handle_t grid = makeNanoGrid(0);
+
+        // do a ray cast through the grid and get where the surface is or where the ray enters/leaves the volume
+        int startTexel = 0;
+        int surfaceSlice = 0;
+        ivec3 mapDims = ivec3(0.0);
+        getShadowMapInfoFromTexture(surfaceDepth, mapDims, surfaceSlice);
+        // if (!hasFlag(dispatchOptions.flags, FLAG_ENABLE_DEBUG_TRANSMITTANCE_PRECOMPUTE_DISABLE_AABB_RAY_TEST))
+        // {
+        int AABBExitTexel = 0;
+        calculateInAndOutTexelsFromAABB(grid, info, surfaceDepth, startTexel, AABBExitTexel);
+        const int stopTexel = min(surfaceSlice, AABBExitTexel);
+        // }
+
+        computeTransmittance(grid, mapDims, info.px, startTexel, stopTexel, surfaceSlice);
+    }
+}

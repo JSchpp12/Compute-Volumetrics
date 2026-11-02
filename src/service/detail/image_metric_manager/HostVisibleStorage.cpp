@@ -69,6 +69,7 @@ void HostVisibleStorage::createResourcePoolForResolution(const vk::Extent2D &res
         const size_t size = sizeof(float) * resolution.height * resolution.width;
         star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy create{
             .allocator = device.getAllocator().get(),
+            .device = &device,
             .allocationName = "HRayDist",
             .allocInfo = star::Allocator::AllocationBuilder()
                              .setUsage(VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO)
@@ -91,6 +92,7 @@ void HostVisibleStorage::createResourcePoolForResolution(const vk::Extent2D &res
         const size_t size = sizeof(uint32_t) * resolution.height * resolution.width;
         star::wrappers::graphics::policies::GenericBufferCreateAllocatePolicy create{
             .allocator = device.getAllocator().get(),
+            .device = &device,
             .allocationName = "HRayCutoff",
             .allocInfo = star::Allocator::AllocationBuilder()
                              .setUsage(VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO)

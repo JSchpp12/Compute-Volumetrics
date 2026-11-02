@@ -9,7 +9,6 @@ enum Type
     sNone,
     sLinear,
     sExponential,
-    sMarchedHomogenous,
     sMarched,
     sCountOfNonDebugTypes,
     sNanoBoundingBox,
@@ -20,5 +19,10 @@ enum Type
 std::string TypeToString(const Type &type);
 
 Type TypeFromString(const std::string &str);
+
+inline bool NeedsTransmittancePrecompute(const Type &type) noexcept
+{
+    return type == Type::sLinear || type == Type::sExponential ? false : true;
+}
 
 } // namespace Fog

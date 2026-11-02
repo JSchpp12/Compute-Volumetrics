@@ -36,18 +36,13 @@ std::optional<render_system::fog::WaitInfo> render_system::fog::ChunkOrchestrato
     return std::nullopt;
 }
 
-void render_system::fog::ChunkOrchestrator::recordCommands(const DispatchInfo &dInfo, const PassInfo &vInfo,
-                                                           const PassPipelineInfo &pipeInfo,
-                                                           const star::common::FrameTracker &ft)
+void render_system::fog::ChunkOrchestrator::recordInto(const DispatchInfo &dInfo, PassInfo &vInfo,
+                                                       const PassPipelineInfo &pipeInfo,
+                                                       const star::common::FrameTracker &ft, vk::CommandBuffer cmdBuf)
 {
-    const size_t fi = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
-
-    auto &cmdBuf = m_cmdBuf.buffer(fi);
-    m_cmdBuf.begin(fi);
-
-    if (m_isReady)
+    if (*m_isReady)
     {
-        RecPushConsts(cmdBuf, dInfo, pipeInfo.colorPipe.layout, dInfo.shaderOptionFlags);
+        RecPushConsts(cmdBuf, dInfo, pipeInfo.layout, dInfo.shaderOptionFlags);
     }
 
     for (auto &app : m_cmdApproaches)
@@ -55,7 +50,7 @@ void render_system::fog::ChunkOrchestrator::recordCommands(const DispatchInfo &d
         // need to wait for last submission to finish before calling begin
         app.recordPreCommands(vInfo, cmdBuf, ft);
 
-        if (m_isReady)
+        if (*m_isReady)
         {
             if (m_isDistance)
             {
@@ -66,13 +61,23 @@ void render_system::fog::ChunkOrchestrator::recordCommands(const DispatchInfo &d
                 app.setAdditionalClears(clears);
             }
 
-
             app.recordCommands(dInfo, pipeInfo, cmdBuf, ft);
         }
 
-
         app.recordPostCommands(vInfo, cmdBuf, ft);
     }
+}
+
+void render_system::fog::ChunkOrchestrator::recordCommands(const DispatchInfo &dInfo, PassInfo &vInfo,
+                                                           const PassPipelineInfo &pipeInfo,
+                                                           const star::common::FrameTracker &ft)
+{
+    const size_t fi = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+
+    auto &cmdBuf = m_cmdBuf.buffer(fi);
+    m_cmdBuf.begin(fi);
+
+    recordInto(dInfo, vInfo, pipeInfo, ft, cmdBuf);
 
     cmdBuf.end();
 }

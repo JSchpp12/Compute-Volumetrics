@@ -17,5 +17,8 @@ struct AppConfigInfo
     std::optional<int> overrideRenderingDevice{std::nullopt};
     bool enableDistanceMarkers{false};
     bool enableCutoffHighlighting{false};
+    bool enableTransmittanceMapDebug{false};
+    bool aggressiveTerrainTextureLoading{false};
+    bool forceFlatTerrains{false};
 };
 } // namespace config

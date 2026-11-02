@@ -1,0 +1,40 @@
+#pragma once
+
+#include "render_system/fog/policies/ShadowDepthAcquirePolicy.hpp"
+#include "render_system/fog/struct/BarrierBatch.hpp"
+#include "render_system/fog/struct/PassInfo.hpp"
+
+#include <variant>
+
+#include <star_common/FrameTracker.hpp>
+
+#include <vulkan/vulkan.hpp>
+
+namespace render_system::fog::commands::transmittance
+{
+/// Acquires the shadow depth image (graphics -> compute, depth attachment -> shader read) when no
+/// earlier chunk has acquired it yet, flipping the PassInfo ImageReady latch.
+struct ShadowDepthAcquire
+{
+    ShadowDepthAcquirePolicy policy;
+    void build(PassInfo &info, BarrierBatch &batch) const noexcept;
+};
+
+using PreMemoryPolicy = std::variant<ShadowDepthAcquire>;
+
+class PreMemoryBarrierRecorder
+{
+    PreMemoryPolicy m_policy;
+
+    void recordPrepMemoryBarriers(PassInfo &vInfo, const star::common::FrameTracker &ft,
+                                  vk::CommandBuffer cmdBuf) const noexcept;
+    void recordTransmittanceMapReset(const PassInfo &vInfo, vk::CommandBuffer cmdBuf) const noexcept;
+
+  public:
+    explicit PreMemoryBarrierRecorder(PreMemoryPolicy policy) : m_policy(std::move(policy))
+    {
+    }
+
+    void recordCommands(PassInfo &vInfo, const star::common::FrameTracker &ft, vk::CommandBuffer cmdBuf) const noexcept;
+};
+} // namespace render_system::fog::commands::transmittance

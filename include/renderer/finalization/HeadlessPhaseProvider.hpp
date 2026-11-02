@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <starlight/core/renderer/HeadlessRenderPhaseProvider.hpp>
 
@@ -11,10 +11,7 @@ namespace renderer::finalization
 {
 /// Builds a HeadlessPhase for the headless finalization path. Shares the
 /// offscreen renderer's FrameData (so the finalization records against the same
-/// per-frame camera/light controllers) and waits at eAllCommands. build() runs
-/// the shared base prep (buildCore) then the headless tail-setup
-/// (prepareHeadlessPhase, inherited from HeadlessRenderPhaseProvider) on a
-/// HeadlessPhase, which adds the finalization color/depth layout transitions.
+/// per-frame camera/light controllers) and waits at eAllCommands.
 class HeadlessPhaseProvider : public star::core::renderer::HeadlessRenderPhaseProvider
 {
   public:
@@ -30,7 +27,7 @@ class HeadlessPhaseProvider : public star::core::renderer::HeadlessRenderPhasePr
     HeadlessPhaseProvider(HeadlessPhaseProvider &&) = default;
     HeadlessPhaseProvider &operator=(HeadlessPhaseProvider &&) = default;
 
-    virtual std::unique_ptr<star::core::renderer::RenderPhase>
-    build(star::core::device::DeviceContext &context, star::core::renderer::RenderPhaseRegistry &phases) override;
+    virtual std::unique_ptr<star::core::renderer::RenderPhase> build(
+        star::core::device::DeviceContext &context, star::core::renderer::RenderPhaseRegistry &phases) override;
 };
 } // namespace renderer::finalization

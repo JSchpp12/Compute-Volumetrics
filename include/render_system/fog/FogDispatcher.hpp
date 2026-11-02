@@ -7,19 +7,17 @@
 
 namespace render_system::fog
 {
-class FogDispatcherBuilder;
-
 class FogDispatcher
 {
   public:
-    FogDispatcher() = default;
-    explicit FogDispatcher(bool enableColorDebugCutoff)
-        : m_passes(), m_cbSubmitInfo(), m_syncApproach(), m_cmdBus(nullptr), m_numCbRecorded(0),
-          m_enableColorDebugCutoff(enableColorDebugCutoff)
+    struct DispatchContextInfo
     {
-    }
+        vk::Extent2D engineResolution;
+        vk::Extent3D tranmittanceTextureResolution;
+    };
 
-    void prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady);
+    void prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg, DispatchContextInfo contextInfo,
+                    bool &isReady);
 
     void cleanupRender(star::core::device::DeviceContext &ctx);
 
@@ -28,20 +26,20 @@ class FogDispatcher
                 std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue,
                 const star::Handle &registration);
 
-    void recordCommands(DispatchInfo &dInfo, const star::common::FrameTracker &ft, const PassInfo &pInfo,
+    void recordCommands(DispatchInfo &dInfo, const star::common::FrameTracker &ft, PassInfo &pInfo,
                         const PassPipelineInfo &pipeInfo);
 
     [[nodiscard]] uint64_t getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const;
 
   private:
-    friend class FogDispatcherBuilder;
     std::vector<ChunkOrchestrator> m_passes;
-    std::vector<vk::CommandBufferSubmitInfo> m_cbSubmitInfo;
+    star::StarCommandBuffer m_sharedCmdBuf;
+    std::vector<vk::SemaphoreSubmitInfo> m_cbSubmitWait{6};
     sync::SyncProvider m_syncApproach;
     star::core::CommandBus *m_cmdBus{nullptr};
     uint8_t m_numCbRecorded{0};
-    bool m_enableColorDebugCutoff{false};
 
-    void createChunks(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady);
+    void createChunks(star::core::device::DeviceContext &ctx, star::Handle &passReg,
+                      const DispatchContextInfo &dContext, bool &isReady);
 };
 } // namespace render_system::fog

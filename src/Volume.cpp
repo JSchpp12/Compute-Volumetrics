@@ -7,6 +7,8 @@
 #include "TransferRequest_IndicesInfo.hpp"
 #include "TransferRequest_VertInfo.hpp"
 #include "VolumeFile.hpp"
+#include "render_system/fog/TransmittanceMapConfig.hpp"
+#include "render_system/fog/const/PipelineVariantNames.hpp"
 
 #include <cassert>
 
@@ -17,15 +19,59 @@
 
 Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
                std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
-               std::shared_ptr<star::core::renderer::FrameData> frameData,
-               bool enableCutoffHighlighting, star::ShaderResolver &shaderResolver)
+               std::shared_ptr<star::core::renderer::FrameData> frameData, star::ShaderResolver &shaderResolver)
     : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
       camera(camera), screenDimensions(screenWidth, screenHeight)
 {
     m_vertexShaderHandle = shaderResolver.resolve(star::Shader_Stage::vertex);
     m_fragmentShaderHandle = shaderResolver.resolve(star::Shader_Stage::fragment);
 
-    initVolume(context, std::move(vdbFilePath), std::move(frameData), enableCutoffHighlighting);
+    initVolume(context, std::move(vdbFilePath), std::move(frameData));
+}
+
+void Volume::setActiveVariant(Fog::Type fogType, uint32_t variantIndex)
+{
+    VolumeRenderPhase *phase = this->getVolumePhase();
+    phase->setActiveVariant(fogType, variantIndex);
+
+    star::core::logging::debug("Active fog pipeline variant set to index ", phase->getActiveVariant(fogType),
+                               " for fog type '", Fog::TypeToString(fogType), "' (requested index ", variantIndex, ")");
+}
+
+void Volume::setTransmittanceVariant(std::string_view name)
+{
+    VolumeRenderPhase *phase = this->getVolumePhase();
+    phase->setTransmittanceVariant(name);
+
+    const std::optional<uint32_t> activeIndex = phase->activeTransmittanceVariantIndex();
+    if (activeIndex.has_value())
+    {
+        star::core::logging::debug("Active transmittance variant set to index ", *activeIndex, " (name: '",
+                                   phase->activeTransmittanceVariant(), "'); requested by name '", name, "'");
+    }
+    else
+    {
+        star::core::logging::debug("Transmittance variant request for name '", name,
+                                   "' did not change the active variant");
+    }
+}
+
+void Volume::setTransmittanceVariant(uint32_t variantIndex)
+{
+    VolumeRenderPhase *phase = this->getVolumePhase();
+    phase->setTransmittanceVariant(variantIndex);
+
+    const std::optional<uint32_t> activeIndex = phase->activeTransmittanceVariantIndex();
+    if (activeIndex.has_value())
+    {
+        star::core::logging::debug("Active transmittance variant set to index ", *activeIndex, " (name: '",
+                                   phase->activeTransmittanceVariant(), "'); requested index ", variantIndex);
+    }
+    else
+    {
+        star::core::logging::debug("Transmittance variant request for index ", variantIndex,
+                                   " did not change the active variant");
+    }
 }
 
 void Volume::loadModel(star::core::device::DeviceContext &context, const std::string &filePath)
@@ -40,6 +86,10 @@ void Volume::loadModel(star::core::device::DeviceContext &context, const std::st
 
     this->aabbBounds[0] = glm::vec4(aabb[0], 1.0f);
     this->aabbBounds[1] = glm::vec4(aabb[1], 1.0f);
+
+    const auto worldAabb = fileData.getWorldAABB();
+    this->gridWorldAABB[0] = glm::vec4(worldAabb[0], 1.0f);
+    this->gridWorldAABB[1] = glm::vec4(worldAabb[1], 1.0f);
 }
 
 void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
@@ -71,9 +121,10 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
     grid->setGridClass(openvdb::GridClass::GRID_FOG_VOLUME);
 }
 
-void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
-                                         const uint64_t &frameIndex)
+void Volume::recordPreRenderPassCommands(vk::CommandBuffer commandBuffer,
+                                         const star::common::FrameTracker &frameTracker, uint64_t frameIndex)
 {
+    const uint8_t frameInFlightIndex = frameTracker.getCurrent().getFrameInFlightIndex();
     vk::Image cImage = this->getVolumePhase()->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
     vk::ImageMemoryBarrier2 imgBarriers[1]{vk::ImageMemoryBarrier2()
                                                .setImage(std::move(cImage))
@@ -96,7 +147,7 @@ void Volume::recordPreRenderPassCommands(vk::CommandBuffer &commandBuffer, const
         vk::DependencyInfo().setPImageMemoryBarriers(imgBarriers).setImageMemoryBarrierCount(1));
 }
 
-void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, const int &frameInFlightIndex)
+void Volume::recordPostRenderPassCommands(vk::CommandBuffer commandBuffer, int frameInFlightIndex)
 {
     vk::Image cImage = this->getVolumePhase()->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
     vk::ImageMemoryBarrier2 imgBarrier[1]{vk::ImageMemoryBarrier2()
@@ -118,16 +169,6 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer &commandBuffer, cons
 
     commandBuffer.pipelineBarrier2(
         vk::DependencyInfo().setPImageMemoryBarriers(imgBarrier).setImageMemoryBarrierCount(1));
-}
-
-void Volume::frameUpdate(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex,
-                         const star::Handle &targetCommandBuffer,
-                         const star::core::graphics::SemaphoreInfo &transferRequestSync)
-{
-    star::StarObject::frameUpdate(context, frameInFlightIndex, targetCommandBuffer, transferRequestSync);
-
-    // the volume render phase is driven by the scene (m_phases); the StarObject
-    // half (instance updates) is driven here via the finalization render group.
 }
 
 void Volume::prepRender(star::core::device::DeviceContext &context)
@@ -168,15 +209,32 @@ const VolumeRenderPhase *Volume::getVolumePhase() const
     return static_cast<const VolumeRenderPhase *>(m_scene->getPhase(m_volumePhaseHandle));
 }
 
+/// @brief The variance control system defaults to the first provided variant when rendering. For headless runs, make
+/// sure the highest quality is first in the list as it cannot be changed later.
+inline static std::vector<render_system::fog::TransmittanceVariant> GetDefaultTransmittanceVariants()
+{
+    return {
+        {render_system::fog::variant_names::transmittance::High, 8u},
+        {render_system::fog::variant_names::transmittance::Low, 1u},
+    };
+}
+
 void Volume::initVolume(star::core::device::DeviceContext &context, std::string vdbFilePath,
-                        std::shared_ptr<star::core::renderer::FrameData> frameData,
-                        bool enableCutoffHighlighting)
+                        std::shared_ptr<star::core::renderer::FrameData> frameData)
 {
     loadModel(context, vdbFilePath);
 
+    // make the
     this->m_phaseProvider = std::make_unique<VolumeRenderPhaseProvider>(
+        render_system::fog::FogRenderResourceFactory{
+            render_system::fog::policies::TransmittanceResourceResolutionPolicy::Builder()
+                .setMainWorldCamera(*camera)
+                .setShadowCastLightDir(glm::vec3{0, -1, 0})
+                .setTransmittanceMapResolution(render_system::fog::kTransmittanceMapResolution)
+                .setTransmittanceVariants({GetDefaultTransmittanceVariants()})
+                .build()},
         &m_instanceInfo.getControllerModel(), &m_instanceInfo.getControllerNormal(), std::move(frameData),
-        star::Handle{}, std::move(vdbFilePath), this->camera, this->aabbBounds, enableCutoffHighlighting);
+        star::Handle{}, std::move(vdbFilePath), this->camera, this->aabbBounds);
 }
 
 void Volume::updateGridTransforms()

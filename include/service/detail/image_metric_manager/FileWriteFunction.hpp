@@ -16,8 +16,9 @@ class FileWriteFunction
     FileWriteFunction() = default;
     FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferHandle, const star::StarCamera &camera,
                       const Volume &volume, star::Light light, std::string terrainName,
-                      star::terrain::CoverageInfo terrainShapeInfo, star::terrain::rendering::Type terrainRenderingType,
-                      std::string volumeName, ImageFilesInfo imageFilesInfo);
+                      star::terrain::CoverageInfo terrainShapeInfo,
+                      star::terrain::rendering::ElevationType terrainRenderingType, std::string volumeName,
+                      ImageFilesInfo imageFilesInfo);
 
     void write(const std::filesystem::path &path);
 

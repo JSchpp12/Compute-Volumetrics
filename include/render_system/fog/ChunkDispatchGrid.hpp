@@ -1,7 +1,7 @@
 #pragma once
 
 #include "render_system/fog/ChunkOrchestrator.hpp"
-#include "render_system/fog/PassInfo.hpp"
+#include "render_system/fog/struct/PassInfo.hpp"
 
 #include <starlight/core/device/DeviceContext.hpp>
 

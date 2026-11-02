@@ -1,8 +1,10 @@
 #pragma once
 
-#include "structs/FogInfo.hpp"
 #include "ManagerController_RenderResource_Buffer.hpp"
 #include "TransferRequest_Buffer.hpp"
+#include "structs/FogInfo.hpp"
+
+#include <star_common/FrameTracker.hpp>
 
 class FogControlInfoTransfer : public star::TransferRequest::Buffer
 {
@@ -13,12 +15,11 @@ class FogControlInfoTransfer : public star::TransferRequest::Buffer
     }
     ~FogControlInfoTransfer() = default;
 
-    std::unique_ptr<star::StarBuffers::Buffer> createStagingBuffer(vk::Device &device,
-                                                                   VmaAllocator &allocator) const override;
+    std::unique_ptr<star::StarBuffers::Buffer> createStagingBuffer(
+        star::core::device::StarDevice &device) const override;
 
     std::unique_ptr<star::StarBuffers::Buffer> createFinal(
-        vk::Device &device, VmaAllocator &allocator,
-        const std::vector<uint32_t> &transferQueueFamilyIndex) const override;
+        star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const override;
 
     void writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const override;
 
@@ -38,10 +39,15 @@ class FogInfoController : public star::ManagerController::RenderResource::Buffer
     {
     }
 
-    void prepRender(star::core::device::DeviceContext &context, const uint8_t &numFramesInFlight) override;
+    void prepRender(star::core::device::DeviceContext &context, uint8_t numFramesInFlight) override;
+
+    vk::PipelineStageFlags waitStage() const override
+    {
+        return vk::PipelineStageFlagBits::eComputeShader;
+    }
 
     std::unique_ptr<star::TransferRequest::Buffer> createTransferRequest(star::core::device::DeviceContext &context,
-                                                                         const uint8_t &frameInFlightIndex) override;
+                                                                         uint8_t frameInFlightIndex) override;
     FogInfo &getFogInfo()
     {
         return m_currentFogInfo;
@@ -56,7 +62,7 @@ class FogInfoController : public star::ManagerController::RenderResource::Buffer
     }
 
   protected:
-    bool doesFrameInFlightDataNeedUpdated(const uint8_t &currentFrameInFlightIndex) const override;
+    bool doesFrameInFlightDataNeedUpdated(const star::common::FrameTracker &frameTracker) const override;
 
   private:
     FogInfo m_currentFogInfo;

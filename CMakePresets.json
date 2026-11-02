@@ -1,0 +1,512 @@
+{
+    "version": 6,
+    "configurePresets": [
+        {
+            "name": "vcpkg",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/extern/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "VCPKG_ROOT": "${sourceDir}/extern/vcpkg"
+            }
+        },
+        {
+            "name": "windows-base",
+            "hidden": true,
+            "inherits": "vcpkg",
+            "cacheVariables": {
+                "VCPKG_TARGET_TRIPLET": "x64-windows"
+            },
+            "environment": {
+                "VCPKG_VISUAL_STUDIO_PATH": "C:/Program Files/Microsoft Visual Studio/18/Community",
+                "VCPKG_DEFAULT_TRIPLET": "x64-windows"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "linux-base",
+            "hidden": true,
+            "inherits": "vcpkg",
+            "cacheVariables": {
+                "VCPKG_TARGET_TRIPLET": "x64-linux-dynamic"
+            },
+            "environment": {
+                "VCPKG_DEFAULT_TRIPLET": "x64-linux-dynamic"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "msvc-base",
+            "hidden": true,
+            "inherits": "windows-base",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl.exe",
+                "CMAKE_CXX_COMPILER": "cl.exe"
+            }
+        },
+        {
+            "name": "gcc-base",
+            "hidden": true,
+            "inherits": "linux-base",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++"
+            }
+        },
+        {
+            "name": "clang-base",
+            "hidden": true,
+            "inherits": "linux-base",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
+            },
+            "environment": {
+                "CC": "clang",
+                "CXX": "clang++"
+            }
+        },
+        {
+            "name": "ninja-msvc-base",
+            "hidden": true,
+            "inherits": "msvc-base",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}"
+        },
+        {
+            "name": "ninja-linux-base",
+            "hidden": true,
+            "inherits": "gcc-base",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}"
+        },
+        {
+            "name": "ninja-linux-clang-base",
+            "hidden": true,
+            "inherits": "clang-base",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}"
+        },
+        {
+            "name": "x64-vs2026",
+            "hidden": true,
+            "inherits": "windows-base",
+            "generator": "Visual Studio 18 2026",
+            "toolset": "host=x64",
+            "architecture": "x64",
+            "binaryDir": "${sourceDir}/out/build/${presetName}"
+        },
+        {
+            "name": "cfg-debug",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "HEADLESS": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "windowed",
+                "BUILD_UNIT_TESTS": "ON"
+            }
+        },
+        {
+            "name": "cfg-debug-headless",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "HEADLESS": "ON",
+                "BUILD_UNIT_TESTS": "ON"
+            }
+        },
+        {
+            "name": "cfg-release",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "HEADLESS": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "windowed",
+                "BUILD_UNIT_TESTS": "OFF"
+            }
+        },
+        {
+            "name": "cfg-release-headless",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "HEADLESS": "ON",
+                "BUILD_UNIT_TESTS": "OFF"
+            }
+        },
+        {
+            "name": "cfg-warnings",
+            "hidden": true,
+            "cacheVariables": {
+                "STAR_ENABLE_WARNINGS": "ON"
+            }
+        },
+        {
+            "name": "cfg-relwithdebinfo",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "HEADLESS": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "windowed"
+            }
+        },
+        {
+            "name": "cfg-ubsan",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "HEADLESS": "ON",
+                "BUILD_UNIT_TESTS": "ON",
+                "CMAKE_C_FLAGS": "-fsanitize=undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
+                "CMAKE_CXX_FLAGS": "-fsanitize=undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
+                "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=undefined",
+                "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=undefined"
+            }
+        },
+        {
+            "name": "cfg-asan-ubsan",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "HEADLESS": "ON",
+                "BUILD_UNIT_TESTS": "ON",
+                "CMAKE_C_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
+                "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
+                "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
+                "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=address,undefined"
+            }
+        },
+        {
+            "name": "cfg-tsan",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "HEADLESS": "ON",
+                "BUILD_UNIT_TESTS": "ON",
+                "CMAKE_C_FLAGS": "-fsanitize=thread -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
+                "CMAKE_CXX_FLAGS": "-fsanitize=thread -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
+                "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=thread",
+                "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=thread"
+            }
+        },
+        {
+            "name": "x64-26-debug",
+            "displayName": "VS 26 - Debug",
+            "inherits": [
+                "x64-vs2026",
+                "cfg-debug"
+            ]
+        },
+        {
+            "name": "x64-26-debug-h",
+            "displayName": "VS 26 - Debug Headless",
+            "inherits": [
+                "x64-vs2026",
+                "cfg-debug-headless"
+            ]
+        },
+        {
+            "name": "x64-26-release",
+            "displayName": "VS 26 - Release",
+            "inherits": [
+                "x64-vs2026",
+                "cfg-release"
+            ]
+        },
+        {
+            "name": "x64-26-relwithdebinfo",
+            "displayName": "VS 26 - RelWithDebInfo",
+            "inherits": [
+                "x64-vs2026",
+                "cfg-relwithdebinfo"
+            ]
+        },
+        {
+            "name": "x64-26-release-h",
+            "displayName": "VS 26 - Release Headless",
+            "inherits": [
+                "x64-vs2026",
+                "cfg-release-headless"
+            ]
+        },
+        {
+            "name": "x64-26-debug-ninja",
+            "displayName": "Windows Ninja - Debug",
+            "inherits": [
+                "ninja-msvc-base",
+                "cfg-debug"
+            ]
+        },
+        {
+            "name": "x64-26-debug-h-ninja",
+            "displayName": "Windows Ninja - Debug Headless",
+            "inherits": [
+                "ninja-msvc-base",
+                "cfg-debug-headless"
+            ]
+        },
+        {
+            "name": "x64-26-release-ninja",
+            "displayName": "Windows Ninja - Release",
+            "inherits": [
+                "ninja-msvc-base",
+                "cfg-release"
+            ]
+        },
+        {
+            "name": "x64-26-relwithdebinfo-ninja",
+            "displayName": "Windows Ninja - RelWithDebInfo",
+            "inherits": [
+                "ninja-msvc-base",
+                "cfg-relwithdebinfo"
+            ]
+        },
+        {
+            "name": "x64-26-release-h-ninja",
+            "displayName": "Windows Ninja - Release Headless",
+            "inherits": [
+                "ninja-msvc-base",
+                "cfg-release-headless"
+            ]
+        },
+        {
+            "name": "linux-debug-ninja",
+            "displayName": "Linux Ninja (gcc) - Debug",
+            "inherits": [
+                "ninja-linux-base",
+                "cfg-debug"
+            ]
+        },
+        {
+            "name": "linux-debug-h-ninja",
+            "displayName": "Linux Ninja (gcc) - Debug Headless",
+            "inherits": [
+                "ninja-linux-base",
+                "cfg-debug-headless"
+            ]
+        },
+        {
+            "name": "linux-release-ninja",
+            "displayName": "Linux Ninja (gcc) - Release",
+            "inherits": [
+                "ninja-linux-base",
+                "cfg-release"
+            ]
+        },
+        {
+            "name": "linux-relwithdebinfo-ninja",
+            "displayName": "Linux Ninja (gcc) - RelWithDebInfo",
+            "inherits": [
+                "ninja-linux-base",
+                "cfg-relwithdebinfo"
+            ]
+        },
+        {
+            "name": "linux-release-h-ninja",
+            "displayName": "Linux Ninja (gcc) - Release Headless",
+            "inherits": [
+                "ninja-linux-base",
+                "cfg-release-headless"
+            ]
+        },
+        {
+            "name": "linux-clang-debug-ninja",
+            "displayName": "Linux Ninja (clang) - Debug",
+            "inherits": [
+                "ninja-linux-clang-base",
+                "cfg-debug",
+                "cfg-warnings"
+            ]
+        },
+        {
+            "name": "linux-clang-debug-h-ninja",
+            "displayName": "Linux Ninja (clang) - Debug Headless",
+            "inherits": [
+                "ninja-linux-clang-base",
+                "cfg-debug-headless",
+                "cfg-warnings"
+            ]
+        },
+        {
+            "name": "linux-clang-release-ninja",
+            "displayName": "Linux Ninja (clang) - Release",
+            "inherits": [
+                "ninja-linux-clang-base",
+                "cfg-release"
+            ]
+        },
+        {
+            "name": "linux-clang-release-h-ninja",
+            "displayName": "Linux Ninja (clang) - Release Headless",
+            "inherits": [
+                "ninja-linux-clang-base",
+                "cfg-release-headless"
+            ]
+        },
+        {
+            "name": "linux-debug-ubsan-ninja",
+            "displayName": "Linux Ninja (gcc) - Debug UBSan",
+            "inherits": [
+                "ninja-linux-base",
+                "cfg-ubsan"
+            ]
+        },
+        {
+            "name": "linux-clang-debug-ubsan-ninja",
+            "displayName": "Linux Ninja (clang) - Debug UBSan",
+            "inherits": [
+                "ninja-linux-clang-base",
+                "cfg-ubsan",
+                "cfg-warnings"
+            ]
+        },
+        {
+            "name": "linux-debug-asan-ubsan-ninja",
+            "displayName": "Linux Ninja (gcc) - Debug ASan+UBSan",
+            "inherits": [
+                "ninja-linux-base",
+                "cfg-asan-ubsan"
+            ]
+        },
+        {
+            "name": "linux-clang-debug-asan-ubsan-ninja",
+            "displayName": "Linux Ninja (clang) - Debug ASan+UBSan",
+            "inherits": [
+                "ninja-linux-clang-base",
+                "cfg-asan-ubsan",
+                "cfg-warnings"
+            ]
+        },
+        {
+            "name": "linux-debug-tsan-ninja",
+            "displayName": "Linux Ninja (gcc) - Debug TSan",
+            "inherits": [
+                "ninja-linux-base",
+                "cfg-tsan"
+            ]
+        },
+        {
+            "name": "linux-clang-debug-tsan-ninja",
+            "displayName": "Linux Ninja (clang) - Debug TSan",
+            "inherits": [
+                "ninja-linux-clang-base",
+                "cfg-tsan",
+                "cfg-warnings"
+            ]
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "x64-26-debug",
+            "configurePreset": "x64-26-debug",
+            "configuration": "Debug"
+        },
+        {
+            "name": "x64-26-debug-h",
+            "configurePreset": "x64-26-debug-h",
+            "configuration": "Debug"
+        },
+        {
+            "name": "x64-26-release",
+            "configurePreset": "x64-26-release",
+            "configuration": "Release"
+        },
+        {
+            "name": "x64-26-relwithdebinfo",
+            "configurePreset": "x64-26-relwithdebinfo",
+            "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "x64-26-release-h",
+            "configurePreset": "x64-26-release-h",
+            "configuration": "Release"
+        },
+        {
+            "name": "x64-26-debug-ninja",
+            "configurePreset": "x64-26-debug-ninja"
+        },
+        {
+            "name": "x64-26-debug-h-ninja",
+            "configurePreset": "x64-26-debug-h-ninja"
+        },
+        {
+            "name": "x64-26-release-ninja",
+            "configurePreset": "x64-26-release-ninja"
+        },
+        {
+            "name": "x64-26-relwithdebinfo-ninja",
+            "configurePreset": "x64-26-relwithdebinfo-ninja"
+        },
+        {
+            "name": "x64-26-release-h-ninja",
+            "configurePreset": "x64-26-release-h-ninja"
+        },
+        {
+            "name": "linux-debug-ninja",
+            "configurePreset": "linux-debug-ninja"
+        },
+        {
+            "name": "linux-debug-h-ninja",
+            "configurePreset": "linux-debug-h-ninja"
+        },
+        {
+            "name": "linux-release-ninja",
+            "configurePreset": "linux-release-ninja"
+        },
+        {
+            "name": "linux-relwithdebinfo-ninja",
+            "configurePreset": "linux-relwithdebinfo-ninja"
+        },
+        {
+            "name": "linux-release-h-ninja",
+            "configurePreset": "linux-release-h-ninja"
+        },
+        {
+            "name": "linux-clang-debug-ninja",
+            "configurePreset": "linux-clang-debug-ninja"
+        },
+        {
+            "name": "linux-clang-debug-h-ninja",
+            "configurePreset": "linux-clang-debug-h-ninja"
+        },
+        {
+            "name": "linux-clang-release-ninja",
+            "configurePreset": "linux-clang-release-ninja"
+        },
+        {
+            "name": "linux-clang-release-h-ninja",
+            "configurePreset": "linux-clang-release-h-ninja"
+        },
+        {
+            "name": "linux-debug-ubsan-ninja",
+            "configurePreset": "linux-debug-ubsan-ninja"
+        },
+        {
+            "name": "linux-clang-debug-ubsan-ninja",
+            "configurePreset": "linux-clang-debug-ubsan-ninja"
+        },
+        {
+            "name": "linux-debug-asan-ubsan-ninja",
+            "configurePreset": "linux-debug-asan-ubsan-ninja"
+        },
+        {
+            "name": "linux-clang-debug-asan-ubsan-ninja",
+            "configurePreset": "linux-clang-debug-asan-ubsan-ninja"
+        },
+        {
+            "name": "linux-debug-tsan-ninja",
+            "configurePreset": "linux-debug-tsan-ninja"
+        },
+        {
+            "name": "linux-clang-debug-tsan-ninja",
+            "configurePreset": "linux-clang-debug-tsan-ninja"
+        }
+    ]
+}

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "service/detail/image_metric_manager/CopyDstResources.hpp"
 

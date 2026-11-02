@@ -100,7 +100,7 @@ float gridReadAt(in pnanovdb_grid_handle_t grid, in pnanovdb_readaccessor_t acc,
     }
 }
 
-bool rayBoxIntersect(in pnanovdb_grid_handle_t grid, in Ray gridRay, inout float t0, inout float t1)
+bool rayBoxIntersect(in pnanovdb_grid_handle_t grid, in Ray gridRay, out float t0, out float t1)
 {
     vec4 bounds[2];
     bounds[0] = vec4(float(pnanovdb_grid_get_world_bbox(nanoVDBBuffer, grid, 0)),

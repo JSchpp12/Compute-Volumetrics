@@ -2,6 +2,7 @@
 
 #include "config/AppConfigLoader.hpp"
 #include "config/AppConfigInfo.hpp"
+#include "config/AppConfigInfo_json.hpp"
 
 #include <starlight/core/Exceptions.hpp>
 
@@ -70,6 +71,7 @@ TEST_F(AppConfigLoader_CreateIfMissing, CreatesDefaultFileWhenPathDoesNotExist)
     EXPECT_TRUE(j.contains("simControllerPath"));
     EXPECT_TRUE(j.contains("enableDistanceMarkers"));
     EXPECT_TRUE(j.contains("enableCutoffHighlighting"));
+    EXPECT_TRUE(j.contains("enableTransmittanceMapDebug"));
     EXPECT_TRUE(j.contains("interactiveConfig"));
     EXPECT_TRUE(j["interactiveConfig"].contains("cameraMovementSpeed"));
     EXPECT_TRUE(j["interactiveConfig"].contains("cameraSensitivity"));
@@ -93,6 +95,57 @@ TEST_F(AppConfigLoader_CreateIfMissing, DoesNotCreateFileWhenAppConfigFlagAbsent
     EXPECT_FALSE(std::filesystem::exists(cfgPath)) << "No file should be created when --appConfig is absent";
 }
 
+TEST_F(AppConfigLoader_CreateIfMissing, LoadsDefaultAppConfigJsonWhenFlagAbsent)
+{
+    // With --appConfig absent the loader falls back to a default
+    // appConfig.json resolved through the shared probe order (working
+    // directory -> media directory -> executable directory). The test binary
+    // carries no media directory, so park the file in the working directory.
+    const auto originalCwd = std::filesystem::current_path();
+
+    config::AppConfigInfo seed{};
+    seed.volumeName = "from_default_file";
+    seed.terrainDir = "terrain";
+    seed.engineConfigPath = "engineConfig.json";
+
+    nlohmann::json seedJson;
+    config::to_json(seedJson, seed);
+
+    std::ofstream appConfigOut(m_tempDir / "appConfig.json");
+    appConfigOut << seedJson.dump(4);
+    appConfigOut.close();
+
+    // Satisfy validation: terrain must exist and the engine config must load.
+    std::filesystem::create_directories(m_tempDir / "terrain");
+    std::ofstream engineConfigOut(m_tempDir / "engineConfig.json");
+    engineConfigOut << nlohmann::json{{"app_name", "unit_test"}}.dump(4);
+    engineConfigOut.close();
+
+    std::filesystem::current_path(m_tempDir);
+    ArgvBuilder args = {"prog"};
+    auto [cfg, status] = config::AppConfigLoader::LoadFromArgs(args.argc(), args.argv());
+    std::filesystem::current_path(originalCwd);
+
+    EXPECT_EQ(status, config::LoadStatus::Loaded);
+    ASSERT_NE(cfg, nullptr);
+    EXPECT_EQ(cfg->volumeName, "from_default_file");
+    EXPECT_FALSE(cfg->engineConfigPath.empty())
+        << "engineConfigPath should have been resolved from the default config";
+
+    // A scenario with no resolvable default: an empty directory holds no
+    // appConfig.json, so the built-in defaults hold and CLI overrides still
+    // apply.
+    std::filesystem::create_directories(m_tempDir / "empty");
+    ArgvBuilder missingArgs = {"prog", "--volume", "cli_volume"};
+    std::filesystem::current_path(m_tempDir / "empty");
+    auto [cliCfg, cliStatus] = config::AppConfigLoader::LoadFromArgs(missingArgs.argc(), missingArgs.argv());
+    std::filesystem::current_path(originalCwd);
+
+    EXPECT_EQ(cliStatus, config::LoadStatus::ValidationError)
+        << "Without a resolvable default appConfig.json the engine config path stays empty";
+    EXPECT_EQ(cliCfg->volumeName, "cli_volume") << "CLI overrides apply to built-in defaults";
+}
+
 class AppConfigLoader_PatchMissing : public ::testing::Test
 {
   protected:
@@ -113,6 +166,7 @@ class AppConfigLoader_PatchMissing : public ::testing::Test
         j["simControllerPath"] = "/some/path";
         j["enableDistanceMarkers"] = true;
         j["enableCutoffHighlighting"] = true;
+        j["enableTransmittanceMapDebug"] = true;
         j["interactiveConfig"] = nlohmann::json{{"cameraMovementSpeed", 999.0f},
                                                 {"cameraSensitivity", 2.5f},
                                                 {"objectMovementSpeed", 42.0f}};
@@ -221,6 +275,24 @@ TEST_F(AppConfigLoader_PatchMissing, PatchesMissing_enableCutoffHighlighting)
     EXPECT_TRUE(patched["enableDistanceMarkers"].get<bool>());
 }
 
+TEST_F(AppConfigLoader_PatchMissing, PatchesMissing_enableTransmittanceMapDebug)
+{
+    const auto cfgPath = m_tempDir / "config.json";
+    auto j = buildCompleteConfigJson();
+    j.erase("enableTransmittanceMapDebug");
+    writeJsonFile(cfgPath, j);
+
+    ArgvBuilder args = {"prog", "--appConfig", cfgPath.string()};
+    EXPECT_THROW(config::AppConfigLoader::LoadFromArgs(args.argc(), args.argv()), star::core::RuntimeError);
+
+    auto patched = readJsonFile(cfgPath);
+    ASSERT_TRUE(patched.contains("enableTransmittanceMapDebug"));
+    EXPECT_FALSE(patched["enableTransmittanceMapDebug"].get<bool>());
+    EXPECT_EQ(patched["volumeName"].get<std::string>(), "myvol");
+    EXPECT_TRUE(patched["enableDistanceMarkers"].get<bool>());
+    EXPECT_TRUE(patched["enableCutoffHighlighting"].get<bool>());
+}
+
 TEST_F(AppConfigLoader_PatchMissing, PatchesMissing_interactiveConfig)
 {
     const auto cfgPath = m_tempDir / "config.json";
@@ -308,6 +380,7 @@ TEST_F(AppConfigLoader_PatchMissing, PatchesAllFieldsWhenFileIsEmptyObject)
     EXPECT_EQ(patched["simControllerPath"].get<std::string>(), "");
     EXPECT_FALSE(patched["enableDistanceMarkers"].get<bool>());
     EXPECT_FALSE(patched["enableCutoffHighlighting"].get<bool>());
+    EXPECT_FALSE(patched["enableTransmittanceMapDebug"].get<bool>());
     ASSERT_TRUE(patched.contains("interactiveConfig"));
     EXPECT_FLOAT_EQ(patched["interactiveConfig"]["cameraMovementSpeed"].get<float>(), 5000.0f);
     EXPECT_FLOAT_EQ(patched["interactiveConfig"]["cameraSensitivity"].get<float>(), 0.1f);

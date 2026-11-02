@@ -5,6 +5,7 @@
 #include "OffscreenRenderPhase.hpp"
 
 #include <star_windowing/SwapChainRenderPhaseProvider.hpp>
+#include <star_windowing/command/CreateGui.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
 #include <starlight/core/json/glm_json.hpp>
 #include <starlight/event/TriggerScreenshot.hpp>
@@ -14,6 +15,9 @@
 #include <star_windowing/InteractivityBus.hpp>
 #include <star_windowing/event/RequestSwapChainFromService.hpp>
 
+#include <iostream>
+#include <string>
+
 static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerCommandBuffer &mgrCmdBuff,
                                            const star::core::CommandBus &cmdBus, const star::common::FrameTracker &ft,
                                            const OffscreenRenderPhase &offscreenRenderer) noexcept
@@ -22,7 +26,7 @@ static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerC
     const auto &c = offscreenRenderer.getCommandBuffer();
 
     cmdBus.submit(star::command_order::TriggerPass()
-                      .setTimelineSemaphore(offscreenRenderer.getTimelineSemaphroes()[ii])
+                      .setTimelineSemaphore(offscreenRenderer.getTimelineSemaphores()[ii])
                       .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
                       .setPass(c));
 };
@@ -41,7 +45,6 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
                       .setTimelineSemaphore(volume.getRenderer().getTimelineSemaphores()[ii])
                       .setSignalValue(std::move(value)));
 }
-
 
 void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
 {
@@ -174,8 +177,9 @@ void InteractiveApplication::frameUpdate(star::core::SystemContext &context)
     if (m_updateDebugCubes)
     {
         placeDebugCubes(m_mainScene->getCamera()->getForwardVector(), m_mainScene->getCamera()->getPosition());
-        // m_updateDebugCubes = false;
     }
+
+    updateTransmittanceViz(*m_mainScene->getCamera());
 }
 
 void InteractiveApplication::initListeners(star::core::device::DeviceContext &context)
@@ -186,6 +190,17 @@ void InteractiveApplication::initListeners(star::core::device::DeviceContext &co
     star::windowing::HandleKeyPressPolicy<InteractiveApplication>::init(context.getEventBus());
 
     m_screenshotRegistrations.resize(context.frameTracker().getSetup().getNumUniqueTargetFramesForFinalization());
+}
+
+void InteractiveApplication::addPresentationFinalizationPhases(star::core::device::DeviceContext &context)
+{
+    // The overlay borrows, but never owns, the scene and volume it draws; both
+    // outlive the overlay and are kept by the application.
+    m_guiController.setScene(m_mainScene.get());
+    m_guiController.setVolume(m_volume.get());
+
+    star::windowing::CreateGui createGui{*m_mainScene, [this]() { m_guiController.draw(); }};
+    context.getCmdBus().submit(createGui);
 }
 
 void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, const int &mods)
@@ -242,105 +257,6 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
         m_mainScene->getCamera()->rotateRelative(star::Type::Axis::y, -1.0);
     }
 
-    if (key == GLFW_KEY_B)
-    {
-        std::cout << "Select fog property to change" << std::endl;
-        std::cout << "1 - LinearFog: Fog Near Distance" << std::endl;
-        std::cout << "2 - LinearFog: Fog Far Distance" << std::endl;
-        std::cout << "3 - ExpFog: Fog Density" << std::endl;
-        std::cout << "4 - MarchedFog: Default Density" << std::endl;
-        std::cout << "5 - MarchedFog: Sigma Absorption" << std::endl;
-        std::cout << "6 - MarchedFog: Sigma Scattering" << std::endl;
-        std::cout << "7 - MarchedFog: Light PropertyDirG" << std::endl;
-        std::cout << "8 - MarchedFog: Step Size" << std::endl;
-        std::cout << "9 - MarchedFog: Step Size Light" << std::endl;
-        std::cout << "10 - HomogenousRendering: Max Num Steps" << std::endl;
-        std::cout << "11 - MarchedFog: VDB Density Multiplier" << std::endl;
-
-        int selectedMode;
-
-        {
-            std::string inputOption = std::string();
-            std::getline(std::cin, inputOption);
-            try
-            {
-                selectedMode = std::stoi(inputOption);
-            }
-            catch (const std::exception &ex)
-            {
-                std::cout << "Invalid option" << std::endl;
-                return;
-            }
-        }
-
-        std::ostringstream oss;
-        oss << "Current value: ";
-
-        switch (selectedMode)
-        {
-        case (1):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().linearInfo.nearDist);
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().linearInfo.nearDist = PromptForFloat("Select visibility");
-            break;
-        case (2):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().linearInfo.farDist);
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().linearInfo.farDist = PromptForFloat("Select distance");
-            break;
-        case (3):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().expFogInfo.density);
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().expFogInfo.density = PromptForFloat("Select density");
-            break;
-        case (4):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity);
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.defaultDensity = PromptForFloat("Select density");
-            break;
-        case (5):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.getSigmaAbsorption());
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(PromptForFloat("Select sigma"));
-            break;
-        case (6):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.getSigmaScattering());
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.setSigmaScattering(PromptForFloat("Select sigma"));
-            break;
-        case (7):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.getLightPropertyDirG());
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(
-                PromptForFloat("Select light prop", true));
-            break;
-        case (8):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist);
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist = PromptForFloat("Select step size");
-            break;
-        case (9):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light);
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.stepSizeDist_light =
-                PromptForFloat("Select step size light");
-            break;
-        case (10):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().homogenousInfo.getMaxNumSteps());
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().homogenousInfo.setMaxNumSteps(
-                PromptForInt("Select max number of steps"));
-            break;
-        case (11):
-            oss << std::to_string(m_volume->getRenderer().getFogInfo().marchedInfo.getDensityMultiplier());
-            std::cout << oss.str() << std::endl;
-            m_volume->getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(PromptForFloat("Select multipler"));
-            break;
-        default:
-            std::cout << "Unknown option" << std::endl;
-        }
-    }
-
     if (key == GLFW_KEY_L)
     {
         std::cout << "Setting fog type to: Linear" << std::endl;
@@ -369,12 +285,6 @@ void InteractiveApplication::onKeyRelease(const int &key, const int &scancode, c
     {
         std::cout << "Setting fog type to: NANO Surface" << std::endl;
         m_volume->setFogType(Fog::Type::sNanoSurface);
-    }
-
-    if (key == GLFW_KEY_F)
-    {
-        std::cout << "Setting fog type to: Homogenous" << std::endl;
-        m_volume->setFogType(Fog::Type::sMarchedHomogenous);
     }
 
     if (key == GLFW_KEY_O)
@@ -442,6 +352,7 @@ void InteractiveApplication::onKeyPress(const int &key, const int &scancode, con
         m_actDir[star::Type::Axis::z] = true;
     }
 }
+
 void InteractiveApplication::initImageOutputDir(star::core::CommandBus &bus)
 {
     m_imageOutputDir = std::filesystem::path(star::common::strings::GetStartTime());
@@ -459,9 +370,9 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
     auto *render = m_mainScene->getPhase(m_finalizationPhaseHandle);
 
     // submit screenshot processing
-    context.getEventBus().emit(
-        star::event::TriggerScreenshot(context.getImageManager().get(render->getRenderToColorImages()[index])->texture,
-                                       path, render->getCommandBuffer(), m_screenshotRegistrations[index]));
+    context.getEventBus().emit(star::event::TriggerScreenshot(
+        context.getImageManager().get(render->getRenderTargets().colorHandles()[index])->texture, path,
+        render->getCommandBuffer(), m_screenshotRegistrations[index]));
 
     triggerImageRecord(context, frameTracker, name);
 }

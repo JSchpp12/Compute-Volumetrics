@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.1.20
+	VERSION 1.4.0
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -15,23 +15,25 @@ if (STAR_ENABLE_UBSAN)
 		add_link_options(-fsanitize=undefined -lubsan)
 	endif()
 endif()
-if (STAR_ENABLE_WARNINGS)
-	message("STAR - Enable WARNINGS")
+
+# Apply warning flags only to first-party targets. PRIVATE flags do not leak
+# into consumers or vendored subprojects. Note: no -Werror is added here.
+function(star_enable_warnings target)
+	if(NOT STAR_ENABLE_WARNINGS OR NOT TARGET ${target})
+		return()
+	endif()
 
 	if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-		add_compile_options(
+		target_compile_options(${target} PRIVATE
 			-Wall
 			-Wextra
 			-Wpedantic
 			-Wconversion
-			-g
 		)
+	elseif(MSVC)
+		target_compile_options(${target} PRIVATE /W4)
 	endif()
-
-	if (MSVC)
-		add_compile_options(/W4 /Zi)
-	endif()
-endif()
+endfunction()
 
 option(HEADLESS "Build without presentation support" OFF)
 
@@ -39,6 +41,10 @@ cmake_policy(SET CMP0071 NEW)
 cmake_policy(SET CMP0076 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0079 NEW)
+# Normalize runtime-dependency paths before regex matching (CMake 4.3+).
+if(POLICY CMP0207)
+	cmake_policy(SET CMP0207 NEW)
+endif()
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -53,6 +59,12 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(zstd CONFIG REQUIRED)
 find_package(TBB CONFIG REQUIRED)
 set(starlight_common_DIR "${CMAKE_BINARY_DIR}/extern/Starlight-Common" CACHE PATH "")
+
+# Starlight-Terrain installs its runtime data (PROJ) into this component so it
+# ships with the app's Runtime component; its dev artifacts stay in
+# "Unspecified" and are excluded from the distributable.
+set(STARLIGHT_TERRAIN_RUNTIME_COMPONENT Runtime)
+
 add_subdirectory("extern/Starlight-Common")
 add_subdirectory("extern/starlight")
 add_subdirectory("extern/Starlight-Terrain")
@@ -60,6 +72,10 @@ add_subdirectory("extern/Starlight-Terrain")
 if (NOT HEADLESS)
 	add_subdirectory("extern/Starlight-Windowing")
 endif()
+
+star_enable_warnings(starlight)
+star_enable_warnings(starlight_terrain)
+star_enable_warnings(starlight_windowing)
 
 set(${PROJECT_NAME}_SOURCES
 	"src/service/detail/simulation_controller/CameraController.cpp"
@@ -80,8 +96,14 @@ set(${PROJECT_NAME}_SOURCES
 	"src/AABBTransfer.cpp"
  	"src/Application.cpp"
 	"src/Volume.cpp"
+	"src/TransmittanceCellPlanner.cpp"
+	"src/TransmittanceMapVisualDebugController.cpp"
  	"src/renderer/volume/ContainerRenderResourceData.cpp"
-	"src/renderer/volume/DescriptorBuilder.cpp"
+	"src/renderer/volume/ComputePipelineLayout.cpp"
+	"src/renderer/PipelineLayoutAssembler.cpp"
+	"src/renderer/volume/VolumePipelineRecipe.cpp"
+	"src/render_system/fog/ShaderFactory.cpp"
+	"src/render_system/fog/ConstantsFactory.cpp"
 	"src/renderer/VolumeRenderPhase.cpp"
 	"src/VolumeRenderPhaseProvider.cpp"
 	"src/render_system/fog/sync/SyncProvider.cpp"
@@ -101,17 +123,19 @@ set(${PROJECT_NAME}_SOURCES
 	"src/Screen.cpp"
  	"src/VolumeSampler.cpp"
  	"src/FogControlInfo.cpp"
+	"src/FogVolumeInfo.cpp"
 	"src/CopyDepthTextureToBuffer.cpp"
 	"src/util/Math.cpp"
 	"src/util/CmdLine.cpp"
+	"src/util/VolumePath.cpp"
 	"src/VolumeDataBase.cpp"
 	"src/FogData.cpp"
 	"src/LevelSetData.cpp"
 	"src/RandomValueTexture.cpp"
-	"src/RandomValueTextureController.cpp"
 	"src/InteractiveMode.cpp"
 	"src/HeadlessMode.cpp"
 	"src/InteractiveApplication.cpp"
+	"src/GUIController.cpp"
 	"src/VolumeDirectoryProcessor.cpp"
 	"src/VolumeFile.cpp"
 	"src/VDBFileInfo.cpp"
@@ -121,8 +145,6 @@ set(${PROJECT_NAME}_SOURCES
 	"src/command/image_metrics/GetTransferCopyPass.cpp"
 	"src/command/sim_controller/TriggerUpdate.cpp"
 	"src/command/sim_controller/CheckIfDone.cpp"
-	"src/policy/FunctionalEngineInitPolicy.cpp"
-	"src/policy/WindowedEngineInitPolicy.cpp"
 	"src/policy/EngineExitOnFlag.cpp"
 	"src/service/detail/image_metric_manager/CopyDeviceToHostMemory.cpp"
 	"src/service/detail/image_metric_manager/CopyCmds.cpp"
@@ -132,6 +154,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/service/detail/image_metric_manager/ImageMetrics.cpp"
 	"src/service/detail/image_metric_manager/SharedBufferWriteDistanceMaskPayload.cpp"
 	"src/service/detail/image_metric_manager/SharedBufferWriteValidityMaskPayload.cpp"
+	"src/render_system/fog/FogRenderResourceFactory.cpp"
 	"src/render_system/fog/FogDispatcher.cpp"
 	"src/render_system/fog/sync/signal/CalcFromFt.cpp"
 	"src/render_system/fog/ChunkOrchestrator.cpp"
@@ -140,15 +163,20 @@ set(${PROJECT_NAME}_SOURCES
 	"src/render_system/fog/ChunkDispatchGrid.cpp"  
 	"src/render_system/fog/commands/Init.cpp" 
 	"src/render_system/fog/commands/IndirectDispatch.cpp" 
-	"src/render_system/fog/PipelineCacher.cpp" 
 	"src/render_system/fog/commands/distance/PostDifferentFamilies.cpp" 
 	"src/render_system/fog/commands/distance/PostMemoryBarrierRecorder.cpp"
 	"src/render_system/fog/commands/color/PostMemoryBarrierRecorder.cpp"
 	"src/render_system/fog/commands/color/PostDifferentFamilies.cpp"
-	"src/render_system/fog/commands/color/PreDifferentFamilies.cpp" 
+	"src/render_system/fog/commands/color/PreDifferentFamilies.cpp"
+	"src/render_system/fog/policies/ShadowDepthAcquirePolicy.cpp" 
+	"src/render_system/fog/policies/ShadowDepthReleaseBackPolicy.cpp"
+	"src/render_system/fog/policies/TransmittanceResourceResolutionPolicy.cpp"
+	"src/render_system/fog/commands/color/FrameInputPreMemoryBarrierRecorder.cpp"
 	"src/render_system/fog/commands/color/PreMemoryBarrierRecorder.cpp"
  	"src/render_system/fog/commands/distance/PreDifferentFamilies.cpp" 
 	"src/render_system/fog/commands/distance/PreMemoryBarrierRecorder.cpp" 
+	"src/render_system/fog/commands/transmittance/TransmittancePrecompute.cpp"
+	"src/render_system/fog/commands/transmittance/PreMemoryBarrierRecorder.cpp" 
 	"src/service/detail/image_metric_manager/VolumeInfo_json.cpp" 
 	"src/service/detail/image_metric_manager/RayDistanceStats_json.cpp"
 	"src/service/detail/image_metric_manager/RayVisibilityMetrics_json.cpp"
@@ -169,6 +197,7 @@ set(${PROJECT_NAME}_SOURCES
 )
 
 set(${PROJECT_NAME}_HEADERS 
+	"include/DataRoles.hpp"
 	"include/FogType.hpp"
 	"include/service/detail/simulation_controller/CameraController.hpp"
 	"include/service/detail/simulation_controller/SimulationData.hpp"
@@ -187,8 +216,23 @@ set(${PROJECT_NAME}_HEADERS
 	"include/VDBTransfer.hpp"
 	"include/AABBTransfer.hpp"
 	"include/Volume.hpp"
+	"include/TransmittanceCellPlanner.hpp"
+	"include/TransmittanceMapVisualDebugController.hpp"
+	"include/render_system/fog/BarrierFactory.hpp"
+	"include/render_system/fog/FogPipelineSet.hpp"
+	"include/render_system/fog/ShaderFactory.hpp"
+	"include/render_system/fog/ConstantsFactory.hpp"
+	"include/render_system/fog/TransmittanceMapConfig.hpp"
+	"include/render_system/fog/FogRenderResourceFactory.hpp"
+	"include/render_system/fog/PipelineVariant.hpp"
+	"include/render_system/fog/const/PipelineVariantNames.hpp"
+	"include/render_system/fog/PipelineVariantSet.hpp"
+	"include/render_system/fog/policies/TransmittancePlan.hpp"
  	"include/renderer/volume/ContainerRenderResourceData.hpp"
-	"include/renderer/volume/DescriptorBuilder.hpp"
+	"include/renderer/volume/ComputePipelineLayout.hpp"
+	"include/renderer/PipelineLayoutAssembler.hpp"
+	"include/renderer/volume/VolumePipelineRecipe.hpp"
+	"include/renderer/volume/VolumeFrameRoles.hpp"
 	"include/renderer/VolumeRenderPhase.hpp"
 	"include/VolumeRenderPhaseProvider.hpp"
 	"include/renderer/distance/CreatePipelines.hpp"
@@ -198,17 +242,19 @@ set(${PROJECT_NAME}_HEADERS
 	"include/Screen.hpp"
 	"include/VolumeSampler.hpp"
 	"include/FogControlInfo.hpp"
+	"include/FogVolumeInfo.hpp"
 	"include/CopyDepthTextureToBuffer.hpp"
 	"include/util/Math.hpp"
 	"include/util/CmdLine.hpp"
+	"include/util/VolumePath.hpp"
 	"include/VolumeDataBase.hpp"
 	"include/FogData.hpp"
 	"include/LevelSetData.hpp"
 	"include/RandomValueTexture.hpp"
-	"include/RandomValueTextureController.hpp"
 	"include/InteractiveMode.hpp"
 	"include/HeadlessMode.hpp"
 	"include/InteractiveApplication.hpp"
+	"include/GUIController.hpp"
  	"include/config/InteractiveConfigInfo.hpp"
 	"include/config/InteractiveConfigInfo_json.hpp"
  	"include/config/AppConfigInfo.hpp"
@@ -220,8 +266,6 @@ set(${PROJECT_NAME}_HEADERS
 	"include/VDBFileInfo.hpp"
 	"include/PrepareDistanceBufferInfo.hpp"
 	"include/service/ImageMetricManager.hpp"
-	"include/policy/WindowedEngineInitPolicy.hpp"
-	"include/policy/FunctionalEngineInitPolicy.hpp"
 	"include/policy/EngineExitOnFlag.hpp"
 	"include/command/image_metrics/TriggerCapture.hpp"
 	"include/command/image_metrics/GetTransferCopyPass.hpp"
@@ -249,13 +293,17 @@ set(${PROJECT_NAME}_HEADERS
 	"include/renderer/finalization/HeadlessPhaseProvider.hpp"
 )
 
-add_library(${PROJECT_NAME}_lib 
+add_library(${PROJECT_NAME}_lib STATIC
     ${${PROJECT_NAME}_SOURCES}
     ${${PROJECT_NAME}_HEADERS}
 )
 target_include_directories(${PROJECT_NAME}_lib 
 	PUBLIC include
 )
+star_enable_warnings(${PROJECT_NAME}_lib)
+if(COMMAND star_add_pch)
+    star_add_pch(${PROJECT_NAME}_lib)
+endif()
 if (WIN32)
 	cmake_policy(SET CMP0091 NEW)
 
@@ -304,12 +352,18 @@ else()
 	endif()
 endif()
 
-set(FINAL_APPLICATION_DIR "")
 if (MSVC)
-    set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
 	target_compile_options(${PROJECT_NAME}_lib PUBLIC 
 		$<$<CXX_COMPILER_ID:MSVC>:/bigobj /MP /EHsc /Zc:__cplusplus> 
 	)
+endif()
+
+# Directory that holds the built executable together with the generated media
+# and configuration.  Multi-config generators (Visual Studio) place each
+# configuration in its own subdirectory, while single-config generators
+# (Ninja, Makefiles) build directly in the binary directory.
+if (CMAKE_CONFIGURATION_TYPES)
+	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
 else()
 	set(FINAL_APPLICATION_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 endif()
@@ -328,45 +382,89 @@ endif()
 
 add_executable(${PROJECT_NAME} "src/main.cpp")
 
+# Keep the executable in the same directory as the generated media/config so
+# the build tree mirrors the packaged layout and CPack can find everything.
+set_target_properties(${PROJECT_NAME} PROPERTIES
+	RUNTIME_OUTPUT_DIRECTORY "${FINAL_APPLICATION_DIR}"
+)
+
 target_include_directories(${PROJECT_NAME}
 	PRIVATE "include"
 )
 target_link_libraries(${PROJECT_NAME}
 	PRIVATE ${PROJECT_NAME}_lib
 )
+star_enable_warnings(${PROJECT_NAME})
+
+option(BUILD_UNIT_TESTS "Build unit tests" ON)
+
+if (BUILD_UNIT_TESTS)
+	add_subdirectory(tests)
+	star_enable_warnings(unit_tests)
+endif()
+
 
 set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
 
 find_package(Git REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-set(STARLIGHT_APP_BUILDER_SRC "${CMAKE_BINARY_DIR}/extern/StarlightAppBuilder-src")
-set(STARLIGHT_APP_BUILDER_STAMP "${CMAKE_BINARY_DIR}/starlight_app_builder.stamp")
-
-add_custom_command(
-	OUTPUT ${STARLIGHT_APP_BUILDER_STAMP}
-	COMMAND ${CMAKE_COMMAND} -E rm -rf "${STARLIGHT_APP_BUILDER_SRC}"
-	COMMAND ${GIT_EXECUTABLE} clone --depth 1
-			"https://github.com/JSchpp12/StarlightAppBuilder.git"
-			"${STARLIGHT_APP_BUILDER_SRC}"
-	COMMAND ${Python3_EXECUTABLE} -m pip install --upgrade "${STARLIGHT_APP_BUILDER_SRC}"
-	COMMAND ${CMAKE_COMMAND} -E touch "${STARLIGHT_APP_BUILDER_STAMP}"
-	WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-	COMMENT "Fetching and installing StarlightAppBuilder"
-	VERBATIM
+set(STARLIGHT_APP_BUILDER_DIR "${CMAKE_SOURCE_DIR}/out/extern/StarlightAppBuilder" CACHE PATH "Shared StarlightAppBuilder install directory")
+set(STARLIGHT_APP_BUILDER_BIN "${STARLIGHT_APP_BUILDER_DIR}/bin")
+set(STARLIGHT_APP_BUILDER_SRC "${STARLIGHT_APP_BUILDER_DIR}/src")
+find_program(STAR_APP_BUILDER_COMMAND
+	NAMES star_app_builder
+	PATHS "${STARLIGHT_APP_BUILDER_BIN}"
 )
 
-add_custom_target(starlight_app_builder DEPENDS ${STARLIGHT_APP_BUILDER_STAMP})
+if (STAR_APP_BUILDER_COMMAND)
+	message(STATUS "Found star_app_builder: ${STAR_APP_BUILDER_COMMAND}")
+else()
+	message(STATUS "star_app_builder not found; fetching and installing into ${STARLIGHT_APP_BUILDER_DIR}")
+	file(REMOVE_RECURSE
+		"${STARLIGHT_APP_BUILDER_SRC}"
+		"${STARLIGHT_APP_BUILDER_BIN}"
+	)
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} clone --depth 1
+				"https://github.com/JSchpp12/StarlightAppBuilder.git"
+				"${STARLIGHT_APP_BUILDER_SRC}"
+		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+		COMMAND_ERROR_IS_FATAL ANY
+	)
+	execute_process(
+		COMMAND ${Python3_EXECUTABLE} -m pip install
+				--upgrade
+				--target "${STARLIGHT_APP_BUILDER_DIR}"
+				"${STARLIGHT_APP_BUILDER_SRC}"
+		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+		COMMAND_ERROR_IS_FATAL ANY
+	)
+endif()
+
+add_custom_target(starlight_app_builder)
+
+set(STAR_APP_BUILDER_ENV_ARGS "PYTHONPATH=${STARLIGHT_APP_BUILDER_DIR}")
+set(STAR_APP_BUILDER_EXEC_ARGS ${Python3_EXECUTABLE} -m star_app_builder)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 	add_custom_target(prepare_media ALL
-		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media --fastest
+		COMMAND ${CMAKE_COMMAND} -E env
+			${STAR_APP_BUILDER_ENV_ARGS}
+			${STAR_APP_BUILDER_EXEC_ARGS} prep-media
+			--outDir=${FINAL_APPLICATION_DIR}/media
+			--inDir=${CMAKE_CURRENT_SOURCE_DIR}/media
+			--fastest
 		COMMENT "Running media prep"
 		VERBATIM
 	)
 else()
 	add_custom_target(prepare_media ALL
-		COMMAND ${Python3_EXECUTABLE} -m star_app_builder prep-media --outDir=${FINAL_APPLICATION_DIR}/media --inDir=${CMAKE_CURRENT_SOURCE_DIR}/media
+		COMMAND ${CMAKE_COMMAND} -E env
+			${STAR_APP_BUILDER_ENV_ARGS}
+			${STAR_APP_BUILDER_EXEC_ARGS} prep-media
+			--outDir=${FINAL_APPLICATION_DIR}/media
+			--inDir=${CMAKE_CURRENT_SOURCE_DIR}/media
 		COMMENT "Running media prep"
 		VERBATIM
 	)
@@ -374,7 +472,10 @@ endif()
 add_dependencies(prepare_media starlight_app_builder)
 
 add_custom_target(create_config ALL
-	COMMAND ${Python3_EXECUTABLE} -m star_app_builder create-config --outDir=${FINAL_APPLICATION_DIR}
+	COMMAND ${CMAKE_COMMAND} -E env
+			${STAR_APP_BUILDER_ENV_ARGS}
+			${STAR_APP_BUILDER_EXEC_ARGS} create-config
+			--outDir=${FINAL_APPLICATION_DIR}
 	COMMENT "Running config prep"
 	VERBATIM
 )
@@ -444,43 +545,113 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)          # use build rpath for build t
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)        # also add rpaths to where linked libs live at install time
 set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")             # runtime: relative to the executable's directory
 
+# Prevent System libraries from being copied into the package.
+set(_STAR_RUNTIME_PRE_EXCLUDE)
+set(_STAR_RUNTIME_POST_EXCLUDE)
+if (WIN32)
+    # DLL names are matched lowercased, so plain lowercase patterns suffice.
+    list(APPEND _STAR_RUNTIME_PRE_EXCLUDE "^api-ms-.*" "^ext-ms-.*")
+    # CMP0207 normalizes separators to '/'; the directory keeps its case.
+    list(APPEND _STAR_RUNTIME_POST_EXCLUDE ".*[Ww]indows/system32/.*")
+else()
+    set(_STAR_RUNTIME_PRE_EXCLUDE
+        ".*libc\\.so\\..*" ".*libm\\.so\\..*" ".*libpthread\\.so\\..*"
+        ".*librt\\.so\\..*" ".*libdl\\.so\\..*" ".*libresolv\\.so\\..*"
+        ".*ld-linux-.*\\.so\\..*" ".*libnss_.*\\.so\\..*"
+        ".*libgcc_s\\.so\\..*" ".*libvulkan\\.so.*")
+    set(_STAR_RUNTIME_POST_EXCLUDE ${_STAR_RUNTIME_PRE_EXCLUDE})
+endif()
+
 install(TARGETS ${PROJECT_NAME}
     RUNTIME_DEPENDENCIES
-       PRE_EXCLUDE_REGEXES
-            # Exclude glibc core + loader
-            ".*libc\\.so\\..*" ".*libm\\.so\\..*" ".*libpthread\\.so\\..*"
-            ".*librt\\.so\\..*" ".*libdl\\.so\\..*" ".*libresolv\\.so\\..*"
-            ".*ld-linux-.*\\.so\\..*" ".*libnss_.*\\.so\\..*"
-            # (Optional) exclude libgcc_s
-            ".*libgcc_s\\.so\\..*"
-        POST_EXCLUDE_REGEXES
-            # Same as above to be safe
-            ".*libc\\.so\\..*" ".*libm\\.so\\..*" ".*libpthread\\.so\\..*"
-            ".*librt\\.so\\..*" ".*libdl\\.so\\..*" ".*libresolv\\.so\\..*"
-            ".*ld-linux-.*\\.so\\..*" ".*libnss_.*\\.so\\..*"
-            ".*libgcc_s\\.so\\..*"
-    RUNTIME DESTINATION .
-	LIBRARY DESTINATION lib
-	ARCHIVE DESTINATION lib
+        PRE_EXCLUDE_REGEXES ${_STAR_RUNTIME_PRE_EXCLUDE}
+        POST_EXCLUDE_REGEXES ${_STAR_RUNTIME_POST_EXCLUDE}
+    RUNTIME DESTINATION . COMPONENT Runtime
+	LIBRARY DESTINATION lib COMPONENT Runtime
+	ARCHIVE DESTINATION lib COMPONENT Runtime
+)
+
+if (NOT WIN32)
+    # RUNTIME_DEPENDENCIES copies the vcpkg libraries together with their
+    # versioned soname links (e.g. "libglfw.so.3 -> libglfw.so.3.5"), and CPack
+    # stores those as actual symlink entries in the portable archive.  Zip
+    # extractors that do not honor Unix symlinks materialize them as 0-byte
+    # regular files and the dynamic loader fails with "file too short".  Keep
+    # the package symlink-free by replacing every link in the staged lib
+    # directory with a real copy of its target.
+    install(CODE [[
+        set(_star_libdir "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib")
+        file(GLOB _star_lib_entries "${_star_libdir}/*")
+        foreach(_entry ${_star_lib_entries})
+            if(IS_SYMLINK "${_entry}")
+                set(_real "${_entry}")
+                while(IS_SYMLINK "${_real}")
+                    file(READ_SYMLINK "${_real}" _link_name)
+                    if(IS_ABSOLUTE "${_link_name}")
+                        set(_real "${_link_name}")
+                    else()
+                        get_filename_component(_dir "${_real}" DIRECTORY)
+                        set(_real "${_dir}/${_link_name}")
+                    endif()
+                endwhile()
+                if(EXISTS "${_real}")
+                    file(REMOVE "${_entry}")
+                    file(COPY_FILE "${_real}" "${_entry}")
+                else()
+                    message(STATUS "Dangling symlink left in place: ${_entry} -> ${_real}")
+                endif()
+            endif()
+        endforeach()
+    ]] COMPONENT Runtime)
+endif()
+
+install(
+    DIRECTORY "${FINAL_APPLICATION_DIR}/media"
+    DESTINATION .
+    COMPONENT Runtime
 )
 install(
-    DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/media
+    FILES "${FINAL_APPLICATION_DIR}/StarEngine.cfg"
     DESTINATION .
+    COMPONENT Runtime
 )
-install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/StarEngine.cfg
-    DESTINATION .
-)
+
+# ---------------------------------------------------------------------------
+# Packaging (CPack)
+# ---------------------------------------------------------------------------
+set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_VENDOR "Compute Volumetrics")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "${PROJECT_NAME} ${PROJECT_VERSION}")
+if (WIN32)
+	set(_STAR_PACKAGE_SYSTEM "win64")
+else()
+	set(_STAR_PACKAGE_SYSTEM "${CMAKE_SYSTEM_NAME}")
+endif()
+set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-${_STAR_PACKAGE_SYSTEM}")
+
+# Suffix the archive with the build variant.
+if (HEADLESS)
+	set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-headless")
+else()
+	set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-windowed")
+endif()
+
+# Only the runtime component is shipped.  This keeps the vendored projects'
+# static libraries, headers and CMake export files (which live in the
+# "Unspecified" component) out of the distributable.
+set(CPACK_COMPONENTS_ALL Runtime)
+set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
+set(CPACK_ARCHIVE_RUNTIME_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}")
+if (WIN32)
+	set(CPACK_GENERATOR "ZIP")
+else()
+	set(CPACK_GENERATOR "TGZ")
+endif()
 
 include(CPack)
 
 include(CTest)
 enable_testing()
 find_package(GTest CONFIG REQUIRED)
-
-# Optional: make a toggle to build tests
-option(BUILD_UNIT_TESTS "Build unit tests" ON)
-
-if (BUILD_UNIT_TESTS)
-	add_subdirectory(tests)
-endif()

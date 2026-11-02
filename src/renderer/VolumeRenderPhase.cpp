@@ -1,7 +1,10 @@
 #include "renderer/VolumeRenderPhase.hpp"
 
+#include "render_system/fog/DataRoles.hpp"
+
 #include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/Exceptions.hpp>
+#include <starlight/maker/buffer/MakeBuffer.hpp>
 
 #include <cassert>
 #include <cstdint>
@@ -10,8 +13,6 @@
 #include <tuple>
 #include <vector>
 
-namespace
-{
 static std::optional<star::command_order::get_pass_info::GatheredPassInfo> GetTransferNeighborInfo(
     const star::core::CommandBus &cmdBus, const star::Handle &commandBuffer,
     const std::optional<star::Handle> &transferNeighborHandle)
@@ -45,19 +46,11 @@ static std::optional<star::command_order::get_pass_info::GatheredPassInfo> GetTr
 
     return transferNeighborInfo;
 }
-} // namespace
-
-VolumeRenderPhase::VolumeRenderPhase(bool enableCutoffHighlighting)
-    : m_distanceComputer(), m_chunkHandler(enableCutoffHighlighting)
-{
-}
 
 void VolumeRenderPhase::frameUpdate(star::common::IDeviceContext &context)
 {
     auto &c = static_cast<star::core::device::DeviceContext &>(context);
     const uint8_t frameInFlightIndex = c.frameTracker().getCurrent().getFrameInFlightIndex();
-
-    updateRenderingContext(c, frameInFlightIndex);
 
     if (isRenderReady(c))
     {
@@ -66,6 +59,8 @@ void VolumeRenderPhase::frameUpdate(star::common::IDeviceContext &context)
 
         m_distanceComputer.frameUpdate(c);
     }
+
+    updateRenderingContext(c, frameInFlightIndex);
 }
 
 bool VolumeRenderPhase::isRenderReady(star::core::device::DeviceContext &context)
@@ -75,14 +70,38 @@ bool VolumeRenderPhase::isRenderReady(star::core::device::DeviceContext &context
         return true;
     }
 
-    if (context.getPipelineManager().get(marchedPipeline)->isReady() &&
-        context.getPipelineManager().get(linearPipeline)->isReady() &&
-        context.getPipelineManager().get(expPipeline)->isReady() &&
-        context.getPipelineManager().get(nanoVDBPipeline_hitBoundingBox)->isReady() &&
-        context.getPipelineManager().get(nanoVDBPipeline_surface)->isReady() &&
-        context.getPipelineManager().get(marchedHomogenousPipeline)->isReady() && m_distanceComputer.isReady(context) &&
-        context.getPipelineManager().get(m_indirectDispatchPipe)->isReady() &&
-        context.getPipelineManager().get(m_initPipe)->isReady())
+    auto &pipelines = context.getPipelineManager();
+    const auto ready = [&pipelines](const star::Handle &handle) {
+        // Variant slots with no recipe are still default-constructed; nothing can bind them.
+        if (handle.isInitialized() && pipelines.get(handle)->isReady())
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    };
+
+    bool allReady =
+        ready(m_pipelines.init) && ready(m_pipelines.indirectDispatch) && m_distanceComputer.isReady(context);
+
+    // A switch must never bind an unbuilt pipeline, so every variant in the family has to be ready.
+    for (const auto &handle : m_pipelines.transmittance.handles())
+    {
+        allReady = allReady && ready(handle);
+    }
+
+    for (const auto type : {Fog::Type::sMarched, Fog::Type::sLinear, Fog::Type::sExponential,
+                            Fog::Type::sNanoBoundingBox, Fog::Type::sNanoSurface})
+    {
+        for (const auto &handle : m_pipelines.fog.handles(type))
+        {
+            allReady = allReady && ready(handle);
+        }
+    }
+
+    if (allReady)
     {
         isReady = true;
     }
@@ -103,27 +122,39 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
 
     auto tNeighbor = GetTransferNeighborInfo(*m_cmdBus, m_commandBuffer, m_transferNeighborHandle);
 
+    const auto *trRes = m_volumeFrameData->resource(
+        star::core::renderer::roleHandle(render_system::fog::data_roles::LightTransmittanceMap));
+    assert(trRes != nullptr && "Unable to request transmittance info from provided frameData");
+
     render_system::fog::PassInfo tInfo{
-        .globalCameraBuffer = m_frameData->controllerAt(0)->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
-                                                                                ft.getCurrent().getFrameInFlightIndex())
-                                  ? std::make_optional(m_renderingContext.bufferTransferRecords.get(
-                                        m_frameData->controllerAt(0)->getHandle(ft.getCurrent().getFrameInFlightIndex())))
-                                  : std::nullopt,
-        .fogControllerBuffer = m_fogController.willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(),
-                                                                      ft.getCurrent().getFrameInFlightIndex())
+        .globalCameraBuffer =
+            m_frameData->getController(m_cameraRole)
+                    ->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(), ft)
+                ? std::make_optional(m_renderingContext.bufferTransferRecords.get(
+                      m_frameData->getController(m_cameraRole)->getHandle(ft.getCurrent().getFrameInFlightIndex())))
+                : std::nullopt,
+        .fogControllerBuffer = m_fogController->willBeUpdatedThisFrame(ft.getCurrent().getGlobalFrameCounter(), ft)
                                    ? std::make_optional(m_renderingContext.bufferTransferRecords.get(
-                                         m_fogController.getHandle(ft.getCurrent().getFrameInFlightIndex())))
+                                         m_fogController->getHandle(ft.getCurrent().getFrameInFlightIndex())))
                                    : std::nullopt,
         .terrainPassInfo =
             {.renderToColor =
                  m_renderingContext.recordDependentImage
-                     .get(m_offscreenPhase->getRenderToColorImages()[ft.getCurrent().getFrameInFlightIndex()])
+                     .get(m_offscreenPhase->getRenderTargets().colorHandles()[ft.getCurrent().getFrameInFlightIndex()])
                      ->getVulkanImage(),
              .renderToDepth =
                  m_renderingContext.recordDependentImage
-                     .get(m_offscreenPhase->getRenderToDepthImages()[ft.getCurrent().getFrameInFlightIndex()])
-                     ->getVulkanImage()},
+                     .get(m_offscreenPhase->getRenderTargets().depthHandles()[ft.getCurrent().getFrameInFlightIndex()])
+                     ->getVulkanImage(),
+             .renderToShadowDepth = (m_terrainShadowPhase != nullptr)
+                                        ? m_renderingContext.recordDependentImage
+                                              .get(m_terrainShadowPhase->getRenderTargets()
+                                                       .depthHandles()[ft.getCurrent().getFrameInFlightIndex()])
+                                              ->getVulkanImage()
+                                        : VK_NULL_HANDLE},
         .computeWriteToImage = computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage(),
+        .transmittanceMap =
+            std::get<star::core::renderer::FrameData::BorrowedTexture>(*trRes).textures[ii]->getVulkanImage(),
         .computeRayAtCutoffDistance =
             computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
         .computeRayDistance = computeRayDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
@@ -131,15 +162,17 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
                                                           ft.getCurrent().getFrameInFlightIndex())
                                                     : false,
         .transferWillBeRunThisFrame = tNeighbor.has_value() ? tNeighbor.value().isTriggeredThisFrame : false};
+    tInfo.depthPassWillRun = (m_pipeInfo.fogType == Fog::Type::sMarched);
 
-    m_pipeInfo.distancePipe = {.layout = m_distanceComputer.getLayout(), .pipeline = m_distanceComputer.getPipeline()};
     m_pipeInfo.staticShaderInfo = m_staticShaderInfo.get();
     m_pipeInfo.colorOnlyShaderInfo = m_dynamicShaderInfo.get();
     m_pipeInfo.distanceOnlyShaderInfo = m_distanceComputer.getDynamicShaderInfo();
-    m_pipeInfo.indirectDispatchBuffer = m_activeRayStorage[ii].getVulkanBuffer();
-    m_pipeInfo.colorPipe.layout = *this->computePipelineLayout;
-    m_pipeInfo.colorPipe.pipeline = this->m_renderingContext.pipeline->getVulkanPipeline();
-    m_pipeInfo.fogType = this->currentFogType;
+    m_pipeInfo.transmittanceOnlyShaderInfo = m_shadowShaderInfo.get();
+    m_pipeInfo.sceneDepthShaderInfo = m_sceneDepthShaderInfo.get();
+    m_pipeInfo.shadowDepthShaderInfo = m_shadowDepthShaderInfo.get();
+    m_pipeInfo.indirectDispatchBuffer = m_activeRayStorage[ii]->getVulkanBuffer();
+    m_pipeInfo.layout = *this->computePipelineLayout;
+    m_pipeInfo.distanceLayout = m_distanceComputer.getLayout();
 
     vk::Semaphore workingSemaphore{VK_NULL_HANDLE};
     {
@@ -166,9 +199,152 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
         }
     }
 
-    render_system::fog::DispatchInfo dInfo{m_activeRayStorage[ii].getVulkanBuffer()};
+    render_system::fog::MarchShaderFlags marchFlags =
+        m_enableColorDebugCutoff ? render_system::fog::MarchShaderFlags::EnableDebugHighlightCutoffValue
+                                 : render_system::fog::MarchShaderFlags::None;
+    if (m_enableShadowMapDebug)
+        marchFlags |= render_system::fog::MarchShaderFlags::EnableDebugHighlightShadows;
+    if (m_enableTransmittanceMapDebug)
+        marchFlags |= render_system::fog::MarchShaderFlags::EnableDebugTransmittanceMap;
+    if (m_enableForceMarchCalculateTransmittance)
+        marchFlags |= render_system::fog::MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance;
+
+    render_system::fog::PrecomputeLightTransmittanceShaderFlags precomputeLightTransmittanceFlags =
+        render_system::fog::PrecomputeLightTransmittanceShaderFlags::None;
+    if (m_enableTransmittancePrecomputeSetAreasInShadow)
+        precomputeLightTransmittanceFlags |=
+            render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow;
+    if (m_enableTransmittancePrecomputeDisableAabbRayTest)
+        precomputeLightTransmittanceFlags |=
+            render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest;
+    if (m_enableTransmittancePrecomputeSetTexelsOfInterest)
+        precomputeLightTransmittanceFlags |=
+            render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest;
+
+    render_system::fog::DispatchInfo dInfo{.indirectBuffer = m_activeRayStorage[ii]->getVulkanBuffer(),
+                                           .shaderOptionFlags =
+                                               render_system::fog::Pack(render_system::fog::InitShaderFlags::None,
+                                                                        precomputeLightTransmittanceFlags, marchFlags)};
 
     m_chunkHandler.recordCommands(dInfo, ft, tInfo, m_pipeInfo);
+}
+
+void VolumeRenderPhase::setShaderFlag(render_system::fog::MarchShaderFlags flag, bool state) noexcept
+{
+    switch (flag)
+    {
+    case (render_system::fog::MarchShaderFlags::EnableDebugHighlightShadows):
+        m_enableShadowMapDebug = state;
+        break;
+    case (render_system::fog::MarchShaderFlags::EnableDebugHighlightCutoffValue):
+        m_enableColorDebugCutoff = state;
+        break;
+    case (render_system::fog::MarchShaderFlags::EnableDebugTransmittanceMap):
+        m_enableTransmittanceMapDebug = state;
+        break;
+    case (render_system::fog::MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance):
+        m_enableForceMarchCalculateTransmittance = state;
+        break;
+    default:
+        star::core::logging::warning("Attempted to set an unsupported dynamic march shader flag -- ignoring");
+        break;
+    }
+}
+
+void VolumeRenderPhase::setShaderFlag(render_system::fog::PrecomputeLightTransmittanceShaderFlags flag,
+                                      bool state) noexcept
+{
+    switch (flag)
+    {
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow):
+        m_enableTransmittancePrecomputeSetAreasInShadow = state;
+        break;
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest):
+        m_enableTransmittancePrecomputeDisableAabbRayTest = state;
+        break;
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest):
+        m_enableTransmittancePrecomputeSetTexelsOfInterest = state;
+        break;
+    default:
+        star::core::logging::warning(
+            "Attempted to set an unsupported dynamic precompute light transmittance shader flag -- ignoring");
+        break;
+    }
+}
+
+bool VolumeRenderPhase::isShaderFlagEnabled(render_system::fog::MarchShaderFlags flag) const noexcept
+{
+    switch (flag)
+    {
+    case (render_system::fog::MarchShaderFlags::EnableDebugHighlightShadows):
+        return m_enableShadowMapDebug;
+    case (render_system::fog::MarchShaderFlags::EnableDebugHighlightCutoffValue):
+        return m_enableColorDebugCutoff;
+    case (render_system::fog::MarchShaderFlags::EnableDebugTransmittanceMap):
+        return m_enableTransmittanceMapDebug;
+    case (render_system::fog::MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance):
+        return m_enableForceMarchCalculateTransmittance;
+    default:
+        return false;
+    }
+}
+
+bool VolumeRenderPhase::isShaderFlagEnabled(
+    render_system::fog::PrecomputeLightTransmittanceShaderFlags flag) const noexcept
+{
+    switch (flag)
+    {
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow):
+        return m_enableTransmittancePrecomputeSetAreasInShadow;
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest):
+        return m_enableTransmittancePrecomputeDisableAabbRayTest;
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest):
+        return m_enableTransmittancePrecomputeSetTexelsOfInterest;
+    default:
+        return false;
+    }
+}
+
+bool VolumeRenderPhase::toggleShaderFlag(render_system::fog::MarchShaderFlags flag) noexcept
+{
+    switch (flag)
+    {
+    case (render_system::fog::MarchShaderFlags::EnableDebugHighlightShadows):
+        m_enableShadowMapDebug = !m_enableShadowMapDebug;
+        return m_enableShadowMapDebug;
+    case (render_system::fog::MarchShaderFlags::EnableDebugHighlightCutoffValue):
+        m_enableColorDebugCutoff = !m_enableColorDebugCutoff;
+        return m_enableColorDebugCutoff;
+    case (render_system::fog::MarchShaderFlags::EnableDebugTransmittanceMap):
+        m_enableTransmittanceMapDebug = !m_enableTransmittanceMapDebug;
+        return m_enableTransmittanceMapDebug;
+    case (render_system::fog::MarchShaderFlags::EnableDebugForceMarchCalculateTransmittance):
+        m_enableForceMarchCalculateTransmittance = !m_enableForceMarchCalculateTransmittance;
+        return m_enableForceMarchCalculateTransmittance;
+    default:
+        star::core::logging::warning("Attempted to toggle an unsupported dynamic march shader flag -- ignoring");
+        return false;
+    }
+}
+
+bool VolumeRenderPhase::toggleShaderFlag(render_system::fog::PrecomputeLightTransmittanceShaderFlags flag) noexcept
+{
+    switch (flag)
+    {
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetAreasInShadow):
+        m_enableTransmittancePrecomputeSetAreasInShadow = !m_enableTransmittancePrecomputeSetAreasInShadow;
+        return m_enableTransmittancePrecomputeSetAreasInShadow;
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugDisableAabbRayTest):
+        m_enableTransmittancePrecomputeDisableAabbRayTest = !m_enableTransmittancePrecomputeDisableAabbRayTest;
+        return m_enableTransmittancePrecomputeDisableAabbRayTest;
+    case (render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest):
+        m_enableTransmittancePrecomputeSetTexelsOfInterest = !m_enableTransmittancePrecomputeSetTexelsOfInterest;
+        return m_enableTransmittancePrecomputeSetTexelsOfInterest;
+    default:
+        star::core::logging::warning(
+            "Attempted to toggle an unsupported dynamic precompute light transmittance shader flag -- ignoring");
+        return false;
+    }
 }
 
 uint64_t VolumeRenderPhase::getTimelineSignalValue(const star::common::FrameTracker &ft) const
@@ -176,8 +352,8 @@ uint64_t VolumeRenderPhase::getTimelineSignalValue(const star::common::FrameTrac
     return m_chunkHandler.getTimelineDoneSignalValue(ft);
 }
 
-std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride>
-VolumeRenderPhase::getSubmissionOverride()
+std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride> VolumeRenderPhase::
+    getSubmissionOverride()
 {
     star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride overrideFn = std::bind(
         &VolumeRenderPhase::submitBuffer, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
@@ -193,7 +369,6 @@ vk::Semaphore VolumeRenderPhase::submitBuffer(star::StarCommandBuffer &buffer,
                                               std::vector<std::optional<uint64_t>> &previousSignaledValues,
                                               star::StarQueue &queue)
 {
-
     m_chunkHandler.submit(frameTracker, std::move(dataSemaphores), std::move(dataWaitPoints),
                           std::move(previousSignaledValues), queue, m_commandBuffer);
 
@@ -208,14 +383,17 @@ void VolumeRenderPhase::cleanupRender(star::common::IDeviceContext &context)
     m_distanceComputer.cleanupRender(c);
     m_staticShaderInfo->cleanupRender(c.getDevice());
     m_dynamicShaderInfo->cleanupRender(c.getDevice());
+    m_shadowShaderInfo->cleanupRender(c.getDevice());
+    m_sceneDepthShaderInfo->cleanupRender(c.getDevice());
+    m_shadowDepthShaderInfo->cleanupRender(c.getDevice());
 
-    for (auto &buf : m_activeRayStorage)
-    {
-        buf.cleanupRender(c.getDevice().getVulkanDevice());
-    }
     for (auto &image : computeWriteToImages)
     {
         image->cleanupRender(c.getDevice().getVulkanDevice());
+    }
+    for (auto &buffer : m_activeRayStorage)
+    {
+        buffer->cleanupRender(c.getDevice().getVulkanDevice());
     }
     for (auto &buffer : computeRayDistanceBuffers)
     {
@@ -233,14 +411,15 @@ std::vector<std::pair<vk::DescriptorType, const uint32_t>> VolumeRenderPhase::ge
     const int &numFramesInFlight)
 {
     return std::vector<std::pair<vk::DescriptorType, const uint32_t>>{
-        std::make_pair(vk::DescriptorType::eStorageImage, 1 + (3 * numFramesInFlight * 50)),
+        std::make_pair(vk::DescriptorType::eStorageImage, 1 + (4 * numFramesInFlight * 50)),
         std::make_pair(vk::DescriptorType::eUniformBuffer, 1 + (4 * numFramesInFlight * 50)),
         std::make_pair(vk::DescriptorType::eStorageBuffer, 6 * numFramesInFlight),
-        std::make_pair(vk::DescriptorType::eCombinedImageSampler, 805 * numFramesInFlight)};
+        std::make_pair(vk::DescriptorType::eCombinedImageSampler, 807 * numFramesInFlight)};
 }
 
 void VolumeRenderPhase::recordDependentDataPipelineBarriers(vk::CommandBuffer &commandBuffer,
-                                                            const uint8_t &frameinFlightIndex, const uint64_t &frameIndex)
+                                                            const uint8_t &frameinFlightIndex,
+                                                            const uint64_t &frameIndex)
 {
 }
 
@@ -260,57 +439,55 @@ void VolumeRenderPhase::updateDependentData(star::core::device::DeviceContext &c
             const auto &reply = cmd.getReply().get();
             if (reply.signaledSemaphore)
             {
-                transferWaitOnLastCompute = star::core::graphics::SemaphoreInfo{
-                    .signalValue = reply.currentSignalValue, .semaphore = reply.signaledSemaphore};
+                transferWaitOnLastCompute = star::core::graphics::SemaphoreInfo{.signalValue = reply.currentSignalValue,
+                                                                                .semaphore = reply.signaledSemaphore};
             }
         }
 
-        const auto [submitted, semaphore] =
-            m_fogController.submitUpdateIfNeeded(context, frameInFlightIndex, transferWaitOnLastCompute);
-        if (submitted)
+        auto fogResult = m_volumeFrameData->frameUpdate(context, transferWaitOnLastCompute);
+        auto &record = context.getManagerCommandBuffer().m_manager.get(m_commandBuffer);
+        for (const auto &w : fogResult.waits)
         {
-            context.getManagerCommandBuffer()
-                .m_manager.get(m_commandBuffer)
-                .oneTimeWaitSemaphoreInfo.insert(m_fogController.getHandle(frameInFlightIndex), semaphore->vkSemaphore,
-                                                 vk::PipelineStageFlagBits::eComputeShader, semaphore->signalValue);
-            m_renderingContext.addBufferToRenderingContext(context, m_fogController.getHandle(frameInFlightIndex));
+            record.oneTimeWaitSemaphoreInfo.insert(w.handle, w.semaphore, w.waitStage, w.signalValue);
+            m_renderingContext.addBufferToRenderingContext(context, w.handle);
         }
     }
 
-    if (m_frameData->controllerAt(0)->willBeUpdatedThisFrame(context.frameTracker().getCurrent().getGlobalFrameCounter(),
-                                                          context.frameTracker().getCurrent().getFrameInFlightIndex()))
+    if (m_frameData->getController(m_cameraRole)
+            ->willBeUpdatedThisFrame(context.frameTracker().getCurrent().getGlobalFrameCounter(),
+                                     context.frameTracker()))
     {
-        m_renderingContext.addBufferToRenderingContext(context,
-                                                       m_frameData->controllerAt(0)->getHandle(frameInFlightIndex));
+        m_renderingContext.addBufferToRenderingContext(
+            context, m_frameData->getController(m_cameraRole)->getHandle(frameInFlightIndex));
     }
 }
 
-void VolumeRenderPhase::updateRenderingContext(star::core::device::DeviceContext &context,
-                                               const uint8_t &frameInFlightIndex)
+void VolumeRenderPhase::updateRenderingContext(star::core::device::DeviceContext &context, const uint8_t &)
 {
-    switch (this->currentFogType)
-    {
-    case (Fog::Type::sMarched):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->marchedPipeline)->builtPipeline;
-        break;
-    case (Fog::Type::sLinear):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->linearPipeline)->builtPipeline;
-        break;
-    case (Fog::Type::sExponential):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->expPipeline)->builtPipeline;
-        break;
-    case (Fog::Type::sMarchedHomogenous):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->marchedHomogenousPipeline)->builtPipeline;
-        break;
-    case (Fog::Type::sNanoBoundingBox):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->nanoVDBPipeline_hitBoundingBox)->builtPipeline;
-        break;
-    case (Fog::Type::sNanoSurface):
-        m_renderingContext.pipeline = &context.getPipelineManager().get(this->nanoVDBPipeline_surface)->builtPipeline;
-        break;
-    default:
-        throw std::runtime_error("Unsupported type");
-    }
+    m_pipeInfo.fogType = currentFogType;
+
+    // Resolve only what this frame records. The handle is what stays stable (the manager's record storage
+    // can reallocate), and reading through the live StarPipeline means a rebuilt pipeline is picked up.
+    auto &pipelines = context.getPipelineManager();
+    const auto resolve = [&pipelines](const star::Handle &handle) {
+        if (!handle.isInitialized())
+        {
+            STAR_THROW("Invalid handle: not initialized.");
+        }
+
+        return pipelines.get(handle)->builtPipeline.getVulkanPipeline();
+    };
+
+    // The color pass always runs, and it records init and the indirect dispatch ahead of the march.
+    m_pipeInfo.initPipeline = resolve(m_pipelines.init);
+    m_pipeInfo.indirectDispatchPipeline = resolve(m_pipelines.indirectDispatch);
+    m_pipeInfo.colorPipeline = resolve(m_pipelines.fog.activeHandle(m_pipeInfo.fogType));
+
+    m_pipeInfo.transmittancePipeline = Fog::NeedsTransmittancePrecompute(m_pipeInfo.fogType)
+                                           ? resolve(m_pipelines.transmittance.activeHandle())
+                                           : vk::Pipeline{};
+    m_pipeInfo.distancePipeline =
+        m_pipeInfo.fogType == Fog::Type::sMarched ? m_distanceComputer.getPipeline() : vk::Pipeline{};
 }
 
 std::vector<star::StarBuffers::Buffer> VolumeRenderPhase::createComputeWriteToBuffers(
@@ -321,24 +498,25 @@ std::vector<star::StarBuffers::Buffer> VolumeRenderPhase::createComputeWriteToBu
 
     const vk::DeviceSize bufferSize = screenSize.width * screenSize.height * dataTypeSize;
     auto builder =
-        star::StarBuffers::Buffer::Builder(context.getDevice().getAllocator().get())
-            .setAllocationCreateInfo(
-                star::Allocator::AllocationBuilder()
-                    .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
-                    .setUsage(VMA_MEMORY_USAGE_AUTO)
-                    .build(),
-                vk::BufferCreateInfo()
-                    .setSharingMode(vk::SharingMode::eExclusive)
-                    .setSize(bufferSize)
-                    .setUsage(vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eStorageBuffer |
-                              vk::BufferUsageFlagBits::eTransferDst),
-                debugName)
+        star::maker::buffer::MakeBuffer(context.getDevice())
+            .setCreateInfo(star::Allocator::AllocationBuilder()
+                               .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                               .setUsage(VMA_MEMORY_USAGE_AUTO)
+                               .build(),
+                           vk::BufferCreateInfo()
+                               .setSharingMode(vk::SharingMode::eExclusive)
+                               .setSize(bufferSize)
+                               .setUsage(vk::BufferUsageFlagBits::eTransferSrc |
+                                         vk::BufferUsageFlagBits::eStorageBuffer |
+                                         vk::BufferUsageFlagBits::eTransferDst),
+                           debugName)
             .setInstanceCount(1)
             .setInstanceSize(bufferSize);
 
-    for (size_t i{0}; i < numToCreate; i++)
+    const auto makeResult = builder.make(buffers.data(), numToCreate);
+    if (!makeResult)
     {
-        buffers[i] = builder.build();
+        STAR_THROW("Failed to create compute write to buffers: " + makeResult.error().detail);
     }
 
     return buffers;

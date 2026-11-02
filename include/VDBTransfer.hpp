@@ -13,23 +13,22 @@ class VDBTransfer : public star::TransferRequest::Buffer
     VDBTransfer(uint8_t computeQueueIndex, std::unique_ptr<VolumeDataBase> volumeData)
         : m_computeQueueIndex(std::move(computeQueueIndex)), m_volumeData(std::move(volumeData))
     {
-      assert(m_volumeData && "Sanity check to ensure volume data is valid"); 
+        assert(m_volumeData && "Sanity check to ensure volume data is valid");
     }
 
-    virtual void prep() override; 
+    virtual void prep() override;
 
     virtual ~VDBTransfer() = default;
 
-    std::unique_ptr<star::StarBuffers::Buffer> createStagingBuffer(vk::Device &device,
-                                                                   VmaAllocator &allocator) const override;
+    std::unique_ptr<star::StarBuffers::Buffer> createStagingBuffer(
+        star::core::device::StarDevice &device) const override;
 
     std::unique_ptr<star::StarBuffers::Buffer> createFinal(
-        vk::Device &device, VmaAllocator &allocator,
-        const std::vector<uint32_t> &transferQueueFamilyIndex) const override;
+        star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const override;
 
     void writeDataToStageBuffer(star::StarBuffers::Buffer &buffer) const override;
 
   private:
     uint8_t m_computeQueueIndex;
-    std::unique_ptr<VolumeDataBase> m_volumeData = nullptr; 
+    std::unique_ptr<VolumeDataBase> m_volumeData = nullptr;
 };

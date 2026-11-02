@@ -6,14 +6,16 @@
 #include <starlight/core/waiter/one_shot/CreateDescriptorsOnEventPolicy.hpp>
 #include <starlight/event/EnginePhaseComplete.hpp>
 
+#include <cassert>
+
 void VisibilityDistanceCompute::cleanupRender(star::core::device::DeviceContext &context)
 {
-    m_dynamicShaderInfo->cleanupRender(context.getDevice()); 
+    m_dynamicShaderInfo->cleanupRender(context.getDevice());
 
     if (m_marchedPipeline.vkLayout != VK_NULL_HANDLE)
     {
-        context.getDevice().getVulkanDevice().destroyPipelineLayout(m_marchedPipeline.vkLayout); 
-        m_marchedPipeline.vkLayout = VK_NULL_HANDLE; 
+        context.getDevice().getVulkanDevice().destroyPipelineLayout(m_marchedPipeline.vkLayout);
+        m_marchedPipeline.vkLayout = VK_NULL_HANDLE;
     }
 }
 
@@ -34,15 +36,15 @@ bool VisibilityDistanceCompute::isReady(const star::core::device::DeviceContext 
 {
     if (m_isReady)
     {
-        return true; 
+        return true;
     }
 
     if (context.getPipelineManager().get(m_marchedPipeline.handle)->isReady())
     {
-        m_isReady = true; 
+        m_isReady = true;
     }
 
-    return m_isReady; 
+    return m_isReady;
 }
 
 void VisibilityDistanceCompute::updateRenderingContext(const star::core::device::DeviceContext &context)
@@ -55,10 +57,16 @@ void VisibilityDistanceCompute::recordCommandBuffer(vk::CommandBuffer commandBuf
                                                     const star::common::FrameTracker &frameTracker,
                                                     const glm::uvec2 &workgroupSize, Fog::Type type)
 {
-    auto sets = m_dynamicShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex());
+    size_t numWritten{0};
+    assert(m_dynamicShaderInfo);
+    assert(m_dynamicShaderInfo->getNumDescriptorSets(frameTracker.getCurrent().getFrameInFlightIndex()) <=
+           m_descriptors.size());
+    m_dynamicShaderInfo->getDescriptors(frameTracker.getCurrent().getFrameInFlightIndex(), m_descriptors.data(),
+                                        numWritten);
 
-    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_marchedPipeline.vkLayout, 2, sets.size(),
-                                     sets.data(), 0, VK_NULL_HANDLE);
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_marchedPipeline.vkLayout,
+                                     m_dynamicShaderInfo->getBaseSet(), numWritten, m_descriptors.data(), 0,
+                                     VK_NULL_HANDLE);
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, m_marchedPipeline.vkPipeline);
     commandBuffer.dispatch(workgroupSize.x, workgroupSize.y, 1);
@@ -77,7 +85,7 @@ void VisibilityDistanceCompute::createBuildPipelineWaiter(
                        .infoManagerInstanceNormal = data.inputs.instanceNormalInfo,
                        .infoManagerGlobalCamera = data.inputs.globalInfoBuffers,
                        .infoManagerSceneLightInfo = data.inputs.globalLightInfo,
-                       .infoManagerSceneLightList = data.inputs.globalLightInfo,
+                       .infoManagerSceneLightList = data.inputs.globalLightList,
                        .randomValueTexture = data.inputs.randomValueTexture,
                        .fogController = data.inputs.fogController,
                        .computeRayDistBuffers = data.outputs.computeRayDistBuffers,
@@ -94,6 +102,7 @@ void VisibilityDistanceCompute::createBuildPipelineWaiter(
                     .resourceManger = &context.getManagerRenderResource(),
                     .deviceID = &context.getDeviceID(),
                     .graphicsManagers = &context.getGraphicsManagers(),
+                    .commandBus = &context.getCmdBus(),
                 },
             .numFramesInFlight = context.frameTracker().getSetup().getNumFramesInFlight()})
         .buildShared();

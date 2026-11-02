@@ -1,35 +1,42 @@
 #include "config/AppConfigValidator.hpp"
 #include "config/AppConfigInfo.hpp"
 
-#include <starlight/common/ConfigFile.hpp>
+#include <starlight/util/io/SearchPolicy.hpp>
 
 #include <filesystem>
+#include <string>
 
 namespace config
 {
 std::optional<std::string> validateAppConfig(const AppConfigInfo &cfg)
 {
+    namespace io = star::io;
+    using star::io::PathKind;
+
     if (cfg.volumeName.empty())
         return "Config: 'volumeName' must not be empty";
     if (cfg.terrainDir.empty())
         return "Config: 'terrainDir' must not be empty";
 
-    const std::filesystem::path terrainDirPath{cfg.terrainDir};
-    if (!std::filesystem::is_directory(terrainDirPath))
-        return "Config: 'terrainDir' does not exist or is not a directory: " + cfg.terrainDir;
+    {
+        auto resolved = io::resolvePath(std::filesystem::path{cfg.terrainDir}, PathKind::directory);
+        if (!resolved)
+            return "Config: 'terrainDir' does not exist or is not a directory: " + resolved.error().toString();
+    }
 
     if (!cfg.simControllerPath.empty())
     {
-        const std::filesystem::path simControllerPath{cfg.simControllerPath};
-        if (!std::filesystem::is_regular_file(simControllerPath))
-            return "Config: 'simControllerPath' does not exist or is not a regular file: " + cfg.simControllerPath;
+        auto resolved = io::resolvePath(std::filesystem::path{cfg.simControllerPath}, PathKind::file);
+        if (!resolved)
+            return "Config: 'simControllerPath' does not exist or is not a regular file: " +
+                   resolved.error().toString();
     }
 
-    const auto mediaDir = star::ConfigFile::getSetting(star::Config_Settings::mediadirectory);
-    const std::filesystem::path volumePath = std::filesystem::path(mediaDir) / "volumes" / cfg.volumeName;
-    if (!std::filesystem::is_directory(volumePath))
-        return "Config: resolved volume path does not exist or is not a directory: " + volumePath.string();
-
+    // Note: the volume *directory* is deliberately not resolved here. It is
+    // resolved through the GetPath command (util::ResolveVolumeDirectory), which
+    // needs the CommandBus -- born inside the engine, long after this runs. The
+    // call that actually consumes the resolved directory, Application::loadScene,
+    // reports the same failure with the same IOError. See util/VolumePath.hpp.
     return std::nullopt;
 }
 } // namespace config

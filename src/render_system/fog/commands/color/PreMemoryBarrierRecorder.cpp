@@ -1,14 +1,20 @@
 #include "render_system/fog/commands/color/PreMemoryBarrierRecorder.hpp"
 
+#include "render_system/fog/BarrierFactory.hpp"
+#include "render_system/fog/struct/BarrierBatch.hpp"
+
 namespace render_system::fog::commands::color
 {
-void PreMemoryBarrierRecorder::recordCommands(const PassInfo &vInfo, const star::common::FrameTracker &ft,
+void PreMemoryBarrierRecorder::recordCommands(PassInfo &vInfo, const star::common::FrameTracker &ft,
                                               vk::CommandBuffer cmdBuf) const noexcept
 {
+    (void)ft;
+
     BarrierBatch batch;
-    if (std::holds_alternative<PreDifferentFamilies>(m_policy))
+
+    if (vInfo.transmittanceMap != VK_NULL_HANDLE)
     {
-        std::get<PreDifferentFamilies>(m_policy).build(vInfo, ft, batch);
+        batch.addImage(MakeTransmittanceMapToShaderReadBarrier(vInfo.transmittanceMap));
     }
 
     if (!batch.empty())

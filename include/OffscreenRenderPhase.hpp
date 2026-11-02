@@ -1,5 +1,6 @@
 #pragma once
 
+#include <starlight/core/CommandBus.hpp>
 #include <starlight/core/renderer/DefaultRenderPhase.hpp>
 
 class OffscreenRenderPhaseProvider;
@@ -13,7 +14,7 @@ class OffscreenRenderPhaseProvider;
 class OffscreenRenderPhase : public star::core::renderer::DefaultRenderPhase
 {
   public:
-    OffscreenRenderPhase() = default;
+    OffscreenRenderPhase(const star::core::CommandBus &cmdBus, vk::Device device);
     virtual ~OffscreenRenderPhase() = default;
 
     OffscreenRenderPhase(const OffscreenRenderPhase &) = delete;
@@ -21,9 +22,9 @@ class OffscreenRenderPhase : public star::core::renderer::DefaultRenderPhase
     OffscreenRenderPhase(OffscreenRenderPhase &&) = delete;
     OffscreenRenderPhase &operator=(OffscreenRenderPhase &&) = delete;
 
-    virtual void recordPreRenderPassCommands(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft) override;
+    virtual void recordPreRenderPassCommands(vk::CommandBuffer buffer, const star::common::FrameTracker &ft) override;
 
-    virtual void recordPostRenderingCalls(vk::CommandBuffer &buffer, const star::common::FrameTracker &ft) override;
+    virtual void recordPostRenderingCalls(vk::CommandBuffer buffer, const star::common::FrameTracker &ft) override;
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoColorAttachment(
         const star::common::FrameTracker &frameTracker) override;
@@ -32,7 +33,7 @@ class OffscreenRenderPhase : public star::core::renderer::DefaultRenderPhase
                                      const star::common::FrameTracker &frameInFlightIndex,
                                      const uint64_t &frameIndex) override;
 
-    const std::vector<star::Handle> getTimelineSemaphroes() const
+    const std::vector<star::Handle> getTimelineSemaphores() const
     {
         return m_timelineSemaphores;
     }
@@ -57,12 +58,4 @@ class OffscreenRenderPhase : public star::core::renderer::DefaultRenderPhase
 
     virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
         const star::common::FrameTracker &frameTracker) override;
-
-    vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
-                               std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                               std::vector<vk::Semaphore> dataSemaphores,
-                               std::vector<vk::PipelineStageFlags> dataWaitPoints,
-                               std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue);
-
-    void waitForSemaphore(const star::common::FrameTracker &ft) const;
 };

@@ -156,8 +156,6 @@ void SimulationControllerService::incrementLinear(Volume &volume, float t) const
 
 void SimulationControllerService::incrementMarched(Volume &volume, float t) const
 {
-    volume.getRenderer().getFogInfo().homogenousInfo.maxNumSteps =
-        m_loadedSteps.start.homogenousInfo.maxNumSteps + t * m_loadedSteps.fogInfoChanges.homogenousInfo.maxNumSteps;
     volume.getRenderer().getFogInfo().marchedInfo.defaultDensity =
         m_loadedSteps.start.marchedInfo.defaultDensity + t * m_loadedSteps.fogInfoChanges.marchedInfo.defaultDensity;
     volume.getRenderer().getFogInfo().marchedInfo.stepSizeDist =
@@ -257,7 +255,6 @@ sim_controller::UpdateStatus SimulationControllerService::updateSim(Volume &volu
     switch (static_cast<Fog::Type>(m_fogTypeTracker))
     {
     case (Fog::Type::sMarched):
-    case (Fog::Type::sMarchedHomogenous):
         incrementMarched(volume, t);
         break;
     case (Fog::Type::sLinear):

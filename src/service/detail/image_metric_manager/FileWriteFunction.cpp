@@ -19,8 +19,8 @@ namespace service::image_metric_manager
 FileWriteFunction::FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferHandle, const star::StarCamera &camera,
                                      const Volume &volume, star::Light light, std::string terrainName,
                                      star::terrain::CoverageInfo terrainShapeInfo,
-                                     star::terrain::rendering::Type terrainRenderingType, std::string volumeName,
-                                     ImageFilesInfo imageFilesInfo)
+                                     star::terrain::rendering::ElevationType terrainRenderingType,
+                                     std::string volumeName, ImageFilesInfo imageFilesInfo)
     : m_data(std::make_unique<MetricWriteData>(MetricWriteData{
           std::move(bufferHandle),
           ImageMetrics{.mainLight = std::move(light),

@@ -1,28 +1,26 @@
-
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 
 REM Resolve the directory that this script resides in
 set "SCRIPT_DIR=%~dp0"
-
-REM Normalize to a fully-qualified path
 for %%I in ("%SCRIPT_DIR%.") do set "SCRIPT_DIR=%%~fI"
 
-REM Go TWO directories up from script location
-for %%I in ("%SCRIPT_DIR%..\..") do set "PARENT_DIR=%%~fI"
+REM The repository root is one level up from dist
+for %%I in ("%SCRIPT_DIR%\..") do set "PARENT_DIR=%%~fI"
 
-echo Parent directory: "%PARENT_DIR%"
+echo Repository root: "%PARENT_DIR%"
 
-REM Build Docker image
-pushd deps
-docker build -f rockyLinux_dockerfile -t starlight:rockyLinux .
-popd
+REM Build the portability image
+docker build -f "%SCRIPT_DIR%\deps\rockyLinux_dockerfile" -t starlight:rockyLinux "%SCRIPT_DIR%\deps" || goto :error
 
-REM Run container
-docker run -it ^
+REM Run the packaging build inside the container
+docker run --rm ^
   -v "%PARENT_DIR%:/app" ^
   -w /app ^
   starlight:rockyLinux ^
-  /bin/bash -lc "./dist/deps/scripts/build_install.sh"
+  /bin/bash ./dist/deps/scripts/build_install.sh || goto :error
 
-endlocal
+exit /b 0
+
+:error
+exit /b 1

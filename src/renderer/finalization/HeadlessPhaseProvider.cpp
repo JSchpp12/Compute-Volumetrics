@@ -14,13 +14,18 @@ HeadlessPhaseProvider::HeadlessPhaseProvider(star::core::device::DeviceContext &
 {
 }
 
-std::unique_ptr<star::core::renderer::RenderPhase>
-HeadlessPhaseProvider::build(star::core::device::DeviceContext &context, star::core::renderer::RenderPhaseRegistry & /*phases*/)
+std::unique_ptr<star::core::renderer::RenderPhase> HeadlessPhaseProvider::build(
+    star::core::device::DeviceContext &context, star::core::renderer::RenderPhaseRegistry & /*phases*/)
 {
-    auto phase = std::make_unique<HeadlessPhase>();
+    auto phase = std::make_unique<HeadlessPhase>(context.getCmdBus(), context.getDevice().getVulkanDevice());
 
-    // shared base prep (transfer state, groups, command buffer, targets, descriptor waiter)
-    buildCore(phase.get(), context);
+    // shared base build, in place into phase's DefaultRenderPhase base subobject
+    star::core::renderer::DefaultRenderPhase::Builder(context)
+        .setObjects(std::move(m_objects))
+        .setFrameData(m_frameData)
+        .setOwnsFrameData(m_createdFrameData)
+        .setConfig(m_config)
+        .buildInto(*phase);
 
     // headless tail-setup (timeline semaphores, scheme sizing, cmd-bus/device/image-manager lookup)
     prepareHeadlessPhase(phase.get(), context);

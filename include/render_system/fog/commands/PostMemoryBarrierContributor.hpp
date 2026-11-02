@@ -2,7 +2,7 @@
 
 #include "render_system/fog/commands/color/PostMemoryBarrierRecorder.hpp"
 #include "render_system/fog/commands/distance/PostMemoryBarrierRecorder.hpp"
-#include "render_system/fog/PassInfo.hpp"
+#include "render_system/fog/struct/PassInfo.hpp"
 
 #include <star_common/FrameTracker.hpp>
 
@@ -24,7 +24,6 @@ class PostMemoryBarrierContributor
     {
     }
 
-    void recordPostCommands(const PassInfo &vInfo, vk::CommandBuffer cmdBuf,
-                            const star::common::FrameTracker &ft);
+    void recordPostCommands(const PassInfo &vInfo, vk::CommandBuffer cmdBuf, const star::common::FrameTracker &ft);
 };
-} // namespace renderer
+} // namespace render_system::fog::commands

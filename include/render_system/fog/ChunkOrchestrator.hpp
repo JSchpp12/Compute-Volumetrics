@@ -1,9 +1,9 @@
 #pragma once
 
 #include "FogType.hpp"
-#include "render_system/fog/DispatchInfo.hpp"
-#include "render_system/fog/PassInfo.hpp"
 #include "render_system/fog/commands/Pass.hpp"
+#include "render_system/fog/struct/DispatchInfo.hpp"
+#include "render_system/fog/struct/PassInfo.hpp"
 #include "render_system/fog/sync/SyncProvider.hpp"
 
 #include <starlight/core/device/DeviceContext.hpp>
@@ -35,8 +35,26 @@ class ChunkOrchestrator
     {
     }
 
-    void recordCommands(const DispatchInfo &dInfo, const PassInfo &vInfo, const PassPipelineInfo &pipeInfo,
+    // CB-less constructors: the orchestrator records into an externally-managed command buffer via
+    // recordInto(), so it does not own its own StarCommandBuffer (m_cmdBuf stays default/empty).
+    ChunkOrchestrator(std::vector<commands::Pass> cmdApproaches, bool isDistance, const bool *isReady)
+        : m_cmdApproaches(std::move(cmdApproaches)), m_syncApproach(std::nullopt), m_isDistance(isDistance),
+          m_isReady(isReady)
+    {
+    }
+    ChunkOrchestrator(std::vector<commands::Pass> cmdApproaches, sync::SyncProvider syncApproach, const bool *isReady)
+        : m_cmdApproaches(std::move(cmdApproaches)), m_syncApproach(std::move(syncApproach)), m_isDistance(false),
+          m_isReady(isReady)
+    {
+    }
+
+    void recordCommands(const DispatchInfo &dInfo, PassInfo &vInfo, const PassPipelineInfo &pipeInfo,
                         const star::common::FrameTracker &ft);
+
+    // Records this orchestrator's passes (push constants + pre/main/post) into the provided command
+    // buffer without begin/end, so several orchestrators can share a single command buffer.
+    void recordInto(const DispatchInfo &dInfo, PassInfo &vInfo, const PassPipelineInfo &pipeInfo,
+                    const star::common::FrameTracker &ft, vk::CommandBuffer cmdBuf);
 
     void cleanupRender(star::core::device::DeviceContext &ctx);
 

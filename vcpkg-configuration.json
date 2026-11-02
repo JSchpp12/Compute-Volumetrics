@@ -1,0 +1,6 @@
+{
+  "$comment": "Use the Vulkan SDK that is already installed on the machine instead of letting vcpkg download vulkan-headers/vulkan-loader. The overlay 'vulkan' port below has no dependencies and just verifies that a system Vulkan SDK can be found.",
+  "overlay-ports": [
+    "./cmake/vcpkg-overlays"
+  ]
+}

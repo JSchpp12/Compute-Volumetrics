@@ -12,8 +12,6 @@ std::string TypeToString(const Type &type)
         return "exponential";
     case (Type::sMarched):
         return "marched";
-    case (Type::sMarchedHomogenous):
-        return "marched_homogenous";
     case (Type::sNanoBoundingBox):
         return "nano_boundingBox";
     case (Type::sNanoSurface):
@@ -31,8 +29,6 @@ Type TypeFromString(const std::string &str)
         return Type::sExponential;
     if (str == "marched")
         return Type::sMarched;
-    if (str == "marched_homogenous")
-        return Type::sMarchedHomogenous;
     if (str == "nano_boundingBox")
         return Type::sNanoBoundingBox;
     if (str == "nano_surface")

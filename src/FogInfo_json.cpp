@@ -1,7 +1,6 @@
 #include "FogInfo_json.hpp"
 #include "structs/ExpFogInfo.hpp"
 #include "structs/FogInfo.hpp"
-#include "structs/HomogenousRendering.hpp"
 #include "structs/LinearFogInfo.hpp"
 #include "structs/MarchedFogInfo.hpp"
 
@@ -37,7 +36,8 @@ void to_json(nlohmann::json &j, const MarchedFogInfo &v)
                        {"densityMultiplier", v.getDensityMultiplier()},
                        {"colorTransparencyCutoff", v.getColorTransparencyCutoff()},
                        {"distanceTransparencyCutoff", v.getDistanceTransparencyCutoff()},
-                       {"lightExtinctionScale", v.getLightExtinctionScale()}};
+                       {"lightExtinctionScale", v.getLightExtinctionScale()},
+                       {"shadowBias", v.getShadowBias()}};
 }
 
 void from_json(const nlohmann::json &j, MarchedFogInfo &v)
@@ -55,6 +55,7 @@ void from_json(const nlohmann::json &j, MarchedFogInfo &v)
     const float colorTransparencyCutoff = j.at("colorTransparencyCutoff").get<float>();
     const float distanceTransparencyCutoff = j.at("distanceTransparencyCutoff").get<float>();
     const float lightExtinctionScale = j.at("lightExtinctionScale").get<float>();
+    const float shadowBias = j.value("shadowBias", 0.01f);
 
     v.setSigmaAbsorption(sigmaAbs);
     v.setSigmaScattering(sigmaSca);
@@ -63,16 +64,7 @@ void from_json(const nlohmann::json &j, MarchedFogInfo &v)
     v.setColorTransparencyCutoff(colorTransparencyCutoff);
     v.setDistanceTransparencyCutoff(distanceTransparencyCutoff);
     v.setLightExtinctionScale(lightExtinctionScale);
-}
-
-void to_json(nlohmann::json &j, const HomogenousRendering &v)
-{
-    j = nlohmann::json{{"maxNumSteps", v.maxNumSteps}};
-}
-
-void from_json(const nlohmann::json &j, HomogenousRendering &v)
-{
-    v.maxNumSteps = j.value("maxNumSteps", v.maxNumSteps);
+    v.setShadowBias(shadowBias);
 }
 
 void to_json(nlohmann::json &j, const FogInfo &v)
@@ -83,13 +75,10 @@ void to_json(nlohmann::json &j, const FogInfo &v)
     to_json(expData, v.expFogInfo);
     nlohmann::json marchedData;
     to_json(marchedData, v.marchedInfo);
-    nlohmann::json homoData;
-    to_json(homoData, v.homogenousInfo);
 
     j = nlohmann::json{{"linearInfo", linearData},
                        {"expFogInfo", expData},
-                       {"marchedInfo", marchedData},
-                       {"homogenousInfo", homoData}};
+                       {"marchedInfo", marchedData}};
 }
 
 void from_json(const nlohmann::json &j, FogInfo &v)
@@ -100,6 +89,4 @@ void from_json(const nlohmann::json &j, FogInfo &v)
         from_json(j["expFogInfo"], v.expFogInfo);
     if (j.contains("marchedInfo"))
         from_json(j["marchedInfo"], v.marchedInfo);
-    if (j.contains("homogenousInfo"))
-        from_json(j["homogenousInfo"], v.homogenousInfo);
 }

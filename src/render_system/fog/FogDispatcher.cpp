@@ -1,9 +1,13 @@
 #include "render_system/fog/FogDispatcher.hpp"
 
+#include "FogType.hpp"
 #include "render_system/fog/commands/Distance.hpp"
 #include "render_system/fog/commands/Pass.hpp"
 #include "render_system/fog/commands/PostMemoryBarrierContributor.hpp"
 #include "render_system/fog/commands/PreMemoryBarrierContributor.hpp"
+#include "render_system/fog/commands/transmittance/TransmittancePrecompute.hpp"
+#include "render_system/fog/policies/ShadowDepthAcquirePolicy.hpp"
+#include "render_system/fog/policies/ShadowDepthReleaseBackPolicy.hpp"
 #include "render_system/fog/struct/ShaderFlags.hpp"
 #include "render_system/fog/struct/ShaderPushInfo.hpp"
 #include "render_system/fog/struct/SyncInfo.hpp"
@@ -37,33 +41,44 @@ static std::tuple<uint32_t, uint32_t, uint32_t> GetQueueFamilyIndices(star::core
     return std::make_tuple(graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex);
 }
 
+static ChunkOrchestrator CreateTransmittancePrecomputePass(star::core::device::DeviceContext &ctx,
+                                                           star::Handle &passReg,
+                                                           const vk::Extent2D &transmittanceMapResolution,
+                                                           bool &isReady)
+{
+    const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
+        GetQueueFamilyIndices(ctx);
+    (void)transferQueueFamilyIndex;
+
+    std::vector<commands::Pass> pass{Pass{
+        ComputeContributor{TransmittancePrecompute{transmittanceMapResolution}},
+        PreMemoryBarrierContributor{transmittance::PreMemoryBarrierRecorder{transmittance::ShadowDepthAcquire{
+            render_system::fog::makeShadowDepthAcquirePolicy(graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}}};
+
+    return ChunkOrchestrator{std::move(pass), false, &isReady};
+}
+
 static ChunkOrchestrator CreateColorPass(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
 {
     const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
         GetQueueFamilyIndices(ctx);
 
-    std::vector<commands::Pass> pass;
-    pass.resize(3);
-
-    const auto *queueInfo = ctx.getManagerCommandBuffer().m_manager.getInUseInfoForType(star::Queue_Type::Tcompute);
-    assert(queueInfo != nullptr && "Failed to get queue info from manager");
-
     QueueFamilyIndices info{
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
 
-    pass[0] = Pass{ComputeContributor{Init{ctx.getEngineResolution()}},
-                   PreMemoryBarrierContributor{color::PreMemoryBarrierRecorder{color::PreDifferentFamilies{info}}}};
+    std::vector<commands::Pass> pass{
+        Pass{ComputeContributor{Init{ctx.getEngineResolution()}},
+             PreMemoryBarrierContributor{color::PreMemoryBarrierRecorder{},
+                                         color::FrameInputPreMemoryBarrierRecorder{color::PreDifferentFamilies{
+                                             info, render_system::fog::makeShadowDepthAcquirePolicy(
+                                                       graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}},
+        Pass{ComputeContributor{IndirectDispatch{}}},
+        Pass{ComputeContributor{Color{}},
+             PostMemoryBarrierContributor{color::PostMemoryBarrierRecorder{
+                 color::PostDifferentFamilies{info, render_system::fog::makeShadowDepthReleaseBackPolicy(
+                                                        graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}}};
 
-    pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
-
-    pass[2] = Pass{ComputeContributor{Color{}},
-                   PostMemoryBarrierContributor{color::PostMemoryBarrierRecorder{color::PostDifferentFamilies{info}}}};
-
-    return ChunkOrchestrator{
-        star::StarCommandBuffer(ctx.getDevice().getVulkanDevice(),
-                                static_cast<int>(ctx.frameTracker().getSetup().getNumFramesInFlight()),
-                                &queueInfo->pool, star::Queue_Type::Tcompute, false, false),
-        std::move(pass), false, &isReady};
+    return ChunkOrchestrator{std::move(pass), false, &isReady};
 }
 
 static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
@@ -71,42 +86,29 @@ static ChunkOrchestrator CreateDepthPass(star::core::device::DeviceContext &ctx,
     const auto [graphicsQueueFamilyIndex, computeQueueFamilyIndex, transferQueueFamilyIndex] =
         GetQueueFamilyIndices(ctx);
 
-    std::vector<commands::Pass> pass;
-    pass.resize(3);
-
-    const auto *queueInfo = ctx.getManagerCommandBuffer().m_manager.getInUseInfoForType(star::Queue_Type::Tcompute);
-    assert(queueInfo != nullptr && "Failed to get queue info from manager");
-
     QueueFamilyIndices info{
         .graphics = graphicsQueueFamilyIndex, .transfer = transferQueueFamilyIndex, .compute = computeQueueFamilyIndex};
 
-    pass[0] =
-        Pass{ComputeContributor{Init{ctx.getEngineResolution(), true}},
-             PreMemoryBarrierContributor{distance::PreMemoryBarrierRecorder{distance::PreDifferentFamilies{info}}}};
-
-    pass[1] = Pass{ComputeContributor{IndirectDispatch{}}};
-
-    pass[2] =
+    std::vector<commands::Pass> pass{
+        Pass{ComputeContributor{Init{ctx.getEngineResolution(), InitPassType::Camera, true}},
+             PreMemoryBarrierContributor{distance::PreMemoryBarrierRecorder{distance::PreDifferentFamilies{info}}}},
+        Pass{ComputeContributor{IndirectDispatch{}}},
         Pass{ComputeContributor{Distance{}},
-             PostMemoryBarrierContributor{distance::PostMemoryBarrierRecorder{distance::PostDifferentFamilies{info}}}};
+             PostMemoryBarrierContributor{distance::PostMemoryBarrierRecorder{
+                 distance::PostDifferentFamilies{info, render_system::fog::makeShadowDepthReleaseBackPolicy(
+                                                           graphicsQueueFamilyIndex, computeQueueFamilyIndex)}}}}};
 
-    return ChunkOrchestrator{
-        star::StarCommandBuffer(ctx.getDevice().getVulkanDevice(),
-                                static_cast<int>(ctx.frameTracker().getSetup().getNumFramesInFlight()),
-                                &queueInfo->pool, star::Queue_Type::Tcompute, false, false),
-        std::move(pass), true, &isReady};
+    return ChunkOrchestrator{std::move(pass), true, &isReady};
 }
 
-void FogDispatcher::prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
+void FogDispatcher::prepRender(star::core::device::DeviceContext &ctx, star::Handle &passReg,
+                               DispatchContextInfo contextInfo, bool &isReady)
 {
     m_cmdBus = &ctx.getCmdBus();
 
-    const auto *queueInfo = ctx.getManagerCommandBuffer().m_manager.getInUseInfoForType(star::Queue_Type::Tcompute);
-    assert(queueInfo != nullptr && "Failed to get queue info from manager");
-
     m_syncApproach = {signal::CalcFromFt{1, 1, &ctx.frameTracker()}, wait::GatherFromCO{passReg, &ctx.getCmdBus()}};
 
-    createChunks(ctx, passReg, isReady);
+    createChunks(ctx, passReg, contextInfo, isReady);
 }
 
 void FogDispatcher::cleanupRender(star::core::device::DeviceContext &ctx)
@@ -115,6 +117,8 @@ void FogDispatcher::cleanupRender(star::core::device::DeviceContext &ctx)
     {
         chunk.cleanupRender(ctx);
     }
+
+    m_sharedCmdBuf.cleanupRender(ctx.getDevice().getVulkanDevice());
 }
 
 void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk::Semaphore> dataSemaphores,
@@ -123,6 +127,10 @@ void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk:
                            const star::Handle &registration)
 {
     assert(m_passes.size() > 0);
+    if (m_numCbRecorded == 0)
+    {
+        return;
+    }
 
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
 
@@ -133,27 +141,27 @@ void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk:
         workingSemaphore = gCmd.getReply().get().signaledSemaphore;
     }
 
-    for (uint8_t i{0}; i < m_numCbRecorded; i++)
-        m_cbSubmitInfo[i] = vk::CommandBufferSubmitInfo().setCommandBuffer(m_passes[i].getCmdBuffer().buffer(ii));
+    // Single shared command buffer for all compute passes.
+    vk::CommandBufferSubmitInfo m_cbSubmitInfo =
+        vk::CommandBufferSubmitInfo().setCommandBuffer(m_sharedCmdBuf.buffer(ii));
 
     assert(dataSemaphores.size() == dataWaitPoints.size());
 
     uint32_t waitInfoCount{0};
-    vk::SemaphoreSubmitInfo waitInfo[5];
     {
         auto wait = m_syncApproach.getWaitInfo();
         for (uint8_t i{0}; i < wait.count; i++)
         {
-            waitInfo[waitInfoCount] = wait.info[i];
+            m_cbSubmitWait[waitInfoCount] = wait.info[i];
             waitInfoCount++;
         }
     }
 
     for (size_t i{0}; i < dataWaitPoints.size(); i++)
     {
-        waitInfo[waitInfoCount] = vk::SemaphoreSubmitInfo()
-                                      .setSemaphore(dataSemaphores[i])
-                                      .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
+        m_cbSubmitWait[waitInfoCount] = vk::SemaphoreSubmitInfo()
+                                            .setSemaphore(dataSemaphores[i])
+                                            .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
         waitInfoCount++;
     }
 
@@ -166,59 +174,78 @@ void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk:
         vk::SubmitInfo2 submitInfo = vk::SubmitInfo2()
                                          .setPSignalSemaphoreInfos(&signalInfo)
                                          .setSignalSemaphoreInfoCount(1)
-                                         .setPCommandBufferInfos(m_cbSubmitInfo.data())
-                                         .setCommandBufferInfoCount(m_numCbRecorded)
-                                         .setPWaitSemaphoreInfos(waitInfo)
+                                         .setPCommandBufferInfos(&m_cbSubmitInfo)
+                                         .setCommandBufferInfoCount(1)
+                                         .setPWaitSemaphoreInfos(m_cbSubmitWait.data())
                                          .setWaitSemaphoreInfoCount(waitInfoCount);
 
         queue.getVulkanQueue().submit2(submitInfo);
     }
 }
 
-void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::FrameTracker &ft, const PassInfo &pInfo,
+void FogDispatcher::recordCommands(DispatchInfo &dInfo, const star::common::FrameTracker &ft, PassInfo &pInfo,
                                    const PassPipelineInfo &pipeInfo)
 {
     assert(m_passes.size() > 0);
     m_numCbRecorded = 0;
 
-    // know the index 1 is the distance dispatch so hardcode for now
+    // All compute passes share a single command buffer so the queue-ownership acquires recorded in the
+    // transmittance/color pre-barriers cover every read (color/distance) within the same command buffer.
+    const size_t fi = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
+    vk::CommandBuffer cb = m_sharedCmdBuf.buffer(fi);
+    m_sharedCmdBuf.begin(fi);
 
-    // m_passes[1].
+    // Debug flags are packed together in the incoming dispatch info, but each pass needs a
+    // different set of base flags. Cache the debug state before rebuilding pass-specific flags;
+    // otherwise the color pass overwrites all dynamically toggled march flags.
+    const auto precomputeLightTransmittanceDebugFlags =
+        GetPrecomputeLightTransmittanceShaderFlags(dInfo.shaderOptionFlags);
+    const auto marchDebugFlags = GetMarchShaderFlags(dInfo.shaderOptionFlags);
 
-    // TODO: move the wait for semaphore value from the volume renderer to here
+    bool recordedAny = false;
     for (size_t i{0}; i < m_passes.size(); i++)
     {
-        if (i == 0)
+        switch (i)
         {
+        case 0: // transmittance precompute pass
+            // rayInit gates against the sun (orthographic) shadow depth
+            // (set 3 binds the non-compare sun depth) instead of the camera depth.
+            dInfo.shaderOptionFlags =
+                Pack(InitShaderFlags::None, precomputeLightTransmittanceDebugFlags, MarchShaderFlags::None);
+            break;
+        case 1: // color pass
             switch (pipeInfo.fogType)
             {
             case (Fog::Type::sExponential):
             case (Fog::Type::sLinear):
-                dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableColorOutput, MarchShaderFlags::None);
+                dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableColorOutput,
+                                               PrecomputeLightTransmittanceShaderFlags::None, marchDebugFlags);
                 break;
             default:
-                dInfo.shaderOptionFlags =
-                    Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest |
-                             InitShaderFlags::EnableColorOutput,
-                         m_enableColorDebugCutoff ? MarchShaderFlags::EnableDebugHighlightCutoffValue
-                                                  : MarchShaderFlags::None);
+                dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableDepthtest | InitShaderFlags::EnableAabbTest |
+                                                   InitShaderFlags::EnableColorOutput,
+                                               PrecomputeLightTransmittanceShaderFlags::None, marchDebugFlags);
             }
-        }
-        else if (pipeInfo.fogType == Fog::Type::sMarched)
-        {
-            // distance passes always have AAbb test but no depth test
+            break;
+        case 2: // depth pass (marched only)
             dInfo.shaderOptionFlags = Pack(InitShaderFlags::EnableAabbTest,
-                                           m_enableColorDebugCutoff ? MarchShaderFlags::EnableDebugHighlightCutoffValue
-                                                                    : MarchShaderFlags::None);
+                                           PrecomputeLightTransmittanceShaderFlags::None, MarchShaderFlags::None);
+            break;
         }
 
-        // only dispatch the distance compute for the marched option. All others have analytical solutions.
-        if ((i == 1 && pipeInfo.fogType == Fog::Type::sMarched) || i == 0)
+        // Linear and exponential fog do not sample the precomputed transmittance map. Skip the entire transmittance
+        // chunk,
+        const bool dispatch = (i == 0 && Fog::NeedsTransmittancePrecompute(pipeInfo.fogType)) || (i == 1) ||
+                              (i == 2 && pipeInfo.fogType == Fog::Type::sMarched);
+        if (dispatch)
         {
-            m_passes[i].recordCommands(dInfo, pInfo, pipeInfo, ft);
-            m_numCbRecorded++;
+            m_passes[i].recordInto(dInfo, pInfo, pipeInfo, ft, cb);
+            recordedAny = true;
         }
     }
+
+    cb.end();
+    m_numCbRecorded = recordedAny ? 1 : 0;
 }
 
 uint64_t FogDispatcher::getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const
@@ -226,15 +253,25 @@ uint64_t FogDispatcher::getTimelineDoneSignalValue(const star::common::FrameTrac
     return m_syncApproach.getSignalInfo().value;
 }
 
-void FogDispatcher::createChunks(star::core::device::DeviceContext &ctx, star::Handle &passReg, bool &isReady)
+void FogDispatcher::createChunks(star::core::device::DeviceContext &ctx, star::Handle &passReg,
+                                 const DispatchContextInfo &dContext, bool &isReady)
 {
     const size_t nf = static_cast<size_t>(ctx.frameTracker().getSetup().getNumFramesInFlight());
 
-    m_passes.resize(2);
-    m_passes[0] = CreateColorPass(ctx, passReg, isReady);
-    m_passes[1] = CreateDepthPass(ctx, passReg, isReady);
+    m_passes.resize(3);
+    m_passes[0] = CreateTransmittancePrecomputePass(ctx, passReg,
+                                                    vk::Extent2D()
+                                                        .setHeight(dContext.tranmittanceTextureResolution.height)
+                                                        .setWidth(dContext.tranmittanceTextureResolution.width),
+                                                    isReady);
+    m_passes[1] = CreateColorPass(ctx, passReg, isReady);
+    m_passes[2] = CreateDepthPass(ctx, passReg, isReady);
 
-    m_cbSubmitInfo.resize(2);
+    const auto *queueInfo = ctx.getManagerCommandBuffer().m_manager.getInUseInfoForType(star::Queue_Type::Tcompute);
+    assert(queueInfo != nullptr && "Failed to get compute queue info from manager");
+    m_sharedCmdBuf = star::StarCommandBuffer(ctx.getDevice().getVulkanDevice(),
+                                             static_cast<int>(ctx.frameTracker().getSetup().getNumFramesInFlight()),
+                                             &queueInfo->pool, star::Queue_Type::Tcompute, false, false);
     m_numCbRecorded = 0;
 }
 } // namespace render_system::fog

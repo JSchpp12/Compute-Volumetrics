@@ -9,11 +9,11 @@
 
 struct BarrierBatch
 {
-    std::array<vk::ImageMemoryBarrier2, 8> imageBarriers{};
-    std::array<vk::BufferMemoryBarrier2, 8> bufferBarriers{};
+    std::array<vk::ImageMemoryBarrier2, 6> imageBarriers{};
+    std::array<vk::BufferMemoryBarrier2, 6> bufferBarriers{};
 
-    uint32_t imageCount{0};
-    uint32_t bufferCount{0};
+    uint8_t imageCount{0};
+    uint8_t bufferCount{0};
 
     BarrierBatch &addImage(vk::ImageMemoryBarrier2 barrier)
     {

@@ -1,8 +1,8 @@
 #include "renderer/distance/CreatePipelines.hpp"
 
-#include <ConfigFile.hpp>
+#include "render_system/fog/ShaderFactory.hpp"
+#include "renderer/PipelineLayoutAssembler.hpp"
 
-#include <Compiler.hpp>
 #include <Enums.hpp>
 #include <StarDescriptorBuilders.hpp>
 #include <StarPipeline.hpp>
@@ -14,12 +14,11 @@
 #include <device/managers/GraphicsContainer.hpp>
 #include <device/managers/Pipeline.hpp>
 #include <device/managers/Shader.hpp>
-#include <filesystem>
 #include <memory>
 #include <star_common/Handle.hpp>
 #include <star_common/HandleTypeRegistry.hpp>
+#include <starlight/command/pipeline/CreatePipeline.hpp>
 #include <string>
-#include <utility>
 #include <vector>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_handles.hpp>
@@ -63,31 +62,18 @@ std::unique_ptr<star::StarShaderInfo> CreatePipelines::buildShaderInfo() const
 }
 
 static star::Handle BuildPipeline(vk::PipelineLayout computePipelineLayout,
-                                  star::core::device::manager::GraphicsContainer &graphicsManagers)
+                                  renderer::distance::CreatePipelines::DeviceContext &context)
 {
-    const auto shaderPath = std::filesystem::path(star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)) /
-                            "shaders" / "volumeRenderer" / "volume_distance.comp";
+    assert(context.commandBus != nullptr && "Command bus required to build the distance pipeline");
 
-    auto shaderRequest = graphicsManagers.shaderManager->submit(star::core::device::manager::ShaderRequest{
-        star::StarShader(shaderPath.string(), star::Shader_Stage::compute), star::Compiler("PNANOVDB_GLSL")});
+    const star::Handle shaderHandle =
+        render_system::fog::CreateVolumeComputeShader("volume_distance.comp", *context.commandBus);
 
-    return graphicsManagers.pipelineManager->submit(star::core::device::manager::PipelineRequest{
-        star::PipelineProvider{std::move(shaderRequest), computePipelineLayout}});
-}
+    star::command::pipeline::CreatePipeline cmd;
+    cmd.setComputePipeline().addShaderHandle(shaderHandle).setPipelineLayout(computePipelineLayout);
 
-static vk::PipelineLayout BuildPipelineLayout(std::array<vk::DescriptorSetLayout, 2> sharedStaticSet,
-                                              vk::DescriptorSetLayout dynamicSet,
-                                              star::core::device::StarDevice &device)
-{
-    const vk::DescriptorSetLayout sets[3]{sharedStaticSet[0], sharedStaticSet[1], dynamicSet};
-    const auto range = vk::PushConstantRange()
-                           .setSize(sizeof(render_system::fog::ShaderPushInfo))
-                           .setOffset(0)
-                           .setStageFlags(vk::ShaderStageFlagBits::eCompute);
-
-    const auto info =
-        vk::PipelineLayoutCreateInfo().setSetLayouts(sets).setPPushConstantRanges(&range).setPushConstantRangeCount(1);
-    return device.getVulkanDevice().createPipelineLayout(info);
+    context.commandBus->submit(cmd);
+    return cmd.getReply().get();
 }
 
 void CreatePipelines::create()
@@ -96,14 +82,34 @@ void CreatePipelines::create()
     *outputs.dynamicShaderInfo = buildShaderInfo();
 
     assert(outputs.pipelineLayout != nullptr);
-    *outputs.pipelineLayout =
-        BuildPipelineLayout({inputs.staticComputeShaderInfo->get()->getDescriptorSetLayouts()[0],
-                             inputs.staticComputeShaderInfo->get()->getDescriptorSetLayouts()[1]},
-                            outputs.dynamicShaderInfo->get()->getDescriptorSetLayouts()[0], *context.device);
-
     assert(inputs.staticComputeShaderInfo != nullptr);
+    assert(inputs.staticComputeShaderInfo->get() &&
+           "shared static compute shader info must be built before distance pipelines");
+
+    // The distance pipeline layout reuses the volume's shared static sets (0,1)
+    // from staticComputeShaderInfo and appends the distance pass's own dynamic
+    // set right after them. The dynamic set's baseSet is therefore the shared
+    // static baseSet + the shared static set count -- derived, not hard-coded.
+    star::StarShaderInfo *staticInfo = inputs.staticComputeShaderInfo->get();
+    const uint32_t dynamicBaseSet =
+        staticInfo->getBaseSet() + static_cast<uint32_t>(staticInfo->getDescriptorSetLayouts().size());
+    outputs.dynamicShaderInfo->get()->setBaseSet(dynamicBaseSet);
+
+    // Assembly goes through the shared PipelineLayoutAssembler; baseSet for each
+    // contribution is read from the StarShaderInfo, so contiguity + compatibility
+    // checks are the same as the volume path.
+    renderer::PipelineLayoutAssembler assembler{
+        .device = context.device,
+        .pushConstants = {vk::PushConstantRange()
+                              .setSize(sizeof(render_system::fog::ShaderPushInfo))
+                              .setOffset(0)
+                              .setStageFlags(vk::ShaderStageFlagBits::eCompute)}};
+    assembler.contributions.push_back({inputs.staticComputeShaderInfo->get(), /*primary=*/true});
+    assembler.contributions.push_back({outputs.dynamicShaderInfo->get(), /*primary=*/true});
+    *outputs.pipelineLayout = assembler();
+
     assert(context.graphicsManagers != nullptr);
-    *outputs.marchedPipeline = BuildPipeline(*outputs.pipelineLayout, *context.graphicsManagers);
+    *outputs.marchedPipeline = BuildPipeline(*outputs.pipelineLayout, context);
 }
 
 } // namespace renderer::distance

@@ -10,9 +10,9 @@
 
 #include <starlight/command/FileIO/WriteToFile.hpp>
 #include <starlight/command/GetScreenCaptureSyncInfo.hpp>
-#include <starlight/command/TaskScheduler/SubmitTask.hpp>
 #include <starlight/command/command_order/DeclareDependency.hpp>
 #include <starlight/command/frames/GetFrameTracker.hpp>
+#include <starlight/command/task_scheduler/SubmitTask.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/job/tasks/WriteImageToDisk.hpp>
 
@@ -169,7 +169,7 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
     const std::filesystem::path jsonPath = std::filesystem::path(imageCaptureFileName).replace_extension(".json");
 
     const Fog::Type fogType = volume.getRenderer().getFogType();
-    const bool isMarchedFog = fogType == Fog::Type::sMarched || fogType == Fog::Type::sMarchedHomogenous;
+    const bool isMarchedFog = fogType == Fog::Type::sMarched;
 
     std::optional<image_metric_manager::DistanceMaskImages> distanceMaskImages;
     if (isMarchedFog)
@@ -186,8 +186,8 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
             .rayNormalizedDistanceName = normalizedMaskPath.filename().string()};
 
         {
-            auto tifPayload =
-                star::job::tasks::write_image_to_disk::Create(image_metric_manager::SharedBufferWriteDistanceMaskPayload{
+            auto tifPayload = star::job::tasks::write_image_to_disk::Create(
+                image_metric_manager::SharedBufferWriteDistanceMaskPayload{
                     .bufferHandle = sharedHandle, .imageFormat = vk::Format::eR32Sfloat, .path = maskPath.string()});
 
             star::command::task_scheduler::SubmitTask tifCmd(std::move(tifPayload),
@@ -196,8 +196,8 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
         }
 
         {
-            auto normalizedTifPayload =
-                star::job::tasks::write_image_to_disk::Create(image_metric_manager::SharedBufferWriteDistanceMaskPayload{
+            auto normalizedTifPayload = star::job::tasks::write_image_to_disk::Create(
+                image_metric_manager::SharedBufferWriteDistanceMaskPayload{
                     .bufferHandle = sharedHandle,
                     .imageFormat = vk::Format::eR32Sfloat,
                     .path = normalizedMaskPath.string(),
@@ -224,13 +224,12 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
 
     {
         auto jsonPayload = star::job::tasks::io::CreateWriteTask(star::job::tasks::io::WritePayload{
-            jsonPath,
-            image_metric_manager::FileWriteFunction{
-                sharedHandle, camera, volume, mainLight, m_cachedTerrainShapeInfo.getTerrainName(),
-                m_cachedTerrainShapeInfo.get(), m_cachedTerrainShapeInfo.getTerrainRenderingType(),
-                m_cachedVolumeNameInfo,
-                image_metric_manager::ImageFilesInfo{.sourceImageName = basePath.filename().string(),
-                                                      .distanceMaskImages = distanceMaskImages}}});
+            jsonPath, image_metric_manager::FileWriteFunction{
+                          sharedHandle, camera, volume, mainLight, m_cachedTerrainShapeInfo.getTerrainName(),
+                          m_cachedTerrainShapeInfo.get(), m_cachedTerrainShapeInfo.getTerrainRenderingType(),
+                          m_cachedVolumeNameInfo,
+                          image_metric_manager::ImageFilesInfo{.sourceImageName = basePath.filename().string(),
+                                                               .distanceMaskImages = distanceMaskImages}}});
 
         star::command::file_io::WriteToFile jsonCmd(std::move(jsonPayload));
         m_cmdBus->submit(jsonCmd);
@@ -254,13 +253,13 @@ void ImageMetricManager::cleanupListeners(star::core::CommandBus &cmdBus)
 }
 
 void ImageMetricManager::submitToGatherTerrainInfoFromFile(std::filesystem::path terrainShapeFilePath,
-                                                           star::terrain::rendering::Type renderingType)
+                                                           star::terrain::rendering::ElevationType renderingType)
 {
     assert(m_cmdBus != nullptr);
     std::string terrainName = terrainShapeFilePath.parent_path().filename().string();
 
-    m_cachedTerrainShapeInfo =
-        LoadingShapeInfo(star::terrain::TerrainShapeInfoLoader::SubmitForRead(std::move(terrainShapeFilePath), *m_cmdBus),
-                         std::move(terrainName), renderingType);
+    m_cachedTerrainShapeInfo = LoadingShapeInfo(
+        star::terrain::TerrainShapeInfoLoader::SubmitForRead(std::move(terrainShapeFilePath), *m_cmdBus),
+        std::move(terrainName), renderingType);
 }
 } // namespace service

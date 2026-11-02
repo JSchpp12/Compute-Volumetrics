@@ -1,18 +1,34 @@
+FROM rockylinux/rockylinux:8-ubi-init
 
-FROM rockylinux/rockylinux:9-ubi-init
+# Base toolchain and Python libs.  Python 3.11 is used because the wheels
+# installed below are no longer published for the distro's Python 3.6.
+RUN set -eux; \
+    dnf install -y dnf-plugins-core epel-release xz; \
+    dnf config-manager --set-enabled powertools || dnf config-manager --set-enabled crb || true; \
+    dnf install -y \
+    clang clang-tools-extra git git-lfs \
+    python3.11 python3.11-pip python3.11-devel \
+    zip unzip autoconf autoconf-archive automake libtool pkg-config wget curl make \
+    ninja-build bison flex perl gdb \
+    glibc-devel libstdc++-devel vulkan-loader; \
+    dnf install -y gcc-toolset-14-gcc gcc-toolset-14-gcc-c++ gcc-toolset-14-libatomic-devel \
+    || dnf install -y gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-libatomic-devel; \
+    for v in 14 13; do \
+    if [ -x "/opt/rh/gcc-toolset-${v}/root/usr/bin/gcc" ]; then \
+    ln -sfn "/opt/rh/gcc-toolset-${v}/root/usr/bin" /usr/local/gcc-toolset; \
+    break; \
+    fi; \
+    done; \
+    ln -sf /usr/bin/python3.11 /usr/local/bin/python3; \
+    python3 -m pip install --no-cache-dir --upgrade pip; \
+    python3 -m pip install --no-cache-dir pillow rasterio beautifulsoup4 shapely rtree pyproj; \
+    dnf clean all
 
-# Base toolchain and Python libs
-RUN yum update -y && yum clean all \
-    && dnf install -y 'dnf-command(config-manager)' \
-    && dnf config-manager --enable crb \
-    && yum install -y epel-release xz \
-    && yum install -y clang clang-tools-extra git git-lfs python3 python3-pip zip unzip autoconf autoconf-archive automake libtool pkg-config wget ninja-build bison flex \
-    && yum clean all \ 
-    && dnf config-manager --enable appstream \
-    && dnf install -y perl gcc-toolset-14-libatomic-devel glibc-devel libstdc++-devel gdb vulkan-loader \
-    && dnf clean all \ 
-    && python3 -m pip install --no-cache-dir pillow rasterio beautifulsoup4 shapely rtree pyproj
+# The GCC Toolset compiler provides C++23 support while still targeting the
+# system glibc.  The gcc/g++ presets resolve the compiler through PATH.
+ENV PATH=/usr/local/gcc-toolset:${PATH}
 
+# CMake's prebuilt Linux binaries run on this image's glibc.
 ARG CMAKE_VERSION=4.2.1
 RUN set -eux \
     && wget -O /tmp/cmake-linux-x86_64.sh "https://cmake.org/files/v4.2/cmake-${CMAKE_VERSION}-linux-x86_64.sh" \
@@ -29,19 +45,19 @@ RUN set -eux \
     && mkdir -p /opt/VulkanSDK \
     && cd /opt/VulkanSDK \
     && wget -O vulkansdk-linux-x86_64-${VULKAN_SDK_VERSION}.tar.xz \
-         https://sdk.lunarg.com/sdk/download/${VULKAN_SDK_VERSION}/linux/vulkansdk-linux-x86_64-${VULKAN_SDK_VERSION}.tar.xz \
+    https://sdk.lunarg.com/sdk/download/${VULKAN_SDK_VERSION}/linux/vulkansdk-linux-x86_64-${VULKAN_SDK_VERSION}.tar.xz \
     && tar -xf vulkansdk-linux-x86_64-${VULKAN_SDK_VERSION}.tar.xz \
     && rm vulkansdk-linux-x86_64-${VULKAN_SDK_VERSION}.tar.xz \
     && chmod +x ${VULKAN_SDK_ROOT}/setup-env.sh \
     # Ensure the unversioned libvulkan.so exists for CMake's FindVulkan
     && if [ -f "${VULKAN_SDK_ROOT}/x86_64/lib/libvulkan.so.1" ] && [ ! -f "${VULKAN_SDK_ROOT}/x86_64/lib/libvulkan.so" ]; then \
-         ln -s libvulkan.so.1 ${VULKAN_SDK_ROOT}/x86_64/lib/libvulkan.so ; \
-       fi
+    ln -s libvulkan.so.1 ${VULKAN_SDK_ROOT}/x86_64/lib/libvulkan.so ; \
+    fi
 
 #cuda
 RUN set -eux \
     && dnf config-manager --add-repo \
-         https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo \
+    https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo \
     && dnf clean all \
     && dnf -y install cuda-toolkit \
     && echo 'export PATH=/usr/local/cuda/bin:$PATH' >> /etc/profile.d/cuda.sh \
@@ -49,5 +65,4 @@ RUN set -eux \
 
 ENV VK_ADD_LAYER_PATH=$VULKAN_SDK/share/vulkan/explicit_layer.d${VK_ADD_LAYER_PATH:+:$VK_ADD_LAYER_PATH}
 ENV PATH=$VULKAN_SDK/bin:${PATH}
-ENV VK_ADD_LAYER_PATH=$VULKAN_SDK/share/vulkan/explicit_layer.d${VK_ADD_LAYER_PATH:+:$VK_ADD_LAYER_PATH}
-ENV LD_LIBRARY_PATH=$VULKAN_SDK/lib:${LD_LIBRARY_PATH}
+ENV LD_LIBRARY_PATH=$VULKAN_SDK/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}

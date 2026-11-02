@@ -1,8 +1,9 @@
 #include "config/AppConfigLoader.hpp"
 #include "util/CmdLine.hpp"
 
+#include <starlight/core/Exceptions.hpp>
+
 #include <cstdlib>
-#include <iostream>
 #include <string>
 
 #include <vulkan/vulkan.hpp>
@@ -13,36 +14,8 @@
 
 #ifdef STAR_ENABLE_PRESENTATION
 #include "InteractiveMode.hpp"
-
-static int runWindow(std::unique_ptr<config::AppConfigInfo> cfg)
-{
-    try
-    {
-        InteractiveMode interactiveInstance{};
-        return interactiveInstance.run(std::move(cfg));
-    }
-    catch (const std::exception &ex)
-    {
-        std::cerr << "Fatal exception encountered: " << ex.what() << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-}
-
 #else
 #include "HeadlessMode.hpp"
-static int runHeadless(std::unique_ptr<config::AppConfigInfo> cfg)
-{
-    try
-    {
-        HeadlessMode headlessInstance{};
-        return headlessInstance.run(std::move(cfg));
-    }
-    catch (const std::exception &ex)
-    {
-        std::cerr << "Fatal exception encountered: " << ex.what() << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-}
 #endif
 
 std::unique_ptr<config::AppConfigInfo> LoadAppConfig(int argc, char **argv) noexcept
@@ -56,11 +29,15 @@ std::unique_ptr<config::AppConfigInfo> LoadAppConfig(int argc, char **argv) noex
 
 int main(int argc, char **argv)
 {
+    star::core::install_terminate_handler();
+
     openvdb::initialize();
 
 #ifdef STAR_ENABLE_PRESENTATION
-    return runWindow(LoadAppConfig(argc, argv));
+    InteractiveMode interactiveInstance{};
+    return interactiveInstance.run(LoadAppConfig(argc, argv));
 #else
-    return runHeadless(LoadAppConfig(argc, argv));
+    HeadlessMode headlessInstance{};
+    return headlessInstance.run(LoadAppConfig(argc, argv));
 #endif
 }

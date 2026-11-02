@@ -28,7 +28,7 @@ struct ImageMetrics
     std::string volumeName;
     Fog::Type type;
     star::terrain::CoverageInfo terrainShapeInfo;
-    star::terrain::rendering::Type terrainRenderingType;
+    star::terrain::rendering::ElevationType terrainRenderingType;
     ImageFilesInfo imageFilesInfo;
 };
 } // namespace service::image_metric_manager
