@@ -94,6 +94,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/FogType.cpp"
 	"src/VDBTransfer.cpp"
 	"src/AABBTransfer.cpp"
+	"src/transfers/SkyBox.cpp"
  	"src/Application.cpp"
 	"src/Volume.cpp"
 	"src/TransmittanceCellPlanner.cpp"
@@ -215,6 +216,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/Application.hpp"
 	"include/VDBTransfer.hpp"
 	"include/AABBTransfer.hpp"
+	"include/transfers/SkyBox.hpp"
 	"include/Volume.hpp"
 	"include/TransmittanceCellPlanner.hpp"
 	"include/TransmittanceMapVisualDebugController.hpp"
@@ -403,7 +405,7 @@ if (BUILD_UNIT_TESTS)
 	star_enable_warnings(unit_tests)
 endif()
 
-
+# app builder and media
 set(MEDIA_STAMP "${CMAKE_BINARY_DIR}/media.stamp")
 
 find_package(Git REQUIRED)

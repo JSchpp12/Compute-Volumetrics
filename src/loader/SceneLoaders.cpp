@@ -79,10 +79,10 @@ static std::vector<star::Color> CreateNeonColors(std::size_t count)
 static DebugCubeComponent LoadCube(star::core::device::DeviceContext &ctx, size_t numToCreate)
 {
     std::vector<star::Color> colors = CreateNeonColors(numToCreate);
-    std::vector<star::primitive::CubeDesc> cubeDesc{colors.size()};
+    std::vector<star::primitive::cube::CubeDesc> cubeDesc{colors.size()};
     for (size_t i{0}; i < colors.size(); i++)
     {
-        cubeDesc[i] = {.color = colors[i]};
+        cubeDesc[i] = {.coloringApproach = star::primitive::cube::SolidColor{colors[i]}};
     }
 
     return DebugCubeComponent{.cubeInfos = std::move(cubeDesc),
@@ -93,15 +93,16 @@ static TransmittanceVizComponent LoadTransmittanceViz()
 {
     const std::array<int, 3> windowSize = transmittance_viz::kDefaultWindowSize;
 
-    std::vector<star::primitive::CubeDesc> cubeDesc{transmittance_viz::WindowCellCount(windowSize)};
+    std::vector<star::primitive::cube::CubeDesc> cubeDesc{transmittance_viz::WindowCellCount(windowSize)};
     for (size_t i = 0; i < transmittance_viz::WindowCellCount(windowSize); ++i)
     {
         const std::array<int, 3> offset = transmittance_viz::WindowOffsetAt(i, windowSize);
         const glm::vec3 rgb =
             util::HSVToRGB(static_cast<float>(offset[2]) / static_cast<float>(windowSize[2]), 0.85f, 0.9f);
 
-        cubeDesc[i] =
-            star::primitive::CubeDesc{.size = glm::vec3{1.0f}, .color = star::Color{rgb.r, rgb.g, rgb.b, 1.0f}};
+        cubeDesc[i] = star::primitive::cube::CubeDesc{
+            .size = glm::vec3{1.0f},
+            .coloringApproach = star::primitive::cube::SolidColor{star::Color{rgb.r, rgb.g, rgb.b, 1.0f}}};
     }
 
     return TransmittanceVizComponent{.cubeInfos = std::move(cubeDesc), .windowSize = windowSize};
@@ -110,7 +111,6 @@ static TransmittanceVizComponent LoadTransmittanceViz()
 static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceContext &ctx,
                                                    const std::filesystem::path &mediaPath)
 {
-
     auto horsePath = mediaPath / "models" / "horse" / "WildHorse.obj";
     star::ShaderResolver horseResolver = star::BasicObject::PrepareResolver(horsePath.string(), ctx.getCmdBus());
     auto cmd = star::command::CreateObject::Builder()
@@ -121,6 +121,14 @@ static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceCon
     ctx.begin().set(cmd).submit();
     cmd.getReply().get()->init(ctx);
     return cmd.getReply().get();
+}
+
+static std::shared_ptr<star::StarObject> LoadSkybox(star::core::CommandBus &bus)
+{
+    std::vector<star::primitive::cube::CubeDesc> desc{};
+    auto shaders = star::ShaderResolver::Builder(bus).build();
+
+    return std::make_shared<star::primitive::CubeObject>(desc, shaders);
 }
 
 SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
@@ -136,6 +144,7 @@ SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const 
     // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));
     desc.addDebugCube(LoadCube(ctx, numCubes));
+    // desc.addObject(LoadSkybox(ctx.getCmdBus()));
 
     if (enableTransmittanceMapDebug)
         desc.addTransmittanceViz(LoadTransmittanceViz());
@@ -151,8 +160,8 @@ SceneDescription ReleaseSceneLoader(star::core::device::DeviceContext &ctx, cons
     auto [colorTerrain, shadowMapTerrain] =
         LoadTerrain(ctx, mediaDirPath, terrainPath, aggressiveTerrainTextureLoading, forceFlatTerrains);
     desc.addObject(std::move(colorTerrain));
-    // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));
+    // desc.addObject(LoadSkybox(ctx.getCmdBus()));
 
     if (enableTransmittanceMapDebug)
         desc.addTransmittanceViz(LoadTransmittanceViz());

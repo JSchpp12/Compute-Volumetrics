@@ -29,17 +29,17 @@ void SceneDescription::addTransmittanceViz(TransmittanceVizComponent viz)
     m_counter++;
 }
 
-DebugCubeComponent* SceneDescription::getSquareComponent(uint32_t index)
+DebugCubeComponent *SceneDescription::getCubeComponent(uint32_t index)
 {
     if (m_cubeComponents.contains(index))
     {
         return &m_cubeComponents[index];
     }
 
-    return nullptr; 
+    return nullptr;
 }
 
-TransmittanceVizComponent* SceneDescription::getTransmittanceVizComponent(uint32_t index)
+TransmittanceVizComponent *SceneDescription::getTransmittanceVizComponent(uint32_t index)
 {
     if (m_transmittanceVizComponents.contains(index))
     {
@@ -56,6 +56,6 @@ std::shared_ptr<star::StarObject> SceneDescription::getObject(uint32_t index)
         return m_objectComponents[index];
     }
 
-    return nullptr; 
+    return nullptr;
 }
 } // namespace loader

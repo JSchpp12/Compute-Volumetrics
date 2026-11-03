@@ -82,7 +82,7 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
     objects.reserve(desc.getCount());
     for (uint32_t i{0}; i < desc.getCount(); i++)
     {
-        auto *sqComponent = desc.getSquareComponent(i);
+        auto *sqComponent = desc.getCubeComponent(i);
         auto *transmittanceVizComponent = desc.getTransmittanceVizComponent(i);
         auto obj = desc.getObject(i);
         if (obj)

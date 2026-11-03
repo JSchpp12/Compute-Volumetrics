@@ -22,7 +22,7 @@ struct SceneDescription
     void addDebugCube(DebugCubeComponent cube);
     void addTransmittanceViz(TransmittanceVizComponent viz);
 
-    DebugCubeComponent *getSquareComponent(uint32_t index);
+    DebugCubeComponent *getCubeComponent(uint32_t index);
     TransmittanceVizComponent *getTransmittanceVizComponent(uint32_t index);
 
     std::shared_ptr<star::StarObject> getObject(uint32_t index);

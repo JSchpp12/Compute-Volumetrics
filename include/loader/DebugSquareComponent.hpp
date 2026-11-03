@@ -9,7 +9,7 @@ namespace loader
 {
 struct DebugCubeComponent
 {
-    std::vector<star::primitive::CubeDesc> cubeInfos;
+    std::vector<star::primitive::cube::CubeDesc> cubeInfos;
     uint8_t numberOfDebugSquares; 
 };
 }
