@@ -100,8 +100,9 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
                     .build();
 
             const std::array<int, 3> windowSize = transmittanceVizComponent->windowSize;
-            auto cells = star::debug::CreateCube(std::move(transmittanceVizComponent->cubeInfos), cellResolver,
-                                                 star::primitive::CubeObject::RenderMode::lines);
+            auto cells = star::debug::CreateCube(
+                std::move(transmittanceVizComponent->cubeInfos), cellResolver,
+                star::primitive::CubeObject::OptionalRenderingOverrides{.topology = vk::PrimitiveTopology::eLineList});
 
             // The first placement happens on the first updateTransmittanceViz(), once the fog
             // volume bounds (the fit target) are available.
@@ -126,8 +127,7 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
                     .setShader(star::Shader_Stage::vertex, (cubeShaderDir / "debugCube.vert").string())
                     .setShader(star::Shader_Stage::fragment, (cubeShaderDir / "debugCube.frag").string())
                     .build();
-            auto cube = star::debug::CreateCube(sqComponent->cubeInfos, cubeResolver,
-                                                star::primitive::CubeObject::RenderMode::triangles);
+            auto cube = star::debug::CreateCube(sqComponent->cubeInfos, cubeResolver);
             m_debugCubeInfo = std::make_optional(
                 DebugCubeInfo{.debugCube = cube, .numUniqueCubes = sqComponent->numberOfDebugSquares});
 

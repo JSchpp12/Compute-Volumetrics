@@ -68,6 +68,7 @@ set(STARLIGHT_TERRAIN_RUNTIME_COMPONENT Runtime)
 add_subdirectory("extern/Starlight-Common")
 add_subdirectory("extern/starlight")
 add_subdirectory("extern/Starlight-Terrain")
+add_subdirectory("extern/Starlight-Skybox")
 
 if (NOT HEADLESS)
 	add_subdirectory("extern/Starlight-Windowing")
@@ -76,6 +77,7 @@ endif()
 star_enable_warnings(starlight)
 star_enable_warnings(starlight_terrain)
 star_enable_warnings(starlight_windowing)
+star_enable_warnings(starlight_skybox)
 
 set(${PROJECT_NAME}_SOURCES
 	"src/service/detail/simulation_controller/CameraController.cpp"
@@ -94,7 +96,6 @@ set(${PROJECT_NAME}_SOURCES
 	"src/FogType.cpp"
 	"src/VDBTransfer.cpp"
 	"src/AABBTransfer.cpp"
-	"src/transfers/SkyBox.cpp"
  	"src/Application.cpp"
 	"src/Volume.cpp"
 	"src/TransmittanceCellPlanner.cpp"
@@ -216,7 +217,6 @@ set(${PROJECT_NAME}_HEADERS
 	"include/Application.hpp"
 	"include/VDBTransfer.hpp"
 	"include/AABBTransfer.hpp"
-	"include/transfers/SkyBox.hpp"
 	"include/Volume.hpp"
 	"include/TransmittanceCellPlanner.hpp"
 	"include/TransmittanceMapVisualDebugController.hpp"
@@ -306,26 +306,24 @@ star_enable_warnings(${PROJECT_NAME}_lib)
 if(COMMAND star_add_pch)
     star_add_pch(${PROJECT_NAME}_lib)
 endif()
+
+# Library processing
+target_link_libraries(${PROJECT_NAME}_lib
+	PUBLIC
+		Starlight::starlight
+		Starlight::terrain
+		Starlight::skybox
+		OpenVDB::openvdb
+		GDAL::GDAL
+		zstd::libzstd
+)
 if (WIN32)
 	cmake_policy(SET CMP0091 NEW)
 
-	if (HEADLESS)
-		target_link_libraries(${PROJECT_NAME}_lib
-		PUBLIC 
-			Starlight::starlight
-			Starlight::terrain
-			OpenVDB::openvdb
-			GDAL::GDAL
-			zstd::libzstd
-	)
-	else()
+	if (NOT HEADLESS)
 		target_link_libraries(${PROJECT_NAME}_lib
 		PUBLIC
 			Starlight::windowing
-			Starlight::terrain
-			OpenVDB::openvdb
-			GDAL::GDAL
-			zstd::libzstd
 		)
 	endif()
 
@@ -334,21 +332,12 @@ else()
 	if (HEADLESS)
 		target_link_libraries(${PROJECT_NAME}_lib
 			PUBLIC 
-				Starlight::starlight
-				Starlight::terrain
-				OpenVDB::openvdb
-				GDAL::GDAL
-				zstd::libzstd
 				atomic
 		)
 	else()
 		target_link_libraries(${PROJECT_NAME}_lib
 			PUBLIC 
 				starlight_windowing
-				Starlight::terrain
-				OpenVDB::openvdb
-				GDAL::GDAL
-				zstd::libzstd
 				atomic
 		)
 	endif()
