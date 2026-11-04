@@ -140,7 +140,7 @@ static std::shared_ptr<star::StarObject> LoadSkybox(star::core::CommandBus &bus)
                                             .setShader(star::Shader_Stage::vertex, vertShader.string())
                                             .setShader(star::Shader_Stage::fragment, fragShader.string())
                                             .build(),
-                                        star_skybox::primitive::CreateSkyboxRenderOverrides());
+                                        starlight::skybox::primitive::CreateSkyboxRenderOverrides());
 }
 
 SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
