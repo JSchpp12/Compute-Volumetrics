@@ -9,6 +9,7 @@
 #include <star_terrain/TerrainFactory.hpp>
 #include <star_terrain/rendering/TerrainGeometryDefinition.hpp>
 
+#include <star_skybox/maker/MakeSkybox.hpp>
 #include <star_skybox/primitive/SkyboxFactory.hpp>
 #include <starlight/ShaderResolver.hpp>
 #include <starlight/command/CreateObject.hpp>
@@ -102,7 +103,6 @@ static TransmittanceVizComponent LoadTransmittanceViz()
             util::HSVToRGB(static_cast<float>(offset[2]) / static_cast<float>(windowSize[2]), 0.85f, 0.9f);
 
         cubeDesc[i] = star::primitive::cube::CubeDesc{
-            .size = glm::vec3{1.0f},
             .coloringApproach = star::primitive::cube::SolidColor{star::Color{rgb.r, rgb.g, rgb.b, 1.0f}}};
     }
 
@@ -124,19 +124,23 @@ static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceCon
     return cmd.getReply().get();
 }
 
-static std::shared_ptr<star::StarObject> LoadSkybox(star::core::CommandBus &bus)
+static std::shared_ptr<star::StarObject> LoadSkybox(star::core::device::DeviceContext &ctx,
+                                                    const std::filesystem::path &mediaPath)
 {
     using namespace star::primitive;
 
-    std::vector<cube::CubeDesc> desc{cube::CubeDesc{
-        .size = {1.0, 1.0, 1.0}, .coloringApproach = cube::SolidColor{star::Color{1.0f, 0.0f, 0.0f, 1.0f}}}};
+    const auto skyboxTexturePath = std::filesystem::path("skybox") / "autumn_field_puresky_4k.exr";
+    const star::Handle skyboxTexture =
+        starlight::skybox::maker::MakeSkybox(ctx).setTexture(skyboxTexturePath.string()).make();
+
+    std::vector<cube::CubeDesc> desc{cube::CubeDesc{.coloringApproach = cube::TextureColor{skyboxTexture}}};
 
     const auto skyShadersPath = std::filesystem::path("shaders") / "skybox";
     const auto vertShader = skyShadersPath / "skybox.vert";
     const auto fragShader = skyShadersPath / "skybox.frag";
 
     return std::make_shared<CubeObject>(desc,
-                                        star::ShaderResolver::Builder(bus)
+                                        star::ShaderResolver::Builder(ctx.getCmdBus())
                                             .setShader(star::Shader_Stage::vertex, vertShader.string())
                                             .setShader(star::Shader_Stage::fragment, fragShader.string())
                                             .build(),
@@ -153,10 +157,10 @@ SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const 
     auto [colorTerrain, shadowMapTerrain] =
         LoadTerrain(ctx, mediaDirPath, terrainPath, aggressiveTerrainTextureLoading, forceFlatTerrains);
     desc.addObject(std::move(colorTerrain));
-    desc.addObject(LoadHorse(ctx, mediaDirPath));
+    // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));
     desc.addDebugCube(LoadCube(ctx, numCubes));
-    desc.addObject(LoadSkybox(ctx.getCmdBus()));
+    desc.addObject(LoadSkybox(ctx, mediaDirPath));
 
     if (enableTransmittanceMapDebug)
         desc.addTransmittanceViz(LoadTransmittanceViz());
@@ -173,8 +177,8 @@ SceneDescription ReleaseSceneLoader(star::core::device::DeviceContext &ctx, cons
         LoadTerrain(ctx, mediaDirPath, terrainPath, aggressiveTerrainTextureLoading, forceFlatTerrains);
     desc.addObject(std::move(colorTerrain));
     desc.addShadowObject(std::move(shadowMapTerrain));
-    desc.addObject(LoadHorse(ctx, mediaDirPath));
-    desc.addObject(LoadSkybox(ctx.getCmdBus()));
+    // desc.addObject(LoadHorse(ctx, mediaDirPath));
+    desc.addObject(LoadSkybox(ctx, mediaDirPath));
 
     if (enableTransmittanceMapDebug)
         desc.addTransmittanceViz(LoadTransmittanceViz());
