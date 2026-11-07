@@ -1,7 +1,0 @@
-{
-    "yaw_degrees": 0.0,
-    "layout": "equirect",
-    "face_size": 1024,
-    "format_scaling": "half",
-    "name": "skybox/citrus_orchard_puresky_4k.exr"
-}

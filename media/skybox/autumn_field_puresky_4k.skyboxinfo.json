@@ -1,0 +1,7 @@
+{
+    "yaw_degrees": 0.0,
+    "layout": "equirect",
+    "face_size": 1024,
+    "format_scaling": "full",
+    "name": "autumn_field_puresky_4k"
+}
