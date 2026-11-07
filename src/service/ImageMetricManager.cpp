@@ -138,7 +138,7 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
 
     vk::Extent2D iResolution;
     {
-        const auto &resolution = volume.getRenderer().getRenderToImages().at(fi)->getBaseExtent();
+        const auto &resolution = volume.getRenderer().computeWriteToTexture(fi).getBaseExtent();
         iResolution.setHeight(resolution.height).setWidth(resolution.width);
         if (!m_storage.contains(iResolution))
         {

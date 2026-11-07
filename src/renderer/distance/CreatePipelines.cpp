@@ -44,7 +44,8 @@ std::unique_ptr<star::StarShaderInfo> CreatePipelines::buildShaderInfo() const
     auto shaderInfoBuilder =
         star::StarShaderInfo::Builder(*context.deviceID, *context.device,
                                       *context.graphicsManagers->descriptorPoolManager->get(DefaultPoolHandle())->pool,
-                                      numFramesInFlight)
+                                      numFramesInFlight, &context.graphicsManagers->bufferManager,
+                                      &context.graphicsManagers->imageManager)
             .addSetLayout(star::StarDescriptorSetLayout::Builder()
                               .addBinding(0, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)
                               .addBinding(1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute)

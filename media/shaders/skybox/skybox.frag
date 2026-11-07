@@ -1,13 +1,12 @@
 #version 450 core
 
-layout(location = 0) in vec3 inFragDebugColor;
-layout(location = 1) in vec3 inFragDir;
+layout(location = 0) in vec3 inFragDir;
 
 layout(location = 0) out vec4 outColor;
 
-#define PI 3.14159265
+layout(binding = 0, set = 2) uniform samplerCube skyboxSampler;
 
 void main()
 {
-    outColor = vec4(inFragDebugColor, 1.0);
+    outColor = vec4(texture(skyboxSampler, normalize(inFragDir)).rgb, 1.0);
 }

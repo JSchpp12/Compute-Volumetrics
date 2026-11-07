@@ -7,7 +7,7 @@
 #include "config/InteractiveConfigInfo.hpp"
 
 #include <star_windowing/BasicCamera.hpp>
-#include <star_windowing/WindowingContext.hpp>
+#include <star_windowing/context/WindowingContext.hpp>
 #include <star_windowing/policy/HandleKeyReleasePolicy.hpp>
 
 class InteractiveApplication : public Application,

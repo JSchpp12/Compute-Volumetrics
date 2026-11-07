@@ -30,13 +30,9 @@ layout(set = 1, binding = 1) uniform instanceNormalMatrix
     mat4 normalMatrix[1024];
 };
 
-layout(set = 2, binding = 0) uniform instanceColors
-{
-    vec4 colors[1024];
-};
-
-layout(location = 0) out vec3 outFragDebugColor;
-layout(location = 1) out vec3 outFragDirection;
+// The skybox samples its cube map in the fragment shader, so set 2 binding 0 is left to the material's
+// combined image sampler; no per-instance color buffer is needed.
+layout(location = 0) out vec3 outFragDirection;
 
 void main()
 {
@@ -47,6 +43,5 @@ void main()
     // force at far distance by setting z = w. Perspective divide will make this be 1 which is far clipping plane
     gl_Position = vec4(pos.x, pos.y, pos.w, pos.w);
 
-    outFragDebugColor = vec3(colors[0]);
     outFragDirection = vec3(inPosition);
 }

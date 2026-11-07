@@ -147,23 +147,13 @@ FogRenderResourceFactory::TransmittanceResources FogRenderResourceFactory::creat
             star::core::device::manager::ImageRequest{std::move(transmittanceMaps[i])});
     }
 
-    std::vector<const star::StarTextures::Texture *> textures{framesInFlight};
-    for (size_t i = 0; i < framesInFlight; i++)
-    {
-        textures[i] = &context.getGraphicsManagers().imageManager.get(handles[i])->texture;
-    }
-
     const star::Handle mapRole = star::core::renderer::roleHandle(data_roles::LightTransmittanceMap);
-    frameData.add(star::core::renderer::FrameData::BorrowedTexture{.textures = textures,
-                                                                   .layout = vk::ImageLayout::eGeneral,
-                                                                   .format = format},
-                  mapRole);
+    frameData.add(star::core::renderer::FrameData::TextureHandle{handles, vk::ImageLayout::eGeneral, format}, mapRole);
 
     const star::Handle mapSampledRole = star::core::renderer::roleHandle(data_roles::LightTransmittanceMapSampled);
-    frameData.add(star::core::renderer::FrameData::BorrowedTexture{.textures = textures,
-                                                                   .layout = vk::ImageLayout::eShaderReadOnlyOptimal,
-                                                                   .format = format},
-                  mapSampledRole);
+    frameData.add(
+        star::core::renderer::FrameData::TextureHandle{handles, vk::ImageLayout::eShaderReadOnlyOptimal, format},
+        mapSampledRole);
 
     // one random value per column per sample, so the precompute can jitter within each transmittance texel
     const uint32_t computeQueueFamilyIndex =
@@ -172,14 +162,13 @@ FogRenderResourceFactory::TransmittanceResources FogRenderResourceFactory::creat
             ->getParentQueueFamilyIndex();
     const star::Handle noiseRole = star::core::renderer::roleHandle(data_roles::LightTransmittanceNoise);
     frameData.add(
-        star::core::renderer::FrameData::FixedTextureHandle{
-            .handle = star::ManagerRenderResource::addRequest(
+        star::core::renderer::FrameData::TextureHandle{
+            star::ManagerRenderResource::addRequest(
                 context.getDeviceID(),
                 std::make_unique<RandomValueTexture<4>>(transmittance.noiseResolution[0],
                                                         transmittance.noiseResolution[1], computeQueueFamilyIndex,
                                                         context.getDevice().getPhysicalDevice().getProperties())),
-            .layout = vk::ImageLayout::eGeneral,
-            .format = RandomValueTexture<4>::SelectFormat()},
+            vk::ImageLayout::eGeneral, RandomValueTexture<4>::SelectFormat()},
         noiseRole);
 
     return TransmittanceResources{mapRole, mapSampledRole, noiseRole};

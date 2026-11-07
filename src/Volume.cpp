@@ -122,10 +122,13 @@ void Volume::convertToFog(openvdb::FloatGrid::Ptr &grid)
 }
 
 void Volume::recordPreRenderPassCommands(vk::CommandBuffer commandBuffer,
-                                         const star::common::FrameTracker &frameTracker, uint64_t frameIndex)
+                                         const star::common::FrameTracker &frameTracker, uint64_t frameIndex,
+                                         const star::core::graphics::RecordingSubmissionInfo *recordingInfo)
 {
+    (void)recordingInfo;
+
     const uint8_t frameInFlightIndex = frameTracker.getCurrent().getFrameInFlightIndex();
-    vk::Image cImage = this->getVolumePhase()->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
+    vk::Image cImage = this->getVolumePhase()->computeWriteToImage(frameInFlightIndex);
     vk::ImageMemoryBarrier2 imgBarriers[1]{vk::ImageMemoryBarrier2()
                                                .setImage(std::move(cImage))
                                                .setOldLayout(vk::ImageLayout::eGeneral)
@@ -149,7 +152,7 @@ void Volume::recordPreRenderPassCommands(vk::CommandBuffer commandBuffer,
 
 void Volume::recordPostRenderPassCommands(vk::CommandBuffer commandBuffer, int frameInFlightIndex)
 {
-    vk::Image cImage = this->getVolumePhase()->getRenderToImages().at(frameInFlightIndex)->getVulkanImage();
+    vk::Image cImage = this->getVolumePhase()->computeWriteToImage(static_cast<size_t>(frameInFlightIndex));
     vk::ImageMemoryBarrier2 imgBarrier[1]{vk::ImageMemoryBarrier2()
                                               .setImage(cImage)
                                               .setSubresourceRange(vk::ImageSubresourceRange()
@@ -179,10 +182,7 @@ void Volume::prepRender(star::core::device::DeviceContext &context)
     VolumeRenderPhase *phase = this->getVolumePhase();
     assert(phase != nullptr && "volume render phase was not built before Volume::prepRender");
 
-    for (size_t i = 0; i < phase->getRenderToImages().size(); i++)
-    {
-        static_cast<ScreenMaterial *>(m_meshMaterials[0].get())->addComputeWriteToImage(phase->getRenderToImages()[i]);
-    }
+    static_cast<ScreenMaterial *>(m_meshMaterials[0].get())->setComputeWriteToImages(phase->getRenderToImages());
 
     RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
 

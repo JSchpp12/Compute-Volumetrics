@@ -69,6 +69,10 @@ void OffscreenRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer buffer,
         if (firstFramePassCounter == 0)
             isFirstPass = false;
     }
+
+    // Run the per-object pre-pass chain (instance-buffer barriers and one-shot object setups, e.g. the skybox
+    // conversion dispatch) after the phase's own target-image transitions.
+    star::core::renderer::RenderPhase::recordPreRenderPassCommands(buffer, ft);
 }
 
 void OffscreenRenderPhase::recordPostRenderingCalls(vk::CommandBuffer buffer, const star::common::FrameTracker &ft)
@@ -149,9 +153,9 @@ vk::RenderingAttachmentInfo OffscreenRenderPhase::prepareDynamicRenderingInfoCol
 
     const size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
 
+    const auto *colorTexture = m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index]);
     return vk::RenderingAttachmentInfo()
-        .setImageView(
-            m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index])->getImageView())
+        .setImageView(colorTexture->getImageView().get(colorTexture->getBaseFormat()))
         .setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore)
@@ -168,8 +172,9 @@ vk::RenderingAttachmentInfo OffscreenRenderPhase::prepareDynamicRenderingInfoDep
     const star::common::FrameTracker &frameTracker)
 {
     const size_t i = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
+    const auto *depthTexture = m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[i]);
     return vk::RenderingAttachmentInfoKHR()
-        .setImageView(m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[i])->getImageView())
+        .setImageView(depthTexture->getImageView().get(depthTexture->getBaseFormat()))
         .setImageLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
         .setLoadOp(vk::AttachmentLoadOp::eClear)
         .setStoreOp(vk::AttachmentStoreOp::eStore)

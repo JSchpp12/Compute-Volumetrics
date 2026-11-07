@@ -67,12 +67,14 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
     const std::string &terrainPath)
 {
     assert(m_loaderFn);
+    assert(m_skyboxContext && "loadScene() must create the skybox conversion cache before loading objects");
 
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const std::filesystem::path mediaPath{star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)};
 
     auto desc = m_loaderFn(context, mediaPath, terrainPath, m_volumeOptions.enableTransmittanceMapDebug,
-                           m_volumeOptions.aggressiveTerrainTextureLoading, m_volumeOptions.forceFlatTerrains);
+                           m_volumeOptions.aggressiveTerrainTextureLoading, m_volumeOptions.forceFlatTerrains,
+                           *m_skyboxContext);
 
     // The shadow-cast terrain is kept separate from the color object list so it
     // can be routed to the terrain shadow render phase instead of the offscreen
@@ -153,6 +155,11 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 {
     initImageOutputDir(context.getCmdBus());
     initListeners(context);
+
+    // Per-device skybox conversion cache. Must exist before the scene loader runs, and it must be destroyed while
+    // the device is alive (see Application::shutdown).
+    if (!m_skyboxContext)
+        m_skyboxContext = std::make_unique<star::skybox::SkyboxContext>(context);
 
     auto camera = createMainCamera(context);
 
@@ -322,6 +329,10 @@ void Application::shutdown(star::core::device::DeviceContext &context)
 {
     auto cmd = star::command::SaveSceneState();
     context.begin().set(cmd).submit();
+
+    // Destroy before the DeviceContext: the context owns the skybox conversion's raw layouts. shutdown() runs after
+    // waitIdle() and before the scene's cleanupRender(), so no recorded work references those layouts any more.
+    m_skyboxContext.reset();
 }
 
 void Application::submitPasses(star::core::device::DeviceContext &context)

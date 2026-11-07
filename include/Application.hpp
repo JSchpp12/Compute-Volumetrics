@@ -7,10 +7,12 @@
 #include "Volume.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
 #include "loader/SceneDescription.hpp"
+#include <star_skybox/context/SkyboxContext.hpp>
 #include <starlight/core/renderer/IRenderPhaseProvider.hpp>
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 class Application : public star::StarApplication
@@ -25,7 +27,8 @@ class Application : public star::StarApplication
     };
     using LoaderFn = std::function<loader::SceneDescription(
         star::core::device::DeviceContext &, const std::filesystem::path &, const std::filesystem::path &,
-        bool enableTransmittanceMapDebug, bool aggressiveTerrainTextureLoading, bool forceFlatTerrains)>;
+        bool enableTransmittanceMapDebug, bool aggressiveTerrainTextureLoading, bool forceFlatTerrains,
+        star::skybox::SkyboxContext &)>;
 
     Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName,
                 VolumeRenderingOptions volumeOptions);
@@ -47,6 +50,9 @@ class Application : public star::StarApplication
     };
 
     LoaderFn m_loaderFn;
+    /// App-held skybox conversion cache. Created during loadScene() and reset in shutdown(), which runs while the
+    /// device is still alive (the documented destroy-before-DeviceContext ordering rule).
+    std::unique_ptr<star::skybox::SkyboxContext> m_skyboxContext;
     std::filesystem::path m_imageOutputDir;
     std::string m_terrainDir;
     std::string m_volumeName;
