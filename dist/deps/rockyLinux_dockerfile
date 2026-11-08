@@ -28,6 +28,13 @@ RUN set -eux; \
 
 ENV PATH=/usr/local/gcc-toolset:${PATH}
 
+# The packaging build defaults to clang (see dist/deps/scripts/build_install.sh).
+# Fail the image build early if the compiler is missing or does not resolve the
+# gcc-toolset libstdc++ that the project's C++23 code relies on.
+RUN clang --version \
+    && clang++ --version \
+    && clang++ -v -x c++ -E /dev/null 2>&1 | grep -q "gcc-toolset"
+
 ARG CMAKE_VERSION=4.2.1
 RUN set -eux \
     && wget -O /tmp/cmake-linux-x86_64.sh "https://cmake.org/files/v4.2/cmake-${CMAKE_VERSION}-linux-x86_64.sh" \
