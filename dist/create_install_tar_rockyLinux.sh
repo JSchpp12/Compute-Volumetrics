@@ -96,8 +96,10 @@ fi
 IMAGE_NAME="starlight:rockyLinux"
 DOCKERFILE="${SCRIPT_DIR}/deps/rockyLinux_dockerfile"
 BUILD_CONTEXT="${SCRIPT_DIR}/deps"
-# Label stamped on the image at build time with the Dockerfile's hash.
+# Labels stamped on the image at build time: the Dockerfile's hash and the
+# pinned vcpkg commit.  Both must match before an existing image is reused.
 IMAGE_LABEL_KEY="starlight.dockerfile.sha256"
+VCPKG_LABEL_KEY="starlight.vcpkg.commit"
 
 # The Dockerfile has no COPY/ADD, so its contents alone determine the image;
 # the rest of the build context does not need to be hashed.

@@ -71,6 +71,27 @@ esac
 # instead of silently falling back to the distro default.
 export CC CXX
 
+# -----------------------------------------------------------------------------
+# Persistent vcpkg caches.  /app is the host repository bind mount, so anything
+# below dist/docker_working survives `docker run --rm`.  These defaults are
+# overridable from `docker run -e` for debugging.
+# -----------------------------------------------------------------------------
+VCPKG_WORK_ROOT="${ROOT_DIR}/dist/docker_working"
+: "${VCPKG_DOWNLOADS:=${VCPKG_WORK_ROOT}/vcpkg_downloads}"
+# The file-based binary-cache backend is "files" (not "filesystem").  "clear"
+# drops the container-local default cache so results do not depend on the
+# ephemeral image layer.
+: "${VCPKG_BINARY_SOURCES:=clear;files,${VCPKG_WORK_ROOT}/vcpkg_cache,readwrite}"
+export VCPKG_DOWNLOADS VCPKG_BINARY_SOURCES
+
+# One installed tree per compiler.  The packaging triplet is release-only
+# (VCPKG_BUILD_TYPE=release), so the Release and Debug application builds can
+# share one tree.  clang and gcc must stay apart: their dependency binaries
+# have different ABIs.
+STAR_VCPKG_INSTALLED_DIR="${VCPKG_WORK_ROOT}/${COMPILER}/vcpkg_installed"
+mkdir -p "${VCPKG_DOWNLOADS}" "${VCPKG_WORK_ROOT}/vcpkg_cache" \
+    "${STAR_VCPKG_INSTALLED_DIR}"
+
 if [ -z "${BUILD_TYPES}" ]; then
     BUILD_TYPES="Release"
 fi
@@ -96,6 +117,7 @@ for BUILD_TYPE in ${BUILD_TYPES}; do
     cmake -S "${ROOT_DIR}" -B ./build -G Ninja \
         -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
         -DVCPKG_TARGET_TRIPLET=x64-linux-dynamic-release \
+        -DVCPKG_INSTALLED_DIR="${STAR_VCPKG_INSTALLED_DIR}" \
         -DVCPKG_OVERLAY_TRIPLETS="${ROOT_DIR}/dist/deps/triplets" \
         -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
         -DHEADLESS=ON \

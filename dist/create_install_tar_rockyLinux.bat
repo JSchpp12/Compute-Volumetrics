@@ -11,7 +11,7 @@ for %%I in ("%SCRIPT_DIR%\..") do set "PARENT_DIR=%%~fI"
 set "IMAGE_NAME=starlight:rockyLinux"
 set "DOCKERFILE=%SCRIPT_DIR%\deps\rockyLinux_dockerfile"
 set "BUILD_CONTEXT=%SCRIPT_DIR%\deps"
-REM Label stamped on the image at build time with the Dockerfile's hash.
+REM Label stamped on the image at build time the Dockerfile's hash
 set "IMAGE_LABEL_KEY=starlight.dockerfile.sha256"
 
 REM Build variant(s): release (default), debug, or both; compiler: clang
@@ -52,6 +52,7 @@ for /f "skip=1 delims=" %%H in ('certutil -hashfile "%DOCKERFILE%" SHA256 2^>nul
 REM Older certutil builds print the hash in space-separated byte groups.
 if defined DOCKERFILE_HASH set "DOCKERFILE_HASH=%DOCKERFILE_HASH: =%"
 
+
 REM The image is current when it carries the label matching the file's hash.
 REM Without a hash there is no way to tell, so fall back to always building.
 set "IMAGE_CURRENT=0"
@@ -74,7 +75,11 @@ if "%REBUILD_IMAGE%"=="1" (
 )
 set "LABEL_ARG="
 if defined DOCKERFILE_HASH set "LABEL_ARG=--label %IMAGE_LABEL_KEY%=%DOCKERFILE_HASH%"
-docker build -f "%DOCKERFILE%" -t "%IMAGE_NAME%" %LABEL_ARG% "%BUILD_CONTEXT%" || goto :error
+set "VCPKG_BUILD_ARG="
+if defined VCPKG_COMMIT set "LABEL_ARG=%LABEL_ARG% --label %VCPKG_LABEL_KEY%=%VCPKG_COMMIT%"
+if defined VCPKG_COMMIT set "VCPKG_BUILD_ARG=--build-arg VCPKG_COMMIT=%VCPKG_COMMIT%"
+echo vcpkg commit: %VCPKG_COMMIT%
+docker build -f "%DOCKERFILE%" -t "%IMAGE_NAME%" %LABEL_ARG% %VCPKG_BUILD_ARG% "%BUILD_CONTEXT%" || goto :error
 
 :run_build
 REM Run the packaging build inside the container

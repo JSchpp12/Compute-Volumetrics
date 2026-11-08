@@ -35,9 +35,9 @@ RUN clang --version \
     && clang++ --version \
     && clang++ -v -x c++ -E /dev/null 2>&1 | grep -q "gcc-toolset"
 
-ARG CMAKE_VERSION=4.2.1
+ARG CMAKE_VERSION=4.4.4
 RUN set -eux \
-    && wget -O /tmp/cmake-linux-x86_64.sh "https://cmake.org/files/v4.2/cmake-${CMAKE_VERSION}-linux-x86_64.sh" \
+    && wget -O /tmp/cmake-linux-x86_64.sh "https://cmake.org/files/v${CMAKE_VERSION%.*}/cmake-${CMAKE_VERSION}-linux-x86_64.sh" \
     && sh /tmp/cmake-linux-x86_64.sh --skip-license --prefix=/usr/local \
     && rm -f /tmp/cmake-linux-x86_64.sh \
     && cmake --version
