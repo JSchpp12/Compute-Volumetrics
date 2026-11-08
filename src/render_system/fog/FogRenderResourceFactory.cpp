@@ -8,6 +8,7 @@
 #include "render_system/fog/DataRoles.hpp"
 #include "render_system/fog/ShaderFactory.hpp"
 
+#include <starlight/command/transfer/SubmitTextureTransfer.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
 #include <starlight/core/helper/command_buffer/CommandBufferHelpers.hpp>
@@ -161,15 +162,16 @@ FogRenderResourceFactory::TransmittanceResources FogRenderResourceFactory::creat
                                                   star::Queue_Type::Tcompute)
             ->getParentQueueFamilyIndex();
     const star::Handle noiseRole = star::core::renderer::roleHandle(data_roles::LightTransmittanceNoise);
-    frameData.add(
-        star::core::renderer::FrameData::TextureHandle{
-            star::ManagerRenderResource::addRequest(
-                context.getDeviceID(),
-                std::make_unique<RandomValueTexture<4>>(transmittance.noiseResolution[0],
-                                                        transmittance.noiseResolution[1], computeQueueFamilyIndex,
-                                                        context.getDevice().getPhysicalDevice().getProperties())),
-            vk::ImageLayout::eGeneral, RandomValueTexture<4>::SelectFormat()},
-        noiseRole);
+
+    star::command::transfer::SubmitTextureTransfer noiseTextureTransfer{std::make_unique<RandomValueTexture<4>>(
+        transmittance.noiseResolution[0], transmittance.noiseResolution[1], computeQueueFamilyIndex,
+        context.getDevice().getPhysicalDevice().getProperties())};
+    context.getCmdBus().submit(noiseTextureTransfer);
+    const star::Handle noiseTexture = noiseTextureTransfer.getReply().get().image;
+
+    frameData.add(star::core::renderer::FrameData::TextureHandle{noiseTexture, vk::ImageLayout::eGeneral,
+                                                                 RandomValueTexture<4>::SelectFormat()},
+                  noiseRole);
 
     return TransmittanceResources{mapRole, mapSampledRole, noiseRole};
 }

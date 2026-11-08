@@ -158,7 +158,7 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
                                               ->getVulkanImage()
                                         : VK_NULL_HANDLE},
         .computeWriteToImage = computeWriteToImage(ii),
-        .transmittanceMap = m_imageManager->get(trTexture.handleFor(ii))->texture.getVulkanImage(),
+        .transmittanceMap = m_imageManager->get(trTexture.handleFor(ii))->getTexture()->getVulkanImage(),
         .computeRayAtCutoffDistance =
             computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
         .computeRayDistance = computeRayDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
@@ -403,9 +403,9 @@ const star::StarTextures::Texture &VolumeRenderPhase::computeWriteToTexture(cons
     assert(frameInFlight < computeWriteToImages.size() && "Requested frame in flight is out of range for images");
 
     const auto *record = m_imageManager->get(computeWriteToImages[frameInFlight]);
-    assert(record != nullptr && "Compute write image has not been resolved");
+    assert(record != nullptr && record->getTexture() != nullptr && "Compute write image has not been resolved");
 
-    return record->texture;
+    return *record->getTexture();
 }
 
 void VolumeRenderPhase::cleanupRender(star::common::IDeviceContext &context)

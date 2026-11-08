@@ -26,6 +26,7 @@
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "renderer/volume/VolumeFrameRoles.hpp"
 #include "renderer/volume/VolumePipelineRecipe.hpp"
+#include "starlight/command/transfer/SubmitTextureTransfer.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
 
 #include <star_terrain/rendering/DataRoles.hpp>
@@ -297,10 +298,11 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
             std::make_unique<FogData>(frontPath.string(), openvdb::GridClass::GRID_FOG_VOLUME)),
         nullptr, true);
 
-    phase->screenSizedRandomTexture = star::ManagerRenderResource::addRequest(
-        c.getDeviceID(),
+    star::command::transfer::SubmitTextureTransfer randomTextureTransfer{
         std::make_unique<RandomValueTexture<4>>(screensize.width, screensize.height, computeQueueFamilyIndex,
-                                                c.getDevice().getPhysicalDevice().getProperties()));
+                                                c.getDevice().getPhysicalDevice().getProperties())};
+    c.getCmdBus().submit(randomTextureTransfer);
+    phase->screenSizedRandomTexture = randomTextureTransfer.getReply().get().image;
     {
         std::vector<uint32_t> inds{graphicsQueueFamilyIndex};
         if (graphicsQueueFamilyIndex != computeQueueFamilyIndex)
@@ -556,14 +558,14 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     for (size_t i = 0; i < n; i++)
     {
         auto &ch = offscreenPhase->getRenderTargets().colorHandles()[i];
-        phase->m_renderingContext.recordDependentImage.manualInsert(ch, &c.getImageManager().get(ch)->texture);
+        phase->m_renderingContext.recordDependentImage.manualInsert(ch, c.getImageManager().get(ch)->getTexture());
         auto &dh = offscreenPhase->getRenderTargets().depthHandles()[i];
-        phase->m_renderingContext.recordDependentImage.manualInsert(dh, &c.getImageManager().get(dh)->texture);
+        phase->m_renderingContext.recordDependentImage.manualInsert(dh, c.getImageManager().get(dh)->getTexture());
 
         if (shadowPhase != nullptr)
         {
             auto &sh = shadowPhase->getRenderTargets().depthHandles()[i];
-            phase->m_renderingContext.recordDependentImage.manualInsert(sh, &c.getImageManager().get(sh)->texture);
+            phase->m_renderingContext.recordDependentImage.manualInsert(sh, c.getImageManager().get(sh)->getTexture());
         }
     }
 
