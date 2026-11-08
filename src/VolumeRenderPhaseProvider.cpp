@@ -8,7 +8,6 @@
 #include "ConfigFile.hpp"
 #include "DataRoles.hpp"
 #include "FogData.hpp"
-#include "ManagerRenderResource.hpp"
 #include "RandomValueTexture.hpp"
 #include "VDBTransfer.hpp"
 #include "VolumeDirectoryProcessor.hpp"
@@ -26,6 +25,7 @@
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "renderer/volume/VolumeFrameRoles.hpp"
 #include "renderer/volume/VolumePipelineRecipe.hpp"
+#include "starlight/command/transfer/SubmitBufferTransfer.hpp"
 #include "starlight/command/transfer/SubmitTextureTransfer.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
 
@@ -281,22 +281,24 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     const auto transmittanceResources = m_fogResources.createTransmittanceResources(c, *phase->m_volumeFrameData);
     phase->transferQueueFamilyIndex = transferQueueFamilyIndex;
 
-    phase->cameraShaderInfo = star::ManagerRenderResource::addRequest(
-        c.getDeviceID(),
+    star::command::transfer::SubmitBufferTransfer cameraInfoTransfer{
         std::make_unique<CameraInfo>(
             m_camera, computeQueueFamilyIndex,
             c.getDevice().getPhysicalDevice().getProperties().limits.minUniformBufferOffsetAlignment),
-        nullptr, true, &phase->transferQueueFamilyIndex);
+        star::job::tasks::transfer::TransferPriority::High};
+    c.getCmdBus().submit(cameraInfoTransfer);
+    phase->cameraShaderInfo = cameraInfoTransfer.getReply().get().buffer;
 
     auto processor = GetVolumeProcessor(m_vdbFilePath);
     const auto &frontPath = processor.getProcessedFiles().front().getDataFilePath();
 
-    phase->vdbInfoFog = star::ManagerRenderResource::addRequest(
-        c.getDeviceID(),
+    star::command::transfer::SubmitBufferTransfer vdbTransfer{
         std::make_unique<VDBTransfer>(
             computeQueueFamilyIndex,
             std::make_unique<FogData>(frontPath.string(), openvdb::GridClass::GRID_FOG_VOLUME)),
-        nullptr, true);
+        star::job::tasks::transfer::TransferPriority::High};
+    c.getCmdBus().submit(vdbTransfer);
+    phase->vdbInfoFog = vdbTransfer.getReply().get().buffer;
 
     star::command::transfer::SubmitTextureTransfer randomTextureTransfer{
         std::make_unique<RandomValueTexture<4>>(screensize.width, screensize.height, computeQueueFamilyIndex,
@@ -321,8 +323,10 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     phase->m_activeRayStorage.resize(numFramesInFlight);
     for (uint8_t i = 0; i < numFramesInFlight; i++)
     {
-        phase->aabbInfoBuffers.emplace_back(star::ManagerRenderResource::addRequest(
-            c.getDeviceID(), std::make_unique<AABBTransfer>(graphicsQueueFamilyIndex, m_aabbBounds)));
+        star::command::transfer::SubmitBufferTransfer aabbTransfer{
+            std::make_unique<AABBTransfer>(graphicsQueueFamilyIndex, m_aabbBounds)};
+        c.getCmdBus().submit(aabbTransfer);
+        phase->aabbInfoBuffers.emplace_back(aabbTransfer.getReply().get().buffer);
 
         const std::string cstr = std::to_string(i);
         phase->m_activeRayStorage[i] = c.getBufferManager().submit(star::core::device::manager::BufferRequest{
