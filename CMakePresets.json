@@ -162,6 +162,20 @@
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
+                "HEADLESS": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "windowed",
+                "BUILD_UNIT_TESTS": "ON",
+                "CMAKE_C_FLAGS": "-fsanitize=undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
+                "CMAKE_CXX_FLAGS": "-fsanitize=undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
+                "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=undefined",
+                "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=undefined"
+            }
+        },
+        {
+            "name": "cfg-ubsan-headless",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
                 "HEADLESS": "ON",
                 "BUILD_UNIT_TESTS": "ON",
                 "CMAKE_C_FLAGS": "-fsanitize=undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
@@ -175,6 +189,20 @@
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
+                "HEADLESS": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "windowed",
+                "BUILD_UNIT_TESTS": "ON",
+                "CMAKE_C_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
+                "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
+                "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
+                "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=address,undefined"
+            }
+        },
+        {
+            "name": "cfg-asan-ubsan-headless",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
                 "HEADLESS": "ON",
                 "BUILD_UNIT_TESTS": "ON",
                 "CMAKE_C_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
@@ -185,6 +213,20 @@
         },
         {
             "name": "cfg-tsan",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "HEADLESS": "OFF",
+                "VCPKG_MANIFEST_FEATURES": "windowed",
+                "BUILD_UNIT_TESTS": "ON",
+                "CMAKE_C_FLAGS": "-fsanitize=thread -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
+                "CMAKE_CXX_FLAGS": "-fsanitize=thread -fno-sanitize-recover=all -fno-omit-frame-pointer -g",
+                "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=thread",
+                "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=thread"
+            }
+        },
+        {
+            "name": "cfg-tsan-headless",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
@@ -359,11 +401,28 @@
             ]
         },
         {
+            "name": "linux-debug-ubsan-h-ninja",
+            "displayName": "Linux Ninja (gcc) - Debug UBSan Headless",
+            "inherits": [
+                "ninja-linux-base",
+                "cfg-ubsan-headless"
+            ]
+        },
+        {
             "name": "linux-clang-debug-ubsan-ninja",
             "displayName": "Linux Ninja (clang) - Debug UBSan",
             "inherits": [
                 "ninja-linux-clang-base",
                 "cfg-ubsan",
+                "cfg-warnings"
+            ]
+        },
+        {
+            "name": "linux-clang-debug-ubsan-h-ninja",
+            "displayName": "Linux Ninja (clang) - Debug UBSan Headless",
+            "inherits": [
+                "ninja-linux-clang-base",
+                "cfg-ubsan-headless",
                 "cfg-warnings"
             ]
         },
@@ -376,11 +435,28 @@
             ]
         },
         {
+            "name": "linux-debug-asan-ubsan-h-ninja",
+            "displayName": "Linux Ninja (gcc) - Debug ASan+UBSan Headless",
+            "inherits": [
+                "ninja-linux-base",
+                "cfg-asan-ubsan-headless"
+            ]
+        },
+        {
             "name": "linux-clang-debug-asan-ubsan-ninja",
             "displayName": "Linux Ninja (clang) - Debug ASan+UBSan",
             "inherits": [
                 "ninja-linux-clang-base",
                 "cfg-asan-ubsan",
+                "cfg-warnings"
+            ]
+        },
+        {
+            "name": "linux-clang-debug-asan-ubsan-h-ninja",
+            "displayName": "Linux Ninja (clang) - Debug ASan+UBSan Headless",
+            "inherits": [
+                "ninja-linux-clang-base",
+                "cfg-asan-ubsan-headless",
                 "cfg-warnings"
             ]
         },
@@ -393,11 +469,28 @@
             ]
         },
         {
+            "name": "linux-debug-tsan-h-ninja",
+            "displayName": "Linux Ninja (gcc) - Debug TSan Headless",
+            "inherits": [
+                "ninja-linux-base",
+                "cfg-tsan-headless"
+            ]
+        },
+        {
             "name": "linux-clang-debug-tsan-ninja",
             "displayName": "Linux Ninja (clang) - Debug TSan",
             "inherits": [
                 "ninja-linux-clang-base",
                 "cfg-tsan",
+                "cfg-warnings"
+            ]
+        },
+        {
+            "name": "linux-clang-debug-tsan-h-ninja",
+            "displayName": "Linux Ninja (clang) - Debug TSan Headless",
+            "inherits": [
+                "ninja-linux-clang-base",
+                "cfg-tsan-headless",
                 "cfg-warnings"
             ]
         }
@@ -489,24 +582,48 @@
             "configurePreset": "linux-debug-ubsan-ninja"
         },
         {
+            "name": "linux-debug-ubsan-h-ninja",
+            "configurePreset": "linux-debug-ubsan-h-ninja"
+        },
+        {
             "name": "linux-clang-debug-ubsan-ninja",
             "configurePreset": "linux-clang-debug-ubsan-ninja"
+        },
+        {
+            "name": "linux-clang-debug-ubsan-h-ninja",
+            "configurePreset": "linux-clang-debug-ubsan-h-ninja"
         },
         {
             "name": "linux-debug-asan-ubsan-ninja",
             "configurePreset": "linux-debug-asan-ubsan-ninja"
         },
         {
+            "name": "linux-debug-asan-ubsan-h-ninja",
+            "configurePreset": "linux-debug-asan-ubsan-h-ninja"
+        },
+        {
             "name": "linux-clang-debug-asan-ubsan-ninja",
             "configurePreset": "linux-clang-debug-asan-ubsan-ninja"
+        },
+        {
+            "name": "linux-clang-debug-asan-ubsan-h-ninja",
+            "configurePreset": "linux-clang-debug-asan-ubsan-h-ninja"
         },
         {
             "name": "linux-debug-tsan-ninja",
             "configurePreset": "linux-debug-tsan-ninja"
         },
         {
+            "name": "linux-debug-tsan-h-ninja",
+            "configurePreset": "linux-debug-tsan-h-ninja"
+        },
+        {
             "name": "linux-clang-debug-tsan-ninja",
             "configurePreset": "linux-clang-debug-tsan-ninja"
+        },
+        {
+            "name": "linux-clang-debug-tsan-h-ninja",
+            "configurePreset": "linux-clang-debug-tsan-h-ninja"
         }
     ]
 }
