@@ -28,7 +28,6 @@ struct ContainerRenderResourceData
 
     struct Outputs
     {
-        std::vector<std::shared_ptr<star::StarTextures::Texture>> *computeWriteToImages;
         std::vector<star::StarBuffers::Buffer> *computeRayDistBuffers{nullptr};
         std::vector<star::StarBuffers::Buffer> *computeRayAtCutoffBuffer;
     };

@@ -23,6 +23,7 @@
     "boost-container",
     "boost-filesystem",
     "boost-log",
+    "tinyexr",
     {
       "name": "ktx",
       "features": [

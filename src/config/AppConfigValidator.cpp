@@ -17,6 +17,8 @@ std::optional<std::string> validateAppConfig(const AppConfigInfo &cfg)
         return "Config: 'volumeName' must not be empty";
     if (cfg.terrainDir.empty())
         return "Config: 'terrainDir' must not be empty";
+    if (cfg.skyboxPath.empty())
+        return "Config: 'skyboxPath' must not be empty";
 
     {
         auto resolved = io::resolvePath(std::filesystem::path{cfg.terrainDir}, PathKind::directory);
@@ -31,12 +33,6 @@ std::optional<std::string> validateAppConfig(const AppConfigInfo &cfg)
             return "Config: 'simControllerPath' does not exist or is not a regular file: " +
                    resolved.error().toString();
     }
-
-    // Note: the volume *directory* is deliberately not resolved here. It is
-    // resolved through the GetPath command (util::ResolveVolumeDirectory), which
-    // needs the CommandBus -- born inside the engine, long after this runs. The
-    // call that actually consumes the resolved directory, Application::loadScene,
-    // reports the same failure with the same IOError. See util/VolumePath.hpp.
     return std::nullopt;
 }
 } // namespace config

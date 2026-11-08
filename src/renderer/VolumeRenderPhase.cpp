@@ -4,6 +4,9 @@
 
 #include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/Exceptions.hpp>
+#include <starlight/core/device/managers/Buffer.hpp>
+#include <starlight/core/device/managers/Image.hpp>
+#include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/maker/buffer/MakeBuffer.hpp>
 
 #include <cassert>
@@ -125,6 +128,8 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
     const auto *trRes = m_volumeFrameData->resource(
         star::core::renderer::roleHandle(render_system::fog::data_roles::LightTransmittanceMap));
     assert(trRes != nullptr && "Unable to request transmittance info from provided frameData");
+    assert(m_imageManager != nullptr && "Image manager must be provided by the phase provider");
+    const auto &trTexture = std::get<star::core::renderer::FrameData::TextureHandle>(*trRes);
 
     render_system::fog::PassInfo tInfo{
         .globalCameraBuffer =
@@ -152,9 +157,8 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
                                                        .depthHandles()[ft.getCurrent().getFrameInFlightIndex()])
                                               ->getVulkanImage()
                                         : VK_NULL_HANDLE},
-        .computeWriteToImage = computeWriteToImages[ft.getCurrent().getFrameInFlightIndex()]->getVulkanImage(),
-        .transmittanceMap =
-            std::get<star::core::renderer::FrameData::BorrowedTexture>(*trRes).textures[ii]->getVulkanImage(),
+        .computeWriteToImage = computeWriteToImage(ii),
+        .transmittanceMap = m_imageManager->get(trTexture.handleFor(ii))->getTexture()->getVulkanImage(),
         .computeRayAtCutoffDistance =
             computeRayAtCutoffDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
         .computeRayDistance = computeRayDistanceBuffers[ft.getCurrent().getFrameInFlightIndex()].getVulkanBuffer(),
@@ -170,7 +174,8 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
     m_pipeInfo.transmittanceOnlyShaderInfo = m_shadowShaderInfo.get();
     m_pipeInfo.sceneDepthShaderInfo = m_sceneDepthShaderInfo.get();
     m_pipeInfo.shadowDepthShaderInfo = m_shadowDepthShaderInfo.get();
-    m_pipeInfo.indirectDispatchBuffer = m_activeRayStorage[ii]->getVulkanBuffer();
+    const vk::Buffer activeRayBuffer = activeRayStorageBuffer(ii);
+    m_pipeInfo.indirectDispatchBuffer = activeRayBuffer;
     m_pipeInfo.layout = *this->computePipelineLayout;
     m_pipeInfo.distanceLayout = m_distanceComputer.getLayout();
 
@@ -221,7 +226,7 @@ void VolumeRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer, const s
         precomputeLightTransmittanceFlags |=
             render_system::fog::PrecomputeLightTransmittanceShaderFlags::EnableDebugSetTexelsOfInterest;
 
-    render_system::fog::DispatchInfo dInfo{.indirectBuffer = m_activeRayStorage[ii]->getVulkanBuffer(),
+    render_system::fog::DispatchInfo dInfo{.indirectBuffer = activeRayBuffer,
                                            .shaderOptionFlags =
                                                render_system::fog::Pack(render_system::fog::InitShaderFlags::None,
                                                                         precomputeLightTransmittanceFlags, marchFlags)};
@@ -375,6 +380,34 @@ vk::Semaphore VolumeRenderPhase::submitBuffer(star::StarCommandBuffer &buffer,
     return vk::Semaphore();
 }
 
+vk::Buffer VolumeRenderPhase::activeRayStorageBuffer(const size_t index) const
+{
+    assert(m_bufferManager != nullptr && "Buffer manager must be provided by the phase provider");
+    assert(index < m_activeRayStorage.size() && "Requested frame in flight is out of range for ray storage");
+
+    const auto *record = m_bufferManager->get(m_activeRayStorage[index]);
+    const auto *buffer = record != nullptr ? record->getBuffer() : nullptr;
+    if (buffer == nullptr || buffer->getVulkanBuffer() == VK_NULL_HANDLE)
+    {
+        star::core::logging::warning(
+            "Ray storage buffer is unavailable; the fog dispatch indirect buffer will be null");
+        return VK_NULL_HANDLE;
+    }
+
+    return buffer->getVulkanBuffer();
+}
+
+const star::StarTextures::Texture &VolumeRenderPhase::computeWriteToTexture(const size_t frameInFlight) const
+{
+    assert(m_imageManager != nullptr && "Image manager must be provided by the phase provider");
+    assert(frameInFlight < computeWriteToImages.size() && "Requested frame in flight is out of range for images");
+
+    const auto *record = m_imageManager->get(computeWriteToImages[frameInFlight]);
+    assert(record != nullptr && record->getTexture() != nullptr && "Compute write image has not been resolved");
+
+    return *record->getTexture();
+}
+
 void VolumeRenderPhase::cleanupRender(star::common::IDeviceContext &context)
 {
     auto &c = static_cast<star::core::device::DeviceContext &>(context);
@@ -387,14 +420,9 @@ void VolumeRenderPhase::cleanupRender(star::common::IDeviceContext &context)
     m_sceneDepthShaderInfo->cleanupRender(c.getDevice());
     m_shadowDepthShaderInfo->cleanupRender(c.getDevice());
 
-    for (auto &image : computeWriteToImages)
-    {
-        image->cleanupRender(c.getDevice().getVulkanDevice());
-    }
-    for (auto &buffer : m_activeRayStorage)
-    {
-        buffer->cleanupRender(c.getDevice().getVulkanDevice());
-    }
+    // The buffer and image managers own these handles and release them at device teardown. Do not delete them here:
+    // m_volumeFrameData and ScreenMaterial still hold copies of the same handles, so deleting would leave those
+    // resolutions pointing at an unfilled (or reused) manager slot.
     for (auto &buffer : computeRayDistanceBuffers)
     {
         buffer.cleanupRender(c.getDevice().getVulkanDevice());

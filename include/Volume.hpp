@@ -102,9 +102,9 @@ class Volume : public star::StarObject
 
     virtual bool isRenderReady(star::core::device::DeviceContext &context) override;
 
-    virtual void recordPreRenderPassCommands(vk::CommandBuffer commandBuffer,
-                                             const star::common::FrameTracker &frameTracker,
-                                             uint64_t frameIndex) override;
+    virtual void recordPreRenderPassCommands(
+        vk::CommandBuffer commandBuffer, const star::common::FrameTracker &frameTracker, uint64_t frameIndex,
+        const star::core::graphics::RecordingSubmissionInfo *recordingInfo) override;
 
     virtual void recordPostRenderPassCommands(vk::CommandBuffer commandBuffer, int frameInFlightIndex) override;
 

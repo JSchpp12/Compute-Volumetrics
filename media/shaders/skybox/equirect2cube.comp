@@ -1,0 +1,108 @@
+#version 450
+
+// Converts a raw equirectangular skybox image into the six faces of a cube texture.
+// Binding 0 is the raw RGBA float pixel buffer produced by the EXR reader; binding 1 is a 2D-array view over the
+// cube-compatible target image, written in Vulkan's cube layer order (+X, -X, +Y, -Y, +Z, -Z).
+//
+// The mapping mirrors the CPU transformer this dispatch replaces: the same cube face orientation, the same
+// longitude/latitude layout (u runs from +X towards +Z, v runs from the +Y pole down to the -Y pole) and the same
+// bilinear sampling with a wrapped horizontal seam and clamped poles.
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) readonly buffer EquirectData
+{
+    vec4 pixels[];
+}
+equirect;
+
+layout(set = 0, binding = 1, rgba32f) uniform writeonly image2DArray cubeImage;
+
+layout(push_constant) uniform Params
+{
+    uvec2 sourceSize;
+    float yawRadians;
+}
+params;
+
+const float kPi = 3.14159265358979323846f;
+
+vec3 ApplyYaw(vec3 direction)
+{
+    const float c = cos(params.yawRadians);
+    const float s = sin(params.yawRadians);
+    return vec3(c * direction.x - s * direction.z, direction.y, s * direction.x + c * direction.z);
+}
+
+// Direction for a texel on a cube face, following Vulkan's cube map orientation.
+vec3 FaceDirection(uint face, vec2 uv)
+{
+    const vec2 st = uv * 2.0f - 1.0f;
+    switch (face)
+    {
+    case 0u: // +X
+        return vec3(1.0f, -st.y, -st.x);
+    case 1u: // -X
+        return vec3(-1.0f, -st.y, st.x);
+    case 2u: // +Y
+        return vec3(st.x, 1.0f, st.y);
+    case 3u: // -Y
+        return vec3(st.x, -1.0f, -st.y);
+    case 4u: // +Z
+        return vec3(st.x, -st.y, 1.0f);
+    default: // -Z
+        return vec3(-st.x, -st.y, -1.0f);
+    }
+}
+
+// Equirectangular coordinates: u wraps around the horizon, v runs from the zenith (0) to the nadir (1).
+vec2 DirectionToEquirect(vec3 direction)
+{
+    const float u = 0.5f + atan(direction.z, direction.x) / (2.0f * kPi);
+    const float v = 0.5f - asin(clamp(direction.y, -1.0f, 1.0f)) / kPi;
+    return vec2(u, v);
+}
+
+vec4 SourceTexel(int x, int y)
+{
+    return equirect.pixels[uint(y) * params.sourceSize.x + uint(x)];
+}
+
+// Bilinear sample with u wrapping across the seam and v clamped at the poles, matching the CPU transformer.
+vec4 SampleEquirect(vec2 st)
+{
+    const float width = float(params.sourceSize.x);
+    const float height = float(params.sourceSize.y);
+
+    const float x = st.x * width - 0.5f;
+    const float y = st.y * height - 0.5f;
+    const float x0f = floor(x);
+    const float y0f = floor(y);
+    const float fx = x - x0f;
+    const float fy = y - y0f;
+
+    const int left = int(mod(x0f, width));
+    const int right = int(mod(x0f + 1.0f, width));
+    const int top = int(clamp(y0f, 0.0f, height - 1.0f));
+    const int bottom = int(clamp(y0f + 1.0f, 0.0f, height - 1.0f));
+
+    const vec4 topLeft = SourceTexel(left, top);
+    const vec4 topRight = SourceTexel(right, top);
+    const vec4 bottomLeft = SourceTexel(left, bottom);
+    const vec4 bottomRight = SourceTexel(right, bottom);
+
+    return mix(mix(topLeft, topRight, fx), mix(bottomLeft, bottomRight, fx), fy);
+}
+
+void main()
+{
+    const ivec3 target = ivec3(gl_GlobalInvocationID);
+    const ivec3 faceSize = imageSize(cubeImage);
+    if (target.x >= faceSize.x || target.y >= faceSize.y || target.z >= faceSize.z)
+        return;
+
+    const vec2 uv = (vec2(target.xy) + 0.5f) / vec2(faceSize.xy);
+    const vec3 direction = normalize(ApplyYaw(FaceDirection(uint(target.z), uv)));
+
+    imageStore(cubeImage, target, SampleEquirect(DirectionToEquirect(direction)));
+}

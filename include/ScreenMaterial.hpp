@@ -14,13 +14,12 @@ class ScreenMaterial : public star::StarMaterial
   public:
     std::vector<std::pair<vk::DescriptorType, const int>> getDescriptorRequests(int numFramesInFlight) const override;
 
-    void addComputeWriteToImage(std::shared_ptr<star::StarTextures::Texture> computeTexture);
+    void setComputeWriteToImages(const std::vector<star::Handle> &computeTextures);
 
     void addDescriptorSetLayoutsTo(star::StarDescriptorSetLayout::Builder &builder) const override;
 
   protected:
-    std::vector<std::shared_ptr<star::StarTextures::Texture>> m_computeOutputImages =
-        std::vector<std::shared_ptr<star::StarTextures::Texture>>();
+    std::vector<star::Handle> m_computeOutputImages = std::vector<star::Handle>();
 
     std::unique_ptr<star::StarShaderInfo> buildShaderInfo(star::core::device::DeviceContext &context,
                                                           uint8_t numFramesInFlight,

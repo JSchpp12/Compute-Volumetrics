@@ -370,9 +370,10 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
     auto *render = m_mainScene->getPhase(m_finalizationPhaseHandle);
 
     // submit screenshot processing
+    const auto *targetRecord = context.getImageManager().get(render->getRenderTargets().colorHandles()[index]);
+    assert(targetRecord != nullptr && targetRecord->getTexture() != nullptr);
     context.getEventBus().emit(star::event::TriggerScreenshot(
-        context.getImageManager().get(render->getRenderTargets().colorHandles()[index])->texture, path,
-        render->getCommandBuffer(), m_screenshotRegistrations[index]));
+        *targetRecord->getTexture(), path, render->getCommandBuffer(), m_screenshotRegistrations[index]));
 
     triggerImageRecord(context, frameTracker, name);
 }

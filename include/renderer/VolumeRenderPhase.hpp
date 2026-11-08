@@ -31,6 +31,12 @@
 
 class VolumeRenderPhaseProvider;
 
+namespace star::core::device::manager
+{
+class Buffer;
+class Image;
+} // namespace star::core::device::manager
+
 /// @brief Runtime half of the volume (compute) renderer.
 class VolumeRenderPhase : public star::core::renderer::RenderPhase
 {
@@ -55,13 +61,17 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
 
     uint64_t getTimelineSignalValue(const star::common::FrameTracker &frameTracker) const;
 
-    std::vector<std::shared_ptr<star::StarTextures::Texture>> &getRenderToImages()
+    /// @brief Handles of the compute-written images owned by the device's Image manager, one per frame in flight.
+    const std::vector<star::Handle> &getRenderToImages() const
     {
         return this->computeWriteToImages;
     }
-    const std::vector<std::shared_ptr<star::StarTextures::Texture>> &getRenderToImages() const
+
+    /// @brief The compute-written image for `frameInFlight`, resolved through the device's Image manager.
+    const star::StarTextures::Texture &computeWriteToTexture(size_t frameInFlight) const;
+    vk::Image computeWriteToImage(size_t frameInFlight) const
     {
-        return this->computeWriteToImages;
+        return computeWriteToTexture(frameInFlight).getVulkanImage();
     }
     void setFogType(Fog::Type type)
     {
@@ -182,12 +192,16 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     // TODO: Remove
     std::vector<star::Handle> aabbInfoBuffers;
 
-    std::vector<std::shared_ptr<star::StarTextures::Texture>> computeWriteToImages;
+    std::vector<star::Handle> computeWriteToImages;
     std::vector<star::StarBuffers::Buffer> computeRayDistanceBuffers, computeRayAtCutoffDistanceBuffers;
     std::vector<star::Handle> m_timelineSemaphores;
     VisibilityDistanceCompute m_distanceComputer;
     render_system::fog::FogDispatcher m_chunkHandler;
-    std::vector<std::shared_ptr<star::StarBuffers::Buffer>> m_activeRayStorage;
+    /// @brief Frame-in-flight ray storage buffers owned by the engine's buffer manager. Handles stay stable even if
+    /// manager storage reallocates; resolve through m_bufferManager when a Vulkan handle is needed.
+    std::vector<star::Handle> m_activeRayStorage;
+    star::core::device::manager::Buffer *m_bufferManager{nullptr};
+    star::core::device::manager::Image *m_imageManager{nullptr};
     uint32_t transferQueueFamilyIndex{0};
     std::optional<star::Handle> m_transferNeighborHandle{std::nullopt};
     std::unique_ptr<vk::PipelineLayout> computePipelineLayout = std::unique_ptr<vk::PipelineLayout>();
@@ -211,6 +225,9 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
 
     void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                         const uint64_t &frameIndex);
+
+    /// @brief Resolve this frame's ray storage buffer through the manager.
+    vk::Buffer activeRayStorageBuffer(size_t index) const;
 
     static std::vector<std::pair<vk::DescriptorType, const uint32_t>> getDescriptorRequests(
         const int &numFramesInFlight);

@@ -12,6 +12,7 @@
 #include "RandomValueTexture.hpp"
 #include "VDBTransfer.hpp"
 #include "VolumeDirectoryProcessor.hpp"
+#include "core/device/managers/Buffer.hpp"
 #include "core/device/managers/DescriptorPool.hpp"
 #include "core/device/managers/Image.hpp"
 #include "core/renderer/DescriptorRecipe.hpp"
@@ -25,6 +26,7 @@
 #include "renderer/volume/ContainerRenderResourceData.hpp"
 #include "renderer/volume/VolumeFrameRoles.hpp"
 #include "renderer/volume/VolumePipelineRecipe.hpp"
+#include "starlight/command/transfer/SubmitTextureTransfer.hpp"
 #include "wrappers/graphics/policies/SubmitDescriptorRequestsPolicy.hpp"
 
 #include <star_terrain/rendering/DataRoles.hpp>
@@ -55,11 +57,11 @@
 #include <string_view>
 #include <vector>
 
-static std::vector<std::shared_ptr<star::StarTextures::Texture>> CreateComputeWriteToImages(
-    star::core::device::DeviceContext &context, const vk::Extent2D &screenSize, const size_t &numToCreate,
-    const std::vector<uint32_t> allQueueFamilyInds)
+static std::vector<star::Handle> CreateComputeWriteToImages(star::core::device::DeviceContext &context,
+                                                            const vk::Extent2D &screenSize, const size_t &numToCreate,
+                                                            const std::vector<uint32_t> allQueueFamilyInds)
 {
-    auto textures = std::vector<std::shared_ptr<star::StarTextures::Texture>>(numToCreate);
+    std::vector<star::Handle> handles(numToCreate);
 
     auto builder =
         star::maker::texture::MakeTexture(context.getDevice())
@@ -119,10 +121,11 @@ static std::vector<std::shared_ptr<star::StarTextures::Texture>> CreateComputeWr
     }
     for (size_t i{0}; i < numToCreate; i++)
     {
-        textures[i] = std::make_shared<star::StarTextures::Texture>(std::move(madeTextures[i]));
+        handles[i] =
+            context.getImageManager().submit(star::core::device::manager::ImageRequest{std::move(madeTextures[i])});
     }
 
-    return textures;
+    return handles;
 }
 
 static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus,
@@ -188,10 +191,10 @@ VolumeRenderPhaseProvider::VolumeRenderPhaseProvider(
     star::ManagerController::RenderResource::Buffer *instanceNormalInfo,
     std::shared_ptr<star::core::renderer::FrameData> frameData, star::Handle offscreenPhaseHandle,
     std::string vdbFilePath, std::shared_ptr<star::StarCamera> camera, const std::array<glm::vec4, 2> &aabbBounds)
-    : m_fogResources(std::move(fogResources)),
-      m_infoManagerInstanceModel(instanceManagerInfo), m_infoManagerInstanceNormal(instanceNormalInfo),
-      m_frameData(std::move(frameData)), m_offscreenPhaseHandle(std::move(offscreenPhaseHandle)),
-      m_vdbFilePath(std::move(vdbFilePath)), m_camera(std::move(camera)), m_aabbBounds(aabbBounds)
+    : m_fogResources(std::move(fogResources)), m_infoManagerInstanceModel(instanceManagerInfo),
+      m_infoManagerInstanceNormal(instanceNormalInfo), m_frameData(std::move(frameData)),
+      m_offscreenPhaseHandle(std::move(offscreenPhaseHandle)), m_vdbFilePath(std::move(vdbFilePath)),
+      m_camera(std::move(camera)), m_aabbBounds(aabbBounds)
 {
 }
 
@@ -245,6 +248,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     auto phase = std::make_unique<VolumeRenderPhase>();
     phase->m_device = c.getDevice().getVulkanDevice();
     phase->m_cmdBus = &c.getCmdBus();
+    phase->m_bufferManager = &c.getBufferManager();
+    phase->m_imageManager = &c.getImageManager();
     phase->m_frameData = m_frameData;
     phase->m_cameraRole = star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera);
 
@@ -293,10 +298,11 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
             std::make_unique<FogData>(frontPath.string(), openvdb::GridClass::GRID_FOG_VOLUME)),
         nullptr, true);
 
-    phase->screenSizedRandomTexture = star::ManagerRenderResource::addRequest(
-        c.getDeviceID(),
+    star::command::transfer::SubmitTextureTransfer randomTextureTransfer{
         std::make_unique<RandomValueTexture<4>>(screensize.width, screensize.height, computeQueueFamilyIndex,
-                                                c.getDevice().getPhysicalDevice().getProperties()));
+                                                c.getDevice().getPhysicalDevice().getProperties())};
+    c.getCmdBus().submit(randomTextureTransfer);
+    phase->screenSizedRandomTexture = randomTextureTransfer.getReply().get().image;
     {
         std::vector<uint32_t> inds{graphicsQueueFamilyIndex};
         if (graphicsQueueFamilyIndex != computeQueueFamilyIndex)
@@ -319,24 +325,22 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
             c.getDeviceID(), std::make_unique<AABBTransfer>(graphicsQueueFamilyIndex, m_aabbBounds)));
 
         const std::string cstr = std::to_string(i);
-        phase->m_activeRayStorage[i] = std::make_shared<star::StarBuffers::Buffer>(
-            render_system::fog::CreateActiveRayStorageBuffer(c, "RMEM_" + cstr, c.getEngineResolution()));
+        phase->m_activeRayStorage[i] = c.getBufferManager().submit(star::core::device::manager::BufferRequest{
+            render_system::fog::CreateActiveRayStorageBuffer(c, "RMEM_" + cstr, c.getEngineResolution())});
     }
 
-    phase->m_volumeFrameData->add(
-        star::core::renderer::FrameData::FixedTextureHandle{.handle = phase->screenSizedRandomTexture,
-                                                            .layout = vk::ImageLayout::eGeneral,
-                                                            .format = RandomValueTexture<4>::SelectFormat()},
-        screenRandomTexRole);
-    phase->m_volumeFrameData->add(star::core::renderer::FrameData::FixedBufferHandle{.handle = phase->vdbInfoFog},
-                                  vdbRole);
-    phase->m_volumeFrameData->add(star::core::renderer::FrameData::FixedBufferHandle{.handle = phase->cameraShaderInfo},
+    phase->m_volumeFrameData->add(star::core::renderer::FrameData::TextureHandle{phase->screenSizedRandomTexture,
+                                                                                 vk::ImageLayout::eGeneral,
+                                                                                 RandomValueTexture<4>::SelectFormat()},
+                                  screenRandomTexRole);
+    phase->m_volumeFrameData->add(star::core::renderer::FrameData::BufferHandle{phase->vdbInfoFog}, vdbRole);
+    phase->m_volumeFrameData->add(star::core::renderer::FrameData::BufferHandle{phase->cameraShaderInfo},
                                   cameraExtraRole);
-    phase->m_volumeFrameData->add(star::core::renderer::FrameData::OwnedBuffer{.buffers = phase->m_activeRayStorage},
+    phase->m_volumeFrameData->add(star::core::renderer::FrameData::BufferHandle{phase->m_activeRayStorage},
                                   activeRayRole);
-    phase->m_volumeFrameData->add(star::core::renderer::FrameData::OwnedTexture{.textures = phase->computeWriteToImages,
-                                                                                .layout = vk::ImageLayout::eGeneral,
-                                                                                .format = vk::Format::eR8G8B8A8Unorm},
+    phase->m_volumeFrameData->add(star::core::renderer::FrameData::TextureHandle{phase->computeWriteToImages,
+                                                                                 vk::ImageLayout::eGeneral,
+                                                                                 vk::Format::eR8G8B8A8Unorm},
                                   outputRole);
 
     auto builder = star::core::renderer::DescriptorRecipe::Builder(
@@ -347,15 +351,9 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
 
         auto *shadowPhase = phases.getPhase(m_shadowTerrainPhaseHandle);
         assert(shadowPhase != nullptr && "Terrain shadow phase must be defined before volume");
-        std::vector<const star::StarTextures::Texture *> shadowMaps(n);
-        for (size_t i = 0; i < n; i++)
-        {
-            shadowMaps[i] = &c.getImageManager().get(shadowPhase->getRenderTargets().depthHandles()[i])->texture;
-        }
-
         phase->m_volumeFrameData->add(
-            star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(shadowMaps),
-                                                             .layout = vk::ImageLayout::eShaderReadOnlyOptimal},
+            star::core::renderer::FrameData::TextureHandle{shadowPhase->getRenderTargets().depthHandles(),
+                                                           vk::ImageLayout::eShaderReadOnlyOptimal},
             shadowMapRole);
         {
             const star::Handle shadowRole =
@@ -367,46 +365,23 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
         // Non-compare (raw) sun depth for the transmittance pass's rayInit depth test.
         // Same shadow depth images as shadowMapRole, but with a non-compare sampler for
         // raw reads via texelFetch.
-        std::vector<const star::StarTextures::Texture *> rawShadowDepths;
-        rawShadowDepths.reserve(n);
-        for (size_t i = 0; i < n; i++)
-        {
-            rawShadowDepths.push_back(
-                &c.getImageManager()
-                     .get(static_cast<star::terrain::TerrainShadowRenderPhase *>(shadowPhase)->rawDepthHandles()[i])
-                     ->texture);
-        }
         phase->m_volumeFrameData->add(
-            star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(rawShadowDepths),
-                                                             .layout = vk::ImageLayout::eShaderReadOnlyOptimal},
+            star::core::renderer::FrameData::TextureHandle{
+                static_cast<star::terrain::TerrainShadowRenderPhase *>(shadowPhase)->rawDepthHandles(),
+                vk::ImageLayout::eShaderReadOnlyOptimal},
             shadowDepthRole);
     }
 
     {
-        std::vector<const star::StarTextures::Texture *> depthTextures;
-        depthTextures.reserve(n);
-        for (size_t i = 0; i < n; i++)
-        {
-            depthTextures.push_back(
-                &c.getImageManager().get(offscreenPhase->getRenderTargets().depthHandles()[i])->texture);
-        }
         phase->m_volumeFrameData->add(
-            star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(depthTextures),
-                                                             .layout = vk::ImageLayout::eShaderReadOnlyOptimal},
+            star::core::renderer::FrameData::TextureHandle{offscreenPhase->getRenderTargets().depthHandles(),
+                                                           vk::ImageLayout::eShaderReadOnlyOptimal},
             depthRole);
     }
     {
-        std::vector<const star::StarTextures::Texture *> colorTextures;
-        colorTextures.reserve(n);
-        for (size_t i = 0; i < n; i++)
-        {
-            colorTextures.push_back(
-                &c.getImageManager().get(offscreenPhase->getRenderTargets().colorHandles()[i])->texture);
-        }
         phase->m_volumeFrameData->add(
-            star::core::renderer::FrameData::BorrowedTexture{.textures = std::move(colorTextures),
-                                                             .layout = vk::ImageLayout::eGeneral,
-                                                             .format = vk::Format::eR8G8B8A8Unorm},
+            star::core::renderer::FrameData::TextureHandle{offscreenPhase->getRenderTargets().colorHandles(),
+                                                           vk::ImageLayout::eGeneral, vk::Format::eR8G8B8A8Unorm},
             colorRole);
     }
 
@@ -557,8 +532,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
                 .cameraShaderInfo = &phase->cameraShaderInfo,
                 .vdbInfoFog = &phase->vdbInfoFog,
                 .randomValueTexture = &phase->screenSizedRandomTexture},
-        .outputs{.computeWriteToImages = &phase->computeWriteToImages,
-                 .computeRayDistBuffers = &phase->computeRayDistanceBuffers,
+        .outputs{.computeRayDistBuffers = &phase->computeRayDistanceBuffers,
                  .computeRayAtCutoffBuffer = &phase->computeRayAtCutoffDistanceBuffers}};
 
     phase->m_distanceComputer.prepRender(c, pipelineData, &phase->m_staticShaderInfo);
@@ -584,14 +558,14 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     for (size_t i = 0; i < n; i++)
     {
         auto &ch = offscreenPhase->getRenderTargets().colorHandles()[i];
-        phase->m_renderingContext.recordDependentImage.manualInsert(ch, &c.getImageManager().get(ch)->texture);
+        phase->m_renderingContext.recordDependentImage.manualInsert(ch, c.getImageManager().get(ch)->getTexture());
         auto &dh = offscreenPhase->getRenderTargets().depthHandles()[i];
-        phase->m_renderingContext.recordDependentImage.manualInsert(dh, &c.getImageManager().get(dh)->texture);
+        phase->m_renderingContext.recordDependentImage.manualInsert(dh, c.getImageManager().get(dh)->getTexture());
 
         if (shadowPhase != nullptr)
         {
             auto &sh = shadowPhase->getRenderTargets().depthHandles()[i];
-            phase->m_renderingContext.recordDependentImage.manualInsert(sh, &c.getImageManager().get(sh)->texture);
+            phase->m_renderingContext.recordDependentImage.manualInsert(sh, c.getImageManager().get(sh)->getTexture());
         }
     }
 

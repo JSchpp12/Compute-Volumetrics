@@ -7,7 +7,7 @@
 #include "config/InteractiveConfigInfo.hpp"
 
 #include <star_windowing/BasicCamera.hpp>
-#include <star_windowing/WindowingContext.hpp>
+#include <star_windowing/context/WindowingContext.hpp>
 #include <star_windowing/policy/HandleKeyReleasePolicy.hpp>
 
 class InteractiveApplication : public Application,
@@ -15,10 +15,12 @@ class InteractiveApplication : public Application,
                                private star::windowing::HandleKeyPressPolicy<InteractiveApplication>
 {
   public:
-    InteractiveApplication(LoaderFn objectLoader, std::string terrainDir, std::string volumeName,
-                           star::windowing::WindowingContext *winContext, Application::VolumeRenderingOptions options,
+    InteractiveApplication(LoaderFn objectLoader, std::string terrainDir, std::string skyboxPath,
+                           std::string volumeName, star::windowing::WindowingContext *winContext,
+                           Application::VolumeRenderingOptions options,
                            config::InteractiveConfigInfo interactiveConfig = {})
-        : Application(std::move(objectLoader), std::move(terrainDir), std::move(volumeName), std::move(options)),
+        : Application(std::move(objectLoader), std::move(terrainDir), std::move(skyboxPath), std::move(volumeName),
+                      std::move(options)),
           star::windowing::HandleKeyReleasePolicy<InteractiveApplication>(*this),
           star::windowing::HandleKeyPressPolicy<InteractiveApplication>(*this), m_winContext(winContext),
           m_interactiveConfig(std::move(interactiveConfig))

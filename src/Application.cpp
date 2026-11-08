@@ -67,12 +67,14 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
     const std::string &terrainPath)
 {
     assert(m_loaderFn);
+    assert(m_skyboxContext && "loadScene() must create the skybox conversion cache before loading objects");
 
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const std::filesystem::path mediaPath{star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)};
 
-    auto desc = m_loaderFn(context, mediaPath, terrainPath, m_volumeOptions.enableTransmittanceMapDebug,
-                           m_volumeOptions.aggressiveTerrainTextureLoading, m_volumeOptions.forceFlatTerrains);
+    auto desc = m_loaderFn(context, mediaPath, terrainPath, m_skyboxPath, m_volumeOptions.enableTransmittanceMapDebug,
+                           m_volumeOptions.aggressiveTerrainTextureLoading, m_volumeOptions.forceFlatTerrains,
+                           *m_skyboxContext);
 
     // The shadow-cast terrain is kept separate from the color object list so it
     // can be routed to the terrain shadow render phase instead of the offscreen
@@ -82,7 +84,7 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
     objects.reserve(desc.getCount());
     for (uint32_t i{0}; i < desc.getCount(); i++)
     {
-        auto *sqComponent = desc.getSquareComponent(i);
+        auto *sqComponent = desc.getCubeComponent(i);
         auto *transmittanceVizComponent = desc.getTransmittanceVizComponent(i);
         auto obj = desc.getObject(i);
         if (obj)
@@ -100,8 +102,9 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
                     .build();
 
             const std::array<int, 3> windowSize = transmittanceVizComponent->windowSize;
-            auto cells = star::debug::CreateCube(std::move(transmittanceVizComponent->cubeInfos), cellResolver,
-                                                 star::primitive::CubeObject::RenderMode::lines);
+            auto cells = star::debug::CreateCube(
+                std::move(transmittanceVizComponent->cubeInfos), cellResolver,
+                star::primitive::CubeObject::OptionalRenderingOverrides{.topology = vk::PrimitiveTopology::eLineList});
 
             // The first placement happens on the first updateTransmittanceViz(), once the fog
             // volume bounds (the fit target) are available.
@@ -126,8 +129,7 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
                     .setShader(star::Shader_Stage::vertex, (cubeShaderDir / "debugCube.vert").string())
                     .setShader(star::Shader_Stage::fragment, (cubeShaderDir / "debugCube.frag").string())
                     .build();
-            auto cube = star::debug::CreateCube(sqComponent->cubeInfos, cubeResolver,
-                                                star::primitive::CubeObject::RenderMode::triangles);
+            auto cube = star::debug::CreateCube(sqComponent->cubeInfos, cubeResolver);
             m_debugCubeInfo = std::make_optional(
                 DebugCubeInfo{.debugCube = cube, .numUniqueCubes = sqComponent->numberOfDebugSquares});
 
@@ -141,11 +143,11 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
     return objects;
 }
 
-Application::Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName,
+Application::Application(LoaderFn objectLoader, std::string terrainPath, std::string skyboxPath, std::string volumeName,
                          VolumeRenderingOptions volumeOptions)
-    : m_loaderFn(std::move(objectLoader)), m_terrainDir(std::move(terrainPath)), m_volumeName(std::move(volumeName)),
-      m_screenshotRegistrations(), m_debugCubeInfo(), m_mainScene(nullptr), m_volume(), m_mainLight(),
-      m_volumeOptions(volumeOptions)
+    : m_loaderFn(std::move(objectLoader)), m_terrainDir(std::move(terrainPath)), m_skyboxPath(std::move(skyboxPath)),
+      m_volumeName(std::move(volumeName)), m_screenshotRegistrations(), m_debugCubeInfo(), m_mainScene(nullptr),
+      m_volume(), m_mainLight(), m_volumeOptions(volumeOptions)
 {
 }
 
@@ -153,6 +155,11 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 {
     initImageOutputDir(context.getCmdBus());
     initListeners(context);
+
+    // Per-device skybox conversion cache. Must exist before the scene loader runs, and it must be destroyed while
+    // the device is alive (see Application::shutdown).
+    if (!m_skyboxContext)
+        m_skyboxContext = std::make_unique<star::skybox::SkyboxContext>(context);
 
     auto camera = createMainCamera(context);
 
@@ -322,6 +329,10 @@ void Application::shutdown(star::core::device::DeviceContext &context)
 {
     auto cmd = star::command::SaveSceneState();
     context.begin().set(cmd).submit();
+
+    // Destroy before the DeviceContext: the context owns the skybox conversion's raw layouts. shutdown() runs after
+    // waitIdle() and before the scene's cleanupRender(), so no recorded work references those layouts any more.
+    m_skyboxContext.reset();
 }
 
 void Application::submitPasses(star::core::device::DeviceContext &context)

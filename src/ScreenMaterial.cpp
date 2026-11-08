@@ -12,9 +12,9 @@ void ScreenMaterial::addDescriptorSetLayoutsTo(star::StarDescriptorSetLayout::Bu
                             vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment);
 }
 
-void ScreenMaterial::addComputeWriteToImage(std::shared_ptr<star::StarTextures::Texture> computeTexture)
+void ScreenMaterial::setComputeWriteToImages(const std::vector<star::Handle> &computeTextures)
 {
-    m_computeOutputImages.emplace_back(computeTexture);
+    m_computeOutputImages = computeTextures;
 }
 
 std::unique_ptr<star::StarShaderInfo> ScreenMaterial::buildShaderInfo(star::core::device::DeviceContext &context,
@@ -27,8 +27,8 @@ std::unique_ptr<star::StarShaderInfo> ScreenMaterial::buildShaderInfo(star::core
     {
         builder.startOnFrameIndex(i);
         builder.startSet();
-        builder.add(star::StarShaderInfo::TextureInfo{m_computeOutputImages.at(i).get(),
-                                                      vk::ImageLayout::eShaderReadOnlyOptimal});
+        builder.add(
+            star::StarShaderInfo::TextureInfo{m_computeOutputImages.at(i), vk::ImageLayout::eShaderReadOnlyOptimal});
     }
 
     return builder.build();

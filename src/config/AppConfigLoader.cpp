@@ -91,6 +91,7 @@ std::pair<std::unique_ptr<AppConfigInfo>, LoadStatus> AppConfigLoader::LoadFromA
     // exe-relative now, so no engine-config dependency exists at this point.
     ResolveFieldIfPresent(cfg->engineConfigPath, star::io::PathKind::file);
     ResolveFieldIfPresent(cfg->terrainDir, star::io::PathKind::directory);
+    ResolveFieldIfPresent(cfg->skyboxPath, star::io::PathKind::file);
     ResolveFieldIfPresent(cfg->simControllerPath, star::io::PathKind::file);
 
     try
@@ -160,6 +161,7 @@ void AppConfigLoader::LogConfig(const AppConfigInfo &cfg)
     oss << "AppConfig loaded:\n"
         << "  volumeName:              " << cfg.volumeName << "\n"
         << "  terrainDir:              " << cfg.terrainDir << "\n"
+        << "  skyboxPath:              " << cfg.skyboxPath << "\n"
         << "  simControllerPath:       " << cfg.simControllerPath << "\n"
         << "  engineConfigPath:        " << cfg.engineConfigPath << "\n"
         << "  overrideRenderingDevice: "
@@ -185,6 +187,8 @@ std::unique_ptr<AppConfigInfo> AppConfigLoader::ApplyCliOverrides(int argc, char
         cfg->volumeName = std::move(*v);
     if (auto v = util::CmdLine::TryGetArgValue(argc, argv, "--terrain"))
         cfg->terrainDir = std::move(*v);
+    if (auto v = util::CmdLine::TryGetArgValue(argc, argv, "--skybox"))
+        cfg->skyboxPath = std::move(*v);
     if (auto v = util::CmdLine::TryGetArgValue(argc, argv, "--controller"))
         cfg->simControllerPath = std::move(*v);
     if (auto v = util::CmdLine::TryGetArgValue(argc, argv, "--config"))
