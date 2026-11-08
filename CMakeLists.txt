@@ -629,6 +629,13 @@ else()
 	set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-windowed")
 endif()
 
+# Distinguish non-Release packages.  Release keeps its historical artifact name.
+# Multi-config generators leave CMAKE_BUILD_TYPE empty and keep the base name.
+if (CMAKE_BUILD_TYPE AND NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+	string(TOLOWER "${CMAKE_BUILD_TYPE}" _STAR_PACKAGE_BUILD_TYPE)
+	set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_FILE_NAME}-${_STAR_PACKAGE_BUILD_TYPE}")
+endif()
+
 # Only the runtime component is shipped.  This keeps the vendored projects'
 # static libraries, headers and CMake export files (which live in the
 # "Unspecified" component) out of the distributable.
