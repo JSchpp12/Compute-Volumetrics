@@ -1,0 +1,5 @@
+{
+  "type": "json",
+  "source": "height_info.json",
+  "prep": "copy"
+}
