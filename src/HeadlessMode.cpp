@@ -23,13 +23,14 @@ int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
     using exit = EngineExitOnFlag;
     std::shared_ptr<bool> controllerSequenceDone = std::make_shared<bool>(false);
 
-    Application application = cfg->enableDistanceMarkers
-                                  ? Application(&loader::DebugSceneLoader, cfg->terrainDir, cfg->volumeName,
-                                                {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
-                                                 cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains})
-                                  : Application(&loader::ReleaseSceneLoader, cfg->terrainDir, cfg->volumeName,
-                                                {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
-                                                 cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains});
+    Application application =
+        cfg->enableDistanceMarkers
+            ? Application(&loader::DebugSceneLoader, cfg->terrainDir, cfg->skyboxPath, cfg->volumeName,
+                          {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
+                           cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains})
+            : Application(&loader::ReleaseSceneLoader, cfg->terrainDir, cfg->skyboxPath, cfg->volumeName,
+                          {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
+                           cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains});
 
     auto engineServices = star::service::EngineServicesFactory::createDefault(true);
     engineServices.add(star::service::Service{service::ImageMetricManager{}});

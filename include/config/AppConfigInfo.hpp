@@ -11,6 +11,7 @@ struct AppConfigInfo
 {
     std::string volumeName;
     std::string terrainDir;
+    std::string skyboxPath;
     std::string simControllerPath;
     std::string engineConfigPath;
     InteractiveConfigInfo interactiveConfig{};

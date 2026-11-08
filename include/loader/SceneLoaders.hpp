@@ -14,12 +14,12 @@ class SkyboxContext;
 namespace loader
 {
 SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
-                                  const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug,
-                                  bool aggressiveTerrainTextureLoading, bool forceFlatTerrains,
-                                  star::skybox::SkyboxContext &skyboxContext);
+                                  const std::filesystem::path &terrainPath, const std::filesystem::path &skyboxPath,
+                                  bool enableTransmittanceMapDebug, bool aggressiveTerrainTextureLoading,
+                                  bool forceFlatTerrains, star::skybox::SkyboxContext &skyboxContext);
 
 SceneDescription ReleaseSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
-                                    const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug,
-                                    bool aggressiveTerrainTextureLoading, bool forceFlatTerrains,
-                                    star::skybox::SkyboxContext &skyboxContext);
+                                    const std::filesystem::path &terrainPath, const std::filesystem::path &skyboxPath,
+                                    bool enableTransmittanceMapDebug, bool aggressiveTerrainTextureLoading,
+                                    bool forceFlatTerrains, star::skybox::SkyboxContext &skyboxContext);
 } // namespace loader

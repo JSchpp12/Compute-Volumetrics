@@ -27,10 +27,10 @@ class Application : public star::StarApplication
     };
     using LoaderFn = std::function<loader::SceneDescription(
         star::core::device::DeviceContext &, const std::filesystem::path &, const std::filesystem::path &,
-        bool enableTransmittanceMapDebug, bool aggressiveTerrainTextureLoading, bool forceFlatTerrains,
-        star::skybox::SkyboxContext &)>;
+        const std::filesystem::path &, bool enableTransmittanceMapDebug, bool aggressiveTerrainTextureLoading,
+        bool forceFlatTerrains, star::skybox::SkyboxContext &)>;
 
-    Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName,
+    Application(LoaderFn objectLoader, std::string terrainPath, std::string skyboxPath, std::string volumeName,
                 VolumeRenderingOptions volumeOptions);
     virtual ~Application() = default;
 
@@ -55,6 +55,7 @@ class Application : public star::StarApplication
     std::unique_ptr<star::skybox::SkyboxContext> m_skyboxContext;
     std::filesystem::path m_imageOutputDir;
     std::string m_terrainDir;
+    std::string m_skyboxPath;
     std::string m_volumeName;
     std::vector<star::Handle> m_screenshotRegistrations;
     std::optional<DebugCubeInfo> m_debugCubeInfo{std::nullopt};

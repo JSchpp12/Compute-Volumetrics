@@ -9,6 +9,7 @@ void to_json(nlohmann::json &j, const AppConfigInfo &v)
 {
     j = nlohmann::json{{"volumeName", v.volumeName},
                        {"terrainDir", v.terrainDir},
+                       {"skyboxPath", v.skyboxPath},
                        {"simControllerPath", v.simControllerPath},
                        {"engineConfigPath", v.engineConfigPath},
                        {"enableDistanceMarkers", v.enableDistanceMarkers},
@@ -29,6 +30,7 @@ void from_json(const nlohmann::json &j, AppConfigInfo &v)
 {
     v.volumeName = j.value("volumeName", v.volumeName);
     v.terrainDir = j.value("terrainDir", v.terrainDir);
+    v.skyboxPath = j.value("skyboxPath", v.skyboxPath);
     v.simControllerPath = j.value("simControllerPath", v.simControllerPath);
     v.engineConfigPath = j.value("engineConfigPath", v.engineConfigPath);
     v.enableDistanceMarkers = j.value("enableDistanceMarkers", v.enableDistanceMarkers);

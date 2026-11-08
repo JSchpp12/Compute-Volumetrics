@@ -72,7 +72,7 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const std::filesystem::path mediaPath{star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)};
 
-    auto desc = m_loaderFn(context, mediaPath, terrainPath, m_volumeOptions.enableTransmittanceMapDebug,
+    auto desc = m_loaderFn(context, mediaPath, terrainPath, m_skyboxPath, m_volumeOptions.enableTransmittanceMapDebug,
                            m_volumeOptions.aggressiveTerrainTextureLoading, m_volumeOptions.forceFlatTerrains,
                            *m_skyboxContext);
 
@@ -143,11 +143,11 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
     return objects;
 }
 
-Application::Application(LoaderFn objectLoader, std::string terrainPath, std::string volumeName,
+Application::Application(LoaderFn objectLoader, std::string terrainPath, std::string skyboxPath, std::string volumeName,
                          VolumeRenderingOptions volumeOptions)
-    : m_loaderFn(std::move(objectLoader)), m_terrainDir(std::move(terrainPath)), m_volumeName(std::move(volumeName)),
-      m_screenshotRegistrations(), m_debugCubeInfo(), m_mainScene(nullptr), m_volume(), m_mainLight(),
-      m_volumeOptions(volumeOptions)
+    : m_loaderFn(std::move(objectLoader)), m_terrainDir(std::move(terrainPath)), m_skyboxPath(std::move(skyboxPath)),
+      m_volumeName(std::move(volumeName)), m_screenshotRegistrations(), m_debugCubeInfo(), m_mainScene(nullptr),
+      m_volume(), m_mainLight(), m_volumeOptions(volumeOptions)
 {
 }
 
