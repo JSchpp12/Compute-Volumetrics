@@ -15,6 +15,8 @@
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/FileIO/GetPath.hpp>
 #include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
+#include <starlight/command/material/CreateMaterial.hpp>
+#include <starlight/common/materials/TextureMaterial.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/debug/DebugPrimitives.hpp>
 #include <starlight/object/BasicObject.hpp>
@@ -124,9 +126,14 @@ static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceCon
     return cmd.getReply().get();
 }
 
-static std::shared_ptr<star::StarObject> LoadSkybox(star::core::device::DeviceContext &ctx,
-                                                    star::skybox::SkyboxContext &skyboxContext,
-                                                    const std::filesystem::path &skyboxTexturePath)
+struct LoadedSkybox
+{
+    std::shared_ptr<star::StarObject> object;
+    star::skybox::SkyboxInitializer initializer;
+};
+
+static LoadedSkybox LoadSkybox(star::core::device::DeviceContext &ctx, star::skybox::SkyboxContext &skyboxContext,
+                               const std::filesystem::path &skyboxTexturePath)
 {
     using namespace star::primitive;
 
@@ -141,13 +148,33 @@ static std::shared_ptr<star::StarObject> LoadSkybox(star::core::device::DeviceCo
     const auto vertShader = skyShadersPath / "skybox.vert";
     const auto fragShader = skyShadersPath / "skybox.frag";
 
-    // The setup records the equirect -> cube conversion before the skybox samples the texture.
-    return std::make_shared<CubeObject>(desc,
-                                        star::ShaderResolver::Builder(ctx.getCmdBus())
-                                            .setShader(star::Shader_Stage::vertex, vertShader.string())
-                                            .setShader(star::Shader_Stage::fragment, fragShader.string())
-                                            .build(),
-                                        star::skybox::factory::CreateSkyboxRenderOverrides(), std::move(skybox.setup));
+    std::vector<star::command::material::MaterialTransferWait> waits{
+        {.key = skybox.resource,
+         .semaphore = skybox.transfer,
+         .stages = vk::PipelineStageFlagBits::eComputeShader | vk::PipelineStageFlagBits::eVertexShader |
+                   vk::PipelineStageFlagBits::eFragmentShader}};
+
+    if (skybox.bufferTransfer.has_value() && skybox.buffer.isInitialized())
+    {
+        waits.push_back({.key = skybox.buffer,
+                         .semaphore = *skybox.bufferTransfer,
+                         .stages = vk::PipelineStageFlagBits::eComputeShader});
+    }
+
+    star::command::material::CreateMaterial createMaterial{std::make_unique<star::TextureMaterial>(skybox.resource),
+                                                           std::move(waits)};
+    ctx.getCmdBus().submit(createMaterial);
+    const auto materialHandle = createMaterial.getReply().get();
+
+    // The prep travels to the app's TriggerPass; CommandOrderService prepares it before the skybox samples.
+    auto object = std::make_shared<CubeObject>(desc, std::vector<star::Handle>{materialHandle},
+                                               star::ShaderResolver::Builder(ctx.getCmdBus())
+                                                   .setShader(star::Shader_Stage::vertex, vertShader.string())
+                                                   .setShader(star::Shader_Stage::fragment, fragShader.string())
+                                                   .build(),
+                                               star::skybox::factory::CreateSkyboxRenderOverrides());
+
+    return LoadedSkybox{.object = std::move(object), .initializer = std::move(skybox.initializer)};
 }
 
 SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
@@ -164,7 +191,9 @@ SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const 
     // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));
     desc.addDebugCube(LoadCube(ctx, numCubes));
-    desc.addObject(LoadSkybox(ctx, skyboxContext, skyboxPath));
+    auto skybox = LoadSkybox(ctx, skyboxContext, skyboxPath);
+    desc.addInitializer(std::move(skybox.initializer));
+    desc.addObject(std::move(skybox.object));
 
     if (enableTransmittanceMapDebug)
         desc.addTransmittanceViz(LoadTransmittanceViz());
@@ -183,7 +212,9 @@ SceneDescription ReleaseSceneLoader(star::core::device::DeviceContext &ctx, cons
     desc.addObject(std::move(colorTerrain));
     desc.addShadowObject(std::move(shadowMapTerrain));
     // desc.addObject(LoadHorse(ctx, mediaDirPath));
-    desc.addObject(LoadSkybox(ctx, skyboxContext, skyboxPath));
+    auto skybox = LoadSkybox(ctx, skyboxContext, skyboxPath);
+    desc.addInitializer(std::move(skybox.initializer));
+    desc.addObject(std::move(skybox.object));
 
     if (enableTransmittanceMapDebug)
         desc.addTransmittanceViz(LoadTransmittanceViz());

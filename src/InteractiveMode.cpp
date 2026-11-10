@@ -14,6 +14,7 @@
 #include <star_windowing/service/EngineServicesFactory.hpp>
 #include <starlight/StarEngine.hpp>
 #include <starlight/service/EngineServicesFactory.hpp>
+#include <starlight/service/MaterialService.hpp>
 
 #include <memory>
 #include <utility>
@@ -28,6 +29,7 @@ int InteractiveMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
     auto engineServices = star::service::EngineServicesFactory::createDefault(false);
     star::windowing::EngineServicesFactory::addDefaultServices(engineServices, winContext);
     engineServices.add(star::service::Service{service::ImageMetricManager{}});
+    engineServices.add(star::service::Service{star::service::MaterialService{}});
     engineServices.add(star::service::Service{SimulationControllerService(std::move(cfg->simControllerPath))});
 
     star::windowing::EngineInitPolicy windowInit{winContext, engineServices, cfg->overrideRenderingDevice};

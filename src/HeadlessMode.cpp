@@ -12,6 +12,7 @@
 #include <starlight/policy/DefaultEngineInitPolicy.hpp>
 #include <starlight/policy/DefaultEngineLoopPolicy.hpp>
 #include <starlight/service/EngineServicesFactory.hpp>
+#include <starlight/service/MaterialService.hpp>
 
 #include <memory>
 #include <optional>
@@ -34,6 +35,7 @@ int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
 
     auto engineServices = star::service::EngineServicesFactory::createDefault(true);
     engineServices.add(star::service::Service{service::ImageMetricManager{}});
+    engineServices.add(star::service::Service{star::service::MaterialService{}});
     engineServices.add(
         star::service::Service{SimulationControllerService(std::move(cfg->simControllerPath), controllerSequenceDone)});
 

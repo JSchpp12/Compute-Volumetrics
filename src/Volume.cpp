@@ -13,15 +13,22 @@
 #include <cassert>
 
 #include <starlight/core/Exceptions.hpp>
+#include <starlight/core/device/managers/Material.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/virtual/StarScene.hpp>
 
+static std::vector<star::Handle> MakeScreenMaterialHandles(star::core::device::DeviceContext &context)
+{
+    auto material = std::make_unique<ScreenMaterial>();
+    return {context.getGraphicsManagers().materialManager.submit(
+        star::core::device::manager::MaterialRequest{std::move(material)})};
+}
+
 Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
                std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
                std::shared_ptr<star::core::renderer::FrameData> frameData, star::ShaderResolver &shaderResolver)
-    : star::StarObject(std::vector<std::shared_ptr<star::StarMaterial>>{std::make_shared<ScreenMaterial>()}),
-      camera(camera), screenDimensions(screenWidth, screenHeight)
+    : star::StarObject(MakeScreenMaterialHandles(context)), camera(camera), screenDimensions(screenWidth, screenHeight)
 {
     m_vertexShaderHandle = shaderResolver.resolve(star::Shader_Stage::vertex);
     m_fragmentShaderHandle = shaderResolver.resolve(star::Shader_Stage::fragment);
@@ -182,7 +189,10 @@ void Volume::prepRender(star::core::device::DeviceContext &context)
     VolumeRenderPhase *phase = this->getVolumePhase();
     assert(phase != nullptr && "volume render phase was not built before Volume::prepRender");
 
-    static_cast<ScreenMaterial *>(m_meshMaterials[0].get())->setComputeWriteToImages(phase->getRenderToImages());
+    auto &materialManager = context.getGraphicsManagers().materialManager;
+    auto *screenMaterial = dynamic_cast<ScreenMaterial *>(materialManager.getMaterial(m_materialHandles[0]));
+    assert(screenMaterial != nullptr && "Volume expects a ScreenMaterial");
+    screenMaterial->setComputeWriteToImages(phase->getRenderToImages());
 
     RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
 
@@ -293,7 +303,7 @@ std::vector<star::StarMesh> Volume::loadMeshes(star::core::device::DeviceContext
     star::Handle indBuffer = star::ManagerRenderResource::addRequest(
         context.getDeviceID(), std::make_unique<star::TransferRequest::IndicesInfo>(this->graphicsQueueFamily, inds));
 
-    return {star::StarMesh{vertBuffer, indBuffer, verts, inds, m_meshMaterials.at(0), this->aabbBounds[0],
+    return {star::StarMesh{vertBuffer, indBuffer, verts, inds, m_materialHandles.at(0), this->aabbBounds[0],
                            this->aabbBounds[1], false}};
 }
 

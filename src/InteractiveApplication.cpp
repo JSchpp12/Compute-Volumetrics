@@ -25,10 +25,12 @@ static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerC
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
     const auto &c = offscreenRenderer.getCommandBuffer();
 
-    cmdBus.submit(star::command_order::TriggerPass()
-                      .setTimelineSemaphore(offscreenRenderer.getTimelineSemaphores()[ii])
-                      .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
-                      .setPass(c));
+    star::command_order::TriggerPass trigger;
+    trigger.setTimelineSemaphore(offscreenRenderer.getTimelineSemaphores()[ii])
+        .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
+        .setPass(c);
+
+    cmdBus.submit(trigger);
 };
 
 static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
@@ -200,6 +202,7 @@ void InteractiveApplication::addPresentationFinalizationPhases(star::core::devic
     m_guiController.setVolume(m_volume.get());
 
     star::windowing::CreateGui createGui{*m_mainScene, [this]() { m_guiController.draw(); }};
+    createGui.setFinalizationPhase(m_finalizationPhaseHandle);
     context.getCmdBus().submit(createGui);
 }
 

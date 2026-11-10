@@ -119,9 +119,9 @@ class Application : public star::StarApplication
     static sim_controller::UpdateStatus TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume,
                                                          star::StarCamera &camera);
 
-    std::vector<std::shared_ptr<star::StarObject>> parseSceneObjects(star::core::device::DeviceContext &context,
-                                                                     std::shared_ptr<star::StarCamera> camera,
-                                                                     const std::string &terrainPath);
+    std::vector<std::shared_ptr<star::StarObject>> parseSceneObjects(
+        star::core::device::DeviceContext &context, std::shared_ptr<star::StarCamera> camera,
+        const std::string &terrainPath, std::vector<star::skybox::SkyboxInitializer> &outInitializers);
 
     static star::Light CreateMainLight(glm::vec3 position);
 };

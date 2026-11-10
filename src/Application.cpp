@@ -41,10 +41,12 @@ static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerC
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
     const auto &c = offscreenPhase.getCommandBuffer();
 
-    cmdBus.submit(star::command_order::TriggerPass()
-                      .setTimelineSemaphore(offscreenPhase.getTimelineSemaphores()[ii])
-                      .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
-                      .setPass(c));
+    star::command_order::TriggerPass trigger;
+    trigger.setTimelineSemaphore(offscreenPhase.getTimelineSemaphores()[ii])
+        .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
+        .setPass(c);
+
+    cmdBus.submit(trigger);
 };
 
 static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
@@ -64,7 +66,7 @@ static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
 
 std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
     star::core::device::DeviceContext &context, std::shared_ptr<star::StarCamera> camera,
-    const std::string &terrainPath)
+    const std::string &terrainPath, std::vector<star::skybox::SkyboxInitializer> &outInitializers)
 {
     assert(m_loaderFn);
     assert(m_skyboxContext && "loadScene() must create the skybox conversion cache before loading objects");
@@ -76,6 +78,7 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
                            m_volumeOptions.aggressiveTerrainTextureLoading, m_volumeOptions.forceFlatTerrains,
                            *m_skyboxContext);
 
+    outInitializers = desc.takeInitializers();
     // The shadow-cast terrain is kept separate from the color object list so it
     // can be routed to the terrain shadow render phase instead of the offscreen
     // color phase.
@@ -103,7 +106,7 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
 
             const std::array<int, 3> windowSize = transmittanceVizComponent->windowSize;
             auto cells = star::debug::CreateCube(
-                std::move(transmittanceVizComponent->cubeInfos), cellResolver,
+                context, std::move(transmittanceVizComponent->cubeInfos), cellResolver,
                 star::primitive::CubeObject::OptionalRenderingOverrides{.topology = vk::PrimitiveTopology::eLineList});
 
             // The first placement happens on the first updateTransmittanceViz(), once the fog
@@ -129,7 +132,7 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
                     .setShader(star::Shader_Stage::vertex, (cubeShaderDir / "debugCube.vert").string())
                     .setShader(star::Shader_Stage::fragment, (cubeShaderDir / "debugCube.frag").string())
                     .build();
-            auto cube = star::debug::CreateCube(sqComponent->cubeInfos, cubeResolver);
+            auto cube = star::debug::CreateCube(context, sqComponent->cubeInfos, cubeResolver);
             m_debugCubeInfo = std::make_optional(
                 DebugCubeInfo{.debugCube = cube, .numUniqueCubes = sqComponent->numberOfDebugSquares});
 
@@ -184,7 +187,8 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     }
 
     {
-        auto terrainObjects = parseSceneObjects(context, camera, m_terrainDir);
+        std::vector<star::skybox::SkyboxInitializer> skyboxInitializers;
+        auto terrainObjects = parseSceneObjects(context, camera, m_terrainDir, skyboxInitializers);
         for (auto &object : terrainObjects)
         {
             allObjects.emplace_back(object);
@@ -233,9 +237,10 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
             auto cmd =
                 star::command::CreateObject::Builder()
                     .setLoader(std::make_unique<star::command::create_object::DeferredObjCreation>(
-                        [&, vdbPathString, fNumFramesInFlight, camera, width, height](star::ShaderResolver &resolver) {
-                            return std::make_shared<Volume>(context, vdbPathString, fNumFramesInFlight, camera, width,
-                                                            height, m_offscreenFrameData, resolver);
+                        [&, vdbPathString, fNumFramesInFlight, camera, width,
+                         height](star::core::device::DeviceContext &loadedContext, star::ShaderResolver &resolver) {
+                            return std::make_shared<Volume>(loadedContext, vdbPathString, fNumFramesInFlight, camera,
+                                                            width, height, m_offscreenFrameData, resolver);
                         }))
                     .setShaderResolver(std::move(volumeResolver))
                     .setUniqueName(m_volumeName)
@@ -284,12 +289,12 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         m_mainScene = std::make_shared<star::StarScene>(
             star::star_scene::makeWaitForAllObjectsReadyPolicy(std::move(allObjects)), camera);
 
-        m_offscreenPhaseHandle = m_mainScene->addProvider(std::move(offscreenProvider));
+        m_offscreenPhaseHandle = m_mainScene->addProvider(std::move(offscreenProvider), context);
 
         auto terrainShadowProvider = std::make_unique<star::terrain::TerrainShadowRenderPhaseProvider>(
             context, m_mainLight, std::vector<std::shared_ptr<star::StarObject>>{m_shadowTerrain},
             m_offscreenPhaseHandle, true, star::Command_Buffer_Order_Index::second, m_fogVolumeInfo.get());
-        m_terrainShadowPhaseHandle = m_mainScene->addProvider(std::move(terrainShadowProvider));
+        m_terrainShadowPhaseHandle = m_mainScene->addProvider(std::move(terrainShadowProvider), context);
         DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
             .setConsumer(
                 [this]() -> star::Handle { return this->m_volume->getRenderer().getCommandBuffer(); }) // volume
@@ -300,13 +305,20 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
         m_volume->getProvider().setOffscreenPhaseHandle(m_offscreenPhaseHandle);
         m_volume->getProvider().setShadowTerrainPhaseHandle(m_terrainShadowPhaseHandle);
-        m_volumePhaseHandle = m_mainScene->addProvider(m_volume->takePhaseProvider());
+        m_volumePhaseHandle = m_mainScene->addProvider(m_volume->takePhaseProvider(), context);
         m_volume->setVolumePhase(m_mainScene.get(), m_volumePhaseHandle);
-        m_finalizationPhaseHandle = m_mainScene->addProvider(std::move(mainRendererProvider));
+        m_finalizationPhaseHandle = m_mainScene->addProvider(std::move(mainRendererProvider), context);
 
         // Presentation-only phases (e.g. the ImGui overlay) need the built
         // finalization phase, so they are queued only once its handle is known.
         addPresentationFinalizationPhases(context);
+
+        // Providers build immediately, so the offscreen pass's CompleteRequest exists. Hand each
+        // skybox's prepared conversion definition to it now.
+        auto *offscreenPhase = m_mainScene->getPhase(m_offscreenPhaseHandle);
+        assert(offscreenPhase != nullptr && "The offscreen phase must be built before submitting skybox setup");
+        for (auto &initializer : skyboxInitializers)
+            initializer.submitMe(context, offscreenPhase->getCommandBuffer());
     }
 
     DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
@@ -330,8 +342,8 @@ void Application::shutdown(star::core::device::DeviceContext &context)
     auto cmd = star::command::SaveSceneState();
     context.begin().set(cmd).submit();
 
-    // Destroy before the DeviceContext: the context owns the skybox conversion's raw layouts. shutdown() runs after
-    // waitIdle() and before the scene's cleanupRender(), so no recorded work references those layouts any more.
+    // Destroy before the DeviceContext: the context owns the skybox conversion's raw layouts. StarEngine drains all
+    // pending one-shot setup and cleans the scene before calling shutdown(), so nothing can still free into this pool.
     m_skyboxContext.reset();
 }
 
