@@ -15,8 +15,8 @@
 #include <starlight/command/CreateObject.hpp>
 #include <starlight/command/FileIO/GetPath.hpp>
 #include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
-#include <starlight/command/material/CreateMaterial.hpp>
 #include <starlight/common/materials/TextureMaterial.hpp>
+#include <starlight/material/MaterialProvider.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/debug/DebugPrimitives.hpp>
 #include <starlight/object/BasicObject.hpp>
@@ -26,7 +26,7 @@ namespace loader
 {
 
 static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarObject>> LoadTerrain(
-    star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
+    star::core::device::DeviceContext &ctx, 
     const std::filesystem::path &terrainPath, bool aggressiveTerrainTextureLoading, bool forceFlatTerrains)
 {
     const std::filesystem::path terrainShaderDir = std::filesystem::path{"shaders"} / "terrain" / "standard_geometry";
@@ -126,14 +126,9 @@ static std::shared_ptr<star::StarObject> LoadHorse(star::core::device::DeviceCon
     return cmd.getReply().get();
 }
 
-struct LoadedSkybox
-{
-    std::shared_ptr<star::StarObject> object;
-    star::skybox::SkyboxInitializer initializer;
-};
-
-static LoadedSkybox LoadSkybox(star::core::device::DeviceContext &ctx, star::skybox::SkyboxContext &skyboxContext,
-                               const std::filesystem::path &skyboxTexturePath)
+static std::shared_ptr<star::StarObject> LoadSkybox(star::core::device::DeviceContext &ctx,
+                                                    star::skybox::SkyboxContext &skyboxContext,
+                                                    const std::filesystem::path &skyboxTexturePath)
 {
     using namespace star::primitive;
 
@@ -148,7 +143,7 @@ static LoadedSkybox LoadSkybox(star::core::device::DeviceContext &ctx, star::sky
     const auto vertShader = skyShadersPath / "skybox.vert";
     const auto fragShader = skyShadersPath / "skybox.frag";
 
-    std::vector<star::command::material::MaterialTransferWait> waits{
+    std::vector<star::setup::TransferWait> waits{
         {.key = skybox.resource,
          .semaphore = skybox.transfer,
          .stages = vk::PipelineStageFlagBits::eComputeShader | vk::PipelineStageFlagBits::eVertexShader |
@@ -161,20 +156,16 @@ static LoadedSkybox LoadSkybox(star::core::device::DeviceContext &ctx, star::sky
                          .stages = vk::PipelineStageFlagBits::eComputeShader});
     }
 
-    star::command::material::CreateMaterial createMaterial{std::make_unique<star::TextureMaterial>(skybox.resource),
-                                                           std::move(waits)};
-    ctx.getCmdBus().submit(createMaterial);
-    const auto materialHandle = createMaterial.getReply().get();
+    std::vector<std::unique_ptr<star::IMaterialProvider>> providers;
+    providers.push_back(std::make_unique<star::MaterialProvider>(
+        std::make_unique<star::TextureMaterial>(skybox.resource), std::move(waits), std::move(skybox.prep)));
 
-    // The prep travels to the app's TriggerPass; CommandOrderService prepares it before the skybox samples.
-    auto object = std::make_shared<CubeObject>(desc, std::vector<star::Handle>{materialHandle},
-                                               star::ShaderResolver::Builder(ctx.getCmdBus())
-                                                   .setShader(star::Shader_Stage::vertex, vertShader.string())
-                                                   .setShader(star::Shader_Stage::fragment, fragShader.string())
-                                                   .build(),
-                                               star::skybox::factory::CreateSkyboxRenderOverrides());
-
-    return LoadedSkybox{.object = std::move(object), .initializer = std::move(skybox.initializer)};
+    return std::make_shared<CubeObject>(desc, std::move(providers),
+                                        star::ShaderResolver::Builder(ctx.getCmdBus())
+                                            .setShader(star::Shader_Stage::vertex, vertShader.string())
+                                            .setShader(star::Shader_Stage::fragment, fragShader.string())
+                                            .build(),
+                                        star::skybox::factory::CreateSkyboxRenderOverrides());
 }
 
 SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
@@ -186,14 +177,12 @@ SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const 
 
     SceneDescription desc;
     auto [colorTerrain, shadowMapTerrain] =
-        LoadTerrain(ctx, mediaDirPath, terrainPath, aggressiveTerrainTextureLoading, forceFlatTerrains);
+        LoadTerrain(ctx, terrainPath, aggressiveTerrainTextureLoading, forceFlatTerrains);
     desc.addObject(std::move(colorTerrain));
     // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));
     desc.addDebugCube(LoadCube(ctx, numCubes));
-    auto skybox = LoadSkybox(ctx, skyboxContext, skyboxPath);
-    desc.addInitializer(std::move(skybox.initializer));
-    desc.addObject(std::move(skybox.object));
+    desc.addObject(LoadSkybox(ctx, skyboxContext, skyboxPath));
 
     if (enableTransmittanceMapDebug)
         desc.addTransmittanceViz(LoadTransmittanceViz());
@@ -208,13 +197,11 @@ SceneDescription ReleaseSceneLoader(star::core::device::DeviceContext &ctx, cons
 {
     SceneDescription desc;
     auto [colorTerrain, shadowMapTerrain] =
-        LoadTerrain(ctx, mediaDirPath, terrainPath, aggressiveTerrainTextureLoading, forceFlatTerrains);
+        LoadTerrain(ctx, terrainPath, aggressiveTerrainTextureLoading, forceFlatTerrains);
     desc.addObject(std::move(colorTerrain));
     desc.addShadowObject(std::move(shadowMapTerrain));
     // desc.addObject(LoadHorse(ctx, mediaDirPath));
-    auto skybox = LoadSkybox(ctx, skyboxContext, skyboxPath);
-    desc.addInitializer(std::move(skybox.initializer));
-    desc.addObject(std::move(skybox.object));
+    desc.addObject(LoadSkybox(ctx, skyboxContext, skyboxPath));
 
     if (enableTransmittanceMapDebug)
         desc.addTransmittanceViz(LoadTransmittanceViz());

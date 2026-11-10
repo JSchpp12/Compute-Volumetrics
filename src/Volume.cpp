@@ -16,19 +16,20 @@
 #include <starlight/core/device/managers/Material.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
+#include <starlight/material/MaterialProvider.hpp>
 #include <starlight/virtual/StarScene.hpp>
 
-static std::vector<star::Handle> MakeScreenMaterialHandles(star::core::device::DeviceContext &context)
+static std::vector<std::unique_ptr<star::IMaterialProvider>> MakeScreenMaterialProviders()
 {
-    auto material = std::make_unique<ScreenMaterial>();
-    return {context.getGraphicsManagers().materialManager.submit(
-        star::core::device::manager::MaterialRequest{std::move(material)})};
+    std::vector<std::unique_ptr<star::IMaterialProvider>> providers;
+    providers.push_back(std::make_unique<star::MaterialProvider>(std::make_unique<ScreenMaterial>()));
+    return providers;
 }
 
 Volume::Volume(star::core::device::DeviceContext &context, std::string vdbFilePath, const size_t &numFramesInFlight,
                std::shared_ptr<star::StarCamera> camera, const uint32_t &screenWidth, const uint32_t &screenHeight,
                std::shared_ptr<star::core::renderer::FrameData> frameData, star::ShaderResolver &shaderResolver)
-    : star::StarObject(MakeScreenMaterialHandles(context)), camera(camera), screenDimensions(screenWidth, screenHeight)
+    : star::StarObject(MakeScreenMaterialProviders()), camera(camera), screenDimensions(screenWidth, screenHeight)
 {
     m_vertexShaderHandle = shaderResolver.resolve(star::Shader_Stage::vertex);
     m_fragmentShaderHandle = shaderResolver.resolve(star::Shader_Stage::fragment);
@@ -181,8 +182,11 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer commandBuffer, int f
         vk::DependencyInfo().setPImageMemoryBarriers(imgBarrier).setImageMemoryBarrierCount(1));
 }
 
-void Volume::prepRender(star::core::device::DeviceContext &context)
+void Volume::prepRender(star::core::device::DeviceContext &context, star::Handle commandBuffer)
 {
+    // Create the screen material first; the base populates m_materialHandles.
+    star::StarObject::prepRender(context, commandBuffer);
+
     // the volume render phase is already built by the scene before this runs
     // (the volume provider is added before the finalization provider), so bind
     // the phase's compute write images onto the screen-space quad's material.
@@ -195,8 +199,6 @@ void Volume::prepRender(star::core::device::DeviceContext &context)
     screenMaterial->setComputeWriteToImages(phase->getRenderToImages());
 
     RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
-
-    star::StarObject::prepRender(context);
 }
 
 void Volume::cleanupRender(star::core::device::DeviceContext &context)
