@@ -5,6 +5,11 @@
 
 #include <variant>
 
+namespace star::common
+{
+class FrameTracker;
+}
+
 namespace render_system::fog::commands::color
 {
 using PostMemoryPolicy = std::variant<PostDifferentFamilies>;

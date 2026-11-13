@@ -184,6 +184,11 @@ void Volume::recordPostRenderPassCommands(vk::CommandBuffer commandBuffer, int f
 
 void Volume::prepRender(star::core::device::DeviceContext &context, star::Handle commandBuffer)
 {
+    // Resolve the queue families before the base runs: StarObject::prepRender -> prepStarObject -> Volume::loadMeshes
+    // builds the vertex/index transfer requests with graphicsQueueFamily, so leaving it at the default 0 would bake
+    // the wrong sharing mode when the graphics family is not 0.
+    RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
+
     // Create the screen material first; the base populates m_materialHandles.
     star::StarObject::prepRender(context, commandBuffer);
 
@@ -197,8 +202,6 @@ void Volume::prepRender(star::core::device::DeviceContext &context, star::Handle
     auto *screenMaterial = dynamic_cast<ScreenMaterial *>(materialManager.getMaterial(m_materialHandles[0]));
     assert(screenMaterial != nullptr && "Volume expects a ScreenMaterial");
     screenMaterial->setComputeWriteToImages(phase->getRenderToImages());
-
-    RecordQueueFamilyInfo(context, this->computeQueueFamily, this->graphicsQueueFamily);
 }
 
 void Volume::cleanupRender(star::core::device::DeviceContext &context)

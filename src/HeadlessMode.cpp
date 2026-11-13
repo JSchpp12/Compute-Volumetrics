@@ -8,6 +8,7 @@
 #include "service/ImageMetricManager.hpp"
 #include "service/SimulationController.hpp"
 
+#include <star_skybox/service/SkyboxFileService.hpp>
 #include <starlight/StarEngine.hpp>
 #include <starlight/policy/DefaultEngineInitPolicy.hpp>
 #include <starlight/policy/DefaultEngineLoopPolicy.hpp>
@@ -35,9 +36,11 @@ int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
 
     auto engineServices = star::service::EngineServicesFactory::createDefault(true);
     engineServices.add(star::service::Service{service::ImageMetricManager{}});
-    engineServices.add(star::service::Service{star::service::MaterialService{}});
+    engineServices.add(
+        star::service::Service{star::service::MaterialService{&star::service::MaterialService::TerminateSwap}});
     engineServices.add(
         star::service::Service{SimulationControllerService(std::move(cfg->simControllerPath), controllerSequenceDone)});
+    engineServices.add(star::service::Service{star::skybox::service::SkyboxFileService{cfg->skyboxPath}});
 
     auto init = star::policy::DefaultEngineInitPolicy{engineServices, {}, cfg->overrideRenderingDevice};
 

@@ -10,6 +10,7 @@
 #include <starlight/wrappers/graphics/StarQueue.hpp>
 
 #include <optional>
+#include <span>
 
 namespace service::image_metric_manager
 {
@@ -63,9 +64,7 @@ class CopyCmds
 
     vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                                std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                               std::vector<vk::Semaphore> dataSemaphores,
-                               std::vector<vk::PipelineStageFlags> dataWaitPoints,
-                               std::vector<std::optional<uint64_t>> previousSignaledValues);
+                               std::span<const star::StarCommandBuffer::Data> dataWaits);
 
     star::StarQueue *getTransferQueue(star::common::EventBus &eb, star::core::device::manager::Queue &qm) const;
 

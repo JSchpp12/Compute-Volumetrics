@@ -11,6 +11,7 @@
         "objectMovementSpeed": 300.0
     },
     "simControllerPath": "controllers/default_controller.json",
+    "skyboxPath": "skybox/autumn_field_puresky_4k.exr",
     "terrainDir": "terrains/159_mini",
     "volumeName": "demo_1"
 }

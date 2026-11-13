@@ -3,6 +3,7 @@
 #include "render_system/fog/commands/Distance.hpp"
 #include "render_system/fog/commands/Pass.hpp"
 
+#include <star_common/FrameTracker.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
 using namespace render_system::fog;
@@ -135,14 +136,6 @@ void render_system::fog::ChunkDispatchGrid::recordAllChunks(const star::common::
     //        //m_chunkHandlers[j].recordCommands(dInfo, pInfo, pipeInfo, ft, type);
     //    }
     //}
-}
-
-void render_system::fog::ChunkDispatchGrid::submitAllChunks(const star::common::FrameTracker &ft,
-                                                            std::vector<vk::Semaphore> dataSemaphores,
-                                                            std::vector<vk::PipelineStageFlags> dataWaitPoints,
-                                                            std::vector<std::optional<uint64_t>> previousSignaledValues,
-                                                            star::StarQueue &queue, const star::Handle &registration)
-{
 }
 
 uint64_t render_system::fog::ChunkDispatchGrid::getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const

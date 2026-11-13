@@ -198,8 +198,7 @@ void InteractiveApplication::addPresentationFinalizationPhases(star::core::devic
 {
     // The overlay borrows, but never owns, the scene and volume it draws; both
     // outlive the overlay and are kept by the application.
-    m_guiController.setScene(m_mainScene.get());
-    m_guiController.setVolume(m_volume.get());
+    m_guiController = GUIController(m_mainScene.get(), m_volume.get(), getSkyboxController());
 
     star::windowing::CreateGui createGui{*m_mainScene, [this]() { m_guiController.draw(); }};
     createGui.setFinalizationPhase(m_finalizationPhaseHandle);

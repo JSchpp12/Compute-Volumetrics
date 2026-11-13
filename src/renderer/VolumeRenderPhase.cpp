@@ -7,6 +7,7 @@
 #include <starlight/core/device/managers/Buffer.hpp>
 #include <starlight/core/device/managers/Image.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
+#include <starlight/core/transfer/RegisterTransferWait.hpp>
 #include <starlight/maker/buffer/MakeBuffer.hpp>
 
 #include <cassert>
@@ -360,22 +361,22 @@ uint64_t VolumeRenderPhase::getTimelineSignalValue(const star::common::FrameTrac
 std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride> VolumeRenderPhase::
     getSubmissionOverride()
 {
-    star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride overrideFn = std::bind(
-        &VolumeRenderPhase::submitBuffer, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
-        std::placeholders::_4, std::placeholders::_5, std::placeholders::_6, std::placeholders::_7);
+    star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride overrideFn =
+        [this](star::StarCommandBuffer &buffer, const star::common::FrameTracker &ft,
+               std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
+               std::span<const star::StarCommandBuffer::Data> dataWaits, star::StarQueue &queue) {
+            return submitBuffer(buffer, ft, previousCommandBufferSemaphores, dataWaits, queue);
+        };
     return overrideFn;
 }
 
 vk::Semaphore VolumeRenderPhase::submitBuffer(star::StarCommandBuffer &buffer,
                                               const star::common::FrameTracker &frameTracker,
                                               std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                                              std::vector<vk::Semaphore> &dataSemaphores,
-                                              std::vector<vk::PipelineStageFlags> &dataWaitPoints,
-                                              std::vector<std::optional<uint64_t>> &previousSignaledValues,
+                                              std::span<const star::StarCommandBuffer::Data> dataWaits,
                                               star::StarQueue &queue)
 {
-    m_chunkHandler.submit(frameTracker, std::move(dataSemaphores), std::move(dataWaitPoints),
-                          std::move(previousSignaledValues), queue, m_commandBuffer);
+    m_chunkHandler.submit(frameTracker, dataWaits, queue, m_commandBuffer);
 
     return vk::Semaphore();
 }
@@ -408,9 +409,64 @@ const star::StarTextures::Texture &VolumeRenderPhase::computeWriteToTexture(cons
     return *record->getTexture();
 }
 
+void VolumeRenderPhase::cacheDependentImagePointers(star::core::device::manager::Image *imgManager)
+{
+    assert(m_offscreenPhase != nullptr && "Offscreen phase must be set before caching dependent images");
+
+    const auto &colorHandles = m_offscreenPhase->getRenderTargets().colorHandles();
+    const auto &depthHandles = m_offscreenPhase->getRenderTargets().depthHandles();
+    assert(colorHandles.size() == depthHandles.size() && "Offscreen color/depth handle counts must match");
+
+    const auto cache = [this, imgManager](const star::Handle &handle) {
+        auto *record = imgManager->get(handle);
+        if (record == nullptr || record->getTexture() == nullptr)
+        {
+            STAR_THROW("VolumeRenderPhase: dependent image is unavailable. This should never happen. If it does, the "
+                       "dependent image was either never created, or deleted early.");
+        }
+
+        this->m_renderingContext.recordDependentImage.manualInsert(handle, record->getTexture());
+    };
+
+    for (size_t i = 0; i < colorHandles.size(); ++i)
+    {
+        cache(colorHandles[i]);
+        cache(depthHandles[i]);
+
+        if (m_terrainShadowPhase != nullptr)
+        {
+            const auto &shadowDepthHandles = m_terrainShadowPhase->getRenderTargets().depthHandles();
+            if (i < shadowDepthHandles.size())
+                cache(shadowDepthHandles[i]);
+        }
+    }
+}
+
+void VolumeRenderPhase::onManagerReservedMemoryUpdate(const star::event::ManagerReservedMemoryUpdate &event,
+                                                      bool &keepAlive)
+{
+    // Keep this subscription alive for every manager reallocation, not only image ones. The event bus removes any
+    // listener that leaves keepAlive false, so a buffer/material/fence reallocation would otherwise drop us and the
+    // cached dependent texture pointers would go stale on the next image-manager reallocation.
+    keepAlive = true;
+
+    if (m_imageManager == nullptr)
+        return;
+
+    if (event.getManagerHandleType() != m_imageManager->getHandleType())
+        return;
+
+    if (event.getManager() != static_cast<void *>(m_imageManager))
+        return;
+
+    cacheDependentImagePointers(static_cast<star::core::device::manager::Image *>(event.getManager()));
+}
+
 void VolumeRenderPhase::cleanupRender(star::common::IDeviceContext &context)
 {
     auto &c = static_cast<star::core::device::DeviceContext &>(context);
+
+    m_listenForManagerReservedMemoryUpdate.cleanup(c.getEventBus());
 
     m_chunkHandler.cleanupRender(c);
     m_distanceComputer.cleanupRender(c);
@@ -473,10 +529,10 @@ void VolumeRenderPhase::updateDependentData(star::core::device::DeviceContext &c
         }
 
         auto fogResult = m_volumeFrameData->frameUpdate(context, transferWaitOnLastCompute);
-        auto &record = context.getManagerCommandBuffer().m_manager.get(m_commandBuffer);
         for (const auto &w : fogResult.waits)
         {
-            record.oneTimeWaitSemaphoreInfo.insert(w.handle, w.semaphore, w.waitStage, w.signalValue);
+            star::core::transfer::RegisterTransferWait(context, m_commandBuffer, w.handle, w.semaphore, w.signalValue,
+                                                       w.waitStage);
             m_renderingContext.addBufferToRenderingContext(context, w.handle);
         }
     }

@@ -557,21 +557,9 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     auto cmd = star::command_order::DeclarePass(phase->m_commandBuffer, computeQueueFamilyIndex);
     c.begin().set(cmd).submit();
 
-    auto *shadowPhase = phases.getPhase(m_shadowTerrainPhaseHandle);
-
-    for (size_t i = 0; i < n; i++)
-    {
-        auto &ch = offscreenPhase->getRenderTargets().colorHandles()[i];
-        phase->m_renderingContext.recordDependentImage.manualInsert(ch, c.getImageManager().get(ch)->getTexture());
-        auto &dh = offscreenPhase->getRenderTargets().depthHandles()[i];
-        phase->m_renderingContext.recordDependentImage.manualInsert(dh, c.getImageManager().get(dh)->getTexture());
-
-        if (shadowPhase != nullptr)
-        {
-            auto &sh = shadowPhase->getRenderTargets().depthHandles()[i];
-            phase->m_renderingContext.recordDependentImage.manualInsert(sh, c.getImageManager().get(sh)->getTexture());
-        }
-    }
+    phase->cacheDependentImagePointers(&c.getImageManager());
+    // Register after the initial cache is built so any later image insert during build() is observed.
+    phase->m_listenForManagerReservedMemoryUpdate.init(c.getEventBus());
 
     const auto &transmittanceMapResolution = m_fogResources.resourcePolicies.transmittance.transmittanceMapResolution;
     phase->m_chunkHandler.prepRender(c, phase->m_commandBuffer,

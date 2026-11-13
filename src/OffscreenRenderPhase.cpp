@@ -3,6 +3,7 @@
 #include "Allocator.hpp"
 
 #include <starlight/core/renderer/RenderPhaseHelpers.hpp>
+#include <starlight/core/transfer/RegisterTransferWait.hpp>
 
 OffscreenRenderPhase::OffscreenRenderPhase(const star::core::CommandBus &cmdBus, vk::Device device)
     : m_device(device), m_cmdBus(&cmdBus)
@@ -131,10 +132,10 @@ void OffscreenRenderPhase::updateDependentData(star::core::device::DeviceContext
     auto priorSync = star::core::renderer::GetNeighborConsumerSyncInfo(context.getCmdBus(), m_commandBuffer);
 
     auto result = m_frameData->frameUpdate(context, priorSync);
-    auto &record = context.getManagerCommandBuffer().m_manager.get(m_commandBuffer);
     for (const auto &w : result.waits)
     {
-        record.oneTimeWaitSemaphoreInfo.insert(w.handle, w.semaphore, w.waitStage, w.signalValue);
+        star::core::transfer::RegisterTransferWait(context, m_commandBuffer, w.handle, w.semaphore, w.signalValue,
+                                                   w.waitStage);
         m_renderingContext.addBufferToRenderingContext(context, w.handle);
     }
 }

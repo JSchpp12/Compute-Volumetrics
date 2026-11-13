@@ -12,6 +12,7 @@
 #include "render_system/fog/struct/ShaderPushInfo.hpp"
 #include "render_system/fog/struct/SyncInfo.hpp"
 
+#include <star_common/FrameTracker.hpp>
 #include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
@@ -121,9 +122,25 @@ void FogDispatcher::cleanupRender(star::core::device::DeviceContext &ctx)
     m_sharedCmdBuf.cleanupRender(ctx.getDevice().getVulkanDevice());
 }
 
-void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk::Semaphore> dataSemaphores,
-                           std::vector<vk::PipelineStageFlags> dataWaitPoints,
-                           std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue,
+void FogDispatcher::AppendWaitInfos(std::vector<vk::SemaphoreSubmitInfo> &out, const WaitInfo &edgeWaits,
+                                    std::span<const star::StarCommandBuffer::Data> dataWaits)
+{
+    out.reserve(edgeWaits.count + dataWaits.size());
+
+    for (uint32_t i{0}; i < edgeWaits.count; ++i)
+        out.push_back(edgeWaits.info[i]);
+
+    for (const auto &wait : dataWaits)
+    {
+        out.push_back(vk::SemaphoreSubmitInfo()
+                          .setSemaphore(wait.semaphore)
+                          .setValue(wait.signaledValue.value_or(0))
+                          .setStageMask(vk::PipelineStageFlagBits2::eAllCommands));
+    }
+}
+
+void FogDispatcher::submit(const star::common::FrameTracker &ft,
+                           std::span<const star::StarCommandBuffer::Data> dataWaits, star::StarQueue &queue,
                            const star::Handle &registration)
 {
     assert(m_passes.size() > 0);
@@ -145,25 +162,9 @@ void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk:
     vk::CommandBufferSubmitInfo m_cbSubmitInfo =
         vk::CommandBufferSubmitInfo().setCommandBuffer(m_sharedCmdBuf.buffer(ii));
 
-    assert(dataSemaphores.size() == dataWaitPoints.size());
-
-    uint32_t waitInfoCount{0};
-    {
-        auto wait = m_syncApproach.getWaitInfo();
-        for (uint8_t i{0}; i < wait.count; i++)
-        {
-            m_cbSubmitWait[waitInfoCount] = wait.info[i];
-            waitInfoCount++;
-        }
-    }
-
-    for (size_t i{0}; i < dataWaitPoints.size(); i++)
-    {
-        m_cbSubmitWait[waitInfoCount] = vk::SemaphoreSubmitInfo()
-                                            .setSemaphore(dataSemaphores[i])
-                                            .setStageMask(vk::PipelineStageFlagBits2::eAllCommands);
-        waitInfoCount++;
-    }
+    const WaitInfo edgeWaits = m_syncApproach.getWaitInfo();
+    m_cbSubmitWait.clear();
+    AppendWaitInfos(m_cbSubmitWait, edgeWaits, dataWaits);
 
     vk::SemaphoreSubmitInfo signalInfo = vk::SemaphoreSubmitInfo()
                                              .setSemaphore(workingSemaphore)
@@ -177,7 +178,7 @@ void FogDispatcher::submit(const star::common::FrameTracker &ft, std::vector<vk:
                                          .setPCommandBufferInfos(&m_cbSubmitInfo)
                                          .setCommandBufferInfoCount(1)
                                          .setPWaitSemaphoreInfos(m_cbSubmitWait.data())
-                                         .setWaitSemaphoreInfoCount(waitInfoCount);
+                                         .setWaitSemaphoreInfoCount(static_cast<uint32_t>(m_cbSubmitWait.size()));
 
         queue.getVulkanQueue().submit2(submitInfo);
     }

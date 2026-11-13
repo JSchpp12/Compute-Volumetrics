@@ -4,6 +4,11 @@
 #include "render_system/fog/struct/PassInfo.hpp"
 #include "render_system/fog/struct/QueueFamilyIndices.hpp"
 
+namespace star::common
+{
+class FrameTracker;
+}
+
 namespace render_system::fog::commands::distance
 {
 struct PreDifferentFamilies

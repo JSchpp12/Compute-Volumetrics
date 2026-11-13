@@ -98,9 +98,12 @@ star::Handle CopyCmds::registerWithManager(star::core::device::StarDevice &devic
                       .type = star::Queue_Type::Ttransfer,
                       .willBeSubmittedEachFrame = false,
                       .recordOnce = false,
-                      .overrideBufferSubmissionCallback = std::bind(
-                          &CopyCmds::submitBuffer, this, std::placeholders::_1, std::placeholders::_2,
-                          std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6)});
+                      .overrideBufferSubmissionCallback =
+                          [this](star::StarCommandBuffer &buffer, const star::common::FrameTracker &ft,
+                                 std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
+                                 std::span<const star::StarCommandBuffer::Data> dataWaits, star::StarQueue &) {
+                              return submitBuffer(buffer, ft, previousCommandBufferSemaphores, dataWaits);
+                          }});
 
     const auto type = cmdBus.registerCommandType(star::command_order::declare_pass::GetDeclarePassCommandTypeName());
     auto *dQueue = star::core::helper::GetEngineDefaultQueue(eb, qm, star::Queue_Type::Ttransfer);
@@ -121,9 +124,7 @@ star::Handle CopyCmds::registerWithManager(star::core::device::StarDevice &devic
 
 vk::Semaphore CopyCmds::submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                                      std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                                     std::vector<vk::Semaphore> dataSemaphores,
-                                     std::vector<vk::PipelineStageFlags> dataWaitPoints,
-                                     std::vector<std::optional<uint64_t>> previousSignaledValues)
+                                     std::span<const star::StarCommandBuffer::Data> dataWaits)
 {
     assert(m_targetTransferQueue != nullptr);
 

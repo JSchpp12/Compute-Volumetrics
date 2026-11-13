@@ -9,6 +9,11 @@
 
 #include <variant>
 
+namespace star::common
+{
+class FrameTracker;
+}
+
 namespace render_system::fog::commands
 {
 class ComputeContributor

@@ -15,6 +15,10 @@
 #include "structs/FogInfo.hpp"
 
 #include <starlight/core/renderer/RenderPhase.hpp>
+#include <starlight/policy/event/ListenForManagerReservedMemoryUpdate.hpp>
+#include <starlight/wrappers/graphics/StarCommandBuffer.hpp>
+
+#include <span>
 
 #include <star_common/FrameTracker.hpp>
 #include <star_common/Handle.hpp>
@@ -58,6 +62,11 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
                                      const uint64_t &frameIndex) override;
 
     bool isRenderReady(star::core::device::DeviceContext &context);
+
+    /// @brief Refresh cached dependent-image pointers after a manager's record storage reallocates.
+    /// @details The Image manager owns the offscreen/terrain-shadow textures. Raw Texture* pointers cached from
+    /// its records are invalidated when the manager's backing storage reallocates.
+    void onManagerReservedMemoryUpdate(const star::event::ManagerReservedMemoryUpdate &event, bool &keepAlive);
 
     uint64_t getTimelineSignalValue(const star::common::FrameTracker &frameTracker) const;
 
@@ -216,12 +225,12 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     bool isReady{false};
     star::core::CommandBus *m_cmdBus{nullptr};
     vk::Device m_device{VK_NULL_HANDLE};
+    star::policy::event::ListenForManagerReservedMemoryUpdate<VolumeRenderPhase> m_listenForManagerReservedMemoryUpdate{
+        *this};
 
     vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                                std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                               std::vector<vk::Semaphore> &dataSemaphores,
-                               std::vector<vk::PipelineStageFlags> &dataWaitPoints,
-                               std::vector<std::optional<uint64_t>> &previousSignaledValues, star::StarQueue &queue);
+                               std::span<const star::StarCommandBuffer::Data> dataWaits, star::StarQueue &queue);
 
     void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                         const uint64_t &frameIndex);
@@ -243,6 +252,11 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
                                                  const uint8_t &frameInFlightIndex);
 
     void updateDependentData(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
+
+    /// @brief Re-resolve the offscreen and terrain-shadow color/depth textures from the Image manager.
+    /// @details Writes the derived m_renderingContext (the base RenderPhase member is shadowed). Safe to call
+    /// repeatedly; each frame-in-flight entry is overwritten.
+    void cacheDependentImagePointers(star::core::device::manager::Image *imgManager);
 
     void updateRenderingContext(star::core::device::DeviceContext &context, const uint8_t &frameInFlightIndex);
 };

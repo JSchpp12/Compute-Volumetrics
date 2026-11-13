@@ -2,6 +2,7 @@
 
 #include "FogVolumeInfo.hpp"
 #include "OffscreenRenderPhaseProvider.hpp"
+#include "SkyboxController.hpp"
 #include "StarApplication.hpp"
 #include "TransmittanceMapVisualDebugController.hpp"
 #include "Volume.hpp"
@@ -27,8 +28,7 @@ class Application : public star::StarApplication
     };
     using LoaderFn = std::function<loader::SceneDescription(
         star::core::device::DeviceContext &, const std::filesystem::path &, const std::filesystem::path &,
-        const std::filesystem::path &, bool enableTransmittanceMapDebug, bool aggressiveTerrainTextureLoading,
-        bool forceFlatTerrains, star::skybox::SkyboxContext &)>;
+        bool enableTransmittanceMapDebug, bool aggressiveTerrainTextureLoading, bool forceFlatTerrains)>;
 
     Application(LoaderFn objectLoader, std::string terrainPath, std::string skyboxPath, std::string volumeName,
                 VolumeRenderingOptions volumeOptions);
@@ -53,6 +53,7 @@ class Application : public star::StarApplication
     /// App-held skybox conversion cache. Created during loadScene() and reset in shutdown(), which runs while the
     /// device is still alive (the documented destroy-before-DeviceContext ordering rule).
     std::unique_ptr<star::skybox::SkyboxContext> m_skyboxContext;
+    SkyboxController m_skyboxController;
     std::filesystem::path m_imageOutputDir;
     std::string m_terrainDir;
     std::string m_skyboxPath;
@@ -77,6 +78,11 @@ class Application : public star::StarApplication
 
     bool m_flipScreenshotState = false;
 
+    SkyboxController *getSkyboxController() noexcept
+    {
+        return &m_skyboxController;
+    }
+
     void submitPasses(star::core::device::DeviceContext &context);
 
     virtual void initImageOutputDir(star::core::CommandBus &bus);
@@ -85,9 +91,6 @@ class Application : public star::StarApplication
 
     void placeDebugCubes(const glm::vec3 &direction, const glm::vec3 &startPosition);
 
-    /// Feed the current camera/light/volume state to the transmittance debug visualization, which
-    /// re-places its cells only when that state changed. Cheap enough to call every frame from
-    /// either the headless or interactive loop.
     void updateTransmittanceViz(const star::StarCamera &camera);
 
     void setHeadlessServiceOutputDir(star::core::device::DeviceContext &context) const;
