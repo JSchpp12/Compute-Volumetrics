@@ -10,6 +10,11 @@
 
 #include <vulkan/vulkan.hpp>
 
+namespace star::common
+{
+class FrameTracker;
+}
+
 namespace render_system::fog
 {
 class ChunkOrchestrator

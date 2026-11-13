@@ -8,16 +8,22 @@ class StarScene;
 } // namespace star
 
 class Volume;
+class SkyboxController;
+/// @brief Immediate-mode overlay. Its callbacks are the last phase's frameUpdate, which decides when edits land.
 class GUIController
 {
   public:
-    void setScene(star::StarScene *scene) noexcept;
-    void setVolume(Volume *volume) noexcept;
+    GUIController() = default;
+    GUIController(star::StarScene *scene, Volume *volume, SkyboxController *controller)
+        : m_scene(scene), m_volume(volume), m_skyboxController(controller)
+    {
+    }
     void draw();
 
   private:
     star::StarScene *m_scene = nullptr;
     Volume *m_volume = nullptr;
+    SkyboxController *m_skyboxController = nullptr;
 };
 
 #endif

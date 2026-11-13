@@ -41,10 +41,12 @@ static void TriggerSubmissionOfTerrainDraw(star::core::device::manager::ManagerC
     const size_t ii = static_cast<size_t>(ft.getCurrent().getFrameInFlightIndex());
     const auto &c = offscreenPhase.getCommandBuffer();
 
-    cmdBus.submit(star::command_order::TriggerPass()
-                      .setTimelineSemaphore(offscreenPhase.getTimelineSemaphores()[ii])
-                      .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
-                      .setPass(c));
+    star::command_order::TriggerPass trigger;
+    trigger.setTimelineSemaphore(offscreenPhase.getTimelineSemaphores()[ii])
+        .setSignalValue(ft.getCurrent().getNumTimesFrameProcessed() + 1)
+        .setPass(c);
+
+    cmdBus.submit(trigger);
 };
 
 static void TriggerSubmissionOfCompute(const star::core::CommandBus &cmdBus,
@@ -72,9 +74,8 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
     std::vector<std::shared_ptr<star::StarObject>> objects;
     const std::filesystem::path mediaPath{star::ConfigFile::getSetting(star::Config_Settings::mediadirectory)};
 
-    auto desc = m_loaderFn(context, mediaPath, terrainPath, m_skyboxPath, m_volumeOptions.enableTransmittanceMapDebug,
-                           m_volumeOptions.aggressiveTerrainTextureLoading, m_volumeOptions.forceFlatTerrains,
-                           *m_skyboxContext);
+    auto desc = m_loaderFn(context, mediaPath, terrainPath, m_volumeOptions.enableTransmittanceMapDebug,
+                           m_volumeOptions.aggressiveTerrainTextureLoading, m_volumeOptions.forceFlatTerrains);
 
     // The shadow-cast terrain is kept separate from the color object list so it
     // can be routed to the terrain shadow render phase instead of the offscreen
@@ -103,7 +104,7 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
 
             const std::array<int, 3> windowSize = transmittanceVizComponent->windowSize;
             auto cells = star::debug::CreateCube(
-                std::move(transmittanceVizComponent->cubeInfos), cellResolver,
+                context, std::move(transmittanceVizComponent->cubeInfos), cellResolver,
                 star::primitive::CubeObject::OptionalRenderingOverrides{.topology = vk::PrimitiveTopology::eLineList});
 
             // The first placement happens on the first updateTransmittanceViz(), once the fog
@@ -129,7 +130,7 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
                     .setShader(star::Shader_Stage::vertex, (cubeShaderDir / "debugCube.vert").string())
                     .setShader(star::Shader_Stage::fragment, (cubeShaderDir / "debugCube.frag").string())
                     .build();
-            auto cube = star::debug::CreateCube(sqComponent->cubeInfos, cubeResolver);
+            auto cube = star::debug::CreateCube(context, sqComponent->cubeInfos, cubeResolver);
             m_debugCubeInfo = std::make_optional(
                 DebugCubeInfo{.debugCube = cube, .numUniqueCubes = sqComponent->numberOfDebugSquares});
 
@@ -137,6 +138,11 @@ std::vector<std::shared_ptr<star::StarObject>> Application::parseSceneObjects(
             objects.push_back(std::move(cube));
         }
     }
+
+    // The skybox is created here, not by the scene loader, so the controller is the single owner of skybox creation.
+    // It joins the renderable object list like any other object, and the controller keeps the same object for later
+    // material swaps.
+    objects.push_back(m_skyboxController.createSkybox(context, *m_skyboxContext, m_skyboxPath));
 
     m_loaderFn = nullptr;
 
@@ -164,7 +170,6 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
     auto camera = createMainCamera(context);
 
     std::vector<std::shared_ptr<star::StarObject>> allObjects;
-
     {
         star::command::CreateLight lCmd = star::command::CreateLight().setName("sun");
         context.getCmdBus().submit(lCmd);
@@ -233,9 +238,10 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
             auto cmd =
                 star::command::CreateObject::Builder()
                     .setLoader(std::make_unique<star::command::create_object::DeferredObjCreation>(
-                        [&, vdbPathString, fNumFramesInFlight, camera, width, height](star::ShaderResolver &resolver) {
-                            return std::make_shared<Volume>(context, vdbPathString, fNumFramesInFlight, camera, width,
-                                                            height, m_offscreenFrameData, resolver);
+                        [&, vdbPathString, fNumFramesInFlight, camera, width,
+                         height](star::core::device::DeviceContext &loadedContext, star::ShaderResolver &resolver) {
+                            return std::make_shared<Volume>(loadedContext, vdbPathString, fNumFramesInFlight, camera,
+                                                            width, height, m_offscreenFrameData, resolver);
                         }))
                     .setShaderResolver(std::move(volumeResolver))
                     .setUniqueName(m_volumeName)
@@ -284,12 +290,18 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
         m_mainScene = std::make_shared<star::StarScene>(
             star::star_scene::makeWaitForAllObjectsReadyPolicy(std::move(allObjects)), camera);
 
-        m_offscreenPhaseHandle = m_mainScene->addProvider(std::move(offscreenProvider));
+        m_offscreenPhaseHandle = m_mainScene->addProvider(std::move(offscreenProvider), context);
+
+        // The skybox is rendered in the offscreen phase; attach that pass so a later selection can register its
+        // transfer waits and one-shot setup on it. The skybox object itself was created by the controller during
+        // parseSceneObjects().
+        if (auto *offscreenPhase = m_mainScene->getPhase(m_offscreenPhaseHandle); offscreenPhase != nullptr)
+            m_skyboxController.attachSkybox(context, offscreenPhase->getCommandBuffer());
 
         auto terrainShadowProvider = std::make_unique<star::terrain::TerrainShadowRenderPhaseProvider>(
             context, m_mainLight, std::vector<std::shared_ptr<star::StarObject>>{m_shadowTerrain},
             m_offscreenPhaseHandle, true, star::Command_Buffer_Order_Index::second, m_fogVolumeInfo.get());
-        m_terrainShadowPhaseHandle = m_mainScene->addProvider(std::move(terrainShadowProvider));
+        m_terrainShadowPhaseHandle = m_mainScene->addProvider(std::move(terrainShadowProvider), context);
         DeclareDependentPasses::Builder(context.getEventBus(), context.getCmdBus())
             .setConsumer(
                 [this]() -> star::Handle { return this->m_volume->getRenderer().getCommandBuffer(); }) // volume
@@ -300,9 +312,9 @@ std::shared_ptr<star::StarScene> Application::loadScene(star::core::device::Devi
 
         m_volume->getProvider().setOffscreenPhaseHandle(m_offscreenPhaseHandle);
         m_volume->getProvider().setShadowTerrainPhaseHandle(m_terrainShadowPhaseHandle);
-        m_volumePhaseHandle = m_mainScene->addProvider(m_volume->takePhaseProvider());
+        m_volumePhaseHandle = m_mainScene->addProvider(m_volume->takePhaseProvider(), context);
         m_volume->setVolumePhase(m_mainScene.get(), m_volumePhaseHandle);
-        m_finalizationPhaseHandle = m_mainScene->addProvider(std::move(mainRendererProvider));
+        m_finalizationPhaseHandle = m_mainScene->addProvider(std::move(mainRendererProvider), context);
 
         // Presentation-only phases (e.g. the ImGui overlay) need the built
         // finalization phase, so they are queued only once its handle is known.
@@ -330,8 +342,11 @@ void Application::shutdown(star::core::device::DeviceContext &context)
     auto cmd = star::command::SaveSceneState();
     context.begin().set(cmd).submit();
 
-    // Destroy before the DeviceContext: the context owns the skybox conversion's raw layouts. shutdown() runs after
-    // waitIdle() and before the scene's cleanupRender(), so no recorded work references those layouts any more.
+    // Unsubscribe before the device's event bus is cleaned up.
+    m_skyboxController.detachSkybox(context.getEventBus());
+
+    // Destroy before the DeviceContext: the context owns the skybox conversion's raw layouts. StarEngine drains all
+    // pending one-shot setup and cleans the scene before calling shutdown(), so nothing can still free into this pool.
     m_skyboxContext.reset();
 }
 
@@ -343,6 +358,12 @@ void Application::submitPasses(star::core::device::DeviceContext &context)
     TriggerSubmissionOfTerrainDraw(
         context.getManagerCommandBuffer().m_manager, context.getCmdBus(), context.frameTracker(),
         static_cast<const OffscreenRenderPhase &>(*m_mainScene->getPhase(m_offscreenPhaseHandle)));
+
+    // The owning pass is triggered now and the phases have not run yet, so a swap submitted here is prepared and
+    // recorded by this frame's offscreen pass and captures a live retirement gate.
+
+    if (m_skyboxContext != nullptr)
+        m_skyboxController.apply(context, *m_skyboxContext);
 }
 
 void Application::initImageOutputDir(star::core::CommandBus &bus)
@@ -357,19 +378,22 @@ void Application::initImageOutputDir(star::core::CommandBus &bus)
 void Application::frameUpdate(star::core::SystemContext &context)
 {
     auto &d = context.getAllDevices().getData()[0];
-
-    submitPasses(d);
-
-    if (!CheckIfControllerIsDone(d.getCmdBus()))
+    bool updatedSim = !CheckIfControllerIsDone(d.getCmdBus());
+    if (updatedSim)
     {
-        auto cmd = star::headless_render_result_write::GetFileNameForFrame();
-        d.begin().set(cmd).submit();
-
         const auto result = TriggerSimUpdate(d.getCmdBus(), *m_volume, *m_mainScene->getCamera());
         if (m_debugCubeInfo.has_value() && result.cameraViewDirection)
             placeDebugCubes(m_mainScene->getCamera()->getForwardVector(), m_mainScene->getCamera()->getPosition());
-        updateTransmittanceViz(*m_mainScene->getCamera());
 
+        updateTransmittanceViz(*m_mainScene->getCamera());
+    }
+
+    submitPasses(d);
+
+    if (updatedSim)
+    {
+        auto cmd = star::headless_render_result_write::GetFileNameForFrame();
+        d.begin().set(cmd).submit();
         triggerImageRecord(d, d.frameTracker(), cmd.getReply().get());
     }
 }

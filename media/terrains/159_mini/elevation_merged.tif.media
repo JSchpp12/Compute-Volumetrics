@@ -1,5 +1,4 @@
 {
-  "type": "tif",
   "source": "elevation_merged.tif",
   "prep": "copy"
 }

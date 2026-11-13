@@ -3,6 +3,7 @@
 #ifdef STAR_ENABLE_PRESENTATION
 
 #include "FogType.hpp"
+#include "SkyboxController.hpp"
 #include "Volume.hpp"
 #include "render_system/fog/struct/ShaderFlags.hpp"
 #include "structs/FogInfo.hpp"
@@ -237,14 +238,53 @@ static void DrawShaderFlagControls(Volume &volume)
     ImGui::Unindent();
 }
 
-void GUIController::setScene(star::StarScene *scene) noexcept
+/// Selection only records the request; Application applies it on the next frame after the offscreen pass is
+/// triggered, so this callback must not touch the engine.
+static void DrawSkyboxSelector(SkyboxController &controller)
 {
-    m_scene = scene;
-}
+    ImGui::SeparatorText("Skybox");
 
-void GUIController::setVolume(Volume *volume) noexcept
-{
-    m_volume = volume;
+    if (controller.scanError().has_value())
+    {
+        ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.45f, 1.0f), "Scan failed: %s", controller.scanError()->c_str());
+    }
+
+    const auto &entries = controller.getRegistrations();
+    if (entries.empty())
+    {
+        ImGui::TextUnformatted("No skyboxes found.");
+        return;
+    }
+
+    const auto active = controller.activeHandle();
+    const char *preview = "Unknown";
+    for (const auto &entry : entries)
+    {
+        if (active.has_value() && entry.handle == *active)
+        {
+            preview = entry.displayName.c_str();
+            break;
+        }
+    }
+
+    if (ImGui::BeginCombo("##skybox", preview))
+    {
+        for (const auto &entry : entries)
+        {
+            const bool selected = active.has_value() && entry.handle == *active;
+            if (ImGui::Selectable(entry.displayName.c_str(), selected))
+            {
+                controller.request(entry.handle);
+            }
+
+            if (selected)
+            {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+
+        ImGui::EndCombo();
+    }
 }
 
 void GUIController::draw()
@@ -257,6 +297,11 @@ void GUIController::draw()
         {
             const auto position = m_scene->getCamera()->getPosition();
             ImGui::Text("Camera: %.2f, %.2f, %.2f", position.x, position.y, position.z);
+        }
+
+        if (m_skyboxController != nullptr)
+        {
+            DrawSkyboxSelector(*m_skyboxController);
         }
 
         if (m_volume != nullptr)

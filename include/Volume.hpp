@@ -96,7 +96,7 @@ class Volume : public star::StarObject
     /// </summary>
     void updateGridTransforms();
 
-    virtual void prepRender(star::core::device::DeviceContext &context) override;
+    virtual void prepRender(star::core::device::DeviceContext &context, star::Handle commandBuffer) override;
 
     virtual void cleanupRender(star::core::device::DeviceContext &context) override;
 

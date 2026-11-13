@@ -3,6 +3,7 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <star_common/FrameTracker.hpp>
 
 namespace render_system::fog::commands
 {
@@ -56,8 +57,8 @@ void TransmittancePrecompute::recordCommands(const DispatchInfo &dInfo, const Pa
         assert(numWritten == 4 && "transmittance pass expected one dynamic and one depth descriptor set");
     }
 
-    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.layout, 0,
-                                 static_cast<uint32_t>(numWritten), descriptors.data(), 0, VK_NULL_HANDLE);
+    cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeInfo.layout, 0, static_cast<uint32_t>(numWritten),
+                                 descriptors.data(), 0, VK_NULL_HANDLE);
 
     // direct 2D dispatch: one workgroup per 8x8 block of transmittance-map columns
     cmdBuffer.dispatch(m_dispatchX, m_dispatchY, 1);

@@ -2,6 +2,7 @@
 
 #include "render_system/fog/BarrierFactory.hpp"
 
+#include <star_common/FrameTracker.hpp>
 #include <variant>
 
 namespace render_system::fog::commands::color

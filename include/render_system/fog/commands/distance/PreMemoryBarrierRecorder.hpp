@@ -3,6 +3,11 @@
 #include "render_system/fog/commands/distance/PreDifferentFamilies.hpp"
 #include "render_system/fog/struct/PassInfo.hpp"
 
+namespace star::common
+{
+class FrameTracker;
+}
+
 namespace render_system::fog::commands::distance
 {
 using PreMemoryPolicy = std::variant<PreDifferentFamilies>;

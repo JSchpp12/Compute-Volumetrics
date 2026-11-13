@@ -6,6 +6,8 @@
 #include <absl/container/flat_hash_map.h>
 #include <starlight/object/StarObject.hpp>
 
+#include <vector>
+
 namespace loader
 {
 struct SceneDescription

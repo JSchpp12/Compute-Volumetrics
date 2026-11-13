@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(compute_volumetrics
 	DESCRIPTION "Rendering application to compute fog"
 	LANGUAGES C CXX
-	VERSION 1.5.2
+	VERSION 1.6.0
 )
 
 option(STAR_ENABLE_UBSAN "Enable UBSan" OFF)
@@ -97,6 +97,7 @@ set(${PROJECT_NAME}_SOURCES
 	"src/VDBTransfer.cpp"
 	"src/AABBTransfer.cpp"
  	"src/Application.cpp"
+	"src/SkyboxController.cpp"
 	"src/Volume.cpp"
 	"src/TransmittanceCellPlanner.cpp"
 	"src/TransmittanceMapVisualDebugController.cpp"
@@ -257,6 +258,7 @@ set(${PROJECT_NAME}_HEADERS
 	"include/HeadlessMode.hpp"
 	"include/InteractiveApplication.hpp"
 	"include/GUIController.hpp"
+	"include/SkyboxController.hpp"
  	"include/config/InteractiveConfigInfo.hpp"
 	"include/config/InteractiveConfigInfo_json.hpp"
  	"include/config/AppConfigInfo.hpp"

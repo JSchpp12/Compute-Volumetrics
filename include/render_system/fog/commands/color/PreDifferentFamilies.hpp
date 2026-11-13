@@ -5,6 +5,11 @@
 #include "render_system/fog/struct/PassInfo.hpp"
 #include "render_system/fog/struct/QueueFamilyIndices.hpp"
 
+namespace star::common
+{
+class FrameTracker;
+}
+
 namespace render_system::fog::commands::color
 {
 /// @brief Pre-barrier for the color pass. Acquires the offscreen render targets (color/depth), the volume output, and

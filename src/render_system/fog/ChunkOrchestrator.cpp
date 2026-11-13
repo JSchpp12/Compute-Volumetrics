@@ -2,6 +2,7 @@
 
 #include "render_system/fog/struct/ShaderFlags.hpp"
 #include "render_system/fog/struct/ShaderPushInfo.hpp"
+#include <star_common/FrameTracker.hpp>
 
 namespace render_system::fog
 {

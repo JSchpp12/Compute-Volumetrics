@@ -4,8 +4,15 @@
 #include "render_system/fog/struct/PassInfo.hpp"
 
 #include <starlight/core/device/DeviceContext.hpp>
+#include <starlight/wrappers/graphics/StarCommandBuffer.hpp>
 
+#include <span>
 #include <vector>
+
+namespace star::common
+{
+class FrameTracker;
+}
 
 namespace render_system::fog
 {
@@ -39,11 +46,6 @@ class ChunkDispatchGrid
 
     void recordAllChunks(const star::common::FrameTracker &ft, const PassInfo &pInfo, const PassPipelineInfo &pipeInfo,
                          Fog::Type type);
-
-    void submitAllChunks(const star::common::FrameTracker &ft, std::vector<vk::Semaphore> dataSemaphores,
-                         std::vector<vk::PipelineStageFlags> dataWaitPoints,
-                         std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue,
-                         const star::Handle &registration);
 
     uint64_t getTimelineDoneSignalValue(const star::common::FrameTracker &ft) const;
 };

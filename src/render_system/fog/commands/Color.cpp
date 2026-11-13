@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cassert>
+#include <star_common/FrameTracker.hpp>
 
 namespace render_system::fog::commands
 {
