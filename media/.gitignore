@@ -1,3 +1,0 @@
-# Asset pipeline sidecars; terrain descriptors are checked in.
-*.media
-!terrains/**
