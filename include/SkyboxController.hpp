@@ -3,6 +3,8 @@
 #include <starlight/policy/event/ListenForMaterialSwapCommitted.hpp>
 #include <starlight/policy/event/ListenForMaterialSwapRolledBack.hpp>
 
+#include <star_skybox/struct/SkyboxInfo.hpp>
+
 #include <star_common/Handle.hpp>
 
 #include <filesystem>
@@ -99,6 +101,11 @@ class SkyboxController
         return m_scanError;
     }
 
+    [[nodiscard]] star::skybox::SkyboxInfo getActiveSkyboxInfo() const noexcept
+    {
+        return m_cachedActiveInfo;
+    }
+
   private:
     void cacheRegistrations(star::core::device::DeviceContext &context);
 
@@ -109,6 +116,8 @@ class SkyboxController
         star::Handle requested;
         std::optional<star::Handle> previous;
     };
+
+    star::skybox::SkyboxInfo m_cachedActiveInfo;
 
     std::vector<EntryView> m_entries;
     std::optional<star::Handle> m_active;

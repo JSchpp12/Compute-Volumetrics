@@ -20,7 +20,8 @@ FileWriteFunction::FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferH
                                      const Volume &volume, star::Light light, std::string terrainName,
                                      star::terrain::CoverageInfo terrainShapeInfo,
                                      star::terrain::rendering::ElevationType terrainRenderingType,
-                                     std::string volumeName, ImageFilesInfo imageFilesInfo)
+                                     std::string volumeName, ImageFilesInfo imageFilesInfo,
+                                     star::skybox::SkyboxInfo skyboxInfo)
     : m_data(std::make_unique<MetricWriteData>(MetricWriteData{
           std::move(bufferHandle),
           ImageMetrics{.mainLight = std::move(light),
@@ -37,7 +38,8 @@ FileWriteFunction::FileWriteFunction(std::shared_ptr<SharedBufferHandle> bufferH
                        .type = volume.getRenderer().getFogType(),
                        .terrainShapeInfo = std::move(terrainShapeInfo),
                        .terrainRenderingType = terrainRenderingType,
-                       .imageFilesInfo = std::move(imageFilesInfo)}}))
+                       .imageFilesInfo = std::move(imageFilesInfo),
+                       .skyboxInfo = std::move(skyboxInfo)}}))
 {
 }
 

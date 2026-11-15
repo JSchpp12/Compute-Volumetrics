@@ -8,6 +8,8 @@
 
 #include <star_terrain/io/TerrainShapeInfoLoader.hpp>
 
+#include <star_skybox/service/SkyboxFileService.hpp>
+
 #include <starlight/command/FileIO/WriteToFile.hpp>
 #include <starlight/command/GetScreenCaptureSyncInfo.hpp>
 #include <starlight/command/command_order/DeclareDependency.hpp>
@@ -100,7 +102,8 @@ void ImageMetricManager::init()
 
 void ImageMetricManager::onCapture(image_metrics::TriggerCapture &cmd)
 {
-    recordThisFrame(cmd.mainLight, cmd.volumeObject, cmd.srcImagePath, cmd.camera);
+    recordThisFrame(std::move(cmd.mainLight), std::move(cmd.volumeObject), std::move(cmd.srcImagePath),
+                    std::move(cmd.camera), std::move(cmd.activeSkyboxInfo));
 }
 
 void ImageMetricManager::onGetTransferCopyPass(image_metrics::GetTransferCopyPass &cmd)
@@ -119,7 +122,8 @@ void ImageMetricManager::onRegisterVolumeRecord(image_metrics::RegisterVolumeRec
 }
 
 void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Volume &volume,
-                                         const std::string &imageCaptureFileName, const star::StarCamera &camera)
+                                         const std::string &imageCaptureFileName, const star::StarCamera &camera,
+                                         star::skybox::SkyboxInfo skyboxInfo)
 {
     if (!m_isRegistered)
     {
@@ -229,7 +233,8 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
                           m_cachedTerrainShapeInfo.get(), m_cachedTerrainShapeInfo.getTerrainRenderingType(),
                           m_cachedVolumeNameInfo,
                           image_metric_manager::ImageFilesInfo{.sourceImageName = basePath.filename().string(),
-                                                               .distanceMaskImages = distanceMaskImages}}});
+                                                               .distanceMaskImages = distanceMaskImages},
+                          std::move(skyboxInfo)}});
 
         star::command::file_io::WriteToFile jsonCmd(std::move(jsonPayload));
         m_cmdBus->submit(jsonCmd);

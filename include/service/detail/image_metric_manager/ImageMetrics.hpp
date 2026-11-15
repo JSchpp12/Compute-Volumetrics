@@ -10,6 +10,8 @@
 #include <star_terrain/file_data/CoverageInfo.hpp>
 #include <star_terrain/rendering/TerrainRenderingType.hpp>
 
+#include <star_skybox/struct/SkyboxInfo.hpp>
+
 #include <starlight/common/entities/Light.hpp>
 
 #include <string>
@@ -30,5 +32,6 @@ struct ImageMetrics
     star::terrain::CoverageInfo terrainShapeInfo;
     star::terrain::rendering::ElevationType terrainRenderingType;
     ImageFilesInfo imageFilesInfo;
+    star::skybox::SkyboxInfo skyboxInfo;
 };
 } // namespace service::image_metric_manager

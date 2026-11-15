@@ -3,6 +3,8 @@
 #include "service/detail/image_metric_manager/ImageMetrics.hpp"
 #include "service/detail/image_metric_manager/SharedBufferHandle.hpp"
 
+#include <star_skybox/struct/SkyboxInfo.hpp>
+
 #include <starlight/virtual/StarCamera.hpp>
 
 #include <filesystem>
@@ -18,7 +20,7 @@ class FileWriteFunction
                       const Volume &volume, star::Light light, std::string terrainName,
                       star::terrain::CoverageInfo terrainShapeInfo,
                       star::terrain::rendering::ElevationType terrainRenderingType, std::string volumeName,
-                      ImageFilesInfo imageFilesInfo);
+                      ImageFilesInfo imageFilesInfo, star::skybox::SkyboxInfo skyboxInfo);
 
     void write(const std::filesystem::path &path);
 

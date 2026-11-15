@@ -101,8 +101,10 @@ std::shared_ptr<star::StarObject> SkyboxController::createSkybox(star::core::dev
 
     // The single skybox creator: the object and its initial resource are built together. Later selections swap the
     // same object's material resource through apply().
-    m_skybox = loader::LoadSkybox(context, skyboxContext, initial->texturePath, std::move(*info));
+    m_skybox = loader::LoadSkybox(context, skyboxContext, initial->texturePath, *info);
     m_active = initial->handle;
+
+    m_cachedActiveInfo = *info;
     return m_skybox;
 }
 
@@ -220,6 +222,7 @@ void SkyboxController::apply(star::core::device::DeviceContext &context, star::s
 
     try
     {
+        m_cachedActiveInfo = *info;
         auto made = star::skybox::maker::MakeSkybox(context, skyboxContext)
                         .setTexture(entry->texturePath.string())
                         .setInfo(std::move(*info))

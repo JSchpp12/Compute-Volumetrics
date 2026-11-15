@@ -103,9 +103,7 @@ class Application : public star::StarApplication
 
     virtual star::Handle getFinalizationCommandBuffer();
 
-    virtual void triggerImageRecord(star::core::device::DeviceContext &context,
-                                    const star::common::FrameTracker &frameTracker,
-                                    const std::string &targetImageFileName);
+    virtual void triggerImageRecord(star::core::device::DeviceContext &context, const std::string &targetImageFileName);
 
     virtual void initListeners(star::core::device::DeviceContext &context) {};
 
