@@ -377,7 +377,7 @@ void InteractiveApplication::triggerScreenshot(star::core::device::DeviceContext
     context.getEventBus().emit(star::event::TriggerScreenshot(
         *targetRecord->getTexture(), path, render->getCommandBuffer(), m_screenshotRegistrations[index]));
 
-    triggerImageRecord(context, frameTracker, name);
+    triggerImageRecord(context, name);
 }
 
 std::shared_ptr<star::StarCamera> InteractiveApplication::createMainCamera(star::core::device::DeviceContext &context)

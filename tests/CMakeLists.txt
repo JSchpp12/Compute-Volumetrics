@@ -9,6 +9,12 @@ add_executable(unit_tests
     test_coverage_info_json.cpp
     test_SboCallable.cpp
     test_TransmittanceCellPlanner.cpp
+    test_MaterialProvider.cpp
+    test_SkyboxLibraryReader.cpp
+    test_SkyboxTransferRequest.cpp
+    test_FogDispatcherWaits.cpp
+    test_ReadinessCondition.cpp
+    VmaImplementation.cpp
 )
 
 # Mirror useful compile defs/macros you rely on in pure code paths
@@ -24,7 +30,7 @@ target_link_libraries(unit_tests PRIVATE
     GTest::gtest_main
 )
 
-target_compile_features(unit_tests PRIVATE cxx_std_20)
+target_compile_features(unit_tests PRIVATE cxx_std_23)
 
 # Auto-discover gtest cases
 include(GoogleTest)

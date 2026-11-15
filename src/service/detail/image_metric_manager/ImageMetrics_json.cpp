@@ -34,6 +34,9 @@ void from_json(const nlohmann::json &j, ImageMetrics &d)
     d.terrainName = j.at("terrain_name").get<std::string>();
     d.terrainRenderingType = star::terrain::rendering::fromString(j.at("terrain_shape_type").get<std::string>());
     from_json(j.at("volume_info"), d.volumeInfo);
+
+    if (j.contains("skybox_info"))
+        d.skyboxInfo = j.at("skybox_info");
 }
 
 void to_json(nlohmann::json &j, const ImageMetrics &d)

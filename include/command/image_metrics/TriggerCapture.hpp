@@ -27,8 +27,9 @@ struct TriggerCapture : public star::common::IServiceCommand
 
     TriggerCapture(std::string srcImagePath, star::skybox::SkyboxInfo activeSkyboxInfo, const star::Light &mainLight,
                    const Volume &volumeObject, const star::StarCamera &camera, uint16_t type)
-        : star::common::IServiceCommand(std::move(type)), activeSkyboxInfo(std::move(activeSkyboxInfo)),
-          srcImagePath(std::move(srcImagePath)), mainLight(mainLight), volumeObject(volumeObject), camera(camera)
+        : star::common::IServiceCommand(std::move(type)), srcImagePath(std::move(srcImagePath)),
+          activeSkyboxInfo(std::move(activeSkyboxInfo)), mainLight(mainLight), volumeObject(volumeObject),
+          camera(camera)
     {
     }
     TriggerCapture(std::string srcImagePath, star::skybox::SkyboxInfo activeSkyboxInfo, const star::Light &mainLight,

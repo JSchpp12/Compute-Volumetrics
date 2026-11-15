@@ -10,6 +10,8 @@
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
 #include "service/detail/image_metric_manager/SharedBufferHandle.hpp"
 
+#include <star_skybox/struct/SkyboxInfo.hpp>
+
 #include <star_terrain/file_data/CoverageInfo.hpp>
 #include <starlight/command/task_scheduler/SubmitTask.hpp>
 #include <starlight/core/device/managers/GraphicsContainer.hpp>

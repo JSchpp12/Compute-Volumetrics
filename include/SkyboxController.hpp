@@ -101,7 +101,7 @@ class SkyboxController
         return m_scanError;
     }
 
-    [[nodiscard]] star::skybox::SkyboxInfo getActiveSkyboxInfo() const noexcept
+    [[nodiscard]] const star::skybox::SkyboxInfo &getActiveSkyboxInfo() const noexcept
     {
         return m_cachedActiveInfo;
     }
@@ -114,11 +114,11 @@ class SkyboxController
     {
         star::Handle material;
         star::Handle requested;
+        star::skybox::SkyboxInfo requestedInfo;
         std::optional<star::Handle> previous;
     };
 
     star::skybox::SkyboxInfo m_cachedActiveInfo;
-
     std::vector<EntryView> m_entries;
     std::optional<star::Handle> m_active;
     std::optional<star::Handle> m_pending;
