@@ -100,7 +100,7 @@ void ImageMetricManager::init()
 
 void ImageMetricManager::onCapture(image_metrics::TriggerCapture &cmd)
 {
-    recordThisFrame(cmd.mainLight, cmd.volumeObject, cmd.srcImagePath, cmd.camera);
+    recordThisFrame(cmd.mainLight, cmd.volumeObject, cmd.srcImagePath, cmd.camera, std::move(cmd.activeSkyboxInfo));
 }
 
 void ImageMetricManager::onGetTransferCopyPass(image_metrics::GetTransferCopyPass &cmd)
@@ -119,7 +119,8 @@ void ImageMetricManager::onRegisterVolumeRecord(image_metrics::RegisterVolumeRec
 }
 
 void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Volume &volume,
-                                         const std::string &imageCaptureFileName, const star::StarCamera &camera)
+                                         const std::string &imageCaptureFileName, const star::StarCamera &camera,
+                                         star::skybox::SkyboxInfo skyboxInfo)
 {
     if (!m_isRegistered)
     {
@@ -153,23 +154,25 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
     const star::Handle &semaphore = m_storage.getCopyDoneSemaphores()[fi];
     star::core::device::manager::SemaphoreRecord *semaphoreRecord = m_s->get(semaphore);
 
-    assert(m_cb != nullptr);
+    const Fog::Type fogType = volume.getRenderer().getFogType();
+    const bool isMarchedFog = fogType == Fog::Type::sMarched;
+
+    // until conditional waiting is implemented, this must remain triggered no matter what fog type is being drawn
     auto resources = m_storage.getResource(hostResource);
+    assert(m_cb != nullptr);
     m_copier.setCopyDst(signalValue, resources, semaphore, semaphoreRecord);
     m_copier.setCopySrc({.registration = volume.getRenderer().getCommandBuffer(),
                          .rayDistance = volume.getRenderer().getRayDistanceBufferAt(fi),
                          .rayAtCutoffDist = volume.getRenderer().getRayAtCutoffBufferAt(fi)});
     m_copier.trigger(*m_cb, *m_cmdBus);
 
-    auto sharedHandle = std::make_shared<image_metric_manager::SharedBufferHandle>(
-        &m_storage, hostResource, resources, iResolution, m_device->getVulkanDevice(), semaphoreRecord->semaphore,
-        signalValue);
+    std::shared_ptr<image_metric_manager::SharedBufferHandle> sharedHandle =
+        std::make_shared<image_metric_manager::SharedBufferHandle>(&m_storage, hostResource, resources, iResolution,
+                                                                   m_device->getVulkanDevice(),
+                                                                   semaphoreRecord->semaphore, signalValue);
 
     const std::filesystem::path basePath = std::filesystem::path(imageCaptureFileName);
     const std::filesystem::path jsonPath = std::filesystem::path(imageCaptureFileName).replace_extension(".json");
-
-    const Fog::Type fogType = volume.getRenderer().getFogType();
-    const bool isMarchedFog = fogType == Fog::Type::sMarched;
 
     std::optional<image_metric_manager::DistanceMaskImages> distanceMaskImages;
     if (isMarchedFog)
@@ -185,14 +188,14 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
             .rayDistanceName = maskPath.filename().string(),
             .rayNormalizedDistanceName = normalizedMaskPath.filename().string()};
 
+        star::command::task_scheduler::SubmitMultipleTasks tasks{};
+
         {
             auto tifPayload = star::job::tasks::write_image_to_disk::Create(
                 image_metric_manager::SharedBufferWriteDistanceMaskPayload{
                     .bufferHandle = sharedHandle, .imageFormat = vk::Format::eR32Sfloat, .path = maskPath.string()});
 
-            star::command::task_scheduler::SubmitTask tifCmd(std::move(tifPayload),
-                                                             star::job::tasks::write_image_to_disk::WriteImageTypeName);
-            m_cmdBus->submit(tifCmd);
+            tasks.add(std::move(tifPayload));
         }
 
         {
@@ -205,9 +208,7 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
                     .applyCompression = true,
                 });
 
-            star::command::task_scheduler::SubmitTask tifCmd(std::move(normalizedTifPayload),
-                                                             star::job::tasks::write_image_to_disk::WriteImageTypeName);
-            m_cmdBus->submit(tifCmd);
+            tasks.add(std::move(normalizedTifPayload));
         }
 
         {
@@ -216,10 +217,10 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
                                                                            .imageFormat = vk::Format::eR8Uint,
                                                                            .path = rayValidityMaskPath.string()});
 
-            star::command::task_scheduler::SubmitTask validityCmd(
-                std::move(rayValidityPayload), star::job::tasks::write_image_to_disk::WriteImageTypeName);
-            m_cmdBus->submit(validityCmd);
+            tasks.add(std::move(rayValidityPayload));
         }
+
+        m_cmdBus->submit(tasks);
     }
 
     {
@@ -229,7 +230,8 @@ void ImageMetricManager::recordThisFrame(const star::Light &mainLight, const Vol
                           m_cachedTerrainShapeInfo.get(), m_cachedTerrainShapeInfo.getTerrainRenderingType(),
                           m_cachedVolumeNameInfo,
                           image_metric_manager::ImageFilesInfo{.sourceImageName = basePath.filename().string(),
-                                                               .distanceMaskImages = distanceMaskImages}}});
+                                                               .distanceMaskImages = distanceMaskImages},
+                          std::move(skyboxInfo)}});
 
         star::command::file_io::WriteToFile jsonCmd(std::move(jsonPayload));
         m_cmdBus->submit(jsonCmd);

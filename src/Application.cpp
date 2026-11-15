@@ -394,7 +394,7 @@ void Application::frameUpdate(star::core::SystemContext &context)
     {
         auto cmd = star::headless_render_result_write::GetFileNameForFrame();
         d.begin().set(cmd).submit();
-        triggerImageRecord(d, d.frameTracker(), cmd.getReply().get());
+        triggerImageRecord(d, cmd.getReply().get());
     }
 }
 
@@ -472,13 +472,13 @@ std::shared_ptr<star::StarCamera> Application::createMainCamera(star::core::devi
                                               90.0f, 1.0f, 25000.0f);
 }
 
-void Application::triggerImageRecord(star::core::device::DeviceContext &context,
-                                     const star::common::FrameTracker &frameTracker,
-                                     const std::string &targetImageFileName)
+void Application::triggerImageRecord(star::core::device::DeviceContext &context, const std::string &targetImageFileName)
 {
+
     const std::string outputFilePath = (m_imageOutputDir / targetImageFileName).string();
-    context.getCmdBus().submit(
-        image_metrics::TriggerCapture{outputFilePath, m_mainLight->front(), *m_volume, *m_mainScene->getCamera()});
+    context.getCmdBus().submit(image_metrics::TriggerCapture{outputFilePath, m_skyboxController.getActiveSkyboxInfo(),
+                                                             m_mainLight->front(), *m_volume,
+                                                             *m_mainScene->getCamera()});
 }
 
 sim_controller::UpdateStatus Application::TriggerSimUpdate(star::core::CommandBus &cmd, Volume &volume,

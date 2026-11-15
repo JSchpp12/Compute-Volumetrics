@@ -39,7 +39,7 @@ int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
     engineServices.add(
         star::service::Service{star::service::MaterialService{&star::service::MaterialService::TerminateSwap}});
     engineServices.add(
-        star::service::Service{SimulationControllerService(std::move(cfg->simControllerPath), controllerSequenceDone)});
+        star::service::Service{SimulationControllerService(cfg->simControllerPath, controllerSequenceDone)});
     engineServices.add(star::service::Service{star::skybox::service::SkyboxFileService{cfg->skyboxPath}});
 
     auto init = star::policy::DefaultEngineInitPolicy{engineServices, {}, cfg->overrideRenderingDevice};

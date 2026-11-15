@@ -10,6 +10,8 @@
 #include "service/detail/image_metric_manager/HostVisibleStorage.hpp"
 #include "service/detail/image_metric_manager/SharedBufferHandle.hpp"
 
+#include <star_skybox/struct/SkyboxInfo.hpp>
+
 #include <star_terrain/file_data/CoverageInfo.hpp>
 #include <starlight/command/task_scheduler/SubmitTask.hpp>
 #include <starlight/core/device/managers/GraphicsContainer.hpp>
@@ -70,7 +72,7 @@ class ImageMetricManager
     void shutdown();
 
     void recordThisFrame(const star::Light &mainLight, const Volume &volume, const std::string &imageCaptureFileName,
-                         const star::StarCamera &camera);
+                         const star::StarCamera &camera, star::skybox::SkyboxInfo skyboxInfo);
 
     void onCapture(image_metrics::TriggerCapture &cmd);
 

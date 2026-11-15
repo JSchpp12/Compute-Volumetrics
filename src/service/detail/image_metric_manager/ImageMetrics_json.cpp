@@ -7,6 +7,7 @@
 #include "service/detail/image_metric_manager/VisibilityDistanceInfo_json.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo.hpp"
 #include "service/detail/image_metric_manager/VolumeInfo_json.hpp"
+#include <star_skybox/json/SkyboxInfo_JSON.hpp>
 #include <star_terrain/file_data/CoverageInfo_json.hpp>
 #include <starlight/common/entities/Light_json.hpp>
 #include <starlight/core/json/glm_json.hpp>
@@ -33,6 +34,9 @@ void from_json(const nlohmann::json &j, ImageMetrics &d)
     d.terrainName = j.at("terrain_name").get<std::string>();
     d.terrainRenderingType = star::terrain::rendering::fromString(j.at("terrain_shape_type").get<std::string>());
     from_json(j.at("volume_info"), d.volumeInfo);
+
+    if (j.contains("skybox_info"))
+        d.skyboxInfo = j.at("skybox_info");
 }
 
 void to_json(nlohmann::json &j, const ImageMetrics &d)
@@ -55,6 +59,7 @@ void to_json(nlohmann::json &j, const ImageMetrics &d)
     data["terrain_name"] = d.terrainName;
     data["terrain_shape_type"] = toString(d.terrainRenderingType);
     data["volume_info"] = d.volumeInfo;
+    data["skybox_info"] = d.skyboxInfo;
 
     j = std::move(data);
 }

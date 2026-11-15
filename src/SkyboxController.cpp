@@ -101,8 +101,10 @@ std::shared_ptr<star::StarObject> SkyboxController::createSkybox(star::core::dev
 
     // The single skybox creator: the object and its initial resource are built together. Later selections swap the
     // same object's material resource through apply().
-    m_skybox = loader::LoadSkybox(context, skyboxContext, initial->texturePath, std::move(*info));
+    m_skybox = loader::LoadSkybox(context, skyboxContext, initial->texturePath, *info);
     m_active = initial->handle;
+
+    m_cachedActiveInfo = *info;
     return m_skybox;
 }
 
@@ -134,11 +136,14 @@ void SkyboxController::onMaterialSwapRolledBack(const star::event::MaterialSwapR
 
     const auto it = std::find_if(m_inFlightSwaps.rbegin(), m_inFlightSwaps.rend(),
                                  [&event](const InFlightSwap &swap) { return swap.material == event.getMaterial(); });
+
     if (it == m_inFlightSwaps.rend())
         return;
 
     if (m_active.has_value() && *m_active == it->requested)
+    {
         m_active = it->previous;
+    }
 
     m_inFlightSwaps.erase(std::next(it).base());
 }
@@ -151,7 +156,10 @@ void SkyboxController::onMaterialSwapCommitted(const star::event::MaterialSwapCo
         const auto it = std::find_if(m_inFlightSwaps.begin(), m_inFlightSwaps.end(),
                                      [&commit](const InFlightSwap &swap) { return swap.material == commit.material; });
         if (it != m_inFlightSwaps.end())
+        {
+            m_cachedActiveInfo = std::move(it->requestedInfo);
             m_inFlightSwaps.erase(it);
+        }
     });
 }
 
@@ -222,7 +230,7 @@ void SkyboxController::apply(star::core::device::DeviceContext &context, star::s
     {
         auto made = star::skybox::maker::MakeSkybox(context, skyboxContext)
                         .setTexture(entry->texturePath.string())
-                        .setInfo(std::move(*info))
+                        .setInfo(*info)
                         .useGPUSampling()
                         .make();
 
@@ -250,7 +258,10 @@ void SkyboxController::apply(star::core::device::DeviceContext &context, star::s
         {
             // The pending check above guarantees this material has no other in-flight swap, so the record is
             // unambiguous for a rollback.
-            m_inFlightSwaps.push_back({.material = materials.front(), .requested = requested, .previous = m_active});
+            m_inFlightSwaps.push_back({.material = materials.front(),
+                                       .requested = requested,
+                                       .requestedInfo = std::move(*info),
+                                       .previous = m_active});
 
             m_active = requested;
             star::core::logging::info("Skybox swap to '", entry->displayName,
