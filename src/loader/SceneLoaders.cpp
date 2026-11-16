@@ -13,7 +13,6 @@
 #include <star_skybox/maker/MakeSkybox.hpp>
 #include <starlight/ShaderResolver.hpp>
 #include <starlight/command/CreateObject.hpp>
-#include <starlight/command/FileIO/GetPath.hpp>
 #include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/common/materials/TextureMaterial.hpp>
 #include <starlight/core/Exceptions.hpp>
@@ -31,21 +30,12 @@ static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarOb
 {
     const std::filesystem::path terrainShaderDir = std::filesystem::path{"shaders"} / "terrain" / "standard_geometry";
 
-    star::command::file_io::GetPath terrainPathCmd;
-    terrainPathCmd.setCandidate(terrainPath).setKind(star::io::PathKind::directory);
-    ctx.getCmdBus().submit(terrainPathCmd);
-    const auto resolvedTerrainPath = terrainPathCmd.getReply().get();
-    if (!resolvedTerrainPath)
-    {
-        STAR_THROW("Failed to resolve terrain directory: " + resolvedTerrainPath.error().toString());
-    }
-
-    auto geometry = star::terrain::rendering::TerrainGeometryDefinition::Builder(ctx)
-                        .setTerrainDir(resolvedTerrainPath.value())
-                        .setShapeRepresentation(star::terrain::rendering::Representation::Geometry)
-                        .setDefaultRenderType(forceFlatTerrains ? star::terrain::rendering::ElevationType::Flat
-                                                                : star::terrain::rendering::ElevationType::Real)
-                        .build();
+    const star::terrain::rendering::TerrainGeometryDefinition geometry{
+        .terrainDir = terrainPath,
+        .shapeRepresentation = star::terrain::rendering::Representation::Geometry,
+        .defaultRenderType = forceFlatTerrains ? star::terrain::rendering::ElevationType::Flat
+                                               : star::terrain::rendering::ElevationType::Real,
+    };
 
     auto terrains =
         star::terrain::TerrainFactory::buildTerrains(ctx, geometry, terrainShaderDir, aggressiveTerrainTextureLoading);

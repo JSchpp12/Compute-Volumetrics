@@ -9,6 +9,7 @@
 #include "service/SimulationController.hpp"
 
 #include <star_skybox/service/SkyboxFileService.hpp>
+#include <star_terrain/service/TerrainFileService.hpp>
 #include <star_windowing/policy/EngineExitPolicy.hpp>
 #include <star_windowing/policy/EngineInitPolicy.hpp>
 #include <star_windowing/policy/EngineMainLoopPolicy.hpp>
@@ -34,6 +35,7 @@ int InteractiveMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
         star::service::Service{star::service::MaterialService{&star::service::MaterialService::RollbackSwap}});
     engineServices.add(star::service::Service{SimulationControllerService(std::move(cfg->simControllerPath))});
     engineServices.add(star::service::Service{star::skybox::service::SkyboxFileService{cfg->skyboxPath}});
+    engineServices.add(star::service::Service{star::terrain::service::TerrainFileService{cfg->terrainDir}});
 
     star::windowing::EngineInitPolicy windowInit{winContext, engineServices, cfg->overrideRenderingDevice};
     win_loop windowLoop{winContext};
