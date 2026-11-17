@@ -84,6 +84,12 @@ export CC CXX
 # -----------------------------------------------------------------------------
 STAR_BUILD_TAG="${STAR_BUILD_TAG:-}"
 VCPKG_WORK_ROOT="${ROOT_DIR}/dist/docker_working${STAR_BUILD_TAG:+/${STAR_BUILD_TAG}}"
+
+# Target build system encoded in the packaged tarball name (e.g. amazonLinux,
+# rockyLinux).  The create scripts set it; when this script is run directly it
+# stays empty and CMake falls back to the platform name.
+STAR_PACKAGE_TARGET="${STAR_PACKAGE_TARGET:-}"
+export STAR_PACKAGE_TARGET
 : "${VCPKG_DOWNLOADS:=${VCPKG_WORK_ROOT}/vcpkg_downloads}"
 # The file-based binary-cache backend is "files" (not "filesystem").  "clear"
 # drops the container-local default cache so results do not depend on the
@@ -128,6 +134,7 @@ for BUILD_TYPE in ${BUILD_TYPES}; do
         -DVCPKG_INSTALLED_DIR="${STAR_VCPKG_INSTALLED_DIR}" \
         -DVCPKG_OVERLAY_TRIPLETS="${ROOT_DIR}/dist/deps/triplets" \
         -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+        -DSTAR_PACKAGE_TARGET="${STAR_PACKAGE_TARGET}" \
         -DHEADLESS=ON \
         -DCMAKE_C_COMPILER="${CC}" \
         -DCMAKE_CXX_COMPILER="${CXX}" \

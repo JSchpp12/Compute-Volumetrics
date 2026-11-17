@@ -82,10 +82,13 @@ echo vcpkg commit: %VCPKG_COMMIT%
 docker build -f "%DOCKERFILE%" -t "%IMAGE_NAME%" %LABEL_ARG% %VCPKG_BUILD_ARG% "%BUILD_CONTEXT%" || goto :error
 
 :run_build
-REM Run the packaging build inside the container
+REM Run the packaging build inside the container.  STAR_PACKAGE_TARGET is
+REM encoded in the packaged tarball name so the Amazon Linux and Rocky Linux
+REM artifacts cannot collide.
 docker run --rm ^
   -v "%PARENT_DIR%:/app" ^
   -w /app ^
+  -e STAR_PACKAGE_TARGET=rockyLinux ^
   "%IMAGE_NAME%" ^
   /bin/bash ./dist/deps/scripts/build_install.sh %BUILD_ARGS% || goto :error
 

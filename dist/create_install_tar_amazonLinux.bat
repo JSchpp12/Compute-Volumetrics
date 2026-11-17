@@ -79,10 +79,13 @@ docker build -f "%DOCKERFILE%" -t "%IMAGE_NAME%" %LABEL_ARG% "%BUILD_CONTEXT%" |
 :run_build
 REM Run the packaging build inside the container.  STAR_BUILD_TAG keeps this
 REM distro's vcpkg trees, caches and object files away from rockyLinux's.
+REM STAR_PACKAGE_TARGET is encoded in the packaged tarball name so the Amazon
+REM Linux and Rocky Linux artifacts cannot collide.
 docker run --rm ^
   -v "%PARENT_DIR%:/app" ^
   -w /app ^
   -e STAR_BUILD_TAG=amazonLinux ^
+  -e STAR_PACKAGE_TARGET=amazonLinux ^
   "%IMAGE_NAME%" ^
   /bin/bash ./dist/deps/scripts/build_install.sh %BUILD_ARGS% || goto :error
 

@@ -148,10 +148,13 @@ echo "Build variant(s):${BUILD_TYPES}"
 echo "Compiler: ${COMPILER}"
 # STAR_BUILD_TAG keeps this distro's vcpkg trees, caches and object files away
 # from the rockyLinux image's (see dist/deps/scripts/build_install.sh).
+# STAR_PACKAGE_TARGET is encoded in the packaged tarball name so the Amazon
+# Linux and Rocky Linux artifacts cannot collide.
 # shellcheck disable=SC2086  # intentional word splitting of the build type list
 docker run --rm \
     -v "${PARENT_DIR}:/app" \
     -w /app \
     -e STAR_BUILD_TAG=amazonLinux \
+    -e STAR_PACKAGE_TARGET=amazonLinux \
     starlight:amazonLinux \
     /bin/bash ./dist/deps/scripts/build_install.sh --compiler "${COMPILER}" ${BUILD_TYPES}
