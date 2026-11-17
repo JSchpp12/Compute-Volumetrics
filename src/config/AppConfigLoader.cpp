@@ -173,6 +173,8 @@ void AppConfigLoader::LogConfig(const AppConfigInfo &cfg)
         << "  enableTransmittanceMapDebug: " << (cfg.enableTransmittanceMapDebug ? "true" : "false") << "\n"
         << "  aggressiveTerrainTextureLoading: " << (cfg.aggressiveTerrainTextureLoading ? "true" : "false") << "\n"
         << "  forceFlatTerrains:       " << (cfg.forceFlatTerrains ? "true" : "false") << "\n"
+        << "  enableTerrainFilteringToSimulationBounds: "
+        << (cfg.enableTerrainFilteringToSimulationBounds ? "true" : "false") << "\n"
         << "  interactiveConfig:\n"
         << "    cameraMovementSpeed:   " << cfg.interactiveConfig.cameraMovementSpeed << "\n"
         << "    cameraSensitivity:     " << cfg.interactiveConfig.cameraSensitivity << "\n"
@@ -195,16 +197,18 @@ std::unique_ptr<AppConfigInfo> AppConfigLoader::ApplyCliOverrides(int argc, char
         cfg->engineConfigPath = std::move(*v);
     if (auto v = util::CmdLine::TryGetDeviceIndexOverride(argc, argv))
         cfg->overrideRenderingDevice = *v;
-    if (util::CmdLine::DoesContainOption(argc, argv, "--enableDistanceMarkers"))
-        cfg->enableDistanceMarkers = true;
-    if (util::CmdLine::DoesContainOption(argc, argv, "--enableCutoffHighlighting"))
-        cfg->enableCutoffHighlighting = true;
-    if (util::CmdLine::DoesContainOption(argc, argv, "--enableTransmittanceMapDebug"))
-        cfg->enableTransmittanceMapDebug = true;
-    if (util::CmdLine::DoesContainOption(argc, argv, "--aggressiveTerrainTextureLoading"))
-        cfg->aggressiveTerrainTextureLoading = true;
-    if (util::CmdLine::DoesContainOption(argc, argv, "--forceFlatTerrains"))
-        cfg->forceFlatTerrains = true;
+    if (auto v = util::CmdLine::TryGetBoolArgValue(argc, argv, "--enableDistanceMarkers"))
+        cfg->enableDistanceMarkers = *v;
+    if (auto v = util::CmdLine::TryGetBoolArgValue(argc, argv, "--enableCutoffHighlighting"))
+        cfg->enableCutoffHighlighting = *v;
+    if (auto v = util::CmdLine::TryGetBoolArgValue(argc, argv, "--enableTransmittanceMapDebug"))
+        cfg->enableTransmittanceMapDebug = *v;
+    if (auto v = util::CmdLine::TryGetBoolArgValue(argc, argv, "--aggressiveTerrainTextureLoading"))
+        cfg->aggressiveTerrainTextureLoading = *v;
+    if (auto v = util::CmdLine::TryGetBoolArgValue(argc, argv, "--forceFlatTerrains"))
+        cfg->forceFlatTerrains = *v;
+    if (auto v = util::CmdLine::TryGetBoolArgValue(argc, argv, "--enableTerrainFilteringToSimulationBounds"))
+        cfg->enableTerrainFilteringToSimulationBounds = *v;
 
     return cfg;
 }

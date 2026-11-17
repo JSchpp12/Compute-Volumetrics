@@ -3,6 +3,8 @@
 #include <logging/LoggingFactory.hpp>
 #include <starlight/core/Exceptions.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <optional>
 
 namespace util::CmdLine
@@ -23,6 +25,23 @@ std::optional<std::string> TryGetArgValue(int argc, char **argv, const std::stri
     }
 
     return parsed;
+}
+
+std::optional<bool> TryGetBoolArgValue(int argc, char **argv, const std::string &arg)
+{
+    const auto value = TryGetArgValue(argc, argv, arg);
+    if (!value.has_value())
+        return std::nullopt;
+
+    std::string lowered = value.value();
+    std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char c) { return std::tolower(c); });
+
+    if (lowered == "true")
+        return true;
+    if (lowered == "false")
+        return false;
+
+    STAR_THROW("Option '" + arg + "' expects 'true' or 'false', but got '" + value.value() + "'");
 }
 
 std::string GetTerrainPath(int argc, char **argv)

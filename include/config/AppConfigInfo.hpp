@@ -21,5 +21,6 @@ struct AppConfigInfo
     bool enableTransmittanceMapDebug{false};
     bool aggressiveTerrainTextureLoading{false};
     bool forceFlatTerrains{false};
+    bool enableTerrainFilteringToSimulationBounds{true};
 };
 } // namespace config
