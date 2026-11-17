@@ -1,6 +1,6 @@
 #!/bin/bash
-# Configure, build and package headless Linux tarballs inside the
-# rockyLinux_dockerfile image.
+# Configure, build and package headless Linux tarballs inside one of the dist
+# packaging images (dist/deps/rockyLinux_dockerfile or amazonLinux_dockerfile).
 #
 # Usage: build_install.sh [Release|Debug]... [--compiler clang|gcc]
 # With no build type a Release build is produced; the compiler defaults to
@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Project root is three levels up from this script
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-: "${VCPKG_ROOT:?VCPKG_ROOT is not set; run this inside the rockyLinux image}"
+: "${VCPKG_ROOT:?VCPKG_ROOT is not set; run this inside one of the dist packaging images (see dist/deps/*_dockerfile)}"
 
 BUILD_TYPES=""
 COMPILER="clang"
@@ -75,8 +75,21 @@ export CC CXX
 # Persistent vcpkg caches.  /app is the host repository bind mount, so anything
 # below dist/docker_working survives `docker run --rm`.  These defaults are
 # overridable from `docker run -e` for debugging.
+#
+# STAR_BUILD_TAG separates the trees of images built on different distros (the
+# create scripts set it to the distro name).  Object files, CMake caches and
+# dependency binaries built against one distro's glibc must never be reused by
+# another.  rockyLinux leaves it empty so the historical layout and its caches
+# stay valid.
 # -----------------------------------------------------------------------------
-VCPKG_WORK_ROOT="${ROOT_DIR}/dist/docker_working"
+STAR_BUILD_TAG="${STAR_BUILD_TAG:-}"
+VCPKG_WORK_ROOT="${ROOT_DIR}/dist/docker_working${STAR_BUILD_TAG:+/${STAR_BUILD_TAG}}"
+
+# Target build system encoded in the packaged tarball name (e.g. amazonLinux,
+# rockyLinux).  The create scripts set it; when this script is run directly it
+# stays empty and CMake falls back to the platform name.
+STAR_PACKAGE_TARGET="${STAR_PACKAGE_TARGET:-}"
+export STAR_PACKAGE_TARGET
 : "${VCPKG_DOWNLOADS:=${VCPKG_WORK_ROOT}/vcpkg_downloads}"
 # The file-based binary-cache backend is "files" (not "filesystem").  "clear"
 # drops the container-local default cache so results do not depend on the
@@ -102,8 +115,9 @@ for BUILD_TYPE in ${BUILD_TYPES}; do
     # Keep each compiler/variant pair in its own build tree so the CMake cache
     # and packaged tarball from one cannot leak into another.  The compiler is
     # part of the path because CMake refuses to reuse a tree configured with a
-    # different toolchain.
-    WORK_DIR="${ROOT_DIR}/dist/docker_working/${COMPILER}/$(printf '%s' "${BUILD_TYPE}" | tr '[:upper:]' '[:lower:]')"
+    # different toolchain.  It hangs off VCPKG_WORK_ROOT so that STAR_BUILD_TAG
+    # also keeps the object files of one distro image away from another's.
+    WORK_DIR="${VCPKG_WORK_ROOT}/${COMPILER}/$(printf '%s' "${BUILD_TYPE}" | tr '[:upper:]' '[:lower:]')"
     mkdir -p "${WORK_DIR}"
     cd "${WORK_DIR}"
 
@@ -120,6 +134,7 @@ for BUILD_TYPE in ${BUILD_TYPES}; do
         -DVCPKG_INSTALLED_DIR="${STAR_VCPKG_INSTALLED_DIR}" \
         -DVCPKG_OVERLAY_TRIPLETS="${ROOT_DIR}/dist/deps/triplets" \
         -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+        -DSTAR_PACKAGE_TARGET="${STAR_PACKAGE_TARGET}" \
         -DHEADLESS=ON \
         -DCMAKE_C_COMPILER="${CC}" \
         -DCMAKE_CXX_COMPILER="${CXX}" \
