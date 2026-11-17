@@ -64,7 +64,8 @@ static star::terrain::command::GetLibraryCartForTerrainResult GetPendingLibraryC
 {
     using namespace star::terrain::command;
 
-    GetLibraryCartForTerrain cartCommand{registration};
+    GetLibraryCartForTerrain cartCommand;
+    cartCommand.setHandle(registration);
     ctx.getCmdBus().submit(cartCommand);
     return cartCommand.getReply().get();
 }
