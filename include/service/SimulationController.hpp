@@ -1,7 +1,7 @@
 #pragma once
 
 #include "command/sim_controller/CheckIfDone.hpp"
-#include "command/sim_controller/GetSimulationFocusAreaCoverage.hpp"
+#include "command/sim_controller/GetSimulationCameraInfo.hpp"
 #include "command/sim_controller/TriggerUpdate.hpp"
 #include "service/detail/simulation_controller/FogEnabler.hpp"
 #include "service/detail/simulation_controller/SimulationDataSource.hpp"
@@ -10,6 +10,7 @@
 #include <starlight/virtual/StarCamera.hpp>
 
 #include <memory>
+#include <optional>
 #include <string>
 
 template <typename T>
@@ -23,10 +24,10 @@ using ListenForCheckIfDone =
                                      &T::onCheckIfDone>;
 
 template <typename T>
-using ListenForGetSimulationFocusAreaCoverage =
-    star::policy::command::ListenFor<T, sim_controller::GetSimulationFocusAreaCoverage,
-                                     sim_controller::get_simulation_focus_area_coverage::GetTypeName,
-                                     &T::onGetSimulationFocusAreaCoverage>;
+using ListenForCameraInfo = star::policy::command::ListenFor<T, sim_controller::GetSimulationCameraInfo,
+                                                             sim_controller::get_simulation_camera_info::GetTypeName,
+                                                             &T::onGetSimulationCameraInfo>;
+
 class SimulationControllerService
 {
   public:
@@ -51,7 +52,7 @@ class SimulationControllerService
 
     void onCheckIfDone(sim_controller::CheckIfDone &cmd) const;
 
-    void onGetSimulationFocusAreaCoverage(sim_controller::GetSimulationFocusAreaCoverage &cmd);
+    void onGetSimulationCameraInfo(sim_controller::GetSimulationCameraInfo &cmd);
 
     bool isDone() const;
 
@@ -67,8 +68,9 @@ class SimulationControllerService
     std::shared_ptr<bool> m_doneFlag = nullptr;
     ListenForTriggerUpdate<SimulationControllerService> m_onTriggerUpdate;
     ListenForCheckIfDone<SimulationControllerService> m_onListenForDone;
-    ListenForGetSimulationFocusAreaCoverage<SimulationControllerService> m_onGetSimulationFocusAreaCoverage;
+    ListenForCameraInfo<SimulationControllerService> m_onGetCameraInfo;
 
+    std::optional<CameraSweepInfo> getCameraInfo();
     void switchFogType(Fog::Type newType, Volume &volume, star::StarCamera &camera);
     void incrementLinear(Volume &volume, float t) const;
     void incrementExp(Volume &volume, float t) const;

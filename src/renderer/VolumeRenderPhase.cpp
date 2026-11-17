@@ -442,31 +442,11 @@ void VolumeRenderPhase::cacheDependentImagePointers(star::core::device::manager:
     }
 }
 
-void VolumeRenderPhase::onManagerReservedMemoryUpdate(const star::event::ManagerReservedMemoryUpdate &event,
-                                                      bool &keepAlive)
-{
-    // Keep this subscription alive for every manager reallocation, not only image ones. The event bus removes any
-    // listener that leaves keepAlive false, so a buffer/material/fence reallocation would otherwise drop us and the
-    // cached dependent texture pointers would go stale on the next image-manager reallocation.
-    keepAlive = true;
-
-    if (m_imageManager == nullptr)
-        return;
-
-    if (event.getManagerHandleType() != m_imageManager->getHandleType())
-        return;
-
-    if (event.getManager() != static_cast<void *>(m_imageManager))
-        return;
-
-    cacheDependentImagePointers(static_cast<star::core::device::manager::Image *>(event.getManager()));
-}
-
 void VolumeRenderPhase::cleanupRender(star::common::IDeviceContext &context)
 {
     auto &c = static_cast<star::core::device::DeviceContext &>(context);
 
-    m_listenForManagerReservedMemoryUpdate.cleanup(c.getEventBus());
+    m_renderingContext.cleanupListener(c.getEventBus());
 
     m_chunkHandler.cleanupRender(c);
     m_distanceComputer.cleanupRender(c);

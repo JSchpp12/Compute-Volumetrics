@@ -557,9 +557,9 @@ std::unique_ptr<star::core::renderer::RenderPhase> VolumeRenderPhaseProvider::bu
     auto cmd = star::command_order::DeclarePass(phase->m_commandBuffer, computeQueueFamilyIndex);
     c.begin().set(cmd).submit();
 
+    // Subscribe before the cache is built, so any later image insert during build() refreshes the cached pointers.
+    phase->m_renderingContext.initListener(c.getEventBus());
     phase->cacheDependentImagePointers(&c.getImageManager());
-    // Register after the initial cache is built so any later image insert during build() is observed.
-    phase->m_listenForManagerReservedMemoryUpdate.init(c.getEventBus());
 
     const auto &transmittanceMapResolution = m_fogResources.resourcePolicies.transmittance.transmittanceMapResolution;
     phase->m_chunkHandler.prepRender(c, phase->m_commandBuffer,

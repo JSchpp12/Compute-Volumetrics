@@ -2,16 +2,25 @@
 
 #include "TransmittanceCellPlanner.hpp"
 #include "command/image_metrics/RegisterTerrainRecordInfo.hpp"
+#include "command/sim_controller/GetSimulationCameraInfo.hpp"
+#include "filter/SimulationViewCoverageFilter.hpp"
 #include "util/Color.hpp"
+#include "util/FieldOfView.hpp"
 
 #include <array>
+#include <fstream>
 #include <memory>
 #include <sstream>
+#include <utility>
 #include <vector>
 
+#include <nlohmann/json.hpp>
 #include <star_terrain/TerrainFactory.hpp>
 #include <star_terrain/command/GetAllTerrainLibraryRegistrations.hpp>
 #include <star_terrain/command/GetLibraryCartForTerrain.hpp>
+#include <star_terrain/file_data/CoverageInfo.hpp>
+#include <star_terrain/file_data/CoverageInfo_json.hpp>
+#include <star_terrain/io/IFilter.hpp>
 #include <star_terrain/io/LibraryCart.hpp>
 #include <star_terrain/rendering/TerrainGeometryDefinition.hpp>
 
@@ -22,10 +31,12 @@
 #include <starlight/command/detail/create_object/FromObjFileLoader.hpp>
 #include <starlight/common/materials/TextureMaterial.hpp>
 #include <starlight/core/Exceptions.hpp>
+#include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/debug/DebugPrimitives.hpp>
 #include <starlight/material/MaterialProvider.hpp>
 #include <starlight/object/BasicObject.hpp>
 #include <starlight/primitive/SquareObject.hpp>
+#include <starlight/virtual/StarCamera.hpp>
 
 namespace loader
 {
@@ -60,14 +71,71 @@ static const star::terrain::command::TerrainLibraryRegistration *FindTerrainRegi
 }
 
 static star::terrain::command::GetLibraryCartForTerrainResult GetPendingLibraryCart(
-    star::core::device::DeviceContext &ctx, const star::Handle &registration)
+    star::core::device::DeviceContext &ctx, const star::Handle &registration,
+    std::vector<std::unique_ptr<star::terrain::IFilter>> filters)
 {
     using namespace star::terrain::command;
 
     GetLibraryCartForTerrain cartCommand;
-    cartCommand.setHandle(registration);
+    cartCommand.setHandle(registration).setFilters(std::move(filters));
     ctx.getCmdBus().submit(cartCommand);
     return cartCommand.getReply().get();
+}
+
+/// @brief Reads the geographic center (lat, lon) of the terrain from its shape descriptor.
+static glm::dvec2 ReadTerrainOriginLatLon(const std::filesystem::path &shapeFilePath)
+{
+    std::ifstream shapeStream(shapeFilePath);
+    if (!shapeStream.is_open())
+    {
+        STAR_THROW("Failed to open terrain shape file: " + shapeFilePath.string());
+    }
+
+    nlohmann::json shapeJson;
+    shapeStream >> shapeJson;
+    return shapeJson.get<star::terrain::CoverageInfo>().center;
+}
+
+/// @brief Builds the filters limiting terrain chunks to the area the simulation views.
+/// @details Returns no filters when the simulation controller cannot describe its camera rotation, so the terrain loads
+/// unfiltered.
+static std::vector<std::unique_ptr<star::terrain::IFilter>> BuildTerrainFilters(
+    star::core::device::DeviceContext &ctx, const std::filesystem::path &shapeFilePath, const star::StarCamera &camera)
+{
+    std::vector<std::unique_ptr<star::terrain::IFilter>> filters;
+
+    sim_controller::GetSimulationCameraInfo sweepInfoCommand;
+    ctx.getCmdBus().submit(sweepInfoCommand);
+    const auto sweepInfo = sweepInfoCommand.getReply().get();
+    if (!sweepInfo.has_value())
+    {
+        star::core::logging::warning(
+            "Simulation controller did not provide camera sweep info; loading terrain without view filtering");
+        return filters;
+    }
+
+    // The simulation drives the camera along its configured start direction when one is given; otherwise it keeps the
+    // camera looking where the camera already looks.
+    const glm::vec3 viewDirection = sweepInfo->startViewDirection.has_value() ? sweepInfo->startViewDirection.value()
+                                                                              : glm::vec3(camera.getForwardVector());
+    const glm::vec3 cameraPosition =
+        sweepInfo->startCameraPosition.has_value() ? sweepInfo->startCameraPosition.value() : camera.getPosition();
+    const float horizontalFieldOfViewDegrees = camera.getHorizontalFieldOfView();
+
+    const double viewAzimuth = util::GetViewAzimuthRadians(viewDirection);
+    const double viewSpanDegrees =
+        util::GetViewSpanDegrees(sweepInfo->rotationSpanDegrees, horizontalFieldOfViewDegrees);
+
+    filters.push_back(std::make_unique<filter::SimulationViewCoverageFilter>(
+        filter::FilterRange{
+            .center = {cameraPosition.x, cameraPosition.z},
+            .viewDistance = camera.getFarClippingDistance(),
+            .startAzimuth = util::GetLeadingEdgeAzimuthRadians(viewAzimuth, horizontalFieldOfViewDegrees),
+            .sweptAngle = glm::radians(viewSpanDegrees),
+        },
+        ReadTerrainOriginLatLon(shapeFilePath)));
+
+    return filters;
 }
 
 static star::terrain::LibraryCartReadResult GetLibraryCart(star::terrain::PendingLibraryCart &pendingCart)
@@ -77,7 +145,7 @@ static star::terrain::LibraryCartReadResult GetLibraryCart(star::terrain::Pendin
 
 /// @brief Queries the terrain library for the configured terrain and blocks for its cart.
 static ResolvedTerrainCart ResolveTerrainCart(star::core::device::DeviceContext &ctx,
-                                              const std::filesystem::path &terrainPath)
+                                              const std::filesystem::path &terrainPath, const star::StarCamera &camera)
 {
     using namespace star::terrain::command;
 
@@ -106,7 +174,10 @@ static ResolvedTerrainCart ResolveTerrainCart(star::core::device::DeviceContext 
         STAR_THROW(oss.str());
     }
 
-    auto pendingCart = GetPendingLibraryCart(ctx, registration->handle);
+    const std::filesystem::path shapeFilePath = registration->terrainRootPath / registration->terrainShapeFile;
+
+    auto pendingCart =
+        GetPendingLibraryCart(ctx, registration->handle, BuildTerrainFilters(ctx, shapeFilePath, camera));
     if (!pendingCart)
     {
         std::ostringstream oss;
@@ -123,18 +194,17 @@ static ResolvedTerrainCart ResolveTerrainCart(star::core::device::DeviceContext 
         STAR_THROW(oss.str());
     }
 
-    return ResolvedTerrainCart{.terrainRoot = registration->terrainRootPath,
-                               .shapeFilePath = registration->terrainRootPath / registration->terrainShapeFile,
-                               .cart = std::move(cart.value())};
+    return ResolvedTerrainCart{
+        .terrainRoot = registration->terrainRootPath, .shapeFilePath = shapeFilePath, .cart = std::move(cart.value())};
 }
 
 static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarObject>> LoadTerrain(
     star::core::device::DeviceContext &ctx, const std::filesystem::path &terrainPath,
-    bool aggressiveTerrainTextureLoading, bool forceFlatTerrains)
+    bool aggressiveTerrainTextureLoading, bool forceFlatTerrains, const star::StarCamera &camera)
 {
     const std::filesystem::path terrainShaderDir = std::filesystem::path{"shaders"} / "terrain" / "standard_geometry";
 
-    ResolvedTerrainCart resolved = ResolveTerrainCart(ctx, terrainPath);
+    ResolvedTerrainCart resolved = ResolveTerrainCart(ctx, terrainPath, camera);
 
     const star::terrain::rendering::TerrainGeometryDefinition geometry{
         .terrainDir = resolved.terrainRoot,
@@ -265,13 +335,14 @@ std::shared_ptr<star::StarObject> LoadSkybox(star::core::device::DeviceContext &
 
 SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
                                   const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug,
-                                  bool aggressiveTerrainTextureLoading, bool forceFlatTerrains)
+                                  bool aggressiveTerrainTextureLoading, bool forceFlatTerrains,
+                                  const star::StarCamera &camera)
 {
     constexpr uint8_t numCubes{15};
 
     SceneDescription desc;
     auto [colorTerrain, shadowMapTerrain] =
-        LoadTerrain(ctx, terrainPath, aggressiveTerrainTextureLoading, forceFlatTerrains);
+        LoadTerrain(ctx, terrainPath, aggressiveTerrainTextureLoading, forceFlatTerrains, camera);
     desc.addObject(std::move(colorTerrain));
     // desc.addObject(LoadHorse(ctx, mediaDirPath));
     desc.addShadowObject(std::move(shadowMapTerrain));
@@ -285,11 +356,12 @@ SceneDescription DebugSceneLoader(star::core::device::DeviceContext &ctx, const 
 
 SceneDescription ReleaseSceneLoader(star::core::device::DeviceContext &ctx, const std::filesystem::path &mediaDirPath,
                                     const std::filesystem::path &terrainPath, bool enableTransmittanceMapDebug,
-                                    bool aggressiveTerrainTextureLoading, bool forceFlatTerrains)
+                                    bool aggressiveTerrainTextureLoading, bool forceFlatTerrains,
+                                    const star::StarCamera &camera)
 {
     SceneDescription desc;
     auto [colorTerrain, shadowMapTerrain] =
-        LoadTerrain(ctx, terrainPath, aggressiveTerrainTextureLoading, forceFlatTerrains);
+        LoadTerrain(ctx, terrainPath, aggressiveTerrainTextureLoading, forceFlatTerrains, camera);
     desc.addObject(std::move(colorTerrain));
     desc.addShadowObject(std::move(shadowMapTerrain));
     // desc.addObject(LoadHorse(ctx, mediaDirPath));

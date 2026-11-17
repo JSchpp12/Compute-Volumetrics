@@ -1,6 +1,9 @@
 #include "service/SimulationController.hpp"
 
+#include "service/detail/simulation_controller/CameraController.hpp"
 #include "service/detail/simulation_controller/Writer.hpp"
+#include "service/detail/simulation_controller/camera_controller/Circle.hpp"
+#include "util/FieldOfView.hpp"
 
 #include <starlight/command/FileIO/WriteToFile.hpp>
 
@@ -10,15 +13,14 @@
 
 SimulationControllerService::SimulationControllerService(std::string controllerFilePath)
     : m_controllerFilePath(std::move(controllerFilePath)), m_worldHeightAtCenterTerrain(0.0), m_stepCounter(0),
-      m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this), m_onListenForDone(*this),
-      m_onGetSimulationFocusAreaCoverage(*this)
+      m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this), m_onListenForDone(*this), m_onGetCameraInfo(*this)
 {
 }
 
 SimulationControllerService::SimulationControllerService(std::string controllerFilePath, std::shared_ptr<bool> doneFlag)
     : m_controllerFilePath(std::move(controllerFilePath)), m_worldHeightAtCenterTerrain(0.0), m_stepCounter(0),
-      m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this), m_onListenForDone(*this),
-      m_onGetSimulationFocusAreaCoverage(*this), m_doneFlag(std::move(doneFlag))
+      m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this), m_onListenForDone(*this), m_onGetCameraInfo(*this),
+      m_doneFlag(std::move(doneFlag))
 {
 }
 
@@ -28,7 +30,7 @@ SimulationControllerService::SimulationControllerService(SimulationControllerSer
       m_stepCounter(std::move(other.m_stepCounter)), m_fogTypeTracker(std::move(other.m_fogTypeTracker)),
       m_activeSimulation(std::move(other.m_activeSimulation)), m_isPrimed(other.m_isPrimed),
       m_cameraPositioned(other.m_cameraPositioned), m_cmd(other.m_cmd), m_doneFlag(other.m_doneFlag),
-      m_onTriggerUpdate(*this), m_onListenForDone(*this), m_onGetSimulationFocusAreaCoverage(*this)
+      m_onTriggerUpdate(*this), m_onListenForDone(*this), m_onGetCameraInfo(*this)
 {
     if (m_cmd != nullptr)
     {
@@ -65,14 +67,14 @@ void SimulationControllerService::initListeners(star::core::CommandBus &cmdBus)
 {
     m_onTriggerUpdate.init(cmdBus);
     m_onListenForDone.init(cmdBus);
-    m_onGetSimulationFocusAreaCoverage.init(cmdBus);
+    m_onGetCameraInfo.init(cmdBus);
 }
 
 void SimulationControllerService::cleanupListeners(star::core::CommandBus &cmdBus)
 {
     m_onTriggerUpdate.cleanup(cmdBus);
     m_onListenForDone.cleanup(cmdBus);
-    m_onGetSimulationFocusAreaCoverage.cleanup(cmdBus);
+    m_onGetCameraInfo.cleanup(cmdBus);
 }
 
 static void WriteDefaultControllerInfo(star::core::CommandBus &cmdBus, const std::string &path)
@@ -125,6 +127,36 @@ void SimulationControllerService::switchFogType(Fog::Type newType, Volume &volum
 void SimulationControllerService::onCheckIfDone(sim_controller::CheckIfDone &cmd) const
 {
     cmd.getReply().set(isDone());
+}
+
+void SimulationControllerService::onGetSimulationCameraInfo(sim_controller::GetSimulationCameraInfo &cmd)
+{
+    cmd.getReply().set(getCameraInfo());
+}
+
+std::optional<CameraSweepInfo> SimulationControllerService::getCameraInfo()
+{
+    // Resolves the controller-file read if it is still pending.
+    const auto &simulation = m_activeSimulation.get();
+    const auto *circle = simulation.cameraController.getCircleController();
+    if (circle == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    const int numCameraPositions = circle->getNumCameraPositions();
+    const float rotationDegreesPerTick = circle->getRotationDegreesPerTick();
+    const glm::vec3 startViewDirection = circle->getStartCameraDirection();
+
+    return CameraSweepInfo{
+        .startViewDirection = glm::dot(startViewDirection, startViewDirection) > 0.0f
+                                  ? std::optional<glm::vec3>{startViewDirection}
+                                  : std::nullopt,
+        .startCameraPosition = simulation.startCameraPosition,
+        .numCameraPositions = numCameraPositions,
+        .rotationDegreesPerTick = rotationDegreesPerTick,
+        .rotationSpanDegrees = util::GetRotationSpanDegrees(numCameraPositions, rotationDegreesPerTick),
+    };
 }
 
 void SimulationControllerService::incrementExp(Volume &volume, float t) const
@@ -305,10 +337,4 @@ void SimulationControllerService::applyInitialCamera(star::StarCamera &cam)
     {
         STAR_THROW("Invalid initial camera height above ground provided. It must be greater than 0");
     }
-}
-
-void SimulationControllerService::onGetSimulationFocusAreaCoverage(sim_controller::GetSimulationFocusAreaCoverage &cmd)
-{
-    // TODO: compute and publish the focus area coverage of the active simulation.
-    (void)cmd;
 }
