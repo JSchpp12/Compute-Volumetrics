@@ -30,10 +30,12 @@ int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
         cfg->enableDistanceMarkers
             ? Application(&loader::DebugSceneLoader, cfg->terrainDir, cfg->skyboxPath, cfg->volumeName,
                           {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
-                           cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains})
+                           cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains,
+                           cfg->enableTerrainFilteringToSimulationBounds})
             : Application(&loader::ReleaseSceneLoader, cfg->terrainDir, cfg->skyboxPath, cfg->volumeName,
                           {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
-                           cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains});
+                           cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains,
+                           cfg->enableTerrainFilteringToSimulationBounds});
 
     auto engineServices = star::service::EngineServicesFactory::createDefault(true);
     engineServices.add(star::service::Service{service::ImageMetricManager{}});

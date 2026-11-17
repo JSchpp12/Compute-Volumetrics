@@ -8,6 +8,8 @@
 // Include your header
 #include "util/CmdLine.hpp"
 
+#include <starlight/core/Exceptions.hpp>
+
 // Helper to construct (argc, argv) easily from a vector<string>
 struct ArgvBuilder {
     std::vector<std::string> storage;
@@ -68,6 +70,38 @@ TEST(CmdLine_TryGetArgValue, AcceptsValueThatLooksLikeFlag) {
     auto v = util::CmdLine::TryGetArgValue(args.argc(), args.argv(), std::string("--terrain"));
     ASSERT_TRUE(v.has_value());
     EXPECT_EQ(*v, "--not-a-flag-value");
+}
+
+// -----------------------------------------
+// TryGetBoolArgValue() tests
+// -----------------------------------------
+
+TEST(CmdLine_TryGetBoolArgValue, ReturnsNulloptWhenMissing) {
+    ArgvBuilder args = {"prog", "--terrain", "/data/terrain"};
+    auto v = util::CmdLine::TryGetBoolArgValue(args.argc(), args.argv(),
+                                               std::string("--enableTerrainFilteringToSimulationBounds"));
+    EXPECT_FALSE(v.has_value());
+}
+
+TEST(CmdLine_TryGetBoolArgValue, ParsesTrueAndFalseCaseInsensitively) {
+    ArgvBuilder trueArgs = {"prog", "--enableTerrainFilteringToSimulationBounds", "true"};
+    auto t = util::CmdLine::TryGetBoolArgValue(trueArgs.argc(), trueArgs.argv(),
+                                               std::string("--enableTerrainFilteringToSimulationBounds"));
+    ASSERT_TRUE(t.has_value());
+    EXPECT_TRUE(*t);
+
+    ArgvBuilder falseArgs = {"prog", "--enableTerrainFilteringToSimulationBounds", "FALSE"};
+    auto f = util::CmdLine::TryGetBoolArgValue(falseArgs.argc(), falseArgs.argv(),
+                                               std::string("--enableTerrainFilteringToSimulationBounds"));
+    ASSERT_TRUE(f.has_value());
+    EXPECT_FALSE(*f);
+}
+
+TEST(CmdLine_TryGetBoolArgValue, ThrowsOnInvalidValue) {
+    ArgvBuilder args = {"prog", "--enableTerrainFilteringToSimulationBounds", "yes"};
+    EXPECT_THROW(util::CmdLine::TryGetBoolArgValue(args.argc(), args.argv(),
+                                                   std::string("--enableTerrainFilteringToSimulationBounds")),
+                 star::core::RuntimeError);
 }
 
 // -----------------------------------------

@@ -72,12 +72,14 @@ TEST_F(AppConfigLoader_CreateIfMissing, CreatesDefaultFileWhenPathDoesNotExist)
     EXPECT_TRUE(j.contains("enableDistanceMarkers"));
     EXPECT_TRUE(j.contains("enableCutoffHighlighting"));
     EXPECT_TRUE(j.contains("enableTransmittanceMapDebug"));
+    EXPECT_TRUE(j.contains("enableTerrainFilteringToSimulationBounds"));
     EXPECT_TRUE(j.contains("interactiveConfig"));
     EXPECT_TRUE(j["interactiveConfig"].contains("cameraMovementSpeed"));
     EXPECT_TRUE(j["interactiveConfig"].contains("cameraSensitivity"));
     EXPECT_TRUE(j["interactiveConfig"].contains("objectMovementSpeed"));
 
     EXPECT_EQ(j["volumeName"].get<std::string>(), "");
+    EXPECT_TRUE(j["enableTerrainFilteringToSimulationBounds"].get<bool>());
     EXPECT_FLOAT_EQ(j["interactiveConfig"]["cameraMovementSpeed"].get<float>(), 5000.0f);
     EXPECT_FLOAT_EQ(j["interactiveConfig"]["cameraSensitivity"].get<float>(), 0.1f);
     EXPECT_FLOAT_EQ(j["interactiveConfig"]["objectMovementSpeed"].get<float>(), 300.0f);
@@ -167,6 +169,7 @@ class AppConfigLoader_PatchMissing : public ::testing::Test
         j["enableDistanceMarkers"] = true;
         j["enableCutoffHighlighting"] = true;
         j["enableTransmittanceMapDebug"] = true;
+        j["enableTerrainFilteringToSimulationBounds"] = true;
         j["interactiveConfig"] = nlohmann::json{{"cameraMovementSpeed", 999.0f},
                                                 {"cameraSensitivity", 2.5f},
                                                 {"objectMovementSpeed", 42.0f}};
@@ -381,8 +384,117 @@ TEST_F(AppConfigLoader_PatchMissing, PatchesAllFieldsWhenFileIsEmptyObject)
     EXPECT_FALSE(patched["enableDistanceMarkers"].get<bool>());
     EXPECT_FALSE(patched["enableCutoffHighlighting"].get<bool>());
     EXPECT_FALSE(patched["enableTransmittanceMapDebug"].get<bool>());
+    EXPECT_TRUE(patched["enableTerrainFilteringToSimulationBounds"].get<bool>());
     ASSERT_TRUE(patched.contains("interactiveConfig"));
     EXPECT_FLOAT_EQ(patched["interactiveConfig"]["cameraMovementSpeed"].get<float>(), 5000.0f);
     EXPECT_FLOAT_EQ(patched["interactiveConfig"]["cameraSensitivity"].get<float>(), 0.1f);
     EXPECT_FLOAT_EQ(patched["interactiveConfig"]["objectMovementSpeed"].get<float>(), 300.0f);
+}
+
+TEST(AppConfigJson, TerrainFilteringToSimulationBoundsDefaultsToTrue)
+{
+    config::AppConfigInfo cfg{};
+    nlohmann::json j;
+    config::to_json(j, cfg);
+
+    ASSERT_TRUE(j.contains("enableTerrainFilteringToSimulationBounds"));
+    EXPECT_TRUE(j["enableTerrainFilteringToSimulationBounds"].get<bool>());
+
+    j["enableTerrainFilteringToSimulationBounds"] = false;
+
+    config::AppConfigInfo parsed{};
+    config::from_json(j, parsed);
+    EXPECT_FALSE(parsed.enableTerrainFilteringToSimulationBounds);
+}
+
+class AppConfigLoader_CliOverrides : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        m_tempDir = std::filesystem::temp_directory_path() / "appconfig_cli_overrides_test";
+        std::filesystem::remove_all(m_tempDir);
+        std::filesystem::create_directories(m_tempDir);
+
+        m_cfgPath = m_tempDir / "config.json";
+        m_seed.volumeName = "test_volume";
+        m_seed.terrainDir = (m_tempDir / "terrain").string();
+        m_seed.skyboxPath = (m_tempDir / "skybox.exr").string();
+        m_seed.engineConfigPath = (m_tempDir / "engine.json").string();
+
+        std::filesystem::create_directories(m_tempDir / "terrain");
+        std::ofstream engineOut(m_tempDir / "engine.json");
+        engineOut << nlohmann::json{{"app_name", "unit_test"}}.dump(4);
+    }
+
+    void TearDown() override { std::filesystem::remove_all(m_tempDir); }
+
+    void WriteConfig(bool enableTerrainFilteringToSimulationBounds)
+    {
+        m_seed.enableTerrainFilteringToSimulationBounds = enableTerrainFilteringToSimulationBounds;
+
+        nlohmann::json j;
+        config::to_json(j, m_seed);
+        std::ofstream out(m_cfgPath);
+        out << j.dump(4);
+    }
+
+    std::filesystem::path m_tempDir;
+    std::filesystem::path m_cfgPath;
+    config::AppConfigInfo m_seed{};
+};
+
+TEST_F(AppConfigLoader_CliOverrides, EnablesTerrainFilteringWhenFileDisablesIt)
+{
+    WriteConfig(false);
+
+    ArgvBuilder args = {"prog", "--appConfig", m_cfgPath.string(),
+                        "--enableTerrainFilteringToSimulationBounds", "true"};
+
+    auto [cfg, status] = config::AppConfigLoader::LoadFromArgs(args.argc(), args.argv());
+
+    EXPECT_EQ(status, config::LoadStatus::Loaded);
+    ASSERT_NE(cfg, nullptr);
+    EXPECT_TRUE(cfg->enableTerrainFilteringToSimulationBounds);
+}
+
+TEST_F(AppConfigLoader_CliOverrides, DisablesTerrainFilteringWhenFileEnablesIt)
+{
+    WriteConfig(true);
+
+    ArgvBuilder args = {"prog", "--appConfig", m_cfgPath.string(),
+                        "--enableTerrainFilteringToSimulationBounds", "false"};
+
+    auto [cfg, status] = config::AppConfigLoader::LoadFromArgs(args.argc(), args.argv());
+
+    EXPECT_EQ(status, config::LoadStatus::Loaded);
+    ASSERT_NE(cfg, nullptr);
+    EXPECT_FALSE(cfg->enableTerrainFilteringToSimulationBounds);
+}
+
+TEST_F(AppConfigLoader_CliOverrides, RejectsNonBooleanTerrainFilteringValue)
+{
+    WriteConfig(true);
+
+    ArgvBuilder args = {"prog", "--appConfig", m_cfgPath.string(),
+                        "--enableTerrainFilteringToSimulationBounds", "yes"};
+
+    EXPECT_THROW(config::AppConfigLoader::LoadFromArgs(args.argc(), args.argv()), star::core::RuntimeError);
+}
+
+TEST_F(AppConfigLoader_CliOverrides, AppliesExplicitBooleanValuesToExistingFlags)
+{
+    m_seed.enableDistanceMarkers = true;
+    m_seed.forceFlatTerrains = false;
+    WriteConfig(true);
+
+    ArgvBuilder args = {"prog", "--appConfig", m_cfgPath.string(), "--enableDistanceMarkers", "false",
+                        "--forceFlatTerrains", "true"};
+
+    auto [cfg, status] = config::AppConfigLoader::LoadFromArgs(args.argc(), args.argv());
+
+    EXPECT_EQ(status, config::LoadStatus::Loaded);
+    ASSERT_NE(cfg, nullptr);
+    EXPECT_FALSE(cfg->enableDistanceMarkers);
+    EXPECT_TRUE(cfg->forceFlatTerrains);
 }

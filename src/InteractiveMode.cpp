@@ -46,12 +46,14 @@ int InteractiveMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
             ? InteractiveApplication(&loader::DebugSceneLoader, cfg->terrainDir, cfg->skyboxPath, cfg->volumeName,
                                      &winContext,
                                      {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
-                                      cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains},
+                                      cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains,
+                                      cfg->enableTerrainFilteringToSimulationBounds},
                                      cfg->interactiveConfig)
             : InteractiveApplication(&loader::ReleaseSceneLoader, cfg->terrainDir, cfg->skyboxPath, cfg->volumeName,
                                      &winContext,
                                      {cfg->enableCutoffHighlighting, cfg->enableTransmittanceMapDebug,
-                                      cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains},
+                                      cfg->aggressiveTerrainTextureLoading, cfg->forceFlatTerrains,
+                                      cfg->enableTerrainFilteringToSimulationBounds},
                                      cfg->interactiveConfig);
 
     auto engine = star::StarEngine<star::windowing::EngineInitPolicy, win_loop, win_exit>(
