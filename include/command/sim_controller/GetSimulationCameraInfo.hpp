@@ -20,7 +20,6 @@ inline constexpr const char *GetTypeName()
 } // namespace get_simulation_camera_info
 
 /// @brief Queries the camera start position and rotation span of the active simulation.
-/// @details The reply is empty when the active controller type does not expose rotation information.
 struct GetSimulationCameraInfo : public star::common::IServiceCommandWithReply<std::optional<CameraSweepInfo>>
 {
     static inline constexpr std::string_view GetUniqueTypeName()

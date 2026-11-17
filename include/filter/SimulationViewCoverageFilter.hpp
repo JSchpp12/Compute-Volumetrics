@@ -19,8 +19,6 @@ struct FilterRange
 };
 
 /// @brief Keeps only the terrain chunks inside a ground sector.
-/// @details Chunks store geographic coordinates, so their corners are projected into the terrain's local world frame
-/// (x = north, y = up, z = east) before the test.
 class SimulationViewCoverageFilter : public star::terrain::IFilter
 {
   public:

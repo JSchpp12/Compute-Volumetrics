@@ -15,8 +15,6 @@ class CommandBus;
 namespace service::simulation_controller
 {
 /// @brief Resolves the active simulation's data on first use.
-/// @details Build one through Builder: building submits the controller-file read to the command bus and returns a
-/// source holding its result, so owners do not construct or dispatch the file IO command themselves.
 class SimulationDataSource
 {
   public:

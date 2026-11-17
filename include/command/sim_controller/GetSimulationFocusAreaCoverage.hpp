@@ -17,7 +17,6 @@ inline constexpr const char *GetTypeName()
 } // namespace get_simulation_focus_area_coverage
 
 /// @brief Coverage of the area the active simulation focuses on.
-/// @details Placeholder payload; the fields depend on the coverage computation, which does not exist yet.
 struct SimulationFocusAreaCoverage
 {
 };

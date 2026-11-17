@@ -14,8 +14,6 @@ inline double GetViewAzimuthRadians(const glm::vec3 &viewDirection)
 }
 
 /// @brief Total yaw rotation a circle controller applies across its camera positions, in degrees.
-/// @details The controller places the camera at its start direction first, then rotates once for every remaining
-/// position, so a controller with N positions sweeps (N - 1) ticks of rotation.
 inline double GetRotationSpanDegrees(int numCameraPositions, float rotationDegreesPerTick)
 {
     return static_cast<double>(std::max(numCameraPositions - 1, 0)) * static_cast<double>(rotationDegreesPerTick);

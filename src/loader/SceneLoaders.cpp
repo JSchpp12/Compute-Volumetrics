@@ -49,7 +49,6 @@ struct ResolvedTerrainCart
 };
 
 /// @brief Finds the registration for the terrain the scene was configured with.
-/// @details Matches the exact path first, then the filename, mirroring SkyboxController's lookup.
 static const star::terrain::command::TerrainLibraryRegistration *FindTerrainRegistrationForPath(
     const std::vector<star::terrain::command::TerrainLibraryRegistration> &registrations,
     const std::filesystem::path &terrainPath)
@@ -97,8 +96,6 @@ static glm::dvec2 ReadTerrainOriginLatLon(const std::filesystem::path &shapeFile
 }
 
 /// @brief Builds the filters limiting terrain chunks to the area the simulation views.
-/// @details Returns no filters when the simulation controller cannot describe its camera rotation, so the terrain loads
-/// unfiltered.
 static std::vector<std::unique_ptr<star::terrain::IFilter>> BuildTerrainFilters(
     star::core::device::DeviceContext &ctx, const std::filesystem::path &shapeFilePath, const star::StarCamera &camera)
 {
