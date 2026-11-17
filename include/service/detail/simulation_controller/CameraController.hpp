@@ -4,8 +4,6 @@
 
 #include <starlight/virtual/StarCamera.hpp>
 
-#include <nlohmann/json.hpp>
-
 #include <optional>
 #include <variant>
 
@@ -15,12 +13,13 @@ class CameraController
 {
   public:
     CameraController() = default;
-    explicit CameraController(camera_controller::Circle controller); 
+    explicit CameraController(camera_controller::Circle controller);
     bool operator!() const;
 
-    void tick(star::StarCamera &camera); 
+    void tick(star::StarCamera &camera);
     void reset(star::StarCamera &camera);
-    std::optional<bool> isDone() const; 
+    std::optional<bool> isDone() const;
+    const camera_controller::Circle *getCircleController() const;
 
   private:
     std::optional<std::variant<camera_controller::Circle>> m_controller = std::nullopt;

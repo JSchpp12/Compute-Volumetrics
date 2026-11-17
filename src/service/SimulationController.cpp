@@ -1,9 +1,10 @@
 #include "service/SimulationController.hpp"
 
-#include "service/detail/simulation_controller/Reader.hpp"
+#include "service/detail/simulation_controller/CameraController.hpp"
 #include "service/detail/simulation_controller/Writer.hpp"
+#include "service/detail/simulation_controller/camera_controller/Circle.hpp"
+#include "util/FieldOfView.hpp"
 
-#include <starlight/command/FileIO/ReadFromFile.hpp>
 #include <starlight/command/FileIO/WriteToFile.hpp>
 
 #include <star_common/helper/PathHelpers.hpp>
@@ -11,27 +12,25 @@
 #include <filesystem>
 
 SimulationControllerService::SimulationControllerService(std::string controllerFilePath)
-    : m_loadedSteps(), m_loadedInfo(), m_controllerFilePath(std::move(controllerFilePath)),
-      m_worldHeightAtCenterTerrain(0.0), m_stepCounter(0), m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this),
-      m_onListenForDone(*this)
+    : m_controllerFilePath(std::move(controllerFilePath)), m_worldHeightAtCenterTerrain(0.0), m_stepCounter(0),
+      m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this), m_onListenForDone(*this), m_onGetCameraInfo(*this)
 {
 }
 
 SimulationControllerService::SimulationControllerService(std::string controllerFilePath, std::shared_ptr<bool> doneFlag)
-    : m_loadedSteps(), m_loadedController(), m_fogEnabledStatus(), m_loadedInfo(),
-      m_controllerFilePath(std::move(controllerFilePath)), m_worldHeightAtCenterTerrain(0.0), m_stepCounter(0),
-      m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this), m_onListenForDone(*this),
+    : m_controllerFilePath(std::move(controllerFilePath)), m_worldHeightAtCenterTerrain(0.0), m_stepCounter(0),
+      m_fogTypeTracker(Fog::Type::sNone), m_onTriggerUpdate(*this), m_onListenForDone(*this), m_onGetCameraInfo(*this),
       m_doneFlag(std::move(doneFlag))
 {
 }
 
 SimulationControllerService::SimulationControllerService(SimulationControllerService &&other)
-    : m_loadedSteps(std::move(other.m_loadedSteps)), m_loadedController(std::move(other.m_loadedController)),
-      m_fogEnabledStatus(std::move(other.m_fogEnabledStatus)), m_loadedInfo(std::move(other.m_loadedInfo)),
-      m_controllerFilePath(std::move(other.m_controllerFilePath)),
+    : m_controllerFilePath(std::move(other.m_controllerFilePath)),
       m_worldHeightAtCenterTerrain(std::move(other.m_worldHeightAtCenterTerrain)),
       m_stepCounter(std::move(other.m_stepCounter)), m_fogTypeTracker(std::move(other.m_fogTypeTracker)),
-      m_onTriggerUpdate(*this), m_onListenForDone(*this), m_cmd(other.m_cmd), m_doneFlag(other.m_doneFlag)
+      m_activeSimulation(std::move(other.m_activeSimulation)), m_isPrimed(other.m_isPrimed),
+      m_cameraPositioned(other.m_cameraPositioned), m_cmd(other.m_cmd), m_doneFlag(other.m_doneFlag),
+      m_onTriggerUpdate(*this), m_onListenForDone(*this), m_onGetCameraInfo(*this)
 {
     if (m_cmd != nullptr)
     {
@@ -44,14 +43,13 @@ SimulationControllerService &SimulationControllerService::operator=(SimulationCo
 {
     if (this != &other)
     {
-        m_loadedSteps = std::move(other.m_loadedSteps);
-        m_loadedController = std::move(other.m_loadedController);
-        m_fogEnabledStatus = std::move(other.m_fogEnabledStatus);
-        m_loadedInfo = std::move(other.m_loadedInfo);
-        m_worldHeightAtCenterTerrain = std::move(other.m_worldHeightAtCenterTerrain);
         m_controllerFilePath = std::move(other.m_controllerFilePath);
+        m_worldHeightAtCenterTerrain = std::move(other.m_worldHeightAtCenterTerrain);
         m_stepCounter = std::move(other.m_stepCounter);
         m_fogTypeTracker = std::move(other.m_fogTypeTracker);
+        m_activeSimulation = std::move(other.m_activeSimulation);
+        m_isPrimed = other.m_isPrimed;
+        m_cameraPositioned = other.m_cameraPositioned;
         m_cmd = other.m_cmd;
         m_doneFlag = other.m_doneFlag;
 
@@ -69,24 +67,14 @@ void SimulationControllerService::initListeners(star::core::CommandBus &cmdBus)
 {
     m_onTriggerUpdate.init(cmdBus);
     m_onListenForDone.init(cmdBus);
+    m_onGetCameraInfo.init(cmdBus);
 }
 
 void SimulationControllerService::cleanupListeners(star::core::CommandBus &cmdBus)
 {
     m_onTriggerUpdate.cleanup(cmdBus);
     m_onListenForDone.cleanup(cmdBus);
-}
-
-void SimulationControllerService::submitReadCmd(star::core::CommandBus &cmdBus, const std::string &path)
-{
-    service::simulation_controller::Reader reader{};
-    m_loadedInfo = reader.getFuture();
-    star::job::tasks::io::ReadPayload payload{path, std::move(reader)};
-
-    auto readTask = star::job::tasks::io::CreateReadTask(std::move(payload));
-    auto readCmd = star::command::file_io::ReadFromFile(std::move(readTask));
-
-    cmdBus.submit(readCmd);
+    m_onGetCameraInfo.cleanup(cmdBus);
 }
 
 static void WriteDefaultControllerInfo(star::core::CommandBus &cmdBus, const std::string &path)
@@ -121,7 +109,8 @@ void SimulationControllerService::init()
 
     if (std::filesystem::exists(filePath))
     {
-        submitReadCmd(*m_cmd, filePath.string());
+        m_activeSimulation =
+            service::simulation_controller::SimulationDataSource::Builder{*m_cmd}.setPath(filePath).build();
     }
     else
     {
@@ -140,55 +129,89 @@ void SimulationControllerService::onCheckIfDone(sim_controller::CheckIfDone &cmd
     cmd.getReply().set(isDone());
 }
 
+void SimulationControllerService::onGetSimulationCameraInfo(sim_controller::GetSimulationCameraInfo &cmd)
+{
+    cmd.getReply().set(getCameraInfo());
+}
+
+std::optional<CameraSweepInfo> SimulationControllerService::getCameraInfo()
+{
+    // Resolves the controller-file read if it is still pending.
+    const auto &simulation = m_activeSimulation.get();
+    const auto *circle = simulation.cameraController.getCircleController();
+    if (circle == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    const int numCameraPositions = circle->getNumCameraPositions();
+    const float rotationDegreesPerTick = circle->getRotationDegreesPerTick();
+    const glm::vec3 startViewDirection = circle->getStartCameraDirection();
+
+    return CameraSweepInfo{
+        .startViewDirection = glm::dot(startViewDirection, startViewDirection) > 0.0f
+                                  ? std::optional<glm::vec3>{startViewDirection}
+                                  : std::nullopt,
+        .startCameraPosition = simulation.startCameraPosition,
+        .numCameraPositions = numCameraPositions,
+        .rotationDegreesPerTick = rotationDegreesPerTick,
+        .rotationSpanDegrees = util::GetRotationSpanDegrees(numCameraPositions, rotationDegreesPerTick),
+    };
+}
+
 void SimulationControllerService::incrementExp(Volume &volume, float t) const
 {
+    const auto &steps = m_activeSimulation.get().steps;
     volume.getRenderer().getFogInfo().expFogInfo.density =
-        m_loadedSteps.start.expFogInfo.density + t * m_loadedSteps.fogInfoChanges.expFogInfo.density;
+        steps.start.expFogInfo.density + t * steps.fogInfoChanges.expFogInfo.density;
 }
 
 void SimulationControllerService::incrementLinear(Volume &volume, float t) const
 {
+    const auto &steps = m_activeSimulation.get().steps;
     volume.getRenderer().getFogInfo().linearInfo.farDist =
-        m_loadedSteps.start.linearInfo.farDist + t * m_loadedSteps.fogInfoChanges.linearInfo.farDist;
+        steps.start.linearInfo.farDist + t * steps.fogInfoChanges.linearInfo.farDist;
     volume.getRenderer().getFogInfo().linearInfo.nearDist =
-        m_loadedSteps.start.linearInfo.nearDist + t * m_loadedSteps.fogInfoChanges.linearInfo.nearDist;
+        steps.start.linearInfo.nearDist + t * steps.fogInfoChanges.linearInfo.nearDist;
 }
 
 void SimulationControllerService::incrementMarched(Volume &volume, float t) const
 {
+    const auto &steps = m_activeSimulation.get().steps;
     volume.getRenderer().getFogInfo().marchedInfo.defaultDensity =
-        m_loadedSteps.start.marchedInfo.defaultDensity + t * m_loadedSteps.fogInfoChanges.marchedInfo.defaultDensity;
+        steps.start.marchedInfo.defaultDensity + t * steps.fogInfoChanges.marchedInfo.defaultDensity;
     volume.getRenderer().getFogInfo().marchedInfo.stepSizeDist =
-        m_loadedSteps.start.marchedInfo.stepSizeDist + t * m_loadedSteps.fogInfoChanges.marchedInfo.stepSizeDist;
+        steps.start.marchedInfo.stepSizeDist + t * steps.fogInfoChanges.marchedInfo.stepSizeDist;
     volume.getRenderer().getFogInfo().marchedInfo.stepSizeDist_light =
-        m_loadedSteps.start.marchedInfo.stepSizeDist_light +
-        t * m_loadedSteps.fogInfoChanges.marchedInfo.stepSizeDist_light;
+        steps.start.marchedInfo.stepSizeDist_light + t * steps.fogInfoChanges.marchedInfo.stepSizeDist_light;
     volume.getRenderer().getFogInfo().marchedInfo.setLightPropertyDirG(
-        m_loadedSteps.start.marchedInfo.getLightPropertyDirG() +
-        t * m_loadedSteps.fogInfoChanges.marchedInfo.getLightPropertyDirG());
+        steps.start.marchedInfo.getLightPropertyDirG() + t * steps.fogInfoChanges.marchedInfo.getLightPropertyDirG());
     volume.getRenderer().getFogInfo().marchedInfo.setSigmaAbsorption(
-        m_loadedSteps.start.marchedInfo.getSigmaAbsorption() +
-        t * m_loadedSteps.fogInfoChanges.marchedInfo.getSigmaAbsorption());
+        steps.start.marchedInfo.getSigmaAbsorption() + t * steps.fogInfoChanges.marchedInfo.getSigmaAbsorption());
     volume.getRenderer().getFogInfo().marchedInfo.setSigmaScattering(
-        m_loadedSteps.start.marchedInfo.getSigmaScattering() +
-        t * m_loadedSteps.fogInfoChanges.marchedInfo.getSigmaScattering());
+        steps.start.marchedInfo.getSigmaScattering() + t * steps.fogInfoChanges.marchedInfo.getSigmaScattering());
     volume.getRenderer().getFogInfo().marchedInfo.setDensityMultiplier(
-        m_loadedSteps.start.marchedInfo.getDensityMultiplier() +
-        t * m_loadedSteps.fogInfoChanges.marchedInfo.getDensityMultiplier());
+        steps.start.marchedInfo.getDensityMultiplier() + t * steps.fogInfoChanges.marchedInfo.getDensityMultiplier());
     volume.getRenderer().getFogInfo().marchedInfo.setColorTransparencyCutoff(
-        m_loadedSteps.start.marchedInfo.getColorTransparencyCutoff() +
-        t * m_loadedSteps.fogInfoChanges.marchedInfo.getColorTransparencyCutoff());
+        steps.start.marchedInfo.getColorTransparencyCutoff() +
+        t * steps.fogInfoChanges.marchedInfo.getColorTransparencyCutoff());
     volume.getRenderer().getFogInfo().marchedInfo.setDistanceTransparencyCutoff(
-        m_loadedSteps.start.marchedInfo.getDistanceTransparencyCutoff() +
-        t * m_loadedSteps.fogInfoChanges.marchedInfo.getDistanceTransparencyCutoff());
+        steps.start.marchedInfo.getDistanceTransparencyCutoff() +
+        t * steps.fogInfoChanges.marchedInfo.getDistanceTransparencyCutoff());
     volume.getRenderer().getFogInfo().marchedInfo.setLightExtinctionScale(
-        m_loadedSteps.start.marchedInfo.getLightExtinctionScale() +
-        t * m_loadedSteps.fogInfoChanges.marchedInfo.getLightExtinctionScale());
+        steps.start.marchedInfo.getLightExtinctionScale() +
+        t * steps.fogInfoChanges.marchedInfo.getLightExtinctionScale());
 }
 
 bool SimulationControllerService::isDone() const
 {
-    return m_stepCounter == m_loadedSteps.numSteps - 1 && m_loadedController.isDone().value() &&
+    if (!m_activeSimulation.isLoaded())
+    {
+        return false;
+    }
+
+    const auto &simulation = m_activeSimulation.get();
+    return m_stepCounter == simulation.steps.numSteps - 1 && simulation.cameraController.isDone().value() &&
            selectNextFogType() == Fog::Type::sCount;
 }
 
@@ -196,11 +219,14 @@ sim_controller::UpdateStatus SimulationControllerService::updateSim(Volume &volu
 {
     sim_controller::UpdateStatus status;
 
-    // check if the bounds are loaded
-    if (!m_loadedSteps)
+    if (!m_cameraPositioned)
     {
-        loadControllerParams(camera);
+        applyInitialCamera(camera);
+        m_cameraPositioned = true;
     }
+
+    auto &simulation = m_activeSimulation.get();
+    auto &controller = simulation.cameraController;
 
     if (!m_isPrimed)
     {
@@ -211,22 +237,22 @@ sim_controller::UpdateStatus SimulationControllerService::updateSim(Volume &volu
         }
 
         volume.getRenderer().setFogType(m_fogTypeTracker);
-        m_loadedController.reset(camera);
+        controller.reset(camera);
         m_stepCounter = 0;
         m_isPrimed = true;
 
         status.cameraLocation = true;
         status.cameraViewDirection = true;
     }
-    else if (m_stepCounter == m_loadedSteps.numSteps - 1)
+    else if (m_stepCounter == simulation.steps.numSteps - 1)
     {
-        const bool camDone = m_loadedController.isDone().value();
+        const bool camDone = controller.isDone().value();
         if (camDone)
         {
             m_fogTypeTracker = selectNextFogType();
             star::core::logging::info("Resetting camera controller");
 
-            m_loadedController.reset(camera);
+            controller.reset(camera);
 
             if (m_fogTypeTracker != Fog::Type::sCount)
             {
@@ -241,7 +267,7 @@ sim_controller::UpdateStatus SimulationControllerService::updateSim(Volume &volu
         {
             star::core::logging::info("Incrementing camera controller");
             status.cameraViewDirection = true;
-            m_loadedController.tick(camera);
+            controller.tick(camera);
             m_stepCounter = 0;
         }
     }
@@ -250,7 +276,7 @@ sim_controller::UpdateStatus SimulationControllerService::updateSim(Volume &volu
         m_stepCounter++;
     }
 
-    float t = (m_stepCounter > 0) ? float(m_stepCounter) / float(m_loadedSteps.numSteps - 1) : 0.0f;
+    float t = (m_stepCounter > 0) ? float(m_stepCounter) / float(simulation.steps.numSteps - 1) : 0.0f;
     status.fogParameters = true;
     switch (static_cast<Fog::Type>(m_fogTypeTracker))
     {
@@ -279,10 +305,11 @@ Fog::Type SimulationControllerService::selectNextFogType() const
 {
     auto selected = Fog::Type::sCount;
     const size_t count = static_cast<size_t>(Fog::Type::sCountOfNonDebugTypes);
+    const auto &fogStatus = m_activeSimulation.get().fogStatus;
 
     for (size_t i = static_cast<size_t>(m_fogTypeTracker) + 1; i < count; i++)
     {
-        if (m_fogEnabledStatus.isEnabled(static_cast<Fog::Type>(i)))
+        if (fogStatus.isEnabled(static_cast<Fog::Type>(i)))
         {
             selected = static_cast<Fog::Type>(i);
             break;
@@ -292,34 +319,22 @@ Fog::Type SimulationControllerService::selectNextFogType() const
     return selected;
 }
 
-void SimulationControllerService::loadControllerParams(star::StarCamera &cam)
+void SimulationControllerService::applyInitialCamera(star::StarCamera &cam)
 {
-    try
+    const auto &simulation = m_activeSimulation.get();
+
+    if (simulation.startCameraPosition.has_value())
     {
-        auto data = m_loadedInfo.get();
-        m_loadedSteps = std::move(data.steps);
-        m_loadedController = std::move(data.cameraController);
-        m_fogEnabledStatus = std::move(data.fogStatus);
-
-        if (data.startCameraPosition.has_value())
-        {
-            cam.setPosition(data.startCameraPosition.value());
-        }
-        else
-        {
-            const auto &camPos = cam.getPosition();
-            // cam pos starts at ground level
-            cam.setPosition({camPos.x, camPos.y + static_cast<float>(data.initialCameraHeightAboveGround), camPos.z});
-
-            if (data.initialCameraHeightAboveGround <= 0)
-            {
-                STAR_THROW("Invalid initial camera height above ground provided. It must be greater than 0");
-            }
-        }
+        cam.setPosition(simulation.startCameraPosition.value());
+        return;
     }
-    catch (...)
+
+    const auto &camPos = cam.getPosition();
+    // cam pos starts at ground level
+    cam.setPosition({camPos.x, camPos.y + static_cast<float>(simulation.initialCameraHeightAboveGround), camPos.z});
+
+    if (simulation.initialCameraHeightAboveGround <= 0)
     {
-        STAR_THROW("Attempted to call get on future that has already been consumed. This signifies that the json "
-                   "file is not valid");
+        STAR_THROW("Invalid initial camera height above ground provided. It must be greater than 0");
     }
 }

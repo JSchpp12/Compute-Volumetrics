@@ -9,6 +9,7 @@
 #include "service/SimulationController.hpp"
 
 #include <star_skybox/service/SkyboxFileService.hpp>
+#include <star_terrain/service/TerrainFileService.hpp>
 #include <starlight/StarEngine.hpp>
 #include <starlight/policy/DefaultEngineInitPolicy.hpp>
 #include <starlight/policy/DefaultEngineLoopPolicy.hpp>
@@ -41,6 +42,7 @@ int HeadlessMode::run(std::unique_ptr<config::AppConfigInfo> cfg)
     engineServices.add(
         star::service::Service{SimulationControllerService(cfg->simControllerPath, controllerSequenceDone)});
     engineServices.add(star::service::Service{star::skybox::service::SkyboxFileService{cfg->skyboxPath}});
+    engineServices.add(star::service::Service{star::terrain::service::TerrainFileService{cfg->terrainDir}});
 
     auto init = star::policy::DefaultEngineInitPolicy{engineServices, {}, cfg->overrideRenderingDevice};
 

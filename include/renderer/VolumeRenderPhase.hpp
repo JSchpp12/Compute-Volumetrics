@@ -15,7 +15,6 @@
 #include "structs/FogInfo.hpp"
 
 #include <starlight/core/renderer/RenderPhase.hpp>
-#include <starlight/policy/event/ListenForManagerReservedMemoryUpdate.hpp>
 #include <starlight/wrappers/graphics/StarCommandBuffer.hpp>
 
 #include <span>
@@ -62,11 +61,6 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
                                      const uint64_t &frameIndex) override;
 
     bool isRenderReady(star::core::device::DeviceContext &context);
-
-    /// @brief Refresh cached dependent-image pointers after a manager's record storage reallocates.
-    /// @details The Image manager owns the offscreen/terrain-shadow textures. Raw Texture* pointers cached from
-    /// its records are invalidated when the manager's backing storage reallocates.
-    void onManagerReservedMemoryUpdate(const star::event::ManagerReservedMemoryUpdate &event, bool &keepAlive);
 
     uint64_t getTimelineSignalValue(const star::common::FrameTracker &frameTracker) const;
 
@@ -225,8 +219,6 @@ class VolumeRenderPhase : public star::core::renderer::RenderPhase
     bool isReady{false};
     star::core::CommandBus *m_cmdBus{nullptr};
     vk::Device m_device{VK_NULL_HANDLE};
-    star::policy::event::ListenForManagerReservedMemoryUpdate<VolumeRenderPhase> m_listenForManagerReservedMemoryUpdate{
-        *this};
 
     vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
                                std::vector<vk::Semaphore> *previousCommandBufferSemaphores,

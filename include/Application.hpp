@@ -28,7 +28,8 @@ class Application : public star::StarApplication
     };
     using LoaderFn = std::function<loader::SceneDescription(
         star::core::device::DeviceContext &, const std::filesystem::path &, const std::filesystem::path &,
-        bool enableTransmittanceMapDebug, bool aggressiveTerrainTextureLoading, bool forceFlatTerrains)>;
+        bool enableTransmittanceMapDebug, bool aggressiveTerrainTextureLoading, bool forceFlatTerrains,
+        const star::StarCamera &camera)>;
 
     Application(LoaderFn objectLoader, std::string terrainPath, std::string skyboxPath, std::string volumeName,
                 VolumeRenderingOptions volumeOptions);

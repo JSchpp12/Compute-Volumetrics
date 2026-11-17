@@ -49,4 +49,14 @@ std::optional<bool> CameraController::isDone() const
     return std::nullopt;
 }
 
+const camera_controller::Circle *CameraController::getCircleController() const
+{
+    if (!m_controller)
+    {
+        return nullptr;
+    }
+
+    return std::get_if<service::simulation_controller::camera_controller::Circle>(&m_controller.value());
+}
+
 } // namespace service::simulation_controller
