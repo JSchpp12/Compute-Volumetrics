@@ -1,0 +1,115 @@
+# Amazon Linux 2023 is the AWS-native counterpart to the Rocky 8 image.  Same
+# packaging flow, but the base glibc is 2.34 instead of 2.28, so the tarball it
+# produces only runs on AL2023 (or newer) instances.  Keep using
+# rockyLinux_dockerfile when the target is a RHEL 8 / Rocky 8 cluster.
+FROM amazonlinux:2023
+
+# Base toolchain and Python libs.  AL2023 pins GCC 11 and Python 3.9 as its
+# defaults, so the C++23 compiler (GCC 14) and Python 3.11 are installed side
+# by side instead of replacing them.  There is no epel-release / powertools
+# equivalent: everything the build needs is in the AL2023 repositories.  curl
+# is deliberately not requested: the base image already provides it as
+# curl-minimal, and the full curl package conflicts with it.
+RUN set -eux; \
+    dnf install -y dnf-plugins-core xz; \
+    dnf install -y \
+    clang21 clang21-tools-extra git git-lfs \
+    python3.11 python3.11-pip python3.11-devel \
+    zip unzip autoconf autoconf-archive automake libtool pkg-config wget make \
+    ninja-build bison flex perl gdb \
+    glibc-devel gcc-c++ libatomic vulkan-loader; \
+    dnf install -y gcc14 gcc14-c++; \
+    # AL2023 has no gcc-toolset packages under /opt/rh; GCC 14 ships beside GCC
+    # 11 with version-prefixed drivers (gcc14-gcc, gcc14-g++).  Point the
+    # generic names at 14 so that vcpkg ports and the --compiler gcc build mode
+    # use the same C++23 toolchain the clang wrappers below are pinned to.
+    for driver in gcc14-g++ g++-14 g++14; do \
+    if [ -x "/usr/bin/${driver}" ]; then ln -sfn "/usr/bin/${driver}" /usr/local/bin/g++; break; fi; \
+    done; \
+    for driver in gcc14-gcc gcc-14 gcc14; do \
+    if [ -x "/usr/bin/${driver}" ]; then ln -sfn "/usr/bin/${driver}" /usr/local/bin/gcc; break; fi; \
+    done; \
+    ln -sf /usr/bin/python3.11 /usr/local/bin/python3; \
+    python3 -m pip install --no-cache-dir --upgrade pip; \
+    python3 -m pip install --no-cache-dir pillow rasterio beautifulsoup4 shapely rtree pyproj; \
+    dnf clean all
+
+# The packaging build defaults to clang (see dist/deps/scripts/build_install.sh).
+# AL2023's clang packages install version-suffixed drivers only (clang-21,
+# clang++-21), and clang would otherwise fall back to GCC 11 for libstdc++
+# because that is the distro default.  These wrappers choose the newest clang
+# present and pin it to the GCC 14 installation, whose libstdc++ is what the
+# project's C++23 code relies on.
+RUN set -eux; \
+    gcc_install_dir="$(dirname "$(gcc -print-libgcc-file-name)")"; \
+    clang_cc=""; clang_cxx=""; \
+    for suffix in -22 -21 -20 -19 ""; do \
+    if [ -x "/usr/bin/clang${suffix}" ] && [ -x "/usr/bin/clang++${suffix}" ]; then \
+    clang_cc="/usr/bin/clang${suffix}"; clang_cxx="/usr/bin/clang++${suffix}"; break; \
+    fi; \
+    done; \
+    [ -n "${clang_cxx}" ] || { echo "error: no clang driver found in /usr/bin" >&2; exit 1; }; \
+    printf '#!/bin/sh\nexec %s --gcc-install-dir=%s "$@"\n' "${clang_cc}" "${gcc_install_dir}" > /usr/local/bin/clang; \
+    printf '#!/bin/sh\nexec %s --gcc-install-dir=%s "$@"\n' "${clang_cxx}" "${gcc_install_dir}" > /usr/local/bin/clang++; \
+    chmod +x /usr/local/bin/clang /usr/local/bin/clang++
+
+# Fail the image build early if the toolchain is missing or cannot compile the
+# C++23/library mix the project needs: clang has to reach GCC 14's libstdc++,
+# and the -latomic link the packaging build uses has to resolve.
+RUN clang --version \
+    && clang++ --version \
+    && g++ --version \
+    && printf '#include <expected>\n#include <version>\nint main() { return __cplusplus >= 202302L ? 0 : 1; }\n' > /tmp/cxx23.cpp \
+    && clang++ -std=c++23 /tmp/cxx23.cpp -latomic -o /tmp/cxx23 \
+    && /tmp/cxx23 \
+    && rm -f /tmp/cxx23.cpp /tmp/cxx23
+
+ARG CMAKE_VERSION=4.4.4
+RUN set -eux \
+    && wget -O /tmp/cmake-linux-x86_64.sh "https://cmake.org/files/v${CMAKE_VERSION%.*}/cmake-${CMAKE_VERSION}-linux-x86_64.sh" \
+    && sh /tmp/cmake-linux-x86_64.sh --skip-license --prefix=/usr/local \
+    && rm -f /tmp/cmake-linux-x86_64.sh \
+    && cmake --version
+
+#vulkan SDK
+# Install Vulkan SDK 1.4.313.0 (Linux tarball from LunarG)
+ARG VULKAN_SDK_VERSION=1.4.313.0
+ENV VULKAN_SDK_ROOT=/opt/VulkanSDK/${VULKAN_SDK_VERSION}
+ENV VULKAN_SDK=${VULKAN_SDK_ROOT}/x86_64
+RUN set -eux \
+    && mkdir -p /opt/VulkanSDK \
+    && cd /opt/VulkanSDK \
+    && wget -O vulkansdk-linux-x86_64-${VULKAN_SDK_VERSION}.tar.xz \
+         https://sdk.lunarg.com/sdk/download/${VULKAN_SDK_VERSION}/linux/vulkansdk-linux-x86_64-${VULKAN_SDK_VERSION}.tar.xz \
+    && tar -xf vulkansdk-linux-x86_64-${VULKAN_SDK_VERSION}.tar.xz \
+    && rm vulkansdk-linux-x86_64-${VULKAN_SDK_VERSION}.tar.xz \
+    && chmod +x ${VULKAN_SDK_ROOT}/setup-env.sh \
+    # Ensure the unversioned libvulkan.so exists for CMake's FindVulkan
+    && if [ -f "${VULKAN_SDK_ROOT}/x86_64/lib/libvulkan.so.1" ] && [ ! -f "${VULKAN_SDK_ROOT}/x86_64/lib/libvulkan.so" ]; then \
+         ln -s libvulkan.so.1 ${VULKAN_SDK_ROOT}/x86_64/lib/libvulkan.so ; \
+       fi
+
+#cuda
+RUN set -eux \
+    && dnf config-manager --add-repo \
+         https://developer.download.nvidia.com/compute/cuda/repos/amzn2023/x86_64/cuda-amzn2023.repo \
+    && dnf clean all \
+    && dnf -y install cuda-toolkit \
+    && echo 'export PATH=/usr/local/cuda/bin:$PATH' >> /etc/profile.d/cuda.sh \
+    && echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}' >> /etc/profile.d/cuda.sh
+
+ENV VK_ADD_LAYER_PATH=$VULKAN_SDK/share/vulkan/explicit_layer.d${VK_ADD_LAYER_PATH:+:$VK_ADD_LAYER_PATH}
+ENV PATH=$VULKAN_SDK/bin:${PATH}
+ENV LD_LIBRARY_PATH=$VULKAN_SDK/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+
+WORKDIR /vcpkg_working
+ENV VCPKG_ROOT=/vcpkg_working
+
+# vcpkg builds release dependencies only.  The release-only triplet lives in
+# the repository, which the packaging scripts mount at /app (see
+# dist/deps/triplets/x64-linux-dynamic-release.cmake).
+ENV VCPKG_OVERLAY_TRIPLETS=/app/dist/deps/triplets
+ENV VCPKG_DEFAULT_TRIPLET=x64-linux-dynamic-release
+
+RUN git clone https://github.com/microsoft/vcpkg.git . \
+    && /bin/bash /vcpkg_working/bootstrap-vcpkg.sh

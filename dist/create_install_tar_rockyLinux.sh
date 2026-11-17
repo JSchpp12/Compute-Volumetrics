@@ -147,9 +147,12 @@ fi
 echo "Repository root: ${PARENT_DIR}"
 echo "Build variant(s):${BUILD_TYPES}"
 echo "Compiler: ${COMPILER}"
+# STAR_PACKAGE_TARGET is encoded in the packaged tarball name so the Amazon
+# Linux and Rocky Linux artifacts cannot collide.
 # shellcheck disable=SC2086  # intentional word splitting of the build type list
 docker run --rm \
     -v "${PARENT_DIR}:/app" \
     -w /app \
+    -e STAR_PACKAGE_TARGET=rockyLinux \
     starlight:rockyLinux \
     /bin/bash ./dist/deps/scripts/build_install.sh --compiler "${COMPILER}" ${BUILD_TYPES}

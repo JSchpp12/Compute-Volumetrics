@@ -1,5 +1,6 @@
 # Release-only variant of the community x64-linux-dynamic triplet used by the
-# dist packaging build (rockyLinux_dockerfile).  VCPKG_BUILD_TYPE=release skips
+# dist packaging builds (rockyLinux_dockerfile and amazonLinux_dockerfile).
+# VCPKG_BUILD_TYPE=release skips
 # building the debug variants of every dependency, roughly halving the vcpkg
 # share of the packaging build.  Resolved through -DVCPKG_OVERLAY_TRIPLETS.
 set(VCPKG_TARGET_ARCHITECTURE x64)
