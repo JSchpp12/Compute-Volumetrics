@@ -5,8 +5,14 @@
 #include "util/Color.hpp"
 
 #include <array>
+#include <memory>
+#include <sstream>
+#include <vector>
 
 #include <star_terrain/TerrainFactory.hpp>
+#include <star_terrain/command/GetAllTerrainLibraryRegistrations.hpp>
+#include <star_terrain/command/GetLibraryCartForTerrain.hpp>
+#include <star_terrain/io/LibraryCart.hpp>
 #include <star_terrain/rendering/TerrainGeometryDefinition.hpp>
 
 #include <star_skybox/factory/SkyboxFactory.hpp>
@@ -24,21 +30,121 @@
 namespace loader
 {
 
+struct ResolvedTerrainCart
+{
+    std::filesystem::path terrainRoot;
+    std::filesystem::path shapeFilePath;
+    std::unique_ptr<star::terrain::LibraryCart> cart;
+};
+
+/// @brief Finds the registration for the terrain the scene was configured with.
+/// @details Matches the exact path first, then the filename, mirroring SkyboxController's lookup.
+static const star::terrain::command::TerrainLibraryRegistration *FindTerrainRegistrationForPath(
+    const std::vector<star::terrain::command::TerrainLibraryRegistration> &registrations,
+    const std::filesystem::path &terrainPath)
+{
+    for (const auto &registration : registrations)
+    {
+        if (registration.terrainRootPath == terrainPath)
+            return &registration;
+    }
+
+    const std::string filename = terrainPath.filename().string();
+    for (const auto &registration : registrations)
+    {
+        if (registration.terrainRootPath.filename().string() == filename)
+            return &registration;
+    }
+
+    return nullptr;
+}
+
+static star::terrain::command::GetLibraryCartForTerrainResult GetPendingLibraryCart(
+    star::core::device::DeviceContext &ctx, const star::Handle &registration)
+{
+    using namespace star::terrain::command;
+
+    GetLibraryCartForTerrain cartCommand{registration};
+    ctx.getCmdBus().submit(cartCommand);
+    return cartCommand.getReply().get();
+}
+
+static star::terrain::LibraryCartReadResult GetLibraryCart(star::terrain::PendingLibraryCart &pendingCart)
+{
+    return pendingCart.getLibraryCart();
+}
+
+/// @brief Queries the terrain library for the configured terrain and blocks for its cart.
+static ResolvedTerrainCart ResolveTerrainCart(star::core::device::DeviceContext &ctx,
+                                              const std::filesystem::path &terrainPath)
+{
+    using namespace star::terrain::command;
+
+    GetAllTerrainLibraryRegistrations listCommand;
+    ctx.getCmdBus().submit(listCommand);
+    const auto registrations = listCommand.getReply().get();
+
+    if (registrations.scanError.has_value())
+    {
+        std::ostringstream oss;
+        oss << "Terrain library scan failed: " << *registrations.scanError;
+        STAR_THROW(oss.str());
+    }
+
+    const auto *registration = FindTerrainRegistrationForPath(registrations.registrations, terrainPath);
+    if (registration == nullptr)
+    {
+        std::ostringstream oss;
+        oss << "Configured terrain '" << terrainPath.string() << "' is not in the terrain library";
+        STAR_THROW(oss.str());
+    }
+    if (!registration->error.empty())
+    {
+        std::ostringstream oss;
+        oss << "Terrain library entry '" << registration->displayName << "' failed: " << registration->error;
+        STAR_THROW(oss.str());
+    }
+
+    auto pendingCart = GetPendingLibraryCart(ctx, registration->handle);
+    if (!pendingCart)
+    {
+        std::ostringstream oss;
+        oss << "Failed to create library cart for '" << registration->displayName
+            << "': " << pendingCart.error().what();
+        STAR_THROW(oss.str());
+    }
+
+    auto cart = pendingCart.value().getLibraryCart();
+    if (!cart)
+    {
+        std::ostringstream oss;
+        oss << "Failed to read library cart for '" << registration->displayName << "': " << cart.error().what();
+        STAR_THROW(oss.str());
+    }
+
+    return ResolvedTerrainCart{.terrainRoot = registration->terrainRootPath,
+                               .shapeFilePath = registration->terrainRootPath / registration->terrainShapeFile,
+                               .cart = std::move(cart.value())};
+}
+
 static std::pair<std::shared_ptr<star::StarObject>, std::shared_ptr<star::StarObject>> LoadTerrain(
     star::core::device::DeviceContext &ctx, const std::filesystem::path &terrainPath,
     bool aggressiveTerrainTextureLoading, bool forceFlatTerrains)
 {
     const std::filesystem::path terrainShaderDir = std::filesystem::path{"shaders"} / "terrain" / "standard_geometry";
 
+    ResolvedTerrainCart resolved = ResolveTerrainCart(ctx, terrainPath);
+
     const star::terrain::rendering::TerrainGeometryDefinition geometry{
-        .terrainDir = terrainPath,
+        .terrainDir = resolved.terrainRoot,
         .shapeRepresentation = star::terrain::rendering::Representation::Geometry,
         .defaultRenderType = forceFlatTerrains ? star::terrain::rendering::ElevationType::Flat
                                                : star::terrain::rendering::ElevationType::Real,
     };
 
-    auto terrains =
-        star::terrain::TerrainFactory::buildTerrains(ctx, geometry, terrainShaderDir, aggressiveTerrainTextureLoading);
+    auto terrains = star::terrain::TerrainFactory::buildTerrains(ctx, geometry, resolved.cart->info(),
+                                                                 resolved.cart->chunks(), resolved.shapeFilePath,
+                                                                 terrainShaderDir, aggressiveTerrainTextureLoading);
 
     // register the terrain information with the image metric manager for cache
     ctx.getCmdBus().submit(image_metrics::RegisterTerrainRecordInfo{}
