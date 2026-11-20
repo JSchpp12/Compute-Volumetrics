@@ -496,24 +496,24 @@ void VolumeRenderPhase::updateDependentData(star::core::device::DeviceContext &c
                                             const uint8_t &frameInFlightIndex)
 {
     {
-        std::optional<star::core::graphics::SemaphoreInfo> transferWaitOnLastCompute{std::nullopt};
+        std::optional<star::core::graphics::SemaphoreSyncPoint> transferWaitOnLastCompute{std::nullopt};
         {
             auto cmd = star::command_order::GetPassInfo{m_commandBuffer};
             context.getCmdBus().submit(cmd);
             const auto &reply = cmd.getReply().get();
             if (reply.signaledSemaphore)
             {
-                transferWaitOnLastCompute = star::core::graphics::SemaphoreInfo{.signalValue = reply.currentSignalValue,
-                                                                                .semaphore = reply.signaledSemaphore};
+                transferWaitOnLastCompute = star::core::graphics::SemaphoreSyncPoint{
+                    .signalValue = reply.currentSignalValue, .semaphore = reply.signaledSemaphore};
             }
         }
 
         auto fogResult = m_volumeFrameData->frameUpdate(context, transferWaitOnLastCompute);
         for (const auto &w : fogResult.waits)
         {
-            star::core::transfer::RegisterTransferWait(context, m_commandBuffer, w.handle, w.semaphore, w.signalValue,
+            star::core::transfer::RegisterTransferWait(context, m_commandBuffer, w.transferTargetResource, w.record,
                                                        w.waitStage);
-            m_renderingContext.addBufferToRenderingContext(context, w.handle);
+            m_renderingContext.addBufferToRenderingContext(context, w.transferTargetResource);
         }
     }
 
