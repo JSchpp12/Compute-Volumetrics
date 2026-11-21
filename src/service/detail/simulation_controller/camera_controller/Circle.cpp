@@ -1,5 +1,7 @@
 #include "service/detail/simulation_controller/camera_controller/Circle.hpp"
 
+#include <starlight/core/Exceptions.hpp>
+
 namespace service::simulation_controller::camera_controller
 {
 Circle::Circle(glm::vec3 startCameraDirection, int numCameraPositions, float rotationDegreesPerTick)

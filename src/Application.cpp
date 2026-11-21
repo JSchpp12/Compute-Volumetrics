@@ -369,7 +369,8 @@ void Application::submitPasses(star::core::device::DeviceContext &context)
 
 void Application::initImageOutputDir(star::core::CommandBus &bus)
 {
-    m_imageOutputDir = std::filesystem::path(star::common::strings::GetStartTime());
+    m_imageOutputDir =
+        std::filesystem::path(star::common::strings::GetStartTime() + "_pid" + star::common::strings::GetPID());
     // Submit by lvalue: the rvalue overload is rejected for reply-carrying
     // commands (the reply would be destroyed with the temporary).
     auto cmd = star::headless_render_result_write::GetSetOutputDir::Builder().setSetDir(m_imageOutputDir).build();
